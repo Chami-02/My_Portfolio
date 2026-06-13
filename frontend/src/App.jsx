@@ -3,6 +3,7 @@ import { Navbar }       from './components/layout/Navbar';
 import { Footer }       from './components/layout/Footer';
 import { HomePage }     from './pages/HomePage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { ScrollToTop } from './components/layout/ScrollToTop';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
             {/* Admin routes added in Sprint 6 (PF-36) */}
           </Routes>
         </main>
+        <ScrollToTop />
         <Footer />
       </div>
     </BrowserRouter>
