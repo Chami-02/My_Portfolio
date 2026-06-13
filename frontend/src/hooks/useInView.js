@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+const DEFAULT_OPTIONS = {};
+
 /**
  * Returns a [ref, inView] tuple.
  * Attach ref to any element. inView becomes true once
@@ -9,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
  *   const [ref, inView] = useInView();
  *   <div ref={ref} className={`reveal ${inView ? 'revealed' : ''}`}>
  */
-export function useInView(options = {}) {
+export function useInView(options = DEFAULT_OPTIONS) {
   const ref = useRef(null);
   const [inView, setInView] = useState(false);
 
@@ -29,7 +31,7 @@ export function useInView(options = {}) {
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [options]);
 
   return [ref, inView];
 }

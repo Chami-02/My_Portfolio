@@ -35,7 +35,6 @@ export function TerminalWindow() {
     if (!started) return;
     if (visible >= TERMINAL_LINES.length) return;
 
-    const { delay } = TERMINAL_LINES[visible];
     const baseDelay = visible === 0 ? 0 : TERMINAL_LINES[visible].delay - TERMINAL_LINES[visible - 1].delay;
     const t = setTimeout(() => setVisible((v) => v + 1), Math.max(baseDelay, 300));
     return () => clearTimeout(t);
