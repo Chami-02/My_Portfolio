@@ -283,3 +283,31 @@ body {
   background: rgba(129, 140, 248, 0.15);
   border-color: var(--accent);
 }
+
+/* Prevent any content from causing horizontal scroll */
+html, body { max-width: 100vw; overflow-x: hidden; }
+
+/* Tighten section padding on mobile */
+@media (max-width: 640px) {
+  :root {
+    --section-y:    4.5rem;
+    --content-px:   1.125rem;
+  }
+  .section-title { font-size: 1.75rem; }
+  .btn-primary, .btn-outline {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Compensate for fixed navbar height on anchor links */
+[id] { scroll-margin-top: 5rem; }
+
+/* Gradient text fallback for browsers that don't support background-clip */
+@supports not (-webkit-background-clip: text) {
+  .gradient-text {
+    color: var(--accent-hover);
+    -webkit-text-fill-color: unset;
+    background: none;
+  }
+}

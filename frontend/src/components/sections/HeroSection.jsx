@@ -294,10 +294,13 @@ export function HeroSection() {
       </div>
 
       {/* Responsive grid styles */}
-      <style>{`
+     <style>{`
         @media (min-width: 900px) {
-          .hero-grid { grid-template-columns: 1fr 1fr !important; }
-        }
+        .hero-grid { grid-template-columns: 1fr 1fr !important; }
+      }
+        @media (max-width: 899px) {
+        .hero-grid { grid-template-columns: 1fr !important; }
+      }
       `}</style>
     </section>
   );

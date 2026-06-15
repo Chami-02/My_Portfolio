@@ -81,7 +81,7 @@ export function TerminalWindow() {
       <div
         style={{
           padding: '1.25rem 1.5rem',
-          minHeight: '220px',
+          minHeight: 'clamp(170px, 28vw, 260px)',
           fontFamily: 'var(--font-mono)',
           fontSize: '0.8rem',
           lineHeight: '1.8',

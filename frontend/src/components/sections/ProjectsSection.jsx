@@ -209,3 +209,33 @@ function ProjectCard({ project, index }) {
     </div>
   );
 }
+
+export function ProjectsSection() {
+  const [ref, inView] = useInView();
+
+  return (
+    <section
+      id="projects"
+      className={`section-wrapper reveal ${inView ? 'revealed' : ''}`}
+      ref={ref}
+    >
+      <div style={{ marginBottom: '3rem' }}>
+        <span className="section-label">Portfolio</span>
+        <h2 className="section-title">Featured Projects</h2>
+        <div className="section-divider" />
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '1.5rem',
+        }}
+      >
+        {PROJECTS.map((project, i) => (
+          <ProjectCard key={project.id} project={project} index={i} />
+        ))}
+      </div>
+    </section>
+  );
+}
