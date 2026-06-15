@@ -1,0 +1,313 @@
+/* ============================================================
+   PORTFOLIO DESIGN SYSTEM
+   File: src/styles/global.css
+   The single source of truth for all visual decisions.
+   ============================================================ */
+
+@import "tailwindcss";
+
+/* ─── DESIGN TOKENS ─────────────────────────────────────────── */
+:root {
+  /* Background layers — go from darkest to lightest */
+  --bg:           #030712;   /* Page background (near-black) */
+  --bg-surface:   #0c111d;   /* Card/panel surface */
+  --bg-elevated:  #131929;   /* Elevated elements (modals, dropdowns) */
+
+  /* Borders */
+  --border:        #1a2234;  /* Default subtle border */
+  --border-bright: #2d3f5e;  /* Hover / active borders */
+
+  /* Accent — Indigo family */
+  --accent:        #818cf8;  /* indigo-400 — primary accent */
+  --accent-hover:  #a5b4fc;  /* indigo-300 — hover state */
+  --accent-dim:    #312e81;  /* indigo-900 — subtle backgrounds */
+  --accent-glow:   rgba(129, 140, 248, 0.15);
+
+  /* Success green — used for "available" indicator */
+  --green:         #34d399;  /* emerald-400 */
+  --green-glow:    rgba(52, 211, 153, 0.15);
+
+  /* Text hierarchy */
+  --text-primary:  #f1f5f9;  /* slate-100 — headings */
+  --text-body:     #94a3b8;  /* slate-400 — body text */
+  --text-muted:    #475569;  /* slate-600 — captions, disabled */
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Spacing rhythm */
+  --section-y: 7rem;
+  --content-max: 72rem;    /* max-w-6xl */
+  --content-px: 1.5rem;
+}
+
+/* ─── RESET & BASE ───────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+  /* Subtle noise texture for depth */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background-color: var(--accent-dim);
+  color: var(--accent-hover);
+}
+
+/* ─── SCROLLBAR (Webkit) ─────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ─── ANIMATED GRID BACKGROUND ──────────────────────────────── */
+/* Add class="grid-bg" to any section for the subtle grid overlay */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(129, 140, 248, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(129, 140, 248, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ─── GLOW UTILITIES ─────────────────────────────────────────── */
+.glow-accent {
+  box-shadow: 0 0 40px var(--accent-glow), 0 0 80px rgba(129, 140, 248, 0.05);
+}
+.glow-green {
+  box-shadow: 0 0 20px var(--green-glow);
+}
+
+/* ─── GRADIENT TEXT ──────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent-hover) 0%, #c4b5fd 50%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── GLASS CARD ─────────────────────────────────────────────── */
+.glass {
+  background: rgba(12, 17, 29, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+.glass:hover {
+  border-color: var(--border-bright);
+}
+
+/* ─── SECTION WRAPPER ────────────────────────────────────────── */
+.section-wrapper {
+  padding: var(--section-y) var(--content-px);
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+
+/* ─── SECTION HEADING PATTERN ────────────────────────────────── */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 0.75rem;
+}
+.section-title {
+  font-size: clamp(1.875rem, 4vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+.section-divider {
+  width: 3rem;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  border-radius: 2px;
+  margin-bottom: 3rem;
+}
+
+/* ─── KEYFRAME ANIMATIONS ────────────────────────────────────── */
+
+/* Fade in from below — used for section reveals */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Cursor blink */
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Gentle float — used for decorative elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+/* Pulse glow — used for "available" dot */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--green-glow); }
+  50%       { box-shadow: 0 0 0 6px transparent; }
+}
+
+/* Shimmer — used for skeleton loading */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* Gradient x-shift — decorative background */
+@keyframes gradientX {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+/* ─── ANIMATION CLASSES ──────────────────────────────────────── */
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-fade-in-up-delay-1 { animation: fadeInUp 0.6s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in-up-delay-2 { animation: fadeInUp 0.6s 0.2s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in-up-delay-3 { animation: fadeInUp 0.6s 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in-up-delay-4 { animation: fadeInUp 0.6s 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in-up-delay-5 { animation: fadeInUp 0.6s 0.65s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+.animate-blink     { animation: blink 1s step-end infinite; }
+.animate-float     { animation: float 4s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+
+/* ─── SKELETON LOADING ───────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface) 25%,
+    var(--bg-elevated) 50%,
+    var(--bg-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 0.375rem;
+}
+
+/* ─── SCROLL REVEAL ──────────────────────────────────────────── */
+/* Sections start hidden; JS adds .revealed when in viewport */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── BUTTON STYLES ──────────────────────────────────────────── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  background: var(--accent);
+  color: #0f0f0f;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  text-decoration: none;
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px var(--accent-glow);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.75rem;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.9rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-bright);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  text-decoration: none;
+}
+.btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* ─── TECH TAG ───────────────────────────────────────────────── */
+.tech-tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: rgba(129, 140, 248, 0.08);
+  color: var(--accent);
+  border: 1px solid rgba(129, 140, 248, 0.2);
+  transition: background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.tech-tag:hover {
+  background: rgba(129, 140, 248, 0.15);
+  border-color: var(--accent);
+}
+
+/* Prevent any content from causing horizontal scroll */
+html, body { max-width: 100vw; overflow-x: hidden; }
+
+/* Tighten section padding on mobile */
+@media (max-width: 640px) {
+  :root {
+    --section-y:    4.5rem;
+    --content-px:   1.125rem;
+  }
+  .section-title { font-size: 1.75rem; }
+  .btn-primary, .btn-outline {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Compensate for fixed navbar height on anchor links */
+[id] { scroll-margin-top: 5rem; }
+
+/* Gradient text fallback for browsers that don't support background-clip */
+@supports not (-webkit-background-clip: text) {
+  .gradient-text {
+    color: var(--accent-hover);
+    -webkit-text-fill-color: unset;
+    background: none;
+  }
+}
