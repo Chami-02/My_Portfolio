@@ -1,9 +1,64 @@
+# Services: frontend (React), backend (Express), mongo (DB), mongo-express (DB UI)
+
 services:
+
+  # ── React Frontend ─────────────────────────────────────────────────────────
   frontend:
-    build: 
+    build:
       context: ./frontend
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app
+      - ./frontend:/app          # Mount source for hot-reload
+      - /app/node_modules        # Use container's node_modules (not host)
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── Express Backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
       - /app/node_modules
+    environment:
+      PORT:           5000
+      NODE_ENV:       development
+      MONGO_URI:      mongodb://mongo:27017/portfolio
+      JWT_SECRET:     dev_jwt_secret_replace_in_production
+      JWT_EXPIRES_IN: 7d
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+  # ── MongoDB ─────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7                  # Pin to major version — never use 'latest'
+    ports:
+      - "27017:27017"               # Expose for optional local connections
+    volumes:
+      - mongo_data:/data/db        # Named volume: data persists between restarts
+    restart: unless-stopped
+
+  # ── Mongo Express (Database UI — Development Only) ──────────────────────────
+  # Access at: http://localhost:8081
+  # Username: admin  |  Password: password123
+  # NEVER expose this in production
+  mongo-express:
+    image: mongo-express:1.0
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER:        mongo
+      ME_CONFIG_BASICAUTH_USERNAME:    admin
+      ME_CONFIG_BASICAUTH_PASSWORD:    password123
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+# Named volume — MongoDB data lives here across restarts and rebuilds
+volumes:
+  mongo_data:
