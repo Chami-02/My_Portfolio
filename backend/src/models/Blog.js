@@ -1,6 +1,25 @@
 const mongoose = require('mongoose');
 const slugify  = require('slugify');
 
+const slugifyOptions = {
+  lower:  true,
+  strict: true,
+  trim:   true,
+};
+
+function makeSlug(title) {
+  return title ? slugify(title, slugifyOptions) : undefined;
+}
+
+function calculateReadingTimeMinutes(content) {
+  if (!content || !content.trim()) {
+    return 1;
+  }
+
+  const wordCount = content.trim().split(/\s+/).length;
+  return Math.max(1, Math.ceil(wordCount / 200));
+}
+
 const blogSchema = new mongoose.Schema(
   {
     title: {
@@ -10,9 +29,10 @@ const blogSchema = new mongoose.Schema(
       maxlength: [150, 'Title cannot exceed 150 characters'],
     },
     slug: {
-      type:   String,
-      unique: true,
-      // Auto-generated from title (see pre-save hook below)
+      type:     String,
+      required: true,
+      trim:     true,
+      // Auto-generated from title before validation
       // e.g. "My First Blog Post" → "my-first-blog-post"
     },
     excerpt: {
@@ -50,27 +70,34 @@ const blogSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-generate slug from title before saving
-blogSchema.pre('save', function (next) {
-  if (this.isModified('title')) {
-    this.slug = slugify(this.title, {
-      lower:  true,
-      strict: true,      // Remove special characters
-      trim:   true,
-    });
+function applyDerivedFields(doc, options = {}) {
+  const { forceSlug = false, forceReadingTime = false } = options;
+
+  if ((forceSlug || !doc.slug) && doc.title) {
+    doc.slug = makeSlug(doc.title);
   }
 
-  // Auto-calculate reading time (average 200 words per minute)
-  if (this.isModified('content') && this.content) {
-    const wordCount = this.content.trim().split(/\s+/).length;
-    this.readingTimeMinutes = Math.max(1, Math.ceil(wordCount / 200));
+  if ((forceReadingTime || doc.readingTimeMinutes == null) && doc.content) {
+    doc.readingTimeMinutes = calculateReadingTimeMinutes(doc.content);
   }
+}
 
-  next();
+// Auto-generate fields before validation so required slug validation passes.
+blogSchema.pre('validate', function () {
+  applyDerivedFields(this, {
+    forceSlug:        this.isModified('title'),
+    forceReadingTime: this.isModified('content'),
+  });
+});
+
+// insertMany does not run save middleware, so handle bulk seed/import paths too.
+blogSchema.pre('insertMany', function (docs) {
+  const docsArray = Array.isArray(docs) ? docs : [docs];
+  docsArray.forEach((doc) => applyDerivedFields(doc));
 });
 
 // Index for fast slug lookups
-blogSchema.index({ slug: 1 });
+blogSchema.index({ slug: 1 }, { unique: true });
 blogSchema.index({ published: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Blog', blogSchema);

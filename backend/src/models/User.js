@@ -26,12 +26,11 @@ const userSchema = new mongoose.Schema(
 );
 
 // ── Pre-save hook: hash password before storing ────────────────────────────
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
   // Only hash if the password field was just set/changed
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password')) return;
   // Cost factor 12 = ~200ms on modern hardware (intentionally slow)
   this.password = await bcrypt.hash(this.password, 12);
-  next();
 });
 
 // ── Instance method: compare plain text with hashed password ──────────────
