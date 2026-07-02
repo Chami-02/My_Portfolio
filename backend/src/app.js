@@ -43,7 +43,7 @@ app.get('/api/health', (_req, res) => {
    app.use('/api/skills',   require('./routes/skillRoutes'));     
    app.use('/api/contact',  require('./routes/contactRoutes'));   
    app.use('/api/blog',     require('./routes/blogRoutes'));      
-// app.use('/api/about',    require('./routes/aboutRoutes'));     // PF-26
+   app.use('/api/about',    require('./routes/aboutRoutes'));     
 // app.use('/api/auth',     require('./routes/authRoutes'));      // PF-34
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────
