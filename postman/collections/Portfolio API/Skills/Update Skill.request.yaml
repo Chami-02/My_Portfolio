@@ -1,0 +1,7 @@
+$kind: http-request
+name: Update Skill
+url: "{{baseUrl}}/skills/:id"
+method: PUT
+pathVariables:
+  id: 6a47b08c62c08d63d9df147f
+order: 3152066016839967

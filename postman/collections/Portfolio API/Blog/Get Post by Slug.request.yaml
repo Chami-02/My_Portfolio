@@ -1,0 +1,7 @@
+$kind: http-request
+name: Get Post by Slug
+url: "{{baseUrl}}/blog/:slug"
+method: GET
+pathVariables:
+  slug: building-rest-apis-with-java-and-jax-rs
+order: 3223670051447672

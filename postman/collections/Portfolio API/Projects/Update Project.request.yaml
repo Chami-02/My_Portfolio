@@ -1,0 +1,16 @@
+$kind: http-request
+name: Update Project
+url: "{{baseUrl}}/projects/:id"
+method: PUT
+pathVariables:
+  id: 6a47aec562c08d63d9df147e
+body:
+  type: json
+  content: "{\r
+
+    \  \"featured\": true,\r
+
+    \  \"order\": 1\r
+
+    }"
+order: 4407100757754549

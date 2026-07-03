@@ -1,0 +1,7 @@
+$kind: http-request
+name: Delete Message
+url: "{{baseUrl}}/contact/:id"
+method: DELETE
+pathVariables:
+  id: 6a477ef862c08d63d9df147d
+order: 4237721583503507

@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get All Posts (Admin)
+url: "{{baseUrl}}/blog/admin/all"
+method: GET
+order: 3445051589944157

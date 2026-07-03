@@ -1,0 +1,7 @@
+$kind: http-request
+name: Delete Skill
+url: "{{baseUrl}}/skills/:id"
+method: DELETE
+pathVariables:
+  id: 6a47b08c62c08d63d9df147f
+order: 4027617745553087

@@ -1,0 +1,7 @@
+$kind: http-request
+name: Update Post
+url: "{{baseUrl}}/blog/:id"
+method: PUT
+pathVariables:
+  id: 6a47b39b62c08d63d9df1480
+order: 4259288279275248

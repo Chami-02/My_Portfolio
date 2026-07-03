@@ -1,0 +1,7 @@
+$kind: http-request
+name: Get Projects by ID
+url: "{{baseUrl}}/projects/:id"
+method: GET
+pathVariables:
+  id: 6a450e9cb666028c33acb209
+order: 4164593031476440

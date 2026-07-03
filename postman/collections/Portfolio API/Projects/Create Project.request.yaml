@@ -1,0 +1,20 @@
+$kind: http-request
+name: Create Project
+url: "{{baseUrl}}/projects"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"title\": \"New Project\",\r
+
+    \  \"description\": \"A test project for the Postman collection.\",\r
+
+    \  \"tech\": [\"React\", \"Node.js\"],\r
+
+    \  \"githubUrl\": \"https://github.com/Chami-02\",\r
+
+    \  \"featured\": false\r
+
+    }"
+order: 4395183541126699
