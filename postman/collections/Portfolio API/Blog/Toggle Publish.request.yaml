@@ -1,0 +1,7 @@
+$kind: http-request
+name: Toggle Publish
+url: "{{baseUrl}}/blog/:id/publish"
+method: PATCH
+pathVariables:
+  id: 6a47b39b62c08d63d9df1480
+order: 4452601968170652

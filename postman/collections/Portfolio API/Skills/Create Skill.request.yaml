@@ -1,0 +1,8 @@
+$kind: http-request
+name: Create Skill
+url: "{{baseUrl}}/skills"
+method: POST
+body:
+  type: json
+  content: '{ "name": "TypeScript", "category": "language", "level": "beginner" }'
+order: 2058177702217460

@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Profile
+url: "{{baseUrl}}/about"
+method: GET
+order: 1783085971042

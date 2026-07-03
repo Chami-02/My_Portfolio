@@ -1,0 +1,8 @@
+$kind: http-request
+name: Admin Login
+url: "{{baseUrl}}/auth/login"
+method: POST
+body:
+  type: json
+  content: '{ "email": "admin@portfolio.dev", "password": "Admin@1234!" }'
+order: 1783086715883

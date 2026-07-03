@@ -1,0 +1,6 @@
+name: Local
+values:
+  - key: baseUrl
+    value: 'http://localhost:5000'
+    type: default
+    enabled: true

@@ -1,0 +1,8 @@
+$kind: http-request
+name: Update Profile
+url: "{{baseUrl}}/about"
+method: PUT
+body:
+  type: json
+  content: ""
+order: 1005023031738857

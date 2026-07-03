@@ -1,0 +1,16 @@
+$kind: http-request
+name: Submit Message
+url: "{{baseUrl}}/contact"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"Test Recruiter\",\r
+
+    \  \"email\": \"recruiter@company.com\",\r
+
+    \  \"message\": \"Hi! I came across your portfolio and would love to discuss a role.\"\r
+
+    }"
+order: 1783086229139

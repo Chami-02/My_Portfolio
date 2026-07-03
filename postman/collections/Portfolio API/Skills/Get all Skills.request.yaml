@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get all Skills
+url: "{{baseUrl}}/skills"
+method: GET
+order: 1783082865680

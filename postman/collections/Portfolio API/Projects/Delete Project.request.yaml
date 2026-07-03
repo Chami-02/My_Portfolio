@@ -1,0 +1,7 @@
+$kind: http-request
+name: Delete Project
+url: "{{baseUrl}}/projects/:id"
+method: DELETE
+pathVariables:
+  id: 6a47aec562c08d63d9df147e
+order: 4413092235236054

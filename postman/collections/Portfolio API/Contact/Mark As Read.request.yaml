@@ -1,0 +1,7 @@
+$kind: http-request
+name: Mark As Read
+url: "{{baseUrl}}/contact/:id/read"
+method: PATCH
+pathVariables:
+  id: 6a477ef862c08d63d9df147d
+order: 2416773209760626

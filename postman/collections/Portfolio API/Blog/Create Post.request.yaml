@@ -1,0 +1,18 @@
+$kind: http-request
+name: Create Post
+url: "{{baseUrl}}/blog"
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"title\": \"My First Test Post\",\r
+
+    \  \"excerpt\": \"A short description of this test post for the Postman collection.\",\r
+
+    \  \"content\": \"This is the full content of the test blog post. It goes here.\",\r
+
+    \  \"tags\": [\"test\", \"api\"]\r
+
+    }"
+order: 3667055973367112

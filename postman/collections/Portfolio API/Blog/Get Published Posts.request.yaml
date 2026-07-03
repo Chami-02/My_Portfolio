@@ -1,0 +1,5 @@
+$kind: http-request
+name: Get Published Posts
+url: "{{baseUrl}}/blog"
+method: GET
+order: 1783083705795
