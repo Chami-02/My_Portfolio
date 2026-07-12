@@ -12,6 +12,7 @@ export function HomePage() {
       <AboutSection />
       <SkillsSection />
       <ProjectsSection />
+      <BlogSection />
       <ContactSection />
     </>
   );
