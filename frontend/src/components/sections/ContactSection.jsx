@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useInView } from '../../hooks/useInView';
+import { contactService } from '../../services/contactService';
 
 export function ContactSection() {
   const [ref, inView] = useInView();
@@ -10,16 +11,23 @@ export function ContactSection() {
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  // ⚠️ NOTE: In Sprint 5 (PF-32), this handleSubmit will be replaced
-  // to POST to your real Express API at /api/contact.
-  // For now it simulates a network delay so you can see the UI states.
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus('sending');
     setErrMsg('');
-    await new Promise((r) => setTimeout(r, 1200)); // simulate API call
-    setStatus('success');
-    setForm({ name: '', email: '', message: '' });
+
+    try {
+      await contactService.submit(form);
+      setStatus('success');
+      setForm({ name: '', email: '', message: '' });
+    } catch (err) {
+      setStatus('error');
+      // Show the server's validation error message if available
+      setErrMsg(
+        err.response?.data?.message ||
+        'Failed to send message. Please check your connection and try again.'
+      );
+    }
   };
 
   /* Shared input style — avoids repeating inline styles */
