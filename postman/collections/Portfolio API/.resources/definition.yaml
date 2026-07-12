@@ -1,4 +1,10 @@
 $kind: collection
 name: Portfolio API
 variables:
-  baseUrl: ""
+  - key: baseUrl
+    value: ""
+    secret: false
+  - key: json_web_token_11uo
+    secret: true
+  - key: supabase_service_role_api_key_11uo
+    secret: true
