@@ -47,10 +47,10 @@ function BlogCard({ post, index }) {
 }
 
 export function BlogSection() {
-  const [ref, inView]               = useInView();
-  const { data: posts, isLoading }  = useBlogPosts();
+  const [ref, inView]                        = useInView();
+  const { data: posts = [], isLoading, isError, error } = useBlogPosts();
 
-  if (!isLoading && posts?.length === 0) return null; // Hide section if no published posts
+  if (!isLoading && !isError && posts.length === 0) return null; // Hide section if no published posts
 
   return (
     <section id="blog" style={{ padding: 'var(--section-y) var(--content-px)',
@@ -64,6 +64,21 @@ export function BlogSection() {
         {isLoading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
             {[1,2].map(n => <div key={n} className="skeleton" style={{ height: '220px', borderRadius: '1rem' }} />)}
+          </div>
+        ) : isError ? (
+          <div style={{
+            padding: '2.5rem',
+            textAlign: 'center',
+            background: 'rgba(239,68,68,0.05)',
+            border: '1px solid rgba(239,68,68,0.2)',
+            borderRadius: '1rem',
+          }}>
+            <p style={{ color: '#f87171', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Failed to load blog posts
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontFamily: 'var(--font-mono)' }}>
+              {error?.message || 'Unable to connect to the API'}
+            </p>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
