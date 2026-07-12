@@ -44,7 +44,7 @@ app.get('/api/health', (_req, res) => {
    app.use('/api/contact',  require('./routes/contactRoutes'));   
    app.use('/api/blog',     require('./routes/blogRoutes'));      
    app.use('/api/about',    require('./routes/aboutRoutes'));     
-// app.use('/api/auth',     require('./routes/authRoutes'));      // PF-34
+   app.use('/api/auth',     require('./routes/authRoutes'));     
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────
 app.use(notFound);      // Catch any unmatched routes and create a 404 AppError
