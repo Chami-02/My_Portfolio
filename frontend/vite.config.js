@@ -5,22 +5,30 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
 
-  server: {
-    host: true,   // Required for Docker port broadcasting
-    port: 5173,
+  // ── Vitest configuration ─────────────────────────────────────────────────
+  test: {
+    environment: 'jsdom',      // Simulate browser DOM
+    globals:     true,         // Use describe/it/expect without imports
+    setupFiles:  ['./src/test/setup.js'],
+    coverage: {
+      provider:  'v8',
+      reporter:  ['text', 'lcov', 'html'],
+      exclude:   ['node_modules/', 'src/test/', 'src/data/', 'dist/'],
+      thresholds: {
+        statements: 70,
+        branches:   60,
+        functions:  70,
+        lines:      70,
+      },
+    },
+  },
 
+  server: {
+    host: true,
+    port: 5173,
     proxy: {
-      // Any request starting with /api is forwarded to the backend container
-      '/api': {
-        target:      'http://backend:5000',  // 'backend' = Docker service name in docker-compose.yml
-        changeOrigin: true,
-        // rewrite: (path) => path  // No rewriting needed — /api/projects stays /api/projects
-      },
-      // Forward uploaded file requests to backend as well
-      '/uploads': {
-        target:      'http://backend:5000',
-        changeOrigin: true,
-      },
+      '/api':     { target: 'http://backend:5000', changeOrigin: true },
+      '/uploads': { target: 'http://backend:5000', changeOrigin: true },
     },
   },
 })
