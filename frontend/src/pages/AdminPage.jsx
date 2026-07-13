@@ -1,23 +1,28 @@
-export function AdminPage() {
-  return (
-    <div style={{ padding: '5rem 2rem', textAlign: 'center' }}>
-      <p style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-        Admin Dashboard — Built in PF-37
-        </p>
-        <br />
+import { useState }              from 'react';
+import { AdminLayout }           from '../components/admin/AdminLayout';
+import { AdminOverviewPanel }    from '../components/admin/panels/AdminOverviewPanel';
+import { AdminProjectsPanel }    from '../components/admin/panels/AdminProjectsPanel';
+import { AdminSkillsPanel }      from '../components/admin/panels/AdminSkillsPanel';
+import { AdminAboutPanel }       from '../components/admin/panels/AdminAboutPanel';
+import { AdminBlogPanel }        from '../components/admin/panels/AdminBlogPanel';
+import { AdminMessagesPanel }    from '../components/admin/panels/AdminMessagesPanel';
 
-      <p
-        style={{
-            color: '#22c55e',
-            fontFamily: 'var(--font-sans)',
-            fontSize: '50px',
-            fontWeight: '700',
-            textShadow: '0 0 10px rgba(34, 197, 94, 0.6)',
-        }}
-        >
-        Yoooooooooooooooooooooooooooooooooo! <br /> 
-        I'M back! I'M Back!!
-        </p>
-    </div>
+const PANELS = {
+  overview:  AdminOverviewPanel,
+  projects:  AdminProjectsPanel,
+  skills:    AdminSkillsPanel,
+  about:     AdminAboutPanel,
+  blog:      AdminBlogPanel,
+  messages:  AdminMessagesPanel,
+};
+
+export function AdminPage() {
+  const [activeTab, setActiveTab] = useState('overview');
+  const ActivePanel = PANELS[activeTab] || AdminOverviewPanel;
+
+  return (
+    <AdminLayout activeTab={activeTab} onTabChange={setActiveTab}>
+      <ActivePanel />
+    </AdminLayout>
   );
 }
