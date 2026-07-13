@@ -18,7 +18,7 @@ const getProjectById = async (req, res, next) => {
     const project = await Project.findById(req.params.id);
 
     if (!project) {
-      return next(new AppError('No project found with that ID', 404));
+      return next(new AppError('Project not found', 404));
     }
 
     res.json({ status: 'success', data: project });
@@ -63,7 +63,7 @@ const updateProject = async (req, res, next) => {
     );
 
     if (!project) {
-      return next(new AppError('No project found with that ID', 404));
+      return next(new AppError('Project not found', 404));
     }
 
     res.json({ status: 'success', data: project });
@@ -86,7 +86,7 @@ const deleteProject = async (req, res, next) => {
     const project = await Project.findByIdAndDelete(req.params.id);
 
     if (!project) {
-      return next(new AppError('No project found with that ID', 404));
+      return next(new AppError('Project not found', 404));
     }
 
     // 204 No Content — successful deletion sends no body

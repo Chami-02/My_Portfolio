@@ -5,9 +5,25 @@
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "seed": "node src/seed.js"
+    "dev":           "nodemon src/server.js",
+    "start":         "node src/server.js",
+    "seed":          "node src/seed.js",
+    "test":          "node scripts/run-jest.js --runInBand --detectOpenHandles --forceExit",
+    "test:coverage": "node scripts/run-jest.js --coverage --runInBand --detectOpenHandles --forceExit",
+    "test:watch":    "node scripts/run-jest.js --watch"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch":       ["**/__tests__/**/*.test.js"],
+    "coverageThreshold": {
+      "global": {
+        "statements": 70,
+        "branches":   60,
+        "functions":  70,
+        "lines":      70
+      }
+    },
+    "coveragePathIgnorePatterns": ["/node_modules/", "src/seed.js"]
   },
   "engines": {
     "node": ">=20"
@@ -27,6 +43,8 @@
     "slugify": "^1.6.9"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }
