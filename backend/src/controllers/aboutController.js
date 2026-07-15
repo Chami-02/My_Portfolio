@@ -46,9 +46,9 @@ const updateAbout = async (req, res, next) => {
       {},                    // No filter — matches the only document
       { $set: req.body },    // $set = only update the provided fields
       {
-        new:          true,
-        runValidators: true,
-        upsert:       true,  // Create if doesn't exist
+        returnDocument: 'after',
+        runValidators:  true,
+        upsert:         true,  // Create if doesn't exist
       }
     );
     res.json({ status: 'success', data: about });

@@ -22,6 +22,7 @@ export function AdminAboutPanel() {
   // Pre-fill form when data loads
   useEffect(() => {
     if (about) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         name:             about.name             || '',
         title:            about.title            || '',

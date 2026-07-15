@@ -34,7 +34,10 @@ api.interceptors.response.use(
       // Token expired or invalid — log out and redirect to login
       localStorage.removeItem('portfolio_token');
       // Only redirect if trying to reach admin pages
-      if (window.location.pathname.startsWith('/admin')) {
+      const isLoginRequest = error.config?.url?.includes('/auth/login');
+      const isLoginPage = window.location.pathname === '/admin/login';
+
+      if (window.location.pathname.startsWith('/admin') && !isLoginPage && !isLoginRequest) {
         window.location.href = '/admin/login';
       }
     }
