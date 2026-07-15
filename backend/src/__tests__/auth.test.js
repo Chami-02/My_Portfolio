@@ -1,4 +1,5 @@
 const request = require('supertest');
+const jwt     = require('jsonwebtoken');
 const app     = require('../app');
 const User    = require('../models/User');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
@@ -88,5 +89,30 @@ describe('GET /api/auth/me', () => {
 
     expect(meRes.status).toBe(200);
     expect(meRes.body.data.email).toBe(ADMIN.email);
+  });
+
+  it('returns 401 when the token user no longer exists', async () => {
+    const user = await User.create(ADMIN);
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    await User.deleteOne({ _id: user._id });
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toMatch(/no longer exists/i);
+  });
+
+  it('returns 401 when the token is expired', async () => {
+    const user = await User.create(ADMIN);
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '-1s' });
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toMatch(/expired/i);
   });
 });

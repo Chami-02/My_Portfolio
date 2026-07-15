@@ -42,7 +42,7 @@ const updateSkill = async (req, res, next) => {
     const skill = await Skill.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!skill) return next(new AppError('Skill not found', 404));

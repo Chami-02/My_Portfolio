@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen }       from '@testing-library/react';
-import { Footer }               from '../Footer';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { Footer } from '../Footer';
 
 describe('Footer', () => {
   it('renders the current year', () => {
@@ -25,5 +25,16 @@ describe('Footer', () => {
   it('has a "Built with" tech stack mention', () => {
     render(<Footer />);
     expect(screen.getByText(/React/i)).toBeInTheDocument();
+  });
+
+  it('updates social link styling on hover', () => {
+    render(<Footer />);
+    const githubLink = screen.getByRole('link', { name: /github/i });
+
+    fireEvent.mouseEnter(githubLink);
+    expect(githubLink).toHaveStyle({ color: 'var(--accent)' });
+
+    fireEvent.mouseLeave(githubLink);
+    expect(githubLink).toHaveStyle({ color: 'var(--text-muted)' });
   });
 });

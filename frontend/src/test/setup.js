@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
 // Mock IntersectionObserver (used by useInView hook)
 // jsdom doesn't implement it — we need to fake it
-global.IntersectionObserver = class IntersectionObserver {
+globalThis.IntersectionObserver = class IntersectionObserver {
   constructor(callback) {
     this.callback = callback;
   }
@@ -15,7 +16,7 @@ global.IntersectionObserver = class IntersectionObserver {
 };
 
 // Mock window.scrollTo (not implemented in jsdom)
-global.window.scrollTo = vi.fn();
+globalThis.window.scrollTo = vi.fn();
 
 // Mock localStorage
 const localStorageMock = (() => {

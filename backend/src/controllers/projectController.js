@@ -57,7 +57,7 @@ const updateProject = async (req, res, next) => {
       req.params.id,
       req.body,
       {
-        new:            true,  // Return the updated document (not the old one)
+        returnDocument: 'after',  // Return the updated document (not the old one)
         runValidators:  true,  // Re-run schema validators on the updated fields
       }
     );

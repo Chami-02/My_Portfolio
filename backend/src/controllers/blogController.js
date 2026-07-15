@@ -82,7 +82,7 @@ const updatePost = async (req, res, next) => {
     const post = await Blog.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
     if (!post) return next(new AppError('Blog post not found', 404));
     res.json({ status: 'success', data: post });

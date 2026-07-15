@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act }                             from '@testing-library/react';
 import { useTypewriter }                               from '../../hooks/useTypewriter';
 
@@ -30,5 +30,15 @@ describe('useTypewriter', () => {
     });
 
     expect(typeof result.current).toBe('string');
+  });
+
+  it('covers pause and deletion transitions', async () => {
+    const { result } = renderHook(() => useTypewriter());
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(result.current).toBe('F');
   });
 });

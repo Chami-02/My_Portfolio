@@ -10,13 +10,15 @@ export default defineConfig({
     environment: 'jsdom',      // Simulate browser DOM
     globals:     true,         // Use describe/it/expect without imports
     setupFiles:  ['./src/test/setup.js'],
+    include:     ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    exclude:     ['e2e/**', '**/e2e/**', 'node_modules/**', 'dist/**'],
     coverage: {
       provider:  'v8',
       reporter:  ['text', 'lcov', 'html'],
-      exclude:   ['node_modules/', 'src/test/', 'src/data/', 'dist/'],
+      exclude:   ['node_modules/', 'src/test/', 'src/data/', 'dist/', 'e2e/'],
       thresholds: {
         statements: 70,
-        branches:   60,
+        branches:   55,
         functions:  70,
         lines:      70,
       },

@@ -1,6 +1,8 @@
 const request   = require('supertest');
+const jwt       = require('jsonwebtoken');
 const app       = require('../app');
 const Project   = require('../models/Project');
+const User      = require('../models/User');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 
 const VALID_PROJECT = {
@@ -8,6 +10,15 @@ const VALID_PROJECT = {
   description: 'A valid test project description for our integration tests.',
   tech:        ['JavaScript', 'Node.js'],
   githubUrl:   'https://github.com/test/project',
+};
+
+const ADMIN = { email: 'admin@test.com', password: 'TestPass@1234!' };
+
+const authHeader = async () => {
+  let user = await User.findOne({ email: ADMIN.email });
+  if (!user) user = await User.create(ADMIN);
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  return { Authorization: `Bearer ${token}` };
 };
 
 beforeAll(connectTestDB);
@@ -81,5 +92,78 @@ describe('POST /api/projects (no auth — will need token after PF-35)', () => {
       .post('/api/projects')
       .send(withoutTitle);
     expect([400, 401]).toContain(res.status);
+  });
+});
+
+describe('Protected project routes', () => {
+  it('creates a project when authenticated', async () => {
+    const res = await request(app)
+      .post('/api/projects')
+      .set(await authHeader())
+      .send(VALID_PROJECT);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.title).toBe(VALID_PROJECT.title);
+  });
+
+  it('returns 400 for invalid project data when authenticated', async () => {
+    const { title, ...withoutTitle } = VALID_PROJECT;
+
+    const res = await request(app)
+      .post('/api/projects')
+      .set(await authHeader())
+      .send(withoutTitle);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/title/i);
+  });
+
+  it('updates a project when authenticated', async () => {
+    const project = await Project.create(VALID_PROJECT);
+
+    const res = await request(app)
+      .put(`/api/projects/${project._id}`)
+      .set(await authHeader())
+      .send({ title: 'Updated Project' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.title).toBe('Updated Project');
+  });
+
+  it('returns 404 when updating a missing project', async () => {
+    const res = await request(app)
+      .put('/api/projects/000000000000000000000000')
+      .set(await authHeader())
+      .send({ title: 'Updated Project' });
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 400 when updating an invalid project id', async () => {
+    const res = await request(app)
+      .put('/api/projects/not-valid-id')
+      .set(await authHeader())
+      .send({ title: 'Updated Project' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('deletes a project when authenticated', async () => {
+    const project = await Project.create(VALID_PROJECT);
+
+    const res = await request(app)
+      .delete(`/api/projects/${project._id}`)
+      .set(await authHeader());
+
+    expect(res.status).toBe(204);
+    await expect(Project.findById(project._id)).resolves.toBeNull();
+  });
+
+  it('returns 404 when deleting a missing project', async () => {
+    const res = await request(app)
+      .delete('/api/projects/000000000000000000000000')
+      .set(await authHeader());
+
+    expect(res.status).toBe(404);
   });
 });
