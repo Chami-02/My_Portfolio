@@ -41,7 +41,6 @@ jobs:
         run: npm run test:run -- --reporter=verbose
 
       - name: Generate coverage report
-        if: always()
         run: npm run test:coverage
 
       - name: Upload frontend coverage
