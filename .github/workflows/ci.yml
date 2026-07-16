@@ -96,6 +96,7 @@ jobs:
         ports:
           - 27017:27017
         options: >-
+          --noauth
           --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok'"
           --health-interval 10s
           --health-timeout 5s
@@ -121,8 +122,16 @@ jobs:
       # ─ 4. Verify MongoDB is ready ──────────────────────────────────────────
       - name: ⏳ Wait for MongoDB to be ready
         run: |
-          npm install -D mongodb
-          npx wait-on tcp:27017 --timeout 10000
+          for i in {1..30}; do
+            if npx mongodb-cli-tools ping -u mongodb://localhost:27017 2>/dev/null; then
+              echo "✓ MongoDB ready"
+              exit 0
+            fi
+            echo "Attempt $i/30..."
+            sleep 1
+          done
+          echo "✗ MongoDB failed to start"
+          exit 1
 
       # ─ 5. Run integration tests ────────────────────────────────────────────
       - name: ✅ Run integration tests
@@ -159,6 +168,7 @@ jobs:
         ports:
           - 27017:27017
         options: >-
+          --noauth
           --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok'"
           --health-interval 10s
           --health-timeout 5s
