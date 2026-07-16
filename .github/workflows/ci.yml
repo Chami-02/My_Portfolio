@@ -95,12 +95,7 @@ jobs:
         image: mongo:7
         ports:
           - 27017:27017
-        options: >-
-          --noauth
-          --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --noauth
 
     steps:
       # ─ 1. Checkout repository ──────────────────────────────────────────────
@@ -141,7 +136,7 @@ jobs:
           MONGO_URI: mongodb://localhost:27017/portfolio_test
           JWT_SECRET: ci_test_secret_github_actions_only
           JWT_EXPIRES_IN: 1d
-        run: npm test -- --coverage --runInBand --detectOpenHandles --forceExit
+        run: npm run test:coverage
 
       # ─ 6. Upload coverage artifact ─────────────────────────────────────────
       - name: 📤 Upload backend coverage
@@ -167,12 +162,7 @@ jobs:
         image: mongo:7
         ports:
           - 27017:27017
-        options: >-
-          --noauth
-          --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        options: --noauth
 
     steps:
       # ─ 1. Checkout repository ──────────────────────────────────────────────
@@ -264,12 +254,4 @@ jobs:
     steps:
       - name: ✅ Verify all jobs passed
         run: |
-          if [[ "${{ needs.frontend.result }}" == "success" && \
-                "${{ needs.backend.result }}" == "success" && \
-                "${{ needs.e2e.result }}" == "success" ]]; then
-            echo "✅ All checks passed! Safe to merge."
-            exit 0
-          else
-            echo "❌ Some checks failed. Please review."
-            exit 1
-          fi
+          if [[ "${{ needs.frontend.result }
