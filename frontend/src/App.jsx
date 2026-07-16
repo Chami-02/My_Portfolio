@@ -2,8 +2,11 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Navbar }       from './components/layout/Navbar';
 import { Footer }       from './components/layout/Footer';
 import { HomePage }     from './pages/HomePage';
+import { AdminPage }    from './pages/AdminPage';
+import { AdminLoginPage } from './pages/AdminLoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ScrollToTop } from './components/layout/ScrollToTop';
+import { ProtectedRoute } from './components/common/ProtectedRoute';
 
 function App() {
   return (
@@ -14,8 +17,16 @@ function App() {
         <main style={{ flexGrow: 1 }}>
           <Routes>
             <Route path="/"  element={<HomePage />} />
+            <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route
+              path="/admin"
+              element={(
+                <ProtectedRoute>
+                  <AdminPage />
+                </ProtectedRoute>
+              )}
+            />
             <Route path="*"  element={<NotFoundPage />} />
-            {/* Admin routes added in Sprint 6 (PF-36) */}
           </Routes>
         </main>
         <ScrollToTop />

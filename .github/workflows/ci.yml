@@ -200,6 +200,12 @@ jobs:
           })();
           NODE
 
+      - name: Seed E2E database
+        working-directory: ./backend
+        env:
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+        run: npm run seed
+
       - name: Start backend server
         working-directory: ./backend
         env:
