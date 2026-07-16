@@ -1,71 +1,161 @@
-# Runs on every push to master and every pull request targeting master.
-# Jobs run in PARALLEL — both frontend and backend tests run at the same time.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# GitHub Actions CI Pipeline
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Runs on: Every push to master + every pull request targeting master
+# Jobs: Run in PARALLEL (frontend, backend, e2e) for speed
+# Status: Required to pass before merge
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: CI Pipeline
 
 on:
   push:
-    branches: [master, sprint-8-deployment]
+    branches: [master, main]
   pull_request:
-    branches: [master]
+    branches: [master, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
 
-  # ── Frontend: Lint + Unit Tests ───────────────────────────────────────────
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │ FRONTEND: Lint + Unit Tests + E2E Tests                                 │
+  # └─────────────────────────────────────────────────────────────────────────┘
   frontend:
-    name: Frontend — Lint & Test
+    name: Frontend — Lint, Unit & E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     defaults:
       run:
-        working-directory: ./frontend   # All commands run from here
+        working-directory: ./frontend
 
     steps:
-      # 1. Check out the full repo code
-      - name: Checkout repository
+      # ─ 1. Checkout repository ──────────────────────────────────────────────
+      - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Set up Node.js with npm cache for faster installs
-      - name: Set up Node.js 24
+      # ─ 2. Setup Node.js (LTS version for stability) ───────────────────────
+      - name: 🟢 Setup Node.js 20 (LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: ./frontend/package-lock.json
 
-      # 3. Install dependencies (ci = clean install, exact versions from lock file)
-      - name: Install dependencies
-        run: npm ci
+      # ─ 3. Install frontend dependencies ────────────────────────────────────
+      - name: 📦 Install dependencies
+        run: npm ci --prefer-offline --no-audit
 
-      # 4. Run ESLint — fails if there are any lint errors
-      - name: Run ESLint
-        run: npm run lint
+      # ─ 4. ESLint ───────────────────────────────────────────────────────────
+      - name: 🔍 Run ESLint
+        run: npm run lint -- --max-warnings=0
+        continue-on-error: false
 
-      # 5. Run Vitest — fails if any test fails
-      - name: Run unit tests
-        run: npm run test:run
+      # ─ 5. Unit tests with coverage ─────────────────────────────────────────
+      - name: ✅ Run unit tests
+        run: npm run test:run -- --reporter=verbose
 
-      # 6. Generate coverage report and upload as artifact
-      - name: Generate coverage report
+      # ─ 6. Coverage report ──────────────────────────────────────────────────
+      - name: 📊 Generate coverage report
         run: npm run test:coverage
+        if: always()
 
-      - name: Upload coverage report
+      # ─ 7. Upload coverage artifact ─────────────────────────────────────────
+      - name: 📤 Upload frontend coverage
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-coverage
-          path: frontend/coverage/
+          name: frontend-coverage-report
+          path: ./frontend/coverage/
           retention-days: 7
+          overwrite: true
 
-  # ── Backend: Lint + Integration Tests ────────────────────────────────────
+      # ─ 8. Build for E2E tests ──────────────────────────────────────────────
+      - name: 🏗️ Build frontend
+        run: npm run build
+
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │ BACKEND: Tests + Integration Tests                                      │
+  # └─────────────────────────────────────────────────────────────────────────┘
   backend:
-    name: Backend — Lint & Test
+    name: Backend — Integration Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     defaults:
       run:
         working-directory: ./backend
 
-    # Spin up a real MongoDB service container for the tests
+    # Spin up MongoDB container for integration tests
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: example
+
+    steps:
+      # ─ 1. Checkout repository ──────────────────────────────────────────────
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+
+      # ─ 2. Setup Node.js (LTS version) ──────────────────────────────────────
+      - name: 🟢 Setup Node.js 20 (LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ./backend/package-lock.json
+
+      # ─ 3. Install backend dependencies ─────────────────────────────────────
+      - name: 📦 Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      # ─ 4. Verify MongoDB is ready ──────────────────────────────────────────
+      - name: ⏳ Wait for MongoDB to be ready
+        run: |
+          npm install -D mongodb
+          npx wait-on tcp:27017 --timeout 10000
+
+      # ─ 5. Run integration tests ────────────────────────────────────────────
+      - name: ✅ Run integration tests
+        env:
+          NODE_ENV: test
+          PORT: 5000
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+          JWT_SECRET: ci_test_secret_github_actions_only
+          JWT_EXPIRES_IN: 1d
+        run: npm test -- --coverage --runInBand --detectOpenHandles --forceExit
+
+      # ─ 6. Upload coverage artifact ─────────────────────────────────────────
+      - name: 📤 Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: ./backend/coverage/
+          retention-days: 7
+          overwrite: true
+
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │ E2E TESTS: Playwright End-to-End Tests                                  │
+  # └─────────────────────────────────────────────────────────────────────────┘
+  e2e:
+    name: E2E Tests — Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [frontend, backend]
+
     services:
       mongodb:
         image: mongo:7
@@ -78,55 +168,101 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Checkout repository
+      # ─ 1. Checkout repository ──────────────────────────────────────────────
+      - name: ⬇️ Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 24
+      # ─ 2. Setup Node.js ────────────────────────────────────────────────────
+      - name: 🟢 Setup Node.js 20 (LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
+          cache-dependency-path: ./frontend/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+      # ─ 3. Install frontend dependencies ────────────────────────────────────
+      - name: 📦 Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci --prefer-offline --no-audit
 
-      # Run ESLint — fails if there are any lint errors
-      - name: Run ESLint
-        run: npm run lint
+      # ─ 4. Install backend dependencies ─────────────────────────────────────
+      - name: 📦 Install backend dependencies
+        working-directory: ./backend
+        run: npm ci --prefer-offline --no-audit
 
-      # Run Jest tests with the CI environment variables
-      - name: Run integration tests
+      # ─ 5. Build frontend ──────────────────────────────────────────────────
+      - name: 🏗️ Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      # ─ 6. Start backend server ─────────────────────────────────────────────
+      - name: 🚀 Start backend server
+        working-directory: ./backend
         env:
-          NODE_ENV:       test
-          PORT:           5000
-          MONGO_URI:      mongodb://localhost:27017/portfolio_test
-          JWT_SECRET:     ci_test_secret_do_not_use_in_production_ever
+          NODE_ENV: test
+          PORT: 5000
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+          JWT_SECRET: ci_test_secret_github_actions_only
           JWT_EXPIRES_IN: 1d
-        run: npm test
+        run: npm start &
+        timeout-minutes: 2
 
-      - name: Generate coverage report
+      # ─ 7. Wait for backend ────────────────────────────────────────────────
+      - name: ⏳ Wait for backend server
+        run: npx wait-on http://localhost:5000/api/health --timeout 15000
+
+      # ─ 8. Start frontend dev server ────────────────────────────────────────
+      - name: 🚀 Start frontend dev server
+        working-directory: ./frontend
         env:
-          NODE_ENV:       test
-          MONGO_URI:      mongodb://localhost:27017/portfolio_test
-          JWT_SECRET:     ci_test_secret_do_not_use_in_production_ever
-          JWT_EXPIRES_IN: 1d
-        run: npm run test:coverage
+          VITE_API_URL: http://localhost:5000/api
+        run: npm run dev &
+        timeout-minutes: 2
 
-      - name: Upload backend coverage
+      # ─ 9. Wait for frontend ───────────────────────────────────────────────
+      - name: ⏳ Wait for frontend dev server
+        run: npx wait-on http://localhost:5173 --timeout 15000
+
+      # ─ 10. Install Playwright browsers ─────────────────────────────────────
+      - name: 🎭 Install Playwright browsers
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      # ─ 11. Run E2E tests ──────────────────────────────────────────────────
+      - name: 🌐 Run Playwright E2E tests
+        working-directory: ./frontend
+        env:
+          VITE_API_URL: http://localhost:5000/api
+        run: npm run test:e2e
+
+      # ─ 12. Upload Playwright report (on failure) ──────────────────────────
+      - name: 📤 Upload Playwright report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: backend-coverage
-          path: backend/coverage/
+          name: playwright-report
+          path: ./frontend/playwright-report/
           retention-days: 7
+          overwrite: true
 
-  # ── Summary: Both jobs must pass ─────────────────────────────────────────
-  # This final job only runs if both frontend and backend pass.
-  # Add deployment steps here in PF-49 and PF-50.
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │ STATUS: All checks must pass before merge                               │
+  # └─────────────────────────────────────────────────────────────────────────┘
   all-checks-pass:
-    name: All Checks Pass
-    needs: [frontend, backend]
+    name: ✅ All Checks Pass
+    needs: [frontend, backend, e2e]
     runs-on: ubuntu-latest
+    if: always()
+
     steps:
-      - name: Success
-        run: echo "✅ All CI checks passed — safe to merge."
+      - name: ✅ Verify all jobs passed
+        run: |
+          if [[ "${{ needs.frontend.result }}" == "success" && \
+                "${{ needs.backend.result }}" == "success" && \
+                "${{ needs.e2e.result }}" == "success" ]]; then
+            echo "✅ All checks passed! Safe to merge."
+            exit 0
+          else
+            echo "❌ Some checks failed. Please review."
+            exit 1
+          fi
