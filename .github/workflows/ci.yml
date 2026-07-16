@@ -91,6 +91,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Run ESLint — fails if there are any lint errors
+      - name: Run ESLint
+        run: npm run lint
+
       # Run Jest tests with the CI environment variables
       - name: Run integration tests
         env:
