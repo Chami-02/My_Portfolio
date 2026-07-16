@@ -1,0 +1,128 @@
+# Runs on every push to master and every pull request targeting master.
+# Jobs run in PARALLEL — both frontend and backend tests run at the same time.
+
+name: CI Pipeline
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+
+  # ── Frontend: Lint + Unit Tests ───────────────────────────────────────────
+  frontend:
+    name: Frontend — Lint & Test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./frontend   # All commands run from here
+
+    steps:
+      # 1. Check out the full repo code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Node.js with npm cache for faster installs
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      # 3. Install dependencies (ci = clean install, exact versions from lock file)
+      - name: Install dependencies
+        run: npm ci
+
+      # 4. Run ESLint — fails if there are any lint errors
+      - name: Run ESLint
+        run: npm run lint
+
+      # 5. Run Vitest — fails if any test fails
+      - name: Run unit tests
+        run: npm run test:run
+
+      # 6. Generate coverage report and upload as artifact
+      - name: Generate coverage report
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          retention-days: 7
+
+  # ── Backend: Lint + Integration Tests ────────────────────────────────────
+  backend:
+    name: Backend — Lint & Test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    # Spin up a real MongoDB service container for the tests
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Run Jest tests with the CI environment variables
+      - name: Run integration tests
+        env:
+          NODE_ENV:       test
+          PORT:           5000
+          MONGO_URI:      mongodb://localhost:27017/portfolio_test
+          JWT_SECRET:     ci_test_secret_do_not_use_in_production_ever
+          JWT_EXPIRES_IN: 1d
+        run: npm test
+
+      - name: Generate coverage report
+        env:
+          NODE_ENV:       test
+          MONGO_URI:      mongodb://localhost:27017/portfolio_test
+          JWT_SECRET:     ci_test_secret_do_not_use_in_production_ever
+          JWT_EXPIRES_IN: 1d
+        run: npm run test:coverage
+
+      - name: Upload backend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/
+          retention-days: 7
+
+  # ── Summary: Both jobs must pass ─────────────────────────────────────────
+  # This final job only runs if both frontend and backend pass.
+  # Add deployment steps here in PF-49 and PF-50.
+  all-checks-pass:
+    name: All Checks Pass
+    needs: [frontend, backend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Success
+        run: echo "✅ All CI checks passed — safe to merge."
