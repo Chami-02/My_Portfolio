@@ -1,3 +1,4 @@
+
 # React + Vite
 
 ![Frontend Tests](https://img.shields.io/badge/frontend%20tests-passing-brightgreen)
