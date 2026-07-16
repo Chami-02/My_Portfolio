@@ -1,11 +1,3 @@
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# GitHub Actions CI Pipeline
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Runs on: Every push to master + every pull request targeting master
-# Jobs: Run in PARALLEL (frontend, backend, e2e) for speed
-# Status: Required to pass before merge
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 name: CI Pipeline
 
 on:
@@ -19,12 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-
-  # ┌─────────────────────────────────────────────────────────────────────────┐
-  # │ FRONTEND: Lint + Unit Tests + E2E Tests                                 │
-  # └─────────────────────────────────────────────────────────────────────────┘
   frontend:
-    name: Frontend — Lint, Unit & E2E Tests
+    name: Frontend - Lint, Unit Tests, Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -33,38 +21,30 @@ jobs:
         working-directory: ./frontend
 
     steps:
-      # ─ 1. Checkout repository ──────────────────────────────────────────────
-      - name: ⬇️ Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ─ 2. Setup Node.js (LTS version for stability) ───────────────────────
-      - name: 🟢 Setup Node.js 20 (LTS)
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: ./frontend/package-lock.json
 
-      # ─ 3. Install frontend dependencies ────────────────────────────────────
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
 
-      # ─ 4. ESLint ───────────────────────────────────────────────────────────
-      - name: 🔍 Run ESLint
+      - name: Run ESLint
         run: npm run lint -- --max-warnings=0
-        continue-on-error: false
 
-      # ─ 5. Unit tests with coverage ─────────────────────────────────────────
-      - name: ✅ Run unit tests
+      - name: Run unit tests
         run: npm run test:run -- --reporter=verbose
 
-      # ─ 6. Coverage report ──────────────────────────────────────────────────
-      - name: 📊 Generate coverage report
-        run: npm run test:coverage
+      - name: Generate coverage report
         if: always()
+        run: npm run test:coverage
 
-      # ─ 7. Upload coverage artifact ─────────────────────────────────────────
-      - name: 📤 Upload frontend coverage
+      - name: Upload frontend coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -73,15 +53,11 @@ jobs:
           retention-days: 7
           overwrite: true
 
-      # ─ 8. Build for E2E tests ──────────────────────────────────────────────
-      - name: 🏗️ Build frontend
+      - name: Build frontend
         run: npm run build
 
-  # ┌─────────────────────────────────────────────────────────────────────────┐
-  # │ BACKEND: Tests + Integration Tests                                      │
-  # └─────────────────────────────────────────────────────────────────────────┘
   backend:
-    name: Backend — Integration Tests
+    name: Backend - Integration Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -89,47 +65,55 @@ jobs:
       run:
         working-directory: ./backend
 
-    # Spin up MongoDB container for integration tests
     services:
       mongodb:
         image: mongo:7
         ports:
           - 27017:27017
-        options: --noauth
 
     steps:
-      # ─ 1. Checkout repository ──────────────────────────────────────────────
-      - name: ⬇️ Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ─ 2. Setup Node.js (LTS version) ──────────────────────────────────────
-      - name: 🟢 Setup Node.js 20 (LTS)
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: ./backend/package-lock.json
 
-      # ─ 3. Install backend dependencies ─────────────────────────────────────
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: npm ci --prefer-offline --no-audit
 
-      # ─ 4. Verify MongoDB is ready ──────────────────────────────────────────
-      - name: ⏳ Wait for MongoDB to be ready
+      - name: Wait for MongoDB
+        env:
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
         run: |
-          for i in {1..30}; do
-            if npx mongodb-cli-tools ping -u mongodb://localhost:27017 2>/dev/null; then
-              echo "✓ MongoDB ready"
-              exit 0
-            fi
-            echo "Attempt $i/30..."
-            sleep 1
-          done
-          echo "✗ MongoDB failed to start"
-          exit 1
+          node <<'NODE'
+          const mongoose = require('mongoose');
 
-      # ─ 5. Run integration tests ────────────────────────────────────────────
-      - name: ✅ Run integration tests
+          const uri = process.env.MONGO_URI;
+          const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          (async () => {
+            for (let attempt = 1; attempt <= 30; attempt += 1) {
+              try {
+                await mongoose.connect(uri, { serverSelectionTimeoutMS: 1000 });
+                await mongoose.disconnect();
+                console.log('MongoDB ready');
+                return;
+              } catch (error) {
+                console.log(`Attempt ${attempt}/30 waiting for MongoDB...`);
+                await delay(1000);
+              }
+            }
+
+            console.error('MongoDB failed to become ready');
+            process.exit(1);
+          })();
+          NODE
+
+      - name: Run integration tests
         env:
           NODE_ENV: test
           PORT: 5000
@@ -138,8 +122,7 @@ jobs:
           JWT_EXPIRES_IN: 1d
         run: npm run test:coverage
 
-      # ─ 6. Upload coverage artifact ─────────────────────────────────────────
-      - name: 📤 Upload backend coverage
+      - name: Upload backend coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -148,11 +131,8 @@ jobs:
           retention-days: 7
           overwrite: true
 
-  # ┌─────────────────────────────────────────────────────────────────────────┐
-  # │ E2E TESTS: Playwright End-to-End Tests                                  │
-  # └─────────────────────────────────────────────────────────────────────────┘
   e2e:
-    name: E2E Tests — Playwright
+    name: E2E Tests - Playwright
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: [frontend, backend]
@@ -162,38 +142,66 @@ jobs:
         image: mongo:7
         ports:
           - 27017:27017
-        options: --noauth
 
     steps:
-      # ─ 1. Checkout repository ──────────────────────────────────────────────
-      - name: ⬇️ Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ─ 2. Setup Node.js ────────────────────────────────────────────────────
-      - name: 🟢 Setup Node.js 20 (LTS)
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: ./frontend/package-lock.json
+          cache: npm
+          cache-dependency-path: |
+            ./frontend/package-lock.json
+            ./backend/package-lock.json
 
-      # ─ 3. Install frontend dependencies ────────────────────────────────────
-      - name: 📦 Install frontend dependencies
+      - name: Install frontend dependencies
         working-directory: ./frontend
         run: npm ci --prefer-offline --no-audit
 
-      # ─ 4. Install backend dependencies ─────────────────────────────────────
-      - name: 📦 Install backend dependencies
+      - name: Install backend dependencies
         working-directory: ./backend
         run: npm ci --prefer-offline --no-audit
 
-      # ─ 5. Build frontend ──────────────────────────────────────────────────
-      - name: 🏗️ Build frontend
+      - name: Install Playwright browsers
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
         working-directory: ./frontend
         run: npm run build
 
-      # ─ 6. Start backend server ─────────────────────────────────────────────
-      - name: 🚀 Start backend server
+      - name: Wait for MongoDB
+        working-directory: ./backend
+        env:
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+        run: |
+          node <<'NODE'
+          const mongoose = require('mongoose');
+
+          const uri = process.env.MONGO_URI;
+          const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          (async () => {
+            for (let attempt = 1; attempt <= 30; attempt += 1) {
+              try {
+                await mongoose.connect(uri, { serverSelectionTimeoutMS: 1000 });
+                await mongoose.disconnect();
+                console.log('MongoDB ready');
+                return;
+              } catch (error) {
+                console.log(`Attempt ${attempt}/30 waiting for MongoDB...`);
+                await delay(1000);
+              }
+            }
+
+            console.error('MongoDB failed to become ready');
+            process.exit(1);
+          })();
+          NODE
+
+      - name: Start backend server
         working-directory: ./backend
         env:
           NODE_ENV: test
@@ -201,39 +209,51 @@ jobs:
           MONGO_URI: mongodb://localhost:27017/portfolio_test
           JWT_SECRET: ci_test_secret_github_actions_only
           JWT_EXPIRES_IN: 1d
-        run: npm start &
-        timeout-minutes: 2
+        run: npm start > ../backend-server.log 2>&1 &
 
-      # ─ 7. Wait for backend ────────────────────────────────────────────────
-      - name: ⏳ Wait for backend server
-        run: npx wait-on http://localhost:5000/api/health --timeout 15000
+      - name: Wait for backend server
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://localhost:5000/api/health > /dev/null; then
+              echo "Backend server ready"
+              exit 0
+            fi
+            echo "Attempt $i/30 waiting for backend..."
+            sleep 1
+          done
 
-      # ─ 8. Start frontend dev server ────────────────────────────────────────
-      - name: 🚀 Start frontend dev server
+          echo "Backend server failed to become ready"
+          cat backend-server.log || true
+          exit 1
+
+      - name: Start frontend dev server
         working-directory: ./frontend
         env:
           VITE_API_URL: http://localhost:5000/api
-        run: npm run dev &
-        timeout-minutes: 2
+        run: npm run dev -- --host 127.0.0.1 > ../frontend-server.log 2>&1 &
 
-      # ─ 9. Wait for frontend ───────────────────────────────────────────────
-      - name: ⏳ Wait for frontend dev server
-        run: npx wait-on http://localhost:5173 --timeout 15000
+      - name: Wait for frontend dev server
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://localhost:5173 > /dev/null; then
+              echo "Frontend dev server ready"
+              exit 0
+            fi
+            echo "Attempt $i/30 waiting for frontend..."
+            sleep 1
+          done
 
-      # ─ 10. Install Playwright browsers ─────────────────────────────────────
-      - name: 🎭 Install Playwright browsers
-        working-directory: ./frontend
-        run: npx playwright install --with-deps chromium
+          echo "Frontend dev server failed to become ready"
+          cat frontend-server.log || true
+          exit 1
 
-      # ─ 11. Run E2E tests ──────────────────────────────────────────────────
-      - name: 🌐 Run Playwright E2E tests
+      - name: Run Playwright E2E tests
         working-directory: ./frontend
         env:
           VITE_API_URL: http://localhost:5000/api
         run: npm run test:e2e
 
-      # ─ 12. Upload Playwright report (on failure) ──────────────────────────
-      - name: 📤 Upload Playwright report
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -242,16 +262,34 @@ jobs:
           retention-days: 7
           overwrite: true
 
-  # ┌─────────────────────────────────────────────────────────────────────────┐
-  # │ STATUS: All checks must pass before merge                               │
-  # └─────────────────────────────────────────────────────────────────────────┘
   all-checks-pass:
-    name: ✅ All Checks Pass
+    name: All Checks Pass
     needs: [frontend, backend, e2e]
     runs-on: ubuntu-latest
     if: always()
 
     steps:
-      - name: ✅ Verify all jobs passed
+      - name: Verify all jobs passed
         run: |
-          if [[ "${{ needs.frontend.result }
+          failed=0
+
+          if [[ "${{ needs.frontend.result }}" != "success" ]]; then
+            echo "frontend failed with result: ${{ needs.frontend.result }}"
+            failed=1
+          fi
+
+          if [[ "${{ needs.backend.result }}" != "success" ]]; then
+            echo "backend failed with result: ${{ needs.backend.result }}"
+            failed=1
+          fi
+
+          if [[ "${{ needs.e2e.result }}" != "success" ]]; then
+            echo "e2e failed with result: ${{ needs.e2e.result }}"
+            failed=1
+          fi
+
+          if [[ "$failed" -ne 0 ]]; then
+            exit 1
+          fi
+
+          echo "All required CI jobs passed."
