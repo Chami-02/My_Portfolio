@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [master, main, sprint-8-deployment]
+    branches: [master, main]
   pull_request:
-    branches: [master, main, sprint-8-deployment]
+    branches: [master, main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
