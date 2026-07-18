@@ -7,6 +7,7 @@ const helmet     = require('helmet');
 const path       = require('path');
 
 const corsOptions        = require('./config/corsOptions');
+const connectDB          = require('./config/db'); 
 const { globalLimiter }  = require('./middleware/rateLimiter');
 const notFound           = require('./middleware/notFound');
 const errorHandler       = require('./middleware/errorHandler');
@@ -37,8 +38,16 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+
+app.use(async (_req, _res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 // ── API Routes ────────────────────────────────────────────────────────────────
-// Uncommented one by one as you build each sprint:
    app.use('/api/projects', require('./routes/projectRoutes'));   
    app.use('/api/skills',   require('./routes/skillRoutes'));     
    app.use('/api/contact',  require('./routes/contactRoutes'));   
