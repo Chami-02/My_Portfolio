@@ -2,7 +2,7 @@
   "name": "portfolio-backend",
   "version": "1.0.0",
   "description": "Portfolio REST API — Express + MongoDB",
-  "main": "src/server.js",
+  "main": "src/app.js",
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon src/server.js",
