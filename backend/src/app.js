@@ -7,12 +7,14 @@ const helmet     = require('helmet');
 const path       = require('path');
 
 const corsOptions        = require('./config/corsOptions');
+const connectDB          = require('./config/db');
 const { globalLimiter }  = require('./middleware/rateLimiter');
 const notFound           = require('./middleware/notFound');
 const errorHandler       = require('./middleware/errorHandler');
 
 const app = express();
 
+app.set('trust proxy', 1);
 // ── Security middleware ── ORDER MATTERS ──────────────────────────────────────
 app.use(helmet());                               // Set secure HTTP headers first
 app.use(cors(corsOptions));                      // CORS — before any routes
@@ -35,6 +37,14 @@ app.get('/api/health', (_req, res) => {
     env:       process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
   });
+});
+app.use(async (_req, _res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── API Routes ────────────────────────────────────────────────────────────────

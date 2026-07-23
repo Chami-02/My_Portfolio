@@ -1,0 +1,11 @@
+{
+  "remoteName": "origin",
+  "projects": [
+    {
+      "id": "prj_frPOalHpeqZPYJAmLBamwAqIjeHV",
+      "name": "my-portfolio_backend",
+      "directory": "backend",
+      "orgId": "team_IubfPQ75Y4As3nSMdkunoUja"
+    }
+  ]
+}
