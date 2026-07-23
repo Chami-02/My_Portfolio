@@ -14,6 +14,7 @@ const errorHandler       = require('./middleware/errorHandler');
 
 const app = express();
 
+app.set('trust proxy', 1);
 // ── Security middleware ── ORDER MATTERS ──────────────────────────────────────
 app.use(helmet());                               // Set secure HTTP headers first
 app.use(cors(corsOptions));                      // CORS — before any routes
