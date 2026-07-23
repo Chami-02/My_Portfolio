@@ -1,9 +1,9 @@
 // The complete list of frontend URLs that are allowed to call this API.
 // Add your production Vercel URL here before deploying (Sprint 8).
 const ALLOWED_ORIGINS = [
-  'http://localhost:5173',           // Vite dev server (Docker)
-  'http://localhost:3000',           // Alternative dev port
-  // 'https://your-name.vercel.app', // ← Add this in Sprint 8 (PF-50)
+  'http://localhost:5173',                    // Local dev (Docker)
+  'https://YOUR-FRONTEND-PROJECT.vercel.app',  // ← Fill in after Part 2, Step 5
+  // 'https://your-custom-domain.me',          // ← Add once you set up PF-51 (custom domain)
 ];
 
 const corsOptions = {

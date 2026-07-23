@@ -1,0 +1,300 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend - Lint, Unit Tests, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ./frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run ESLint
+        run: npm run lint -- --max-warnings=0
+
+      - name: Run unit tests
+        run: npm run test:run -- --reporter=verbose
+
+      - name: Generate coverage report
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-report
+          path: ./frontend/coverage/
+          retention-days: 7
+          overwrite: true
+
+      - name: Build frontend
+        run: npm run build
+
+  backend:
+    name: Backend - Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ./backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Wait for MongoDB
+        env:
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+        run: |
+          node <<'NODE'
+          const mongoose = require('mongoose');
+
+          const uri = process.env.MONGO_URI;
+          const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          (async () => {
+            for (let attempt = 1; attempt <= 30; attempt += 1) {
+              try {
+                await mongoose.connect(uri, { serverSelectionTimeoutMS: 1000 });
+                await mongoose.disconnect();
+                console.log('MongoDB ready');
+                return;
+              } catch (error) {
+                console.log(`Attempt ${attempt}/30 waiting for MongoDB...`);
+                await delay(1000);
+              }
+            }
+
+            console.error('MongoDB failed to become ready');
+            process.exit(1);
+          })();
+          NODE
+
+      - name: Run integration tests
+        env:
+          NODE_ENV: test
+          PORT: 5000
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+          JWT_SECRET: ci_test_secret_github_actions_only
+          JWT_EXPIRES_IN: 1d
+        run: npm run test:coverage
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: ./backend/coverage/
+          retention-days: 7
+          overwrite: true
+
+  e2e:
+    name: E2E Tests - Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [frontend, backend]
+
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            ./frontend/package-lock.json
+            ./backend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Install Playwright browsers
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Wait for MongoDB
+        working-directory: ./backend
+        env:
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+        run: |
+          node <<'NODE'
+          const mongoose = require('mongoose');
+
+          const uri = process.env.MONGO_URI;
+          const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          (async () => {
+            for (let attempt = 1; attempt <= 30; attempt += 1) {
+              try {
+                await mongoose.connect(uri, { serverSelectionTimeoutMS: 1000 });
+                await mongoose.disconnect();
+                console.log('MongoDB ready');
+                return;
+              } catch (error) {
+                console.log(`Attempt ${attempt}/30 waiting for MongoDB...`);
+                await delay(1000);
+              }
+            }
+
+            console.error('MongoDB failed to become ready');
+            process.exit(1);
+          })();
+          NODE
+
+      - name: Seed E2E database
+        working-directory: ./backend
+        env:
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+        run: npm run seed
+
+      - name: Start backend server
+        working-directory: ./backend
+        env:
+          NODE_ENV: test
+          PORT: 5000
+          MONGO_URI: mongodb://localhost:27017/portfolio_test
+          JWT_SECRET: ci_test_secret_github_actions_only
+          JWT_EXPIRES_IN: 1d
+        run: npm start > ../backend-server.log 2>&1 &
+
+      - name: Wait for backend server
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://localhost:5000/api/health > /dev/null; then
+              echo "Backend server ready"
+              exit 0
+            fi
+            echo "Attempt $i/30 waiting for backend..."
+            sleep 1
+          done
+
+          echo "Backend server failed to become ready"
+          cat backend-server.log || true
+          exit 1
+
+      - name: Start frontend dev server
+        working-directory: ./frontend
+        env:
+          VITE_API_URL: http://localhost:5000/api
+        run: npm run dev -- --host 127.0.0.1 > ../frontend-server.log 2>&1 &
+
+      - name: Wait for frontend dev server
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://localhost:5173 > /dev/null; then
+              echo "Frontend dev server ready"
+              exit 0
+            fi
+            echo "Attempt $i/30 waiting for frontend..."
+            sleep 1
+          done
+
+          echo "Frontend dev server failed to become ready"
+          cat frontend-server.log || true
+          exit 1
+
+      - name: Run Playwright E2E tests
+        working-directory: ./frontend
+        env:
+          VITE_API_URL: http://localhost:5000/api
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: ./frontend/playwright-report/
+          retention-days: 7
+          overwrite: true
+
+  all-checks-pass:
+    name: All Checks Pass
+    needs: [frontend, backend, e2e]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Verify all jobs passed
+        run: |
+          failed=0
+
+          if [[ "${{ needs.frontend.result }}" != "success" ]]; then
+            echo "frontend failed with result: ${{ needs.frontend.result }}"
+            failed=1
+          fi
+
+          if [[ "${{ needs.backend.result }}" != "success" ]]; then
+            echo "backend failed with result: ${{ needs.backend.result }}"
+            failed=1
+          fi
+
+          if [[ "${{ needs.e2e.result }}" != "success" ]]; then
+            echo "e2e failed with result: ${{ needs.e2e.result }}"
+            failed=1
+          fi
+
+          if [[ "$failed" -ne 0 ]]; then
+            exit 1
+          fi
+
+          echo "All required CI jobs passed."
