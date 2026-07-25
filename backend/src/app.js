@@ -48,7 +48,6 @@ app.use(async (_req, _res, next) => {
 });
 
 // ── API Routes ────────────────────────────────────────────────────────────────
-// Uncommented one by one as you build each sprint:
    app.use('/api/projects', require('./routes/projectRoutes'));   
    app.use('/api/skills',   require('./routes/skillRoutes'));     
    app.use('/api/contact',  require('./routes/contactRoutes'));   
