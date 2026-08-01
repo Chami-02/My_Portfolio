@@ -47,4 +47,20 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * Absolute URL for an API path, for cases the axios instance can't serve —
+ * anchor hrefs, <img src>, anything the browser fetches itself.
+ *
+ * Needed because the backend is on a DIFFERENT ORIGIN in production
+ * (VITE_API_URL), so a hardcoded "/api/resume" in an href would 404 on the
+ * live site while working fine behind the dev proxy.
+ *
+ *   apiUrl('/resume')  →  '/api/resume'                    (dev, proxied)
+ *                      →  'https://api.example.com/resume' (prod)
+ */
+export const apiUrl = (path = '') => {
+  const base = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+  return `${base}/${String(path).replace(/^\//, '')}`;
+};
+
 export default api;
