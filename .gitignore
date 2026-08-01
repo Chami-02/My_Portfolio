@@ -1,1 +1,4 @@
 .vercel
+
+# Database backups (PF-52) — never commit a database dump
+backups/
