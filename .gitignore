@@ -2,3 +2,6 @@
 
 # Database backups (PF-52) — never commit a database dump
 backups/
+
+# Local DNS workaround for mongodb+srv:// lookups — machine-specific, not a project dependency
+backend/dns-fix.local.js
