@@ -39,7 +39,7 @@ const PROJECTS = [
     order:       3,
   },
    {
-    title:       'Life below warter',
+    title:       'Life Below Water',
     description: 'The website was developed using HTML, CSS, JavaScript, and XML to create an interactive, visually appealing, and user-friendly platform. It includes multiple pages such as a Splash Screen, Home Page, Volunteer Page, User Profile, Feedback Form, Sitemap, and more, each designed to provide a seamless user experience.',
     tech:        ['HTML', 'CSS', 'JavaScript', 'XML'],
     githubUrl:   'https://github.com/Chami-02/WD-D_GP_Goal-14-Life-below-water',
@@ -199,12 +199,12 @@ Building APIs with Java helped me better understand REST principles before movin
 
 const ABOUT_DATA = {
   name: 'Parindra Chameekara',
-  title: 'Software Engineering Undergraduate | Full-Stack Developer',
+  title: 'Computer Science Undergraduate | Full-Stack Developer',
   location: 'Galle, Sri Lanka',
   email: 'parindrachameekara@gmail.com',
 
   bio: [
-    "I'm a Software Engineering undergraduate passionate about building scalable web applications and continuously improving my backend and full-stack development skills. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.",
+    "I'm a Computer Science undergraduate at the University of Westminster, building production-grade software one real project at a time. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.",
 
     "I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk. My experience includes Python, FastAPI, JavaScript, React, Next.js, PostgreSQL, Docker, GitHub Actions, and Agile development using Jira."
   ],
@@ -212,12 +212,20 @@ const ABOUT_DATA = {
   availableForWork: true,
   availabilityNote: 'Currently seeking Software Engineering Internship opportunities',
 
+  // Email lives at the top level only — one address for the whole site.
+  // twitter is omitted deliberately: no account yet, schema default is ''.
   social: {
     github: 'https://github.com/Chami-02',
     linkedin: 'https://www.linkedin.com/in/chamikara-gallege-3b0861295/',
     facebook: 'https://web.facebook.com/parindra.chameekara',
     instagram: 'https://www.instagram.com/__pc_02/',
-    email: 'parindrachameekara@gmail.com',
+  },
+
+  // Empty on purpose — the real CV is uploaded through the admin panel,
+  // never committed. Stated explicitly rather than left to the schema
+  // defaults so re-seeding visibly clears any previous résumé.
+  resume: {
+    url: '', publicId: '', fileName: '', ext: '', bytes: 0, uploadedAt: null,
   },
 
   stats: [
