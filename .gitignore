@@ -1,1 +1,5 @@
 .vercel
+
+# Local environment files with real secrets — never commit these
+.env
+.env.local
