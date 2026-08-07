@@ -1,6 +1,6 @@
 name: Local
 values:
   - key: baseUrl
-    value: 'http://localhost:5000'
+    value: 'http://localhost:5050'
     type: default
     enabled: true

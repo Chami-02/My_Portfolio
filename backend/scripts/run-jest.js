@@ -1,9 +1,16 @@
+require('dotenv').config();
+
 process.env.NODE_ENV = 'test';
 
 const currentMongoUri = process.env.MONGO_URI;
-const testMongoUri = currentMongoUri
-  ? currentMongoUri.replace(/\/[^/?]+(\?.*)?$/, '/portfolio_test$1')
-  : 'mongodb://localhost:27017/portfolio_test';
+let testMongoUri;
+if (currentMongoUri) {
+  const uri = new URL(currentMongoUri);
+  uri.pathname = '/portfolio_test';
+  testMongoUri = uri.toString();
+} else {
+  testMongoUri = 'mongodb://localhost:27017/portfolio_test';
+}
 
 process.env.MONGO_URI = process.env.TEST_MONGO_URI || testMongoUri;
 

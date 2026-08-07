@@ -115,7 +115,7 @@ jobs:
       - name: Run integration tests
         env:
           NODE_ENV: test
-          PORT: 5000
+          PORT: 5050
           MONGO_URI: mongodb://localhost:27017/portfolio_test
           JWT_SECRET: ci_test_secret_github_actions_only
           JWT_EXPIRES_IN: 1d
@@ -210,7 +210,7 @@ jobs:
         working-directory: ./backend
         env:
           NODE_ENV: test
-          PORT: 5000
+          PORT: 5050
           MONGO_URI: mongodb://localhost:27017/portfolio_test
           JWT_SECRET: ci_test_secret_github_actions_only
           JWT_EXPIRES_IN: 1d
@@ -219,7 +219,7 @@ jobs:
       - name: Wait for backend server
         run: |
           for i in {1..30}; do
-            if curl --fail --silent http://localhost:5000/api/health > /dev/null; then
+            if curl --fail --silent http://localhost:5050/api/health > /dev/null; then
               echo "Backend server ready"
               exit 0
             fi
@@ -234,7 +234,7 @@ jobs:
       - name: Start frontend dev server
         working-directory: ./frontend
         env:
-          VITE_API_URL: http://localhost:5000/api
+          VITE_API_URL: http://localhost:5050/api
         run: npm run dev -- --host 127.0.0.1 > ../frontend-server.log 2>&1 &
 
       - name: Wait for frontend dev server
@@ -255,7 +255,7 @@ jobs:
       - name: Run Playwright E2E tests
         working-directory: ./frontend
         env:
-          VITE_API_URL: http://localhost:5000/api
+          VITE_API_URL: http://localhost:5050/api
         run: npm run test:e2e
 
       - name: Upload Playwright report
