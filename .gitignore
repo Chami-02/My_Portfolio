@@ -5,3 +5,7 @@ backups/
 
 # Local DNS workaround for mongodb+srv:// lookups — machine-specific, not a project dependency
 backend/dns-fix.local.js
+
+# Local environment files with real secrets — never commit these
+.env
+.env.local
