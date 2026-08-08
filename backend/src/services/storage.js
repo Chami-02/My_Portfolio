@@ -9,6 +9,10 @@ const { cloudinary, isConfigured } = require('../config/cloudinary');
 // nothing survives between invocations. Uploads must go straight from
 // multer's memory storage to the provider.
 
+// Read lazily rather than at module load: the config tests mutate the
+// environment between requires, and a captured constant would go stale.
+const defaultFolder = () => process.env.CLOUDINARY_FOLDER || 'portfolio';
+
 const storage = {
 
   isConfigured,
@@ -21,16 +25,27 @@ const storage = {
    * @param {'image'|'raw'} opts.resourceType
    *        'raw' for PDFs and other documents, 'image' for pictures.
    *        See the note on destroy() — this choice is sticky.
-   * @param {string} opts.folder
-   * @returns {Promise<{url: string, publicId: string, bytes: number, format: string}>}
+   * @param {string} opts.folder  defaults to CLOUDINARY_FOLDER, else 'portfolio'
+   * @returns {Promise<{url: string, publicId: string, bytes: number,
+   *                    format: string, width?: number, height?: number}>}
    */
-  upload(buffer, { resourceType = 'image', folder } = {}) {
+  upload(buffer, { resourceType = 'image', folder = defaultFolder() } = {}) {
     return new Promise((resolve, reject) => {
+      const options = { resource_type: resourceType, folder };
+
+      // Delivery optimisation (PF-63): hand back AVIF/WebP at automatic quality
+      // to browsers that support them. Images only — these are meaningless on a
+      // raw asset, and a PDF must be served as the bytes that were uploaded.
+      if (resourceType === 'image') {
+        options.fetch_format = 'auto';
+        options.quality      = 'auto';
+      }
+
       // upload_stream, not upload(): upload() expects a path or a data URI,
       // and base64-encoding the buffer just to hand it back would waste ~33%
       // more memory on a serverless function with a hard memory cap.
       const stream = cloudinary.uploader.upload_stream(
-        { resource_type: resourceType, folder },
+        options,
         (err, result) => {
           if (err)     return reject(err);
           if (!result) return reject(new Error('Cloudinary returned no result'));
@@ -40,6 +55,10 @@ const storage = {
             publicId: result.public_id,
             bytes:    result.bytes,
             format:   result.format || '',
+            // Undefined on raw uploads — a PDF has no pixel dimensions. The
+            // image picker needs them to size its thumbnail without a reflow.
+            width:    result.width,
+            height:   result.height,
           });
         }
       );
