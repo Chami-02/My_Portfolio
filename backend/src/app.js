@@ -55,6 +55,7 @@ app.use(async (_req, _res, next) => {
    app.use('/api/about',    require('./routes/aboutRoutes'));
    app.use('/api/auth',     require('./routes/authRoutes'));
    app.use('/api/resume',   require('./routes/resumeRoutes'));   // PF-60 — public CV download
+   app.use('/api/vocabulary', require('./routes/vocabularyRoutes')); 
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────
 app.use(notFound);      // Catch any unmatched routes and create a 404 AppError
