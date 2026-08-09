@@ -320,19 +320,19 @@ const ABOUT_DATA = {
 };
 
 // ── Admin credentials ──────────────────────────────────────────────────────
-// `Admin@1234!` is published in docs/design/DESIGN.md as the portfolio's
-// demo login and hardcoded in the Playwright suite, so it stays as the
-// local fallback — the demo flow is unchanged.
+// `Admin@1234!` is a well-known LOCAL DEVELOPMENT default, in the same
+// spirit as postgres/postgres. It is readable by anyone with the repo, so
+// it is only ever acceptable on a database nobody else can reach.
 //
-// What changed: the password is no longer written into whatever database
-// this seed happens to point at without saying so. It grants full write
-// access to the admin panel and anyone with the repo can read it, so a
-// database seeded with it must be treated as publicly writable.
+// It used to be published in docs/design/DESIGN.md as demo credentials for
+// the live site, which made the live admin panel writable by any reader.
+// That line is gone; the Playwright suite and Postman collection now take
+// the value from the environment with this same fallback.
 //
 // Set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_EMAIL) for any
 // database that is not a throwaway. The env-supplied value is never
 // echoed to the console — only the fallback is, because you need to be
-// told when the public one is in play.
+// told when the shared default is in play.
 const DEMO_ADMIN_EMAIL    = 'admin@portfolio.dev';
 const DEMO_ADMIN_PASSWORD = 'Admin@1234!';
 

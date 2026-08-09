@@ -4,3 +4,14 @@ values:
     value: 'http://localhost:5050'
     type: default
     enabled: true
+  # Local-only defaults, matching what `npm run seed` writes when
+  # SEED_ADMIN_PASSWORD is unset. For any deployed environment create a
+  # separate Postman environment and mark adminPassword as `secret`.
+  - key: adminEmail
+    value: 'admin@portfolio.dev'
+    type: default
+    enabled: true
+  - key: adminPassword
+    value: 'Admin@1234!'
+    type: default
+    enabled: true

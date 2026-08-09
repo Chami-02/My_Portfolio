@@ -169,7 +169,7 @@ Built from the **real repo source** (`AdminLoginPage.jsx`, `AdminLayout.jsx` and
 ### 6.1 Sign-in
 Glass card on an animated stage: two drifting aurora orbs, a scanline sweep, a floating logo with a pulsing ring, a growing accent rule, staggered field reveals and a sheen that travels across the button. Real error banner on bad credentials and a signing-in state.
 
-**Demo credentials:** `admin@portfolio.dev` / `Admin@1234!`
+**Sign-in:** there is no public demo account. A local admin user is created by `npm run seed`; the password comes from `SEED_ADMIN_PASSWORD`, falling back to a well-known development default when that is unset. Deployed environments always set it explicitly.
 
 ### 6.2 Shell
 Navbar (logo, CMS badge, admin email, ↗ Home, Sign out, isolated theme toggle) · sidebar with all six sections and live counts · per-tab title and meta line · rich footer (brand, live session card with running counts, Back to home page, Sign out, centred copyright). Background is a dense node lattice with cursor-linked strands — no clouds, no marquee, per the brief.

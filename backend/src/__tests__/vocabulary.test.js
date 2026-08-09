@@ -176,4 +176,54 @@ describe('Vocabulary API (PF-62)', () => {
     expect(res.status).toBe(404);
   });
 
+  // ── PF-62 follow-up: transaction fallback ──────────────────────────────────
+  // `transactional` must reflect what the SERVER supports, probed via
+  // `hello`, not whether a client-side startTransaction() call happened to
+  // not throw. The old implementation always reported true, because both
+  // startSession() and startTransaction() are client-side and cannot fail
+  // on a standalone server.
+  //
+  // These tests derive the expectation from the live topology, so they pass
+  // on a replica set (Atlas, and CI once it moves off standalone) and on a
+  // standalone mongod. On a replica set they prove the true branch; the
+  // false branch is asserted below but only genuinely exercised when the
+  // suite runs against a standalone server.
+  //
+  // MANUAL VERIFICATION REQUIRED for the standalone path:
+  //   docker compose up -d mongo
+  //   MONGO_URI=mongodb://localhost:27017/portfolio_scratch npm run dev
+  //   create a vocabulary entry, then delete it
+  //   expect 200, transactional: false, and the value stripped from content
+  it('DELETE reports transactional matching the server topology', async () => {
+    const info    = await mongoose.connection.db.admin().command({ hello: 1 });
+    const isRepl  = Boolean(info.setName || info.msg === 'isdbgrid');
+
+    const chip = await Vocabulary.create({ type: 'tech', value: 'ZZTestTxFlag' });
+    const proj = await Project.create({ ...VALID_PROJECT, tech: ['React', 'ZZTestTxFlag'] });
+
+    const res = await request(app)
+      .delete(`/api/vocabulary/tech/${chip._id}`)
+      .set(await authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.transactional).toBe(isRepl);
+
+    // The cascade must succeed either way — a standalone server loses
+    // atomicity, not the delete itself.
+    const after = await Project.findById(proj._id);
+    expect([...after.tech]).toEqual(['React']);
+    expect(await Vocabulary.findById(chip._id)).toBeNull();
+  });
+
+  it('DELETE reports transactional as a boolean, never undefined', async () => {
+    const chip = await Vocabulary.create({ type: 'tag', value: 'ZZTestTxType' });
+
+    const res = await request(app)
+      .delete(`/api/vocabulary/tag/${chip._id}`)
+      .set(await authHeader());
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.data.transactional).toBe('boolean');
+  });
+
 });

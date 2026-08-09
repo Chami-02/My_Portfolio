@@ -92,6 +92,43 @@ const createVocabulary = async (req, res, next) => {
   }
 };
 
+// ── Transaction support probe ────────────────────────────────────────────────
+// CHANGED IN PF-62 FOLLOW-UP.
+//
+// The previous version wrapped startSession()/startTransaction() in a
+// try/catch and treated a throw as "standalone server". That catch could
+// never fire: both calls are purely client-side and never contact the
+// server, so neither can report a topology it knows nothing about. The
+// real rejection arrived later — the first operation carrying the session
+// came back IllegalOperation (20), landed in the outer catch, and became a
+// 500 instead of a fallback. The fallback was unreachable code.
+//
+// Ask the server instead. `hello` reports `setName` on a replica set member
+// and `msg: 'isdbgrid'` on a mongos. A standalone mongod reports neither,
+// and standalone is the only topology that cannot run transactions.
+//
+// Cached for the process lifetime — topology does not change under a running
+// server, and this sits in the path of every delete.
+let _txSupport = null;
+
+async function supportsTransactions() {
+  if (_txSupport !== null) return _txSupport;
+
+  try {
+    const info = await mongoose.connection.db.admin().command({ hello: 1 });
+    _txSupport = Boolean(info.setName || info.msg === 'isdbgrid');
+  } catch {
+    // Only reached if the probe itself fails on a live connection (e.g. the
+    // user lacks permission to run admin commands). Assuming no transaction
+    // support is the safe read: the delete still completes, just without
+    // atomicity. Callers reach this only after a successful query, so an
+    // unready connection cannot poison the cache here.
+    _txSupport = false;
+  }
+
+  return _txSupport;
+}
+
 // ── DELETE /api/vocabulary/:type/:id ─────────────────────────────────────────
 // Protected. OPTION B: removes the chip AND strips it from all content.
 const deleteVocabulary = async (req, res, next) => {
@@ -106,14 +143,13 @@ const deleteVocabulary = async (req, res, next) => {
 
     const { model, field } = target;
 
-    // Try a transaction first. Falls back gracefully on standalone MongoDB.
-    let usedTransaction = false;
-    try {
+    // Ask the server what it supports, rather than inferring support from a
+    // client-side call not throwing.
+    const useTx = await supportsTransactions();
+
+    if (useTx) {
       session = await mongoose.startSession();
       session.startTransaction();
-      usedTransaction = true;
-    } catch {
-      session = null;   // standalone server — no transaction support
     }
 
     const opts = session ? { session } : {};
@@ -139,13 +175,20 @@ const deleteVocabulary = async (req, res, next) => {
         deleted:       item.value,
         strippedFrom:  strip.modifiedCount,
         label:         target.label,
-        transactional: usedTransaction,
+        transactional: useTx,
       },
     });
 
   } catch (err) {
     if (session) {
-      await session.abortTransaction();
+      // Abort gets its own error boundary. A failed abort must not replace
+      // the error that actually caused the failure — that is how a useful
+      // stack trace turns into a confusing one.
+      try {
+        await session.abortTransaction();
+      } catch (abortErr) {
+        console.error('vocabulary delete: abortTransaction failed:', abortErr.message);
+      }
       session.endSession();
     }
     if (err.name === 'CastError') {
