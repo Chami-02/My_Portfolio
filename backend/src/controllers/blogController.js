@@ -50,8 +50,9 @@ const getPostBySlug = async (req, res, next) => {
 
     if (!post) return next(new AppError('Blog post not found', 404));
 
-    // Increment view count (fire-and-forget — don't await)
-    Blog.findByIdAndUpdate(post._id, { $inc: { views: 1 } }).exec();
+    // Views are counted by PATCH /api/blog/:slug/view (PF-64), not here.
+    // Counting on read double-counted every view and bumped updatedAt,
+    // which pushed every post anyone read to the top of the admin panel.
 
     res.json({ status: 'success', data: post });
   } catch (err) { next(err); }
@@ -122,6 +123,31 @@ const deletePost = async (req, res, next) => {
     next(err);
   }
 };
+const incrementViews = async (req, res, next) => {
+  try {
+    const post = await Blog.findOneAndUpdate(
+      { slug: req.params.slug, published: true },
+      { $inc: { views: 1 } },
+      {
+        returnDocument: 'after',  // return the document AFTER the update
+        runValidators:  false,    // only touching a counter
+        timestamps:     false,    // a view is not an edit — reads must not
+                                  // bump updatedAt or the admin panel's
+                                  // "recently edited" ordering becomes noise
+        projection:     'slug views',
+      }
+    );
+
+    if (!post) {
+      return next(new AppError('No published post found with that slug', 404));
+    }
+
+    res.json({ status: 'success', data: { slug: post.slug, views: post.views } });
+
+  } catch (err) {
+    next(err);
+  }
+};
 
 module.exports = {
   blogRules,
@@ -132,4 +158,5 @@ module.exports = {
   updatePost,
   togglePublish,
   deletePost,
+  incrementViews,
 }

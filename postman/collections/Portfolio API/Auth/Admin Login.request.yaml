@@ -6,9 +6,9 @@ body:
   type: json
   content: "{\r
 
-    \    \"email\": \"admin@portfolio.dev\",\r
+    \    \"email\": \"{{adminEmail}}\",\r
 
-    \    \"password\": \"Admin@1234!\"\r
+    \    \"password\": \"{{adminPassword}}\"\r
 
     }"
 order: 1783086715883

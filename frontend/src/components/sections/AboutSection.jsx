@@ -1,5 +1,6 @@
 import { useInView } from '../../hooks/useInView';
 import { useAbout }  from '../../hooks/useAbout';
+import { apiUrl }    from '../../services/api';
 
 export function AboutSection() {
   const [ref, inView]                  = useInView();
@@ -44,8 +45,14 @@ export function AboutSection() {
               <a href="#projects" className="btn-primary" style={{ fontSize: '0.875rem', padding: '0.625rem 1.375rem' }}>
                 See My Work
               </a>
-              {about?.cvUrl && (
-                <a href={about.cvUrl} target="_blank" rel="noreferrer" className="btn-outline"
+              {/* PF-60: points at the public /api/resume redirect, not the raw
+                  Cloudinary URL — the redirect adds fl_attachment so the file
+                  downloads with its real name instead of opening in a tab, and
+                  the link keeps working after every replacement.
+                  Built via apiUrl() because the backend is on a different
+                  origin in production. */}
+              {about?.hasResume && (
+                <a href={apiUrl('/resume')} rel="noreferrer" className="btn-outline"
                   style={{ fontSize: '0.875rem', padding: '0.625rem 1.375rem' }}>
                   Download CV
                 </a>

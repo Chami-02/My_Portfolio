@@ -1,5 +1,12 @@
 import { test, expect } from '@playwright/test';
 
+// Credentials come from the environment so this suite can run against a
+// deployed environment, where the admin password is NOT the local default.
+// The fallbacks match what `npm run seed` writes when SEED_ADMIN_PASSWORD
+// is unset, so a plain local run needs no setup.
+const ADMIN_EMAIL    = process.env.E2E_ADMIN_EMAIL    || 'admin@portfolio.dev';
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'Admin@1234!';
+
 test.describe('Admin Authentication Flow', () => {
   test('unauthenticated users are redirected to login', async ({ page }) => {
     // Clear any existing auth
@@ -30,8 +37,8 @@ test.describe('Admin Authentication Flow', () => {
 
   test('correct credentials log in and redirect to dashboard', async ({ page }) => {
     await page.goto('/admin/login');
-    await page.fill('input[type="email"]',    'admin@portfolio.dev');
-    await page.fill('input[type="password"]', 'Admin@1234!');
+    await page.fill('input[type="email"]',    ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
     await page.click('button[type="submit"]');
 
     // Should redirect to /admin after successful login
@@ -42,8 +49,8 @@ test.describe('Admin Authentication Flow', () => {
   test('"View Site" link exists in admin sidebar', async ({ page }) => {
     // Login first
     await page.goto('/admin/login');
-    await page.fill('input[type="email"]',    'admin@portfolio.dev');
-    await page.fill('input[type="password"]', 'Admin@1234!');
+    await page.fill('input[type="email"]',    ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('/admin');
 

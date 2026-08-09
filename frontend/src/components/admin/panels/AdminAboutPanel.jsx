@@ -15,7 +15,7 @@ export function AdminAboutPanel() {
   const [form, setForm] = useState({
     name: '', title: '', location: '', email: '',
     bio: ['', ''], availabilityNote: '',
-    social: { github: '', linkedin: '', twitter: '', email: '' },
+    social: { github: '', linkedin: '', facebook: '', instagram: '', twitter: '' },
   });
   const [saved, setSaved] = useState(false);
 
@@ -30,11 +30,16 @@ export function AdminAboutPanel() {
         email:            about.email            || '',
         bio:              about.bio?.length ? about.bio : ['', ''],
         availabilityNote: about.availabilityNote || '',
+        // Spread first so any social field the API returns survives a save —
+        // listing keys explicitly here meant facebook/instagram were dropped
+        // from the form and then overwritten with nothing on submit.
         social: {
-          github:   about.social?.github   || '',
-          linkedin: about.social?.linkedin || '',
-          twitter:  about.social?.twitter  || '',
-          email:    about.social?.email    || '',
+          github:    '',
+          linkedin:  '',
+          facebook:  '',
+          instagram: '',
+          twitter:   '',
+          ...(about.social || {}),
         },
       });
     }
@@ -99,7 +104,7 @@ export function AdminAboutPanel() {
               { name: 'name',     label: 'Full Name',       placeholder: 'Parindra Chameekara' },
               { name: 'title',    label: 'Job Title',        placeholder: 'Full-Stack Developer' },
               { name: 'location', label: 'Location',         placeholder: 'Sri Lanka' },
-              { name: 'email',    label: 'Contact Email',    placeholder: 'your@email.com' },
+              { name: 'email',    label: 'Contact Email',    placeholder: 'parindrachameekara@gmail.com' },
               { name: 'availabilityNote', label: 'Availability Note', placeholder: 'Open to junior roles' },
             ].map(({ name, label, placeholder }) => (
               <div key={name}>
@@ -146,10 +151,12 @@ export function AdminAboutPanel() {
           <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1.25rem' }}>Social Links</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.875rem' }}>
             {[
-              { name: 'github',   label: 'GitHub URL',   placeholder: 'https://github.com/Chami-02' },
-              { name: 'linkedin', label: 'LinkedIn URL',  placeholder: 'https://linkedin.com/in/...' },
-              { name: 'twitter',  label: 'Twitter URL',   placeholder: 'https://twitter.com/...' },
-              { name: 'email',    label: 'Email Address', placeholder: 'your@email.com' },
+              { name: 'github',    label: 'GitHub URL',    placeholder: 'https://github.com/Chami-02' },
+              { name: 'linkedin',  label: 'LinkedIn URL',  placeholder: 'https://linkedin.com/in/...' },
+              { name: 'facebook',  label: 'Facebook URL',  placeholder: 'https://facebook.com/...' },
+              { name: 'instagram', label: 'Instagram URL', placeholder: 'https://instagram.com/...' },
+              // No email field here — it's edited once under Basic Info above.
+              { name: 'twitter',   label: 'Twitter URL',   placeholder: 'Leave empty — no account yet' },
             ].map(({ name, label, placeholder }) => (
               <div key={name}>
                 <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',

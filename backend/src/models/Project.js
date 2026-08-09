@@ -44,6 +44,34 @@ const projectSchema = new mongoose.Schema(
       type:    Number,
       default: 0,
     },
+
+    // ── NEW IN PF-52 ────────────────────────────────────────────
+    // Background image shown BEHIND the project card content.
+    // Different from imageUrl, which is displayed as content.
+    // The admin panel uploads to Cloudinary and stores the URL here.
+    backgroundImage: {
+      src: {
+        type:    String,
+        default: '',
+        validate: {
+          // Allow: empty string (no image), or an http/https URL.
+          // Reject: data: URIs — they bloat the database and can
+          // carry stored-XSS payloads via SVG.
+          validator: function (value) {
+            if (!value) return true;                    // empty is valid
+            return /^https?:\/\//i.test(value);
+          },
+          message: 'Background image must be an http(s) URL',
+        },
+      },
+      opacity: {
+        type:    Number,
+        default: 0.75,
+        min:     [0.1, 'Opacity cannot be below 0.1'],
+        max:     [1.0, 'Opacity cannot exceed 1.0'],
+      },
+    },
+    // ────────────────────────────────────────────────────────────
   },
   { timestamps: true }  // Adds createdAt and updatedAt automatically
 );
