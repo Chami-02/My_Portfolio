@@ -319,6 +319,42 @@ const ABOUT_DATA = {
   ],
 };
 
+// ── Admin credentials ──────────────────────────────────────────────────────
+// `Admin@1234!` is published in docs/design/DESIGN.md as the portfolio's
+// demo login and hardcoded in the Playwright suite, so it stays as the
+// local fallback — the demo flow is unchanged.
+//
+// What changed: the password is no longer written into whatever database
+// this seed happens to point at without saying so. It grants full write
+// access to the admin panel and anyone with the repo can read it, so a
+// database seeded with it must be treated as publicly writable.
+//
+// Set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_EMAIL) for any
+// database that is not a throwaway. The env-supplied value is never
+// echoed to the console — only the fallback is, because you need to be
+// told when the public one is in play.
+const DEMO_ADMIN_EMAIL    = 'admin@portfolio.dev';
+const DEMO_ADMIN_PASSWORD = 'Admin@1234!';
+
+function resolveAdminCredentials() {
+  const email    = process.env.SEED_ADMIN_EMAIL || DEMO_ADMIN_EMAIL;
+  const password = process.env.SEED_ADMIN_PASSWORD;
+
+  if (password) return { email, password, fromEnv: true };
+
+  // Backstop only. NODE_ENV is 'development' even when seeding a live
+  // Atlas cluster from a laptop, so this catches deliberate production
+  // runs, not the common case — the warning below is what does the work.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'Refusing to seed with the public demo password while NODE_ENV=production. ' +
+      'Set SEED_ADMIN_PASSWORD first.'
+    );
+  }
+
+  return { email, password: DEMO_ADMIN_PASSWORD, fromEnv: false };
+}
+
 // ── NEW IN PF-65 ───────────────────────────────────────────────────────────
 // Build the chip vocabulary from whatever the seed just inserted, so the
 // admin pickers are populated on a fresh database. Runs LAST — it reads
@@ -377,11 +413,17 @@ async function seed() {
     console.log('👤 Seeded about/profile data');
 
     // Create admin user — password is hashed by the pre-save hook in User.js
-    await User.create({
-      email:    'admin@portfolio.dev',
-      password: 'Admin@1234!',
-    });
-    console.log('🔐 Created admin user: admin@portfolio.dev / Admin@1234!');
+    const admin = resolveAdminCredentials();
+    await User.create({ email: admin.email, password: admin.password });
+
+    if (admin.fromEnv) {
+      console.log(`🔐 Created admin user: ${admin.email} (password from SEED_ADMIN_PASSWORD)`);
+    } else {
+      console.log(`🔐 Created admin user: ${admin.email} / ${DEMO_ADMIN_PASSWORD}`);
+      console.log('⚠️  That is the PUBLIC demo password from DESIGN.md — this database');
+      console.log('   is now writable by anyone who reads the repo. Set SEED_ADMIN_PASSWORD');
+      console.log('   before seeding anything you care about.');
+    }
 
     // Last — reads back from Project and Blog, so they must exist first
     await seedVocabulary();
