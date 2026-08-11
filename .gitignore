@@ -12,4 +12,3 @@ backend/dns-fix.local.js
 .env
 .env.local
 .env.e2e
-.env.e2e
