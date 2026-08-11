@@ -3,13 +3,12 @@
  * Design tokens — PF-67.
  * Transcribed from the Portfolio Revolution prototype.
  *
- * Two kinds of token live here:
- *   flat     — a complete colour, e.g. --acc: #FCA311
- *   triplet  — bare R,G,B for use in rgba(), e.g. --srf → 20,33,61
+ * Loaded AFTER global.css (see main.jsx) so these values win over
+ * the phase-1 tokens defined at global.css:10. Two names overlap —
+ * --bg and --font-mono — both visually equivalent.
  *
  * The five triplets (--gnd --srf --ln --ftr --shd) MUST stay as
- * triplets. Section grounds are translucent and layer over the
- * canvas; rgba() cannot accept a hex, and the failure is silent.
+ * bare R,G,B. rgba() cannot accept a hex, and the failure is silent.
  */
 
 :root {

@@ -9,8 +9,7 @@
 /* ─── DESIGN TOKENS ─────────────────────────────────────────── */
 :root {
   /* Background layers — go from darkest to lightest */
-  /* --bg now comes from tokens.css (PF-67) — defining it here again
-     would silently win the cascade and revert dark mode to phase-1 slate. */
+  --bg:           #030712;   /* Page background (near-black) */
   --bg-surface:   #0c111d;   /* Card/panel surface */
   --bg-elevated:  #131929;   /* Elevated elements (modals, dropdowns) */
 

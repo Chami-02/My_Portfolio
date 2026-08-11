@@ -1,11 +1,11 @@
 // frontend/src/styles/__tests__/tokens.test.js
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { describe, it, expect } from 'vitest';
 
-const css = readFileSync(
-  resolve(__dirname, '../tokens.css'), 'utf8'
-);
+const here = dirname(fileURLToPath(import.meta.url));
+const css  = readFileSync(resolve(here, '../tokens.css'), 'utf8');
 
 const FLAT = [
   '--acc', '--acc2', '--acc2rgb', '--accInk',
