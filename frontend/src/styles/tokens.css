@@ -1,0 +1,115 @@
+/* frontend/src/styles/tokens.css
+ *
+ * Design tokens — PF-67.
+ * Transcribed from the Portfolio Revolution prototype.
+ *
+ * Two kinds of token live here:
+ *   flat     — a complete colour, e.g. --acc: #FCA311
+ *   triplet  — bare R,G,B for use in rgba(), e.g. --srf → 20,33,61
+ *
+ * The five triplets (--gnd --srf --ln --ftr --shd) MUST stay as
+ * triplets. Section grounds are translucent and layer over the
+ * canvas; rgba() cannot accept a hex, and the failure is silent.
+ */
+
+:root {
+  /* ── Accent ──────────────────────────────────────────────── */
+  --acc:      #FCA311;   /* the loud one */
+  --acc2:     #7AA6D6;   /* secondary steel — theme toggle only */
+  --acc2rgb:  122,166,214;
+  --accInk:   #0a0a0a;   /* ink placed ON accent fills */
+
+  /* ── Ground and text ─────────────────────────────────────── */
+  --bg:       #050609;
+  --text:     #E5E5E5;
+  --strong:   #ffffff;
+  --muted:    #93a0b8;
+  --muted2:   #6b7891;
+  --faint:    #5c677d;
+  --thumb:    #1d2740;   /* scrollbar */
+
+  /* ── Brand literals ──────────────────────────────────────── */
+  --navy:     #14213D;
+  --ink:      #050609;
+  --grey:     #E5E5E5;
+
+  /* ── Channel triplets — consume via rgba(var(--x), .nn) ──── */
+  --gnd:  5,6,9;          /* page ground */
+  --srf:  20,33,61;       /* raised surface */
+  --ln:   229,229,229;    /* lines and borders */
+  --ftr:  10,16,32;       /* footer and banded sections */
+  --shd:  0,0,0;          /* shadows */
+
+  /* ── Status ──────────────────────────────────────────────── */
+  --ok:      #34d399;
+  --danger:  #f87171;
+}
+
+html[data-theme="light"] {
+  /* Accent is DEEPENED, not lightened. #FCA311 on a light ground
+     sits near 2:1 against a 4.5:1 requirement — it fails AA badly. */
+  --acc:      #7E4800;
+  --acc2:     #2F5D8C;
+  --acc2rgb:  47,93,140;
+  --accInk:   #ffffff;   /* ink FLIPS to white on accent fills */
+
+  --bg:       #EDE8DF;   /* warm paper */
+  --text:     #16223B;
+  --strong:   #0B1220;
+  --muted:    #45536D;
+  --muted2:   #4F5D76;
+  --faint:    #55637C;
+  --thumb:    #C9C2B6;
+
+  /* Warm whites, not pure white — #FFF against #EDE8DF paper reads
+     cold and discordant. --srf stays marginally brighter than --gnd
+     so raised cards still separate from the ground. */
+  --gnd:  251,248,243;   /* #FBF8F3 */
+  --srf:  254,252,248;   /* #FEFCF8 */
+
+  --ln:   20,33,61;
+  --ftr:  226,212,190;   /* tan chrome */
+  --shd:  20,33,61;
+
+  --ok:      #0E7A55;
+  --danger:  #B4231F;
+}
+
+/* ── Resets ──────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  overflow-x: hidden;          /* canvas and marquee overflow by design */
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+a          { color: var(--acc); text-decoration: none; }
+a:hover    { color: var(--strong); }
+::selection{ background: var(--acc); color: var(--bg); }
+
+::-webkit-scrollbar        { width: 8px; }
+::-webkit-scrollbar-track  { background: var(--bg); }
+::-webkit-scrollbar-thumb  { background: var(--thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--acc); }
+
+/* ── Light-mode-only rules ───────────────────────────────── */
+html[data-theme="light"] [data-lightplate] { opacity: 1; }
+html[data-theme="light"] [data-terminal]   { box-shadow: 0 30px 60px rgba(20,33,61,.22); }
+
+/* ────────────────────────────────────────────────────────────
+ * NOTE FOR THE THEME PROVIDER (PF-72)
+ *
+ * applyTheme() must NOT write --acc inline on <html> unless the
+ * user has genuinely overridden the accent.
+ *
+ * An inline custom property beats the theme block above it in the
+ * cascade. Once written, every future edit to the tokens in this
+ * file becomes dead code — the page keeps rendering the stale
+ * inline value and nothing you change here has any effect.
+ *
+ * Correct behaviour: clear the inline value, then read the
+ * computed one.
+ * ──────────────────────────────────────────────────────────── */

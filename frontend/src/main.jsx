@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools }               from '@tanstack/react-query-devtools';
 import { Analytics }                        from '@vercel/analytics/react';
 import App from './App.jsx';
+import './styles/tokens.css';    // must come FIRST — see PF-67
 import './styles/global.css';
 
 const queryClient = new QueryClient({
