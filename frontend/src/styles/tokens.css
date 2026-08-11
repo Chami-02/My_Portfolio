@@ -42,6 +42,11 @@
   /* ── Status ──────────────────────────────────────────────── */
   --ok:      #34d399;
   --danger:  #f87171;
+
+  /* ── Typography (PF-68) ──────────────────────────────────── */
+  --font-display: 'Anton', 'Anton Fallback', 'Arial Narrow', sans-serif;
+  --font-body:    'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
 html[data-theme="light"] {
@@ -94,6 +99,20 @@ a:hover    { color: var(--strong); }
 ::-webkit-scrollbar-thumb  { background: var(--thumb); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--acc); }
 
+/* ── Anton guard (PF-68) ─────────────────────────────────────
+ * Anton ships ONE weight. Any other value triggers synthetic
+ * bolding, which looks wrong on a condensed face. This makes the
+ * rule enforceable rather than something to remember.
+ *
+ * Works for both Tailwind (className="font-display") and CSS
+ * Modules (composes / data attribute).
+ */
+.font-display,
+[data-display] {
+  font-family: var(--font-display);
+  font-weight: 400 !important;
+}
+
 /* ── Light-mode-only rules ───────────────────────────────── */
 html[data-theme="light"] [data-lightplate] { opacity: 1; }
 html[data-theme="light"] [data-terminal]   { box-shadow: 0 30px 60px rgba(20,33,61,.22); }
@@ -111,4 +130,41 @@ html[data-theme="light"] [data-terminal]   { box-shadow: 0 30px 60px rgba(20,33,
  *
  * Correct behaviour: clear the inline value, then read the
  * computed one.
+ * ──────────────────────────────────────────────────────────── */
+
+/* ── Fallback metric override (PF-68) ────────────────────────
+ * Anton is condensed; the fallback isn't. Without adjustment the
+ * hero headline visibly reflows on font swap, costing CLS.
+ *
+ * size-adjust scales the fallback's glyph widths closer to Anton's
+ * metrics so the swap is far less violent.
+ *
+ * 88% is a starting point — tune against real rendering in Step 6.
+ */
+@font-face {
+  font-family: 'Anton Fallback';
+  src: local('Arial Narrow'), local('Helvetica Neue Condensed'), local('Impact');
+  size-adjust: 88%;
+  ascent-override: 90%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+/* ── Type scale, read from the prototype ─────────────────────
+ *
+ * Element        Size                          Tracking   Leading
+ * ─────────────────────────────────────────────────────────────
+ * Hero name      clamp(44px, 9vw, 112px)       OPENED      0.9
+ * Section title  clamp(32px, 6vw, 72px)        -0.02em     0.95
+ * Card title     clamp(20px, 2.4vw, 30px)      -0.01em     1.1
+ * Body           16px  (fixed)                 normal      1.6
+ * Small body     14px  (fixed)                 normal      1.6
+ * Mono label     11–13px (fixed), uppercase    +0.08em     1.4
+ *
+ * The hero name uses POSITIVE letter-spacing while section titles
+ * use negative. Deliberate, and part of the design's identity —
+ * do not "correct" it to match.
+ *
+ * Body and mono are fixed, not fluid. Scaling small text with
+ * clamp() makes it illegible at the bottom of the range.
  * ──────────────────────────────────────────────────────────── */
