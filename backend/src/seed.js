@@ -1,6 +1,7 @@
 require('dotenv').config();
 require('dns').setServers(['8.8.8.8', '8.8.4.4']); 
 const mongoose = require('mongoose');
+const { assertExplicitDatabase } = require('./config/db');
 
 const Project = require('./models/Project');
 const Skill   = require('./models/Skill');
@@ -386,6 +387,13 @@ async function seedVocabulary() {
 
 async function seed() {
   try {
+    // PF-66 — this script deletes every document before it writes anything,
+    // and it connects directly rather than through connectDB(), so the guard
+    // there does not cover it. A pathless URI would resolve to the database
+    // named "test", which is production. Refuse before connecting, not after.
+    const dbName = assertExplicitDatabase(process.env.MONGO_URI);
+    console.log(`→ connecting to database: ${dbName}`);
+
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Connected to MongoDB');
 

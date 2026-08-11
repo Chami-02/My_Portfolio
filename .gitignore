@@ -7,5 +7,9 @@ backups/
 backend/dns-fix.local.js
 
 # Local environment files with real secrets — never commit these
+# (`.env` does not match `.env.e2e`, so the E2E file needs its own line.
+#  `.env.e2e.example` stays tracked — the pattern is an exact name match.)
 .env
 .env.local
+.env.e2e
+.env.e2e

@@ -5,6 +5,7 @@ const cors       = require('cors');
 const morgan     = require('morgan');
 const helmet     = require('helmet');
 const multer     = require('multer');
+const mongoose   = require('mongoose');
 const path       = require('path');
 
 const corsOptions        = require('./config/corsOptions');
@@ -32,11 +33,27 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Health check ─────────────────────────────────────────────────────────────
 // This endpoint is used by Docker, Railway, and our CI pipeline
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', async (_req, res) => {
+  // PF-66 — Playwright's global-setup hits this route as its very first
+  // request against a cold server, before any other route has triggered the
+  // connectDB() middleware below. Connect here so `database` is populated on
+  // that first hit. A DB outage must NOT fail this check — Docker/Railway
+  // restart the process on a failed health check, and restarting does not
+  // fix a downed database — so connection errors are swallowed and reported
+  // as `database: null` rather than a non-200 response.
+  let database = null;
+  try {
+    await connectDB();
+    database = mongoose.connection.name || null;
+  } catch (_err) {
+    // swallowed — see comment above
+  }
+
   res.json({
     status:    'ok',
     env:       process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
+    database,
   });
 });
 app.use(async (_req, _res, next) => {

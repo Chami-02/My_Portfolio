@@ -2,7 +2,8 @@
 // Add your production Vercel URL here before deploying (Sprint 8).
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',                    // Local dev (Docker)
-  'https://my-portfoliofrontend-henna.vercel.app',  
+  'http://localhost:5174',                    // E2E frontend (PF-66) — Playwright only
+  'https://my-portfoliofrontend-henna.vercel.app',
   // 'https://your-custom-domain.me',          // ← Add once you set up PF-51 (custom domain)
 ];
 
