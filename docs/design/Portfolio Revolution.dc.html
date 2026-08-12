@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Anton&amp;family=Space+Grotesk:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+:root{--acc:#FCA311;--navy:#14213D;--ink:#050609;--grey:#E5E5E5;--gnd:5,6,9;--srf:20,33,61;--ln:229,229,229;--ftr:10,16,32;--shd:0,0,0;--bg:#050609;--text:#E5E5E5;--strong:#ffffff;--muted:#93a0b8;--muted2:#6b7891;--faint:#5c677d;--thumb:#1d2740;--acc2:#7AA6D6;--acc2rgb:122,166,214;--accInk:#0a0a0a}
+html[data-theme="light"]{--gnd:255,255,255;--srf:255,255,255;--ln:20,33,61;--ftr:233,227,216;--shd:20,33,61;--bg:#EDE8DF;--text:#16223B;--strong:#0B1220;--muted:#45536D;--muted2:#4F5D76;--faint:#55637C;--thumb:#C9C2B6;--acc:#7E4800;--ok:#0E7A55;--acc2:#2F5D8C;--acc2rgb:47,93,140;--ftr:226,212,190;--accInk:#ffffff}
+html{background:var(--bg)}
+html[data-theme="light"] [data-lightplate]{opacity:1}
+html[data-theme="light"] [data-terminal]{box-shadow:0 30px 60px rgba(20,33,61,.22)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:var(--acc,#FCA311);text-decoration:none}
+a:hover{color:var(--strong)}
+::selection{background:var(--acc,#FCA311);color:var(--bg)}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--thumb);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--acc,#FCA311)}
+@keyframes marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes flt{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes dot{0%,100%{box-shadow:0 0 0 0 rgba(252,163,17,.55)}70%{box-shadow:0 0 0 10px rgba(252,163,17,0)}}
+@keyframes boltp{0%,100%{opacity:1;filter:drop-shadow(0 0 26px rgba(252,163,17,.55))}45%{opacity:.72;filter:drop-shadow(0 0 46px rgba(252,163,17,.95))}}
+@keyframes glowdot{0%,100%{box-shadow:0 0 8px rgba(252,163,17,.7);transform:scale(1)}50%{box-shadow:0 0 18px rgba(252,163,17,1);transform:scale(1.28)}}
+@keyframes glowpulse{0%,100%{box-shadow:0 0 16px rgba(252,163,17,.16)}50%{box-shadow:0 0 26px rgba(252,163,17,.4)}}
+@keyframes scanline{0%{transform:translateY(-120%)}100%{transform:translateY(1200%)}}
+@keyframes orbdot{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes flicker{0%,100%{opacity:1}42%{opacity:1}45%{opacity:.35}47%{opacity:1}72%{opacity:.6}74%{opacity:1}}
+@keyframes riseIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes drift{0%,100%{transform:translate3d(0,0,0)}33%{transform:translate3d(22px,-14px,0)}66%{transform:translate3d(-18px,10px,0)}}
+@keyframes sweep{0%{background-position:0 -160%}100%{background-position:0 160%}}
+@keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.022)}}
+@keyframes pulsering{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.06);opacity:1}}
+@keyframes shimmerline{0%{background-position:-220% 0}100%{background-position:220% 0}}
+@keyframes nudge{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(9px);opacity:1}}
+@keyframes shimmer{0%{background-position:-220% 0}100%{background-position:220% 0}}
+</style>
+</helmet>
+
+<div style="position:relative;width:100%;overflow-x:hidden">
+
+<!-- grain + cursor glow -->
+
+<canvas ref="{{ starRef }}" aria-hidden="true" style="position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block"></canvas>
+<div ref="{{ glowRef }}" aria-hidden="true" style="position:fixed;top:0;left:0;width:520px;height:520px;margin:-260px 0 0 -260px;z-index:1;pointer-events:none;border-radius:50%;background:radial-gradient(circle,rgba(252,163,17,.10) 0%,rgba(var(--srf),.06) 45%,transparent 70%)"></div>
+
+<!-- ══ NAV ══ -->
+<header style="position:fixed;top:0;left:0;right:0;z-index:60;background:rgba(var(--ftr),.86);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(var(--ln),.08)">
+  <div style="max-width:1240px;margin:0 auto;padding:12px clamp(16px,4vw,40px);display:flex;align-items:center;justify-content:space-between;gap:20px">
+    <a href="#hero" style="display:flex;align-items:center;gap:12px;color:var(--strong)">
+      <img src="assets/logo.png" alt="Parindra Gallage" width="44" height="44" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--acc,#FCA311);box-shadow:0 0 18px rgba(252,163,17,.35)">
+      <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;letter-spacing:.02em;color:var(--strong)">PARINDRA<span style="color:var(--acc,#FCA311)">.</span>DEV</span>
+    </a>
+    <nav style="display:flex;align-items:center;gap:4px">
+      <a href="#about" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.12em;padding:9px 13px;border-radius:8px;color:var(--muted)" style-hover="color:var(--strong);background:rgba(252,163,17,.10)">ABOUT</a>
+      <a href="#skills" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.12em;padding:9px 13px;border-radius:8px;color:var(--muted)" style-hover="color:var(--strong);background:rgba(252,163,17,.10)">SKILLS</a>
+      <a href="#projects" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.12em;padding:9px 13px;border-radius:8px;color:var(--muted)" style-hover="color:var(--strong);background:rgba(252,163,17,.10)">PROJECTS</a>
+      <a href="#blog" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.12em;padding:9px 13px;border-radius:8px;color:var(--muted)" style-hover="color:var(--strong);background:rgba(252,163,17,.10)">BLOG</a>
+      <a href="#contact" style="margin-left:4px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.12em;padding:10px 16px;border-radius:999px;color:var(--acc,#FCA311);border:1px solid rgba(252,163,17,.45);background:rgba(252,163,17,.08);text-shadow:0 0 14px rgba(252,163,17,.55);box-shadow:0 0 18px rgba(252,163,17,.18);animation:glowpulse 3s ease-in-out infinite" style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);text-shadow:none">CONTACT</a>
+      <span aria-hidden="true" style="width:1px;height:24px;margin:0 4px;background:rgba(var(--ln),.16)"></span>
+      <button onClick="{{ toggleTheme }}" aria-label="Toggle colour theme" style="display:inline-flex;align-items:center;gap:10px;margin-left:2px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;padding:8px 13px 8px 10px;border-radius:999px;background:rgba(var(--srf),.5);border:1px solid var(--acc2);color:var(--acc2);cursor:pointer;transition:color .25s,border-color .25s,background .25s,box-shadow .25s" style-hover="color:var(--strong);background:rgba(var(--acc2rgb),.16);box-shadow:0 0 20px rgba(var(--acc2rgb),.35)">
+        <span aria-hidden="true" style="position:relative;display:inline-block;flex:none;width:30px;height:15px;border-radius:999px;background:rgba(var(--acc2rgb),.16);border:1px solid var(--acc2)">
+          <span data-knob="" style="position:absolute;top:1.5px;left:1.5px;width:10px;height:10px;border-radius:50%;background:var(--acc2);box-shadow:0 0 10px rgba(var(--acc2rgb),.9);transition:transform .4s cubic-bezier(.34,1.56,.4,1)"></span>
+        </span>{{ themeLabel }}
+      </button>
+      <a href="Admin.dc.html" style="margin-left:8px;display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.12em;padding:10px 16px;border-radius:999px;color:var(--acc,#FCA311);border:1px solid rgba(252,163,17,.45);background:rgba(252,163,17,.08);text-shadow:0 0 14px rgba(252,163,17,.55);transition:color .25s,background .25s" style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);text-shadow:none">
+        <span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:var(--acc,#FCA311);box-shadow:0 0 9px rgba(252,163,17,.9)"></span>ADMIN
+      </a>
+    </nav>
+  </div>
+  <div style="height:2px;background:rgba(var(--ln),.06)"><div ref="{{ progressRef }}" style="height:2px;width:0%;background:linear-gradient(90deg,var(--acc,#FCA311),var(--strong))"></div></div>
+</header>
+
+<!-- ══ HERO ══ -->
+<section id="hero" data-screen-label="Hero" style="position:relative;min-height:100vh;padding:clamp(120px,16vh,180px) clamp(16px,4vw,40px) 70px;display:flex;align-items:center;background:radial-gradient(120% 90% at 78% 18%,rgba(var(--srf),.62) 0%,rgba(var(--gnd),.55) 62%)">
+  <div aria-hidden="true" data-para="0.12" style="position:absolute;inset:0;background-image:linear-gradient(rgba(252,163,17,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(252,163,17,.05) 1px,transparent 1px);background-size:74px 74px;mask-image:radial-gradient(90% 70% at 50% 30%,#000 0%,transparent 75%);-webkit-mask-image:radial-gradient(90% 70% at 50% 30%,#000 0%,transparent 75%)"></div>
+
+  <div style="position:relative;z-index:2;max-width:1240px;margin:0 auto;width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,430px),1fr));gap:clamp(28px,5vw,56px);align-items:center">
+
+    <div>
+      <div data-reveal="up" style="display:inline-flex;align-items:center;gap:9px;border:1px solid rgba(252,163,17,.5);background:rgba(252,163,17,.10);border-radius:999px;padding:8px 16px;margin-bottom:26px;box-shadow:0 0 22px rgba(252,163,17,.22),inset 0 0 18px rgba(252,163,17,.08);animation:glowpulse 3s ease-in-out infinite">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--acc,#FCA311);animation:dot 2s ease-out infinite"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;color:var(--acc,#FCA311);text-shadow:0 0 14px rgba(252,163,17,.7)">OPEN TO OPPORTUNITIES</span>
+      </div>
+
+      <p data-reveal="up" data-delay="60" style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.28em;color:var(--muted2);margin:0 0 14px">HEY — I AM</p>
+
+      <h1 data-reveal="up" data-delay="120" style="font-family:'Anton',Impact,sans-serif;font-size:clamp(56px,9.4vw,138px);line-height:.86;letter-spacing:.022em;text-transform:uppercase;color:var(--strong);margin:0 0 22px">
+        <span style="display:block;margin-bottom:.10em">Parindra</span>
+        <span style="display:block;color:var(--acc,#FCA311)">Gallage</span>
+      </h1>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px">
+        <span data-reveal="pop" data-delay="200" style="display:inline-flex;align-items:center;gap:9px;padding:8px 14px;border-radius:999px;border:1px solid rgba(252,163,17,.28);background:rgba(var(--srf),.55);font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--text);transition:border-color .25s,background .25s,transform .25s" style-hover="border-color:var(--acc,#FCA311);background:rgba(252,163,17,.12);transform:translateY(-2px)">
+          <span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--acc,#FCA311);box-shadow:0 0 10px rgba(252,163,17,.9);animation:glowdot 2.4s ease-in-out infinite"></span>Full-Stack Web Developer
+        </span>
+        <span data-reveal="pop" data-delay="280" style="display:inline-flex;align-items:center;gap:9px;padding:8px 14px;border-radius:999px;border:1px solid rgba(252,163,17,.28);background:rgba(var(--srf),.55);font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--text);transition:border-color .25s,background .25s,transform .25s" style-hover="border-color:var(--acc,#FCA311);background:rgba(252,163,17,.12);transform:translateY(-2px)">
+          <span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--acc,#FCA311);box-shadow:0 0 10px rgba(252,163,17,.9);animation:glowdot 3.1s ease-in-out infinite"></span>Cloud &amp; DevOps Enthusiast
+        </span>
+        <span data-reveal="pop" data-delay="360" style="display:inline-flex;align-items:center;gap:9px;padding:8px 14px;border-radius:999px;border:1px solid rgba(252,163,17,.28);background:rgba(var(--srf),.55);font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.06em;color:var(--text);transition:border-color .25s,background .25s,transform .25s" style-hover="border-color:var(--acc,#FCA311);background:rgba(252,163,17,.12);transform:translateY(-2px)">
+          <span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--acc,#FCA311);box-shadow:0 0 10px rgba(252,163,17,.9);animation:glowdot 2.7s ease-in-out infinite"></span>Continuous Learner
+        </span>
+      </div>
+
+      <p data-reveal="up" data-delay="260" style="max-width:470px;color:var(--muted);font-size:clamp(14.5px,1.5vw,17px);line-height:1.75;margin:0 0 34px">
+        I build full-stack web applications with the MERN stack — containerized with Docker, tracked in Jira, shipped with CI/CD. Learning in public, one sprint at a time.
+      </p>
+
+      <div data-reveal="up" data-delay="320" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:44px">
+        <a href="#projects" style="display:inline-flex;align-items:center;gap:10px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;letter-spacing:.1em;padding:16px 26px;border-radius:999px;box-shadow:0 12px 34px rgba(252,163,17,.3)" style-hover="color:var(--accInk);transform:translateY(-3px);box-shadow:0 20px 46px rgba(252,163,17,.45)">VIEW MY WORK →</a>
+        <a href="#contact" style="display:inline-flex;align-items:center;gap:10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:500;font-size:12.5px;letter-spacing:.1em;padding:16px 26px;border-radius:999px;border:1px solid rgba(var(--ln),.22)" style-hover="color:var(--strong);border-color:var(--acc,#FCA311);background:rgba(252,163,17,.08)" data-cv="">DOWNLOAD CV</a>
+      </div>
+
+    </div>
+
+    <!-- portrait stage -->
+    <div data-tilt="" style="position:relative;height:clamp(430px,60vw,680px);display:flex;align-items:center;justify-content:center;perspective:1100px">
+      <div aria-hidden="true" style="position:absolute;inset:0;margin:auto;width:min(104%,600px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(252,163,17,.20) 0%,rgba(var(--srf),.55) 40%,transparent 72%)"></div>
+      <div aria-hidden="true" style="position:absolute;inset:0;margin:auto;width:min(98%,560px);aspect-ratio:1;border:1px dashed rgba(var(--ln),.14);border-radius:50%;animation:spin 52s linear infinite"></div>
+      <div aria-hidden="true" style="position:absolute;inset:0;margin:auto;width:min(74%,430px);aspect-ratio:1;border:1px solid rgba(252,163,17,.22);border-radius:50%;animation:pulsering 5.5s ease-in-out infinite"></div>
+
+      <div aria-hidden="true" data-lightplate="" style="position:absolute;z-index:2;left:50%;bottom:3%;width:min(98%,560px);height:82%;margin-left:min(-49%,-280px);border-radius:50%;background:radial-gradient(62% 60% at 50% 45%,rgba(237,232,223,.98),rgba(237,232,223,.72) 54%,rgba(237,232,223,0) 84%);opacity:0;transition:opacity .4s"></div>
+      <div data-reveal="rise" data-delay="180" style="position:relative;z-index:3;height:100%;display:flex;align-items:flex-end">
+        <div data-tilt-inner="" style="position:relative;height:100%;transition:transform .35s cubic-bezier(.2,.8,.2,1);transform-style:preserve-3d">
+          <img data-heroimg="" src="assets/hero-ai.png" alt="Parindra Gallage" style="height:100%;max-width:100%;object-fit:contain;display:block;animation:breathe 9s ease-in-out infinite">
+        </div>
+      </div>
+
+      <div aria-hidden="true" style="position:absolute;z-index:2;top:8%;left:-6%;width:clamp(120px,20vw,230px);height:clamp(46px,7vw,84px);border-radius:999px;background:radial-gradient(60% 100% at 40% 50%,rgba(226,235,255,.20),rgba(226,235,255,.06) 60%,transparent 75%);filter:blur(10px);animation:drift 22s ease-in-out infinite"></div>
+      <div aria-hidden="true" style="position:absolute;z-index:2;top:38%;right:-8%;width:clamp(140px,24vw,280px);height:clamp(52px,8vw,96px);border-radius:999px;background:radial-gradient(60% 100% at 60% 50%,rgba(226,235,255,.16),rgba(226,235,255,.05) 60%,transparent 78%);filter:blur(12px);animation:drift 28s ease-in-out 3s infinite reverse"></div>
+      <div aria-hidden="true" style="position:absolute;z-index:4;bottom:14%;left:2%;width:clamp(100px,18vw,210px);height:clamp(40px,6vw,74px);border-radius:999px;background:radial-gradient(60% 100% at 50% 50%,rgba(226,235,255,.14),transparent 76%);filter:blur(9px);animation:drift 19s ease-in-out 1.5s infinite"></div>
+      <div aria-hidden="true" style="position:absolute;z-index:2;top:66%;right:6%;width:clamp(90px,15vw,170px);height:clamp(34px,5vw,62px);border-radius:999px;background:radial-gradient(60% 100% at 50% 50%,rgba(252,163,17,.10),transparent 76%);filter:blur(10px);animation:drift 25s ease-in-out 2s infinite reverse"></div>
+
+      <div data-reveal="pop" data-delay="700" style="position:absolute;z-index:5;top:16%;left:-2%;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:rgba(var(--gnd),.82);border:1px solid rgba(252,163,17,.3);backdrop-filter:blur(8px);animation:flt 5.5s ease-in-out infinite">
+        <span style="width:8px;height:8px;background:var(--acc,#FCA311);border-radius:2px"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">React</span>
+      </div>
+      <div data-reveal="pop" data-delay="800" style="position:absolute;z-index:5;top:46%;right:-3%;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:rgba(var(--gnd),.82);border:1px solid rgba(var(--ln),.16);backdrop-filter:blur(8px);animation:flt 6.5s ease-in-out .8s infinite">
+        <span style="width:8px;height:8px;background:#34d399;border-radius:50%"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">Node.js</span>
+      </div>
+      <div data-reveal="pop" data-delay="900" style="position:absolute;z-index:5;bottom:22%;right:4%;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:rgba(var(--gnd),.82);border:1px solid rgba(var(--ln),.16);backdrop-filter:blur(8px);animation:flt 5.9s ease-in-out .4s infinite">
+        <span style="width:8px;height:8px;background:#61dafb;border-radius:2px;transform:rotate(45deg)"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">Docker</span>
+      </div>
+      <div data-reveal="pop" data-delay="980" style="position:absolute;z-index:5;bottom:6%;left:8%;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:rgba(var(--gnd),.82);border:1px solid rgba(var(--ln),.16);backdrop-filter:blur(8px);animation:flt 7s ease-in-out 1.1s infinite">
+        <span style="width:8px;height:8px;background:#4db33d;border-radius:50%"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">MongoDB</span>
+      </div>
+      <div data-reveal="pop" data-delay="1040" style="position:absolute;z-index:5;top:6%;right:6%;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:rgba(var(--gnd),.82);border:1px solid rgba(var(--ln),.16);backdrop-filter:blur(8px);animation:flt 6.2s ease-in-out .2s infinite">
+        <span style="width:8px;height:8px;background:#f5d547;border-radius:50%"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">Python</span>
+      </div>
+      <div data-reveal="pop" data-delay="1100" style="position:absolute;z-index:5;bottom:38%;left:-4%;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:rgba(var(--gnd),.82);border:1px solid rgba(var(--ln),.16);backdrop-filter:blur(8px);animation:flt 7.4s ease-in-out .9s infinite">
+        <span style="width:8px;height:8px;background:#7aa6d6;border-radius:2px"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">PostgreSQL</span>
+      </div>
+      <div data-reveal="pop" data-delay="1160" style="position:absolute;z-index:5;top:66%;left:16%;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:rgba(var(--gnd),.82);border:1px solid rgba(var(--ln),.16);backdrop-filter:blur(8px);animation:flt 5.4s ease-in-out 1.4s infinite">
+        <span style="width:8px;height:8px;background:#e8703a;border-radius:2px;transform:rotate(45deg)"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">Git</span>
+      </div>
+      <div data-reveal="pop" data-delay="1220" style="position:absolute;z-index:5;top:32%;right:-6%;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:rgba(var(--gnd),.82);border:1px solid rgba(252,163,17,.3);backdrop-filter:blur(8px);animation:flt 6.8s ease-in-out .5s infinite">
+        <span style="width:8px;height:8px;background:#05998b;border-radius:50%"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)">FastAPI</span>
+      </div>
+    </div>
+  </div>
+
+  <div aria-hidden="true" style="position:absolute;bottom:22px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.24em;color:var(--faint)">SCROLL</span>
+    <span style="width:1px;height:34px;background:linear-gradient(to bottom,var(--acc,#FCA311),transparent);animation:nudge 2.2s ease-in-out infinite"></span>
+  </div>
+</section>
+
+<!-- ══ MARQUEE ══ -->
+<div style="background:var(--acc,#FCA311);transform:rotate(-1.1deg) scale(1.03);margin:-10px 0 0;overflow:hidden;border-top:1px solid rgba(var(--shd),.25);border-bottom:1px solid rgba(var(--shd),.25)">
+  <div style="display:flex;width:max-content;animation:marq 26s linear infinite;padding:14px 0">
+    <span style="font-family:'Anton',sans-serif;font-size:clamp(20px,2.6vw,34px);text-transform:uppercase;color:var(--accInk);white-space:nowrap;padding-right:34px">MERN Stack ✦ React ✦ Node.js ✦ Python ✦ Java ✦ PostgreSQL ✦ Express ✦ MongoDB ✦ FastAPI ✦ Docker ✦ CI/CD ✦ Jira ✦ Linux ✦ REST APIs ✦&nbsp;</span>
+    <span style="font-family:'Anton',sans-serif;font-size:clamp(20px,2.6vw,34px);text-transform:uppercase;color:var(--accInk);white-space:nowrap;padding-right:34px">MERN Stack ✦ React ✦ Node.js ✦ Python ✦ Java ✦ PostgreSQL ✦ Express ✦ MongoDB ✦ FastAPI ✦ Docker ✦ CI/CD ✦ Jira ✦ Linux ✦ REST APIs ✦&nbsp;</span>
+  </div>
+</div>
+
+<!-- ══ ABOUT ══ -->
+<section id="about" data-screen-label="About" style="position:relative;padding:clamp(80px,12vh,140px) clamp(16px,4vw,40px)">
+  <div style="max-width:1240px;margin:0 auto">
+    <div data-reveal="up" style="display:flex;align-items:baseline;gap:16px;margin-bottom:38px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.24em;color:var(--acc,#FCA311)">01 / ABOUT</span>
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(252,163,17,.5),transparent)"></span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:clamp(28px,5vw,60px);align-items:center">
+      <div data-reveal="left" style="position:relative">
+        <div style="position:relative;border-radius:22px;overflow:hidden;border:1px solid rgba(252,163,17,.35);box-shadow:0 0 0 1px rgba(var(--gnd),.9),0 0 46px rgba(252,163,17,.10),0 40px 80px rgba(var(--shd),.55)">
+          <img data-para="0.05" src="assets/about-portrait.png" alt="Parindra Gallage in the visor" style="width:100%;display:block;aspect-ratio:3/4;object-fit:cover;object-position:50% 32%;transform:scale(1.02)">
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(var(--gnd),0) 68%,rgba(var(--gnd),.6) 100%)"></div>
+          <div aria-hidden="true" style="position:absolute;inset:0;opacity:.4;mix-blend-mode:screen;background:linear-gradient(180deg,transparent 44%,rgba(252,163,17,.16) 50%,transparent 56%);background-size:100% 300%;animation:sweep 8s linear infinite"></div>
+          <div style="position:absolute;left:20px;bottom:18px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;color:var(--text)">GALLE, SRI LANKA — SEEING THE STACK</div>
+        </div>
+      </div>
+
+      <div>
+        <h2 data-reveal="up" style="font-family:'Anton',sans-serif;font-size:clamp(34px,5vw,64px);line-height:.95;text-transform:uppercase;color:var(--strong);margin:0 0 22px;white-space:nowrap">Who <span style="-webkit-text-stroke:1.5px var(--acc,#FCA311);color:transparent">I am</span></h2>
+        <p data-reveal="up" data-delay="80" style="color:var(--muted);font-size:clamp(14.5px,1.5vw,17px);line-height:1.8;margin:0 0 18px">I'm a Computer Science undergraduate at the University of Westminster, passionate about building scalable web applications and continuously improving my backend and full-stack development skills. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.</p>
+        <p data-reveal="up" data-delay="140" style="color:var(--muted);font-size:clamp(14.5px,1.5vw,17px);line-height:1.8;margin:0 0 20px">I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk. My experience includes Python, FastAPI, JavaScript, React, Next.js, PostgreSQL, Docker, GitHub Actions, and Agile development using Jira.</p>
+        <p data-reveal="up" data-delay="180" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;letter-spacing:.04em;color:var(--acc,#FCA311);margin:0 0 30px">Currently seeking Software Engineering Internship opportunities</p>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:12px;margin-bottom:30px">
+          <div data-reveal="up" data-delay="200" style="padding:22px 18px;border-radius:16px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.09);text-align:center" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-4px)">
+            <p data-count="5" data-suffix="+" style="font-family:'Anton',sans-serif;font-size:38px;line-height:1;color:var(--acc,#FCA311);margin:0 0 8px">5+</p>
+            <p style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--muted2);margin:0">PROJECTS BUILT</p>
+          </div>
+          <div data-reveal="up" data-delay="250" style="padding:22px 18px;border-radius:16px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.09);text-align:center" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-4px)">
+            <p data-count="10" data-suffix="+" style="font-family:'Anton',sans-serif;font-size:38px;line-height:1;color:var(--acc,#FCA311);margin:0 0 8px">10+</p>
+            <p style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--muted2);margin:0">TECHNOLOGIES</p>
+          </div>
+          <div data-reveal="up" data-delay="300" style="padding:22px 18px;border-radius:16px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.09);text-align:center" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-4px)">
+            <p data-count="5" data-suffix="+" style="font-family:'Anton',sans-serif;font-size:38px;line-height:1;color:var(--acc,#FCA311);margin:0 0 8px">5+</p>
+            <p style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--muted2);margin:0">GITHUB REPOS</p>
+          </div>
+          <div data-reveal="up" data-delay="350" style="padding:22px 18px;border-radius:16px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.09);text-align:center" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-4px)">
+            <p style="font-family:'Anton',sans-serif;font-size:26px;line-height:1.42;color:var(--acc,#FCA311);margin:0 0 8px;text-transform:uppercase">Continuous</p>
+            <p style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--muted2);margin:0">LEARNING</p>
+          </div>
+        </div>
+
+        <div data-reveal="up" data-delay="380" style="display:flex;flex-wrap:wrap;gap:14px">
+          <a href="#projects" style="display:inline-flex;align-items:center;gap:10px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.1em;padding:14px 24px;border-radius:999px" style-hover="color:var(--accInk);transform:translateY(-3px);box-shadow:0 16px 40px rgba(252,163,17,.4)">SEE MY WORK →</a>
+          <a href="mailto:parindrachameekara@gmail.com" style="display:inline-flex;align-items:center;gap:10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;padding:14px 24px;border-radius:999px;border:1px solid rgba(var(--ln),.22)" style-hover="color:var(--strong);border-color:var(--acc,#FCA311);background:rgba(252,163,17,.08)">EMAIL ME</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SKILLS ══ -->
+<section id="skills" data-screen-label="Skills" style="position:relative;padding:clamp(80px,12vh,140px) clamp(16px,4vw,40px);background:linear-gradient(180deg,rgba(var(--gnd),.35) 0%,rgba(var(--ftr),.72) 50%,rgba(var(--gnd),.35) 100%)">
+  <div style="max-width:1240px;margin:0 auto">
+    <div data-reveal="up" style="display:flex;align-items:baseline;gap:16px;margin-bottom:14px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.24em;color:var(--acc,#FCA311)">02 / SKILLS</span>
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(252,163,17,.5),transparent)"></span>
+    </div>
+    <h2 data-reveal="up" data-delay="60" style="font-family:'Anton',sans-serif;font-size:clamp(34px,5.4vw,72px);line-height:.95;text-transform:uppercase;color:var(--strong);margin:0 0 44px">The <span style="-webkit-text-stroke:1.5px var(--acc,#FCA311);color:transparent">Toolkit</span></h2>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:16px">
+      <div data-reveal="up" data-delay="60" style="padding:24px 22px;border-radius:18px;background:rgba(var(--srf),.52);border:1px solid rgba(var(--ln),.09)" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-6px);box-shadow:0 24px 50px rgba(var(--shd),.5)">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--acc,#FCA311);margin:0 0 16px">LANGUAGES</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">JavaScript</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Python</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">HTML5</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">CSS3</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Java</span>
+        </div>
+      </div>
+      <div data-reveal="up" data-delay="120" style="padding:24px 22px;border-radius:18px;background:rgba(var(--srf),.52);border:1px solid rgba(var(--ln),.09)" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-6px);box-shadow:0 24px 50px rgba(var(--shd),.5)">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--acc,#FCA311);margin:0 0 16px">FRONTEND</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">React</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Vite</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Tailwind CSS</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">React Router</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Next.js</span>
+        </div>
+      </div>
+      <div data-reveal="up" data-delay="180" style="padding:24px 22px;border-radius:18px;background:rgba(var(--srf),.52);border:1px solid rgba(var(--ln),.09)" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-6px);box-shadow:0 24px 50px rgba(var(--shd),.5)">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--acc,#FCA311);margin:0 0 16px">BACKEND</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">FastAPI</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Node.js</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Express.js</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">REST APIs</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">JWT Authentication</span>
+        </div>
+      </div>
+      <div data-reveal="up" data-delay="240" style="padding:24px 22px;border-radius:18px;background:rgba(var(--srf),.52);border:1px solid rgba(var(--ln),.09)" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-6px);box-shadow:0 24px 50px rgba(var(--shd),.5)">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--acc,#FCA311);margin:0 0 16px">DATABASE</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">PostgreSQL</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">MongoDB</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Redis</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Mongoose</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">SQLAlchemy</span>
+        </div>
+      </div>
+      <div data-reveal="up" data-delay="300" style="padding:24px 22px;border-radius:18px;background:rgba(var(--srf),.52);border:1px solid rgba(var(--ln),.09)" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-6px);box-shadow:0 24px 50px rgba(var(--shd),.5)">
+        <p style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--acc,#FCA311);margin:0 0 16px">DEVOPS</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Docker</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Git</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">GitHub</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">GitHub Actions</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Linux CLI</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 12px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Jira</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ WORK ══ -->
+<section id="projects" data-screen-label="Projects" style="position:relative;padding:clamp(80px,12vh,140px) clamp(16px,4vw,40px)">
+  <div style="max-width:1240px;margin:0 auto">
+    <div data-reveal="up" style="display:flex;align-items:baseline;gap:16px;margin-bottom:14px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.24em;color:var(--acc,#FCA311)">03 / PROJECTS</span>
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(252,163,17,.5),transparent)"></span>
+    </div>
+    <h2 data-reveal="up" data-delay="60" style="font-family:'Anton',sans-serif;font-size:clamp(34px,5.4vw,72px);line-height:.95;text-transform:uppercase;color:var(--strong);margin:0 0 44px">Things I've <span style="-webkit-text-stroke:1.5px var(--acc,#FCA311);color:transparent">Built</span></h2>
+
+    <div data-reveal="up" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:20px;align-items:stretch;margin-bottom:20px">
+      <div data-projectcard="" style="position:relative;overflow:hidden;isolation:isolate;padding:clamp(22px,3vw,36px);border-radius:22px;background:linear-gradient(150deg,rgba(var(--srf),.9),rgba(var(--gnd),.9));border:1px solid rgba(252,163,17,.28);display:flex;flex-direction:column;gap:18px" style-hover="transform:translateY(-8px);box-shadow:0 34px 70px rgba(var(--shd),.6);border-color:var(--acc,#FCA311)">
+        <span aria-hidden="true" data-cardbg="Personal Portfolio" style="position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;opacity:0;transition:opacity .6s ease,transform .8s cubic-bezier(.16,1,.3,1)"></span>
+        <span aria-hidden="true" data-cardscrim="" style="position:absolute;inset:0;z-index:1;opacity:0;transition:opacity .6s ease;background:linear-gradient(180deg,rgba(var(--gnd),.30) 0%,rgba(var(--gnd),.62) 45%,rgba(var(--gnd),.88) 100%)"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.18em;color:var(--accInk);background:var(--acc,#FCA311);padding:5px 10px;border-radius:6px;align-self:flex-start">FEATURED</span>
+        <h3 style="font-family:'Anton',sans-serif;font-size:clamp(26px,3.4vw,42px);text-transform:uppercase;color:var(--strong);margin:0;line-height:1">Personal Portfolio</h3>
+        <p style="color:var(--muted);font-size:15px;line-height:1.75;margin:0">A full-stack MERN portfolio tracked in Jira, containerized with Docker, tested with Vitest and Jest, deployed via GitHub Actions CI/CD. Built the way a professional engineering team would build it.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">React 19</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Node.js</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Express.js</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">MongoDB</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Docker</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Tailwind CSS</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">GitHub Actions</span>
+        </div>
+        <a href="https://github.com/Chami-02/My_Portfolio" target="_blank" rel="noreferrer" style="margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.1em;color:var(--acc,#FCA311);border:1px solid rgba(252,163,17,.35);border-radius:999px;padding:10px 16px" style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">VIEW ON GITHUB →</a>
+      </div>
+
+      <div style="border-radius:22px;overflow:hidden;border:1px solid rgba(var(--ln),.12);background:#0d1117;box-shadow:0 30px 60px rgba(var(--shd),.5)">
+        <div style="display:flex;align-items:center;gap:7px;padding:14px 18px;background:#161b22;border-bottom:1px solid rgba(229,229,229,.08)">
+          <span style="width:11px;height:11px;border-radius:50%;background:#ff5f57"></span>
+          <span style="width:11px;height:11px;border-radius:50%;background:#febc2e"></span>
+          <span style="width:11px;height:11px;border-radius:50%;background:#28c840"></span>
+          <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:#5c677d">terminal — portfolio</span>
+        </div>
+        <div style="padding:20px 22px;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:2">
+          <div style="color:#ffffff">$ docker compose up --build</div>
+          <div style="color:#93a0b8">[+] Building frontend...</div>
+          <div style="color:#93a0b8">[+] Building backend...</div>
+          <div style="color:#34d399">✓ MongoDB connected</div>
+          <div style="color:#34d399">✓ Express API on :5000</div>
+          <div style="color:#34d399">✓ React app on :5173</div>
+          <div style="color:#FCA311">● VITE v8 ready in 420ms</div>
+          <div style="color:var(--faint)">➜ http://localhost:5173 <span style="color:var(--acc,#FCA311);animation:blink 1s step-end infinite">▌</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px">
+      <div data-reveal="up" data-projectcard="" data-delay="80" style="position:relative;overflow:hidden;isolation:isolate;padding:26px 24px;border-radius:20px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.09)" style-hover="transform:translateY(-8px);border-color:var(--acc,#FCA311);box-shadow:0 28px 60px rgba(var(--shd),.55)">
+        <span aria-hidden="true" data-cardbg="ClearDrive.lk" style="position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;opacity:0;transition:opacity .6s ease,transform .8s cubic-bezier(.16,1,.3,1)"></span>
+        <span aria-hidden="true" data-cardscrim="" style="position:absolute;inset:0;z-index:1;opacity:0;transition:opacity .6s ease;background:linear-gradient(180deg,rgba(var(--gnd),.30) 0%,rgba(var(--gnd),.62) 45%,rgba(var(--gnd),.88) 100%)"></span>
+        <p style="font-family:'Anton',sans-serif;font-size:44px;color:rgba(252,163,17,.28);margin:0 0 6px;line-height:1">02</p>
+        <h3 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:21px;color:var(--strong);margin:0 0 10px">ClearDrive.lk</h3>
+        <p style="color:var(--muted);font-size:14.5px;line-height:1.7;margin:0 0 16px">A full-stack vehicle import platform connecting Sri Lankan buyers with Japanese auctions, built with FastAPI, PostgreSQL, Next.js, Docker and Redis. Developed using Agile workflows with Jira, GitHub, CI/CD and secure APIs.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Python</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">FastAPI</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Next.js</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">PostgreSQL</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Docker</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Redis</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">GitHub Actions</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">SQLAlchemy</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Alembic</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:18px">
+          <a href="https://github.com/ClearDrive-lk/cleardrive-lk" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.1em;color:var(--acc,#FCA311);border:1px solid rgba(252,163,17,.35);border-radius:999px;padding:10px 16px" style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">VIEW ON GITHUB →</a>
+          <a href="https://cleardrive.lk/" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.1em;color:var(--text);border:1px solid rgba(var(--ln),.2);border-radius:999px;padding:10px 16px" style-hover="color:var(--strong);border-color:var(--acc,#FCA311);background:rgba(252,163,17,.1)">LIVE SITE ↗</a>
+        </div>
+      </div>
+      <div data-reveal="up" data-projectcard="" data-delay="150" style="position:relative;overflow:hidden;isolation:isolate;padding:26px 24px;border-radius:20px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.09)" style-hover="transform:translateY(-8px);border-color:var(--acc,#FCA311);box-shadow:0 28px 60px rgba(var(--shd),.55)">
+        <span aria-hidden="true" data-cardbg="Smart Campus API" style="position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;opacity:0;transition:opacity .6s ease,transform .8s cubic-bezier(.16,1,.3,1)"></span>
+        <span aria-hidden="true" data-cardscrim="" style="position:absolute;inset:0;z-index:1;opacity:0;transition:opacity .6s ease;background:linear-gradient(180deg,rgba(var(--gnd),.30) 0%,rgba(var(--gnd),.62) 45%,rgba(var(--gnd),.88) 100%)"></span>
+        <p style="font-family:'Anton',sans-serif;font-size:44px;color:rgba(252,163,17,.28);margin:0 0 6px;line-height:1">03</p>
+        <h3 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:21px;color:var(--strong);margin:0 0 10px">Smart Campus API</h3>
+        <p style="color:var(--muted);font-size:14.5px;line-height:1.7;margin:0 0 16px">A RESTful API for a "Smart Campus" managing rooms and IoT sensors. Built strictly with Java and JAX-RS using in-memory data structures. Features sub-resource routing, custom exception mapping and logging filters.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Java</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">JAX-RS</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:18px">
+          <a href="https://github.com/Chami-02/CSA_CW_W2120595_smart-campus-api" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.1em;color:var(--acc,#FCA311);border:1px solid rgba(252,163,17,.35);border-radius:999px;padding:10px 16px" style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">VIEW ON GITHUB →</a>
+        </div>
+      </div>
+      <div data-reveal="up" data-projectcard="" data-delay="220" style="position:relative;overflow:hidden;isolation:isolate;padding:26px 24px;border-radius:20px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.09)" style-hover="transform:translateY(-8px);border-color:var(--acc,#FCA311);box-shadow:0 28px 60px rgba(var(--shd),.55)">
+        <span aria-hidden="true" data-cardbg="Life Below Water" style="position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;opacity:0;transition:opacity .6s ease,transform .8s cubic-bezier(.16,1,.3,1)"></span>
+        <span aria-hidden="true" data-cardscrim="" style="position:absolute;inset:0;z-index:1;opacity:0;transition:opacity .6s ease;background:linear-gradient(180deg,rgba(var(--gnd),.30) 0%,rgba(var(--gnd),.62) 45%,rgba(var(--gnd),.88) 100%)"></span>
+        <p style="font-family:'Anton',sans-serif;font-size:44px;color:rgba(252,163,17,.28);margin:0 0 6px;line-height:1">04</p>
+        <h3 style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:21px;color:var(--strong);margin:0 0 10px">Life Below Water</h3>
+        <p style="color:var(--muted);font-size:14.5px;line-height:1.7;margin:0 0 16px">Interactive awareness platform built with HTML, CSS, JavaScript and XML — splash screen, home page, volunteer page, user profile, feedback form and sitemap.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">HTML</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">CSS</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">JavaScript</span>
+          <span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:6px 11px;border-radius:999px;border:1px solid rgba(var(--ln),.16);color:var(--muted);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">XML</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:18px">
+          <a href="https://github.com/Chami-02/WD-D_GP_Goal-14-Life-below-water" target="_blank" rel="noreferrer" style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.1em;color:var(--acc,#FCA311);border:1px solid rgba(252,163,17,.35);border-radius:999px;padding:10px 16px" style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">VIEW ON GITHUB →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ BLOG ══ -->
+<section id="blog" data-screen-label="Blog" style="position:relative;padding:clamp(80px,12vh,140px) clamp(16px,4vw,40px);background:linear-gradient(180deg,rgba(var(--gnd),.3) 0%,rgba(var(--ftr),.68) 50%,rgba(var(--gnd),.3) 100%)">
+  <div style="max-width:1240px;margin:0 auto">
+    <div data-reveal="up" style="display:flex;align-items:baseline;gap:16px;margin-bottom:14px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.24em;color:var(--acc,#FCA311)">04 / BLOG</span>
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(252,163,17,.5),transparent)"></span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:44px">
+      <h2 data-reveal="up" data-delay="60" style="font-family:'Anton',sans-serif;font-size:clamp(34px,5.4vw,72px);line-height:.95;text-transform:uppercase;color:var(--strong);margin:0">Field <span style="-webkit-text-stroke:1.5px var(--acc,#FCA311);color:transparent">Notes</span></h2>
+      <p data-reveal="up" data-delay="120" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.14em;color:var(--muted2);margin:0">4 POSTS · NOTES FROM THE BUILD</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:clamp(20px,3vw,34px);align-items:start">
+
+      <a href="#blog" data-reveal="up" data-delay="80" style="position:relative;display:flex;flex-direction:column;gap:16px;padding:clamp(24px,3.2vw,38px);border-radius:24px;overflow:hidden;background:linear-gradient(155deg,rgba(252,163,17,.12),rgba(var(--srf),.72) 42%,rgba(var(--gnd),.9));border:1px solid rgba(252,163,17,.3);color:inherit;box-shadow:0 30px 70px rgba(var(--shd),.5)" style-hover="color:inherit;transform:translateY(-6px);border-color:var(--acc,#FCA311);box-shadow:0 40px 90px rgba(var(--shd),.62)">
+        <span aria-hidden="true" style="position:absolute;top:-30px;right:-10px;font-family:'Anton',sans-serif;font-size:clamp(120px,17vw,190px);line-height:1;color:rgba(252,163,17,.09)">01</span>
+        <span aria-hidden="true" style="position:absolute;inset:0;opacity:.5;mix-blend-mode:screen;background:linear-gradient(180deg,transparent 44%,rgba(252,163,17,.14) 50%,transparent 56%);background-size:100% 320%;animation:sweep 9s linear infinite"></span>
+        <span style="position:relative;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--accInk);background:var(--acc,#FCA311);padding:5px 10px;border-radius:6px;align-self:flex-start">LATEST POST</span>
+        <span style="position:relative;display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--muted)">
+          <span>JUL 2026</span><span style="color:rgba(252,163,17,.7)">·</span><span>6 MIN READ</span>
+        </span>
+        <h3 style="position:relative;font-family:'Anton',sans-serif;font-size:clamp(26px,3.4vw,42px);line-height:1.04;text-transform:uppercase;color:var(--strong);margin:0">Building a production-style <span style="color:var(--acc,#FCA311)">MERN portfolio</span></h3>
+        <p style="position:relative;color:var(--muted);font-size:15px;line-height:1.75;margin:0">How I designed and developed this portfolio using professional software-engineering practice — Jira sprint planning, Docker, GitHub Actions and CI/CD on every commit.</p>
+        <span style="position:relative;display:flex;flex-wrap:wrap;gap:7px"><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">React</span><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">MERN</span><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Docker</span><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">GitHub Actions</span></span>
+        <span style="position:relative;display:inline-flex;align-items:center;gap:9px;margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.12em;color:var(--acc,#FCA311)">READ THE POST →</span>
+      </a>
+
+      <div style="display:grid;gap:12px">
+
+      <a href="#blog" data-reveal="up" data-delay="150" style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:clamp(14px,2.5vw,26px);padding:20px 22px;border-radius:16px;border:1px solid rgba(var(--ln),.08);background:rgba(var(--srf),.34);color:inherit" style-hover="color:inherit;background:rgba(var(--srf),.7);border-color:rgba(252,163,17,.45);transform:translateX(8px)">
+        <span style="font-family:'Anton',sans-serif;font-size:clamp(24px,3vw,34px);line-height:1;color:rgba(252,163,17,.3)">02</span>
+        <span style="display:grid;gap:7px;min-width:0">
+          <span style="display:flex;flex-wrap:wrap;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--muted2)">
+            <span>JUN 2026</span><span style="color:var(--acc,#FCA311);opacity:.65">·</span><span>7 MIN READ</span>
+          </span>
+          <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(15px,1.7vw,18.5px);line-height:1.3;color:var(--strong)">Developing ClearDrive.lk with FastAPI and Docker</span>
+          <span style="color:var(--muted);font-size:13.5px;line-height:1.6">A scalable vehicle-import platform with FastAPI, PostgreSQL, Docker, Redis and Agile practice.</span>
+          <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px"><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">FastAPI</span><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Python</span><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Agile</span></span>
+        </span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--acc,#FCA311)">→</span>
+      </a>
+
+      <a href="#blog" data-reveal="up" data-delay="220" style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:clamp(14px,2.5vw,26px);padding:20px 22px;border-radius:16px;border:1px solid rgba(var(--ln),.08);background:rgba(var(--srf),.34);color:inherit" style-hover="color:inherit;background:rgba(var(--srf),.7);border-color:rgba(252,163,17,.45);transform:translateX(8px)">
+        <span style="font-family:'Anton',sans-serif;font-size:clamp(24px,3vw,34px);line-height:1;color:rgba(252,163,17,.3)">03</span>
+        <span style="display:grid;gap:7px;min-width:0">
+          <span style="display:flex;flex-wrap:wrap;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--muted2)">
+            <span>MAY 2026</span><span style="color:var(--acc,#FCA311);opacity:.65">·</span><span>4 MIN READ</span>
+          </span>
+          <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(15px,1.7vw,18.5px);line-height:1.3;color:var(--strong)">Getting Started with Docker Compose</span>
+          <span style="color:var(--muted);font-size:13.5px;line-height:1.6">Managing multi-container apps — frontend, backend, PostgreSQL and Redis in one command.</span>
+          <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px"><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Docker</span><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">DevOps</span></span>
+        </span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--acc,#FCA311)">→</span>
+      </a>
+
+      <a href="#blog" data-reveal="up" data-delay="290" style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:clamp(14px,2.5vw,26px);padding:20px 22px;border-radius:16px;border:1px solid rgba(var(--ln),.08);background:rgba(var(--srf),.34);color:inherit" style-hover="color:inherit;background:rgba(var(--srf),.7);border-color:rgba(252,163,17,.45);transform:translateX(8px)">
+        <span style="font-family:'Anton',sans-serif;font-size:clamp(24px,3vw,34px);line-height:1;color:rgba(252,163,17,.3)">04</span>
+        <span style="display:grid;gap:7px;min-width:0">
+          <span style="display:flex;flex-wrap:wrap;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--muted2)">
+            <span>APR 2026</span><span style="color:var(--acc,#FCA311);opacity:.65">·</span><span>5 MIN READ</span>
+          </span>
+          <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(15px,1.7vw,18.5px);line-height:1.3;color:var(--strong)">Building REST APIs with Java and JAX-RS</span>
+          <span style="color:var(--muted);font-size:13.5px;line-height:1.6">CRUD, resource routing, exception mapping and request logging from the Smart Campus API.</span>
+          <span style="display:flex;flex-wrap:wrap;gap:6px;margin-top:2px"><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">Java</span><span style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px) scale(1.05)" style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:5px 10px;border-radius:999px;background:rgba(252,163,17,.08);border:1px solid rgba(252,163,17,.22);color:var(--text);transition:background .25s,color .25s,border-color .25s,transform .25s;cursor:default">REST API</span></span>
+        </span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--acc,#FCA311)">→</span>
+      </a>
+        <a href="Blog.dc.html" data-reveal="up" data-delay="360" style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;border-radius:16px;border:1px dashed rgba(252,163,17,.35);background:rgba(252,163,17,.05);color:inherit" style-hover="color:inherit;background:rgba(252,163,17,.12);border-color:var(--acc,#FCA311)">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.14em;color:var(--acc,#FCA311)">BROWSE ALL WRITING</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--acc,#FCA311)">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+<!-- ══ CONTACT ══ -->
+<section id="contact" data-screen-label="Contact" style="position:relative;padding:clamp(80px,12vh,150px) clamp(16px,4vw,40px) 60px;background:radial-gradient(100% 80% at 50% 0%,rgba(var(--srf),.8) 0%,rgba(var(--gnd),.6) 70%);overflow:hidden">
+  <div aria-hidden="true" style="position:absolute;top:-60px;left:50%;transform:translateX(-50%);width:min(90%,900px);height:300px;background:radial-gradient(ellipse at center,rgba(252,163,17,.16),transparent 70%)"></div>
+  <div style="position:relative;max-width:1240px;margin:0 auto">
+    <div data-reveal="up" style="display:flex;align-items:baseline;gap:16px;margin-bottom:20px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.24em;color:var(--acc,#FCA311)">05 / CONTACT</span>
+      <span style="flex:1;height:1px;background:linear-gradient(90deg,rgba(252,163,17,.5),transparent)"></span>
+    </div>
+    <h2 data-reveal="up" data-delay="60" style="font-family:'Anton',sans-serif;font-size:clamp(32px,5.2vw,78px);line-height:1.06;letter-spacing:.03em;word-spacing:.12em;text-transform:uppercase;color:var(--strong);margin:0 0 22px">Let's build <span style="-webkit-text-stroke:1.5px var(--acc,#FCA311);color:transparent">something loud</span></h2>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:clamp(24px,4vw,48px);align-items:start;margin-bottom:44px">
+      <div>
+        <p data-reveal="up" data-delay="120" style="max-width:460px;color:var(--muted);font-size:clamp(14.5px,1.5vw,17px);line-height:1.75;margin:0 0 26px">I'm actively looking for junior developer and Software Engineering internship opportunities. If you have a role, a project, or just want to connect — send me a message. I respond within 24 hours.</p>
+        <div data-reveal="up" data-delay="180" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px">
+          <a href="mailto:parindrachameekara@gmail.com" style="display:inline-flex;align-items:center;gap:10px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;padding:15px 22px;border-radius:999px;box-shadow:0 14px 40px rgba(252,163,17,.32)" style-hover="color:var(--accInk);transform:translateY(-3px);box-shadow:0 22px 54px rgba(252,163,17,.5)">parindrachameekara@gmail.com</a>
+        </div>
+        <div data-reveal="up" data-delay="200" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px">
+          <a href="#contact" download style="display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.06em;padding:15px 22px;border-radius:999px;color:var(--acc,#FCA311);border:1px solid rgba(252,163,17,.45);background:rgba(252,163,17,.08)" style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px)" data-cv="">↓ DOWNLOAD CV</a>
+        </div>
+        <div data-reveal="up" data-delay="220" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+          <a href="https://github.com/Chami-02" target="_blank" rel="noreferrer" style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;padding:15px 20px;border-radius:999px;border:1px solid rgba(var(--ln),.22);color:var(--text)" style-hover="color:var(--strong);border-color:var(--acc,#FCA311);background:rgba(252,163,17,.08)">GITHUB</a>
+          <a href="https://www.linkedin.com/in/chamikara-gallege-3b0861295/" target="_blank" rel="noreferrer" style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;padding:15px 20px;border-radius:999px;border:1px solid rgba(var(--ln),.22);color:var(--text)" style-hover="color:var(--strong);border-color:var(--acc,#FCA311);background:rgba(252,163,17,.08)">LINKEDIN</a>
+        </div>
+        <p data-reveal="up" data-delay="220" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.12em;color:var(--muted2);margin:22px 0 0">GALLE, SRI LANKA · UTC+5:30</p>
+      </div>
+
+      <form data-reveal="up" data-delay="160" onSubmit="{{ onSubmit }}" style="display:grid;gap:14px;padding:clamp(20px,3vw,28px);border-radius:20px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1);box-shadow:0 30px 70px rgba(var(--shd),.5)">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:14px">
+          <label style="display:grid;gap:7px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--muted2)">NAME</span>
+            <input name="name" type="text" value="{{ fName }}" placeholder="Parindra Gallage" onInput="{{ onField }}" style="background:rgba(var(--gnd),.7);border:1px solid rgba(var(--ln),.14);border-radius:11px;padding:13px 14px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none" style-focus="border-color:var(--acc,#FCA311)">
+          </label>
+          <label style="display:grid;gap:7px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--muted2)">EMAIL</span>
+            <input name="email" type="text" inputmode="email" value="{{ fEmail }}" placeholder="you@company.com" onInput="{{ onField }}" style="background:rgba(var(--gnd),.7);border:1px solid rgba(var(--ln),.14);border-radius:11px;padding:13px 14px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;outline:none" style-focus="border-color:var(--acc,#FCA311)">
+          </label>
+        </div>
+        <label style="display:grid;gap:7px">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--muted2)">MESSAGE</span>
+          <textarea name="message" rows="4" value="{{ fMessage }}" placeholder="Tell me about the role, project, or just say hi…" onInput="{{ onField }}" style="background:rgba(var(--gnd),.7);border:1px solid rgba(var(--ln),.14);border-radius:11px;padding:13px 14px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.6;outline:none;resize:vertical" style-focus="border-color:var(--acc,#FCA311)"></textarea>
+        </label>
+        <sc-if value="{{ formError }}" hint-placeholder-val="{{ false }}">
+          <p style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#f87171;margin:0">{{ formError }}</p>
+        </sc-if>
+        <sc-if value="{{ formSent }}" hint-placeholder-val="{{ false }}">
+          <p style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#34d399;margin:0">✓ Message sent — I'll reply within 24 hours.</p>
+        </sc-if>
+        <button type="submit" style="display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;letter-spacing:.1em;padding:15px 22px;border:none;border-radius:999px;cursor:pointer;box-shadow:0 12px 34px rgba(252,163,17,.3)" style-hover="transform:translateY(-2px);box-shadow:0 20px 46px rgba(252,163,17,.45)">{{ submitLabel }}</button>
+      </form>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer data-screen-label="Footer" style="position:relative;overflow:hidden;padding:0 0 26px;background:linear-gradient(180deg,rgba(var(--gnd),.4),rgba(var(--ftr),.86))">
+  <div aria-hidden="true" style="overflow:hidden;border-top:1px solid rgba(252,163,17,.25);border-bottom:1px solid rgba(252,163,17,.25);background:rgba(252,163,17,.06)">
+    <div style="display:flex;width:max-content;animation:marq 15s linear infinite;padding:10px 0">
+      <span data-strip="" style="font-family:'Anton',sans-serif;font-size:clamp(16px,2vw,26px);text-transform:uppercase;color:rgba(252,163,17,.5);white-space:nowrap;padding-right:30px">OPEN TO OPPORTUNITIES ✦ LET'S BUILD SOMETHING LOUD ✦&nbsp;</span>
+      <span data-strip="" style="font-family:'Anton',sans-serif;font-size:clamp(16px,2vw,26px);text-transform:uppercase;color:rgba(252,163,17,.5);white-space:nowrap;padding-right:30px">OPEN TO OPPORTUNITIES ✦ LET'S BUILD SOMETHING LOUD ✦&nbsp;</span>
+    </div>
+  </div>
+
+  <div style="position:relative;max-width:1240px;margin:0 auto;padding:clamp(38px,6vw,64px) clamp(16px,4vw,40px) 0">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:clamp(26px,4vw,46px);align-items:start">
+
+      <div data-reveal="up" style="display:grid;gap:16px;max-width:340px">
+        <div style="display:flex;align-items:center;gap:13px">
+          <img src="assets/logo.png" alt="Parindra Gallage" width="52" height="52" style="width:52px;height:52px;border-radius:50%;object-fit:cover;border:1px solid rgba(252,163,17,.45);box-shadow:0 0 26px rgba(252,163,17,.22)">
+          <span style="display:grid;gap:3px">
+            <span style="font-family:'Anton',sans-serif;font-size:20px;text-transform:uppercase;color:var(--strong);line-height:1">Parindra <span style="color:var(--acc,#FCA311)">Gallage</span></span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;color:var(--muted2)">FULL-STACK DEVELOPER</span>
+          </span>
+        </div>
+        <p style="color:var(--muted2);font-size:13.5px;line-height:1.75;margin:0">Computer Science undergraduate at the University of Westminster, building scalable web applications — MERN, FastAPI, Docker, shipped with CI/CD.</p>
+        <div style="display:inline-flex;align-items:center;gap:9px;padding:8px 14px;border-radius:999px;border:1px solid rgba(52,211,153,.32);background:rgba(52,211,153,.06);justify-self:start">
+          <span style="width:7px;height:7px;border-radius:50%;background:#34d399;animation:dot 2s ease-out infinite"></span>
+          <span data-ok="" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;color:#34d399">AVAILABLE FOR WORK</span>
+        </div>
+      </div>
+
+      <div data-reveal="up" data-delay="80" style="display:grid;gap:12px;align-content:start">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.2em;color:var(--acc,#FCA311)">NAVIGATE</span>
+        <a href="#about" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">About</a>
+        <a href="#skills" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">Skills</a>
+        <a href="#projects" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">Projects</a>
+        <a href="#blog" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">Field Notes</a>
+        <a href="#contact" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">Contact</a>
+      </div>
+
+      <div data-reveal="up" data-delay="140" style="display:grid;gap:12px;align-content:start">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.2em;color:var(--acc,#FCA311)">ELSEWHERE</span>
+        <a href="https://github.com/Chami-02" target="_blank" rel="noreferrer" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">GitHub ↗</a>
+        <a href="https://www.linkedin.com/in/chamikara-gallege-3b0861295/" target="_blank" rel="noreferrer" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">LinkedIn ↗</a>
+        <a href="https://web.facebook.com/parindra.chameekara" target="_blank" rel="noreferrer" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">Facebook ↗</a>
+        <a href="https://www.instagram.com/__pc_02/" target="_blank" rel="noreferrer" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">Instagram ↗</a>
+        <a href="mailto:parindrachameekara@gmail.com" style="font-size:14px;color:var(--muted)" style-hover="color:var(--strong)">Email ↗</a>
+      </div>
+
+      <div data-reveal="up" data-delay="200" style="display:grid;gap:14px;align-content:start;padding:20px;border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.09)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.2em;color:var(--acc,#FCA311)">STATUS</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.9;color:var(--muted)">
+          <span data-ok="" style="color:#34d399">●</span> CI pipeline green<br>
+          <span style="color:var(--acc,#FCA311)">●</span> Galle, Sri Lanka · UTC+5:30<br>
+          <span style="color:var(--muted)">●</span> Replies within 24h
+        </span>
+        <a href="#contact" style="display:inline-flex;align-items:center;justify-content:center;gap:9px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.1em;padding:12px 16px;border-radius:999px" style-hover="color:var(--accInk);transform:translateY(-2px);box-shadow:0 14px 34px rgba(252,163,17,.4)">START A PROJECT →</a>
+      </div>
+    </div>
+
+    <div style="margin-top:clamp(34px,5vw,56px);padding-top:22px;border-top:1px solid rgba(var(--ln),.09);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px">
+      <button onClick="{{ replay }}" style="justify-self:start;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;color:var(--muted);background:none;border:1px solid rgba(var(--ln),.18);border-radius:999px;padding:10px 16px;cursor:pointer" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">↻ REPLAY INTRO</button>
+      <span style="justify-self:center;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;color:var(--faint)">© 2026 PARINDRA GALLAGE · DESIGNED &amp; BUILT FROM SCRATCH</span>
+      <a href="#hero" style="justify-self:end;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;color:var(--muted);border:1px solid rgba(var(--ln),.18);border-radius:999px;padding:10px 16px" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">SCROLL BACK UP ↑</a>
+    </div>
+  </div>
+</footer>
+
+<!-- ══ SPLASH ══ -->
+<sc-if value="{{ splash }}" hint-placeholder-val="{{ false }}">
+<div ref="{{ splashRef }}" style="position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;transition:transform 1s cubic-bezier(.76,0,.24,1),opacity .6s ease .3s;overflow:hidden">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(58% 48% at 50% 44%,rgba(252,163,17,.14) 0%,rgba(var(--srf),.42) 38%,rgba(var(--gnd),1) 76%)"></div>
+  <div aria-hidden="true" style="position:absolute;left:50%;top:44%;width:min(150vw,1100px);aspect-ratio:1;margin:-0.5px 0 0 min(-75vw,-550px);transform:translateY(-50%);border-radius:50%;border:1px solid rgba(252,163,17,.07);animation:pulsering 6s ease-in-out infinite"></div>
+  <div aria-hidden="true" style="position:absolute;left:50%;top:44%;width:min(96vw,660px);aspect-ratio:1;margin-left:min(-48vw,-330px);transform:translateY(-50%);border-radius:50%;border:1px dashed rgba(var(--ln),.10);animation:spin 34s linear infinite"></div>
+  <div aria-hidden="true" style="position:absolute;left:50%;top:44%;width:min(70vw,420px);aspect-ratio:1;margin-left:min(-35vw,-210px);transform:translateY(-50%);border-radius:50%;border:1px solid rgba(252,163,17,.16);animation:spin 20s linear infinite reverse"></div>
+
+  <div aria-hidden="true" style="position:absolute;inset:0;overflow:hidden">
+    <div style="position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,rgba(252,163,17,.55),transparent);animation:scanline 4.2s linear infinite"></div>
+    <div style="position:absolute;left:0;right:0;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(226,235,255,.35),transparent);animation:scanline 6.4s linear 1.2s infinite"></div>
+    <div style="position:absolute;inset:0;opacity:.10;background-image:repeating-linear-gradient(0deg,rgba(226,235,255,.5) 0 1px,transparent 1px 4px)"></div>
+  </div>
+
+  <div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:22px">
+    <div style="position:relative;width:clamp(104px,17vw,168px);aspect-ratio:1;display:grid;place-items:center">
+      <span aria-hidden="true" style="position:absolute;inset:-46px;border-radius:50%;animation:orbdot 7s linear infinite">
+        <span style="position:absolute;top:0;left:50%;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:var(--acc,#FCA311);box-shadow:0 0 14px rgba(252,163,17,.9)"></span>
+        <span style="position:absolute;bottom:0;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:rgba(226,235,255,.85);box-shadow:0 0 10px rgba(226,235,255,.7)"></span>
+      </span>
+      <span aria-hidden="true" style="position:absolute;inset:-30px;border-radius:50%;animation:orbdot 4.4s linear infinite reverse">
+        <span style="position:absolute;top:0;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:#34d399;box-shadow:0 0 12px rgba(52,211,153,.8)"></span>
+      </span>
+      <span aria-hidden="true" style="position:absolute;inset:0;border-radius:50%;border:2px solid rgba(252,163,17,.22);border-top-color:var(--acc,#FCA311);animation:spin 1.5s linear infinite"></span>
+      <span aria-hidden="true" style="position:absolute;inset:12px;border-radius:50%;border:1px solid rgba(var(--ln),.12);border-bottom-color:rgba(var(--ln),.45);animation:spin 2.6s linear infinite reverse"></span>
+      <span aria-hidden="true" style="position:absolute;inset:-18px;border-radius:50%;background:radial-gradient(circle,rgba(252,163,17,.22),transparent 68%);animation:pulsering 2.8s ease-in-out infinite"></span>
+      <img src="assets/logo.png" alt="Parindra Gallage" style="position:relative;width:74%;aspect-ratio:1;border-radius:50%;object-fit:cover;border:1px solid rgba(252,163,17,.4);box-shadow:0 0 40px rgba(252,163,17,.25);animation:breathe 3.6s ease-in-out infinite">
+    </div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+      <span style="font-family:'Anton',sans-serif;font-size:clamp(26px,5vw,54px);line-height:1;letter-spacing:.01em;text-transform:uppercase;color:var(--strong);animation:riseIn .9s cubic-bezier(.16,1,.3,1) both">Parindra <span style="color:var(--acc,#FCA311);animation:flicker 3.4s ease-in-out infinite">Gallage</span></span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:clamp(9.5px,1.2vw,11.5px);letter-spacing:.42em;color:var(--muted2);text-transform:uppercase;animation:riseIn 1s cubic-bezier(.16,1,.3,1) .25s both">Full-Stack Developer</span>
+    </div>
+  </div>
+
+  <div ref="{{ bootRef }}" style="position:relative;margin-top:30px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:2.1;color:var(--muted);min-height:100px;text-align:left">
+    <div style="opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s">$ booting portfolio…</div>
+    <div style="opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s;color:#34d399">✓ assets loaded · galaxy seeded</div>
+    <div style="opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s;color:#34d399">✓ animations armed</div>
+    <div style="opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s;color:var(--acc,#FCA311)">● welcome — let's build something loud</div>
+  </div>
+
+  <div style="position:relative;width:min(74vw,360px);margin-top:26px">
+    <div style="height:3px;background:rgba(var(--ln),.12);border-radius:2px;overflow:hidden"><div ref="{{ barRef }}" style="height:3px;width:0%;background:linear-gradient(90deg,var(--acc,#FCA311),var(--strong));transition:width .25s linear"></div></div>
+    <div style="display:flex;justify-content:space-between;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--faint)">
+      <span>LOADING</span><span ref="{{ pctRef }}">000%</span>
+    </div>
+  </div>
+  <button onClick="{{ skip }}" style="position:absolute;bottom:28px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.2em;color:var(--faint);background:none;border:none;cursor:pointer" style-hover="color:var(--acc,#FCA311)">SKIP INTRO →</button>
+</div>
+</sc-if>
+
+<div aria-hidden="true" data-grain="" style="position: fixed; inset: 0; z-index: 70; pointer-events: none; opacity: .5; left: -1px; top: -1px"></div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#FCA311&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#FCA311&quot;,&quot;#FF6B2C&quot;,&quot;#34D399&quot;,&quot;#818CF8&quot;],&quot;section&quot;:&quot;Theme&quot;},&quot;splash&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;showBolts&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;galaxy&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+const ROLES = ['Full-Stack Developer','MERN Stack Engineer','React Developer','Docker Enthusiast'];
+
+class Component extends DCLogic {
+  state = { theme: 'dark', splash: true, typed: '', form: { name: '', email: '', message: '' }, formError: '', formSent: false, sending: false };
+  splashRef = React.createRef();
+  bootRef = React.createRef();
+  barRef = React.createRef();
+  pctRef = React.createRef();
+  progressRef = React.createRef();
+  glowRef = React.createRef();
+  starRef = React.createRef();
+  timers = [];
+
+  /* project card backgrounds saved from the admin panel (localStorage bridge) */
+  applyResume() {
+    let r = null;
+    try { r = JSON.parse(localStorage.getItem('pg-resume') || 'null'); } catch (e) {}
+    document.querySelectorAll('[data-cv]').forEach(el => {
+      if (r && r.dataUrl) { el.setAttribute('href', r.dataUrl); el.setAttribute('download', r.name); el.removeAttribute('title'); }
+      else { el.setAttribute('href', '#contact'); el.removeAttribute('download'); el.setAttribute('title', 'Upload a résumé in the admin panel to enable this'); }
+    });
+  }
+
+  applyProjectBgs() {
+    let map = {};
+    try { map = JSON.parse(localStorage.getItem('pg-project-bgs') || '{}') || {}; } catch (e) {}
+    document.querySelectorAll('[data-projectcard]').forEach(card => {
+      [...card.children].forEach(ch => {
+        if (ch.hasAttribute('data-cardbg') || ch.hasAttribute('data-cardscrim')) return;
+        ch.style.position = ch.style.position || 'relative';
+        ch.style.zIndex = '2';
+      });
+      const bg = card.querySelector('[data-cardbg]');
+      const scrim = card.querySelector('[data-cardscrim]');
+      if (!bg) return;
+      const entry = map[bg.getAttribute('data-cardbg')];
+      const src = typeof entry === 'string' ? entry : (entry && entry.src);
+      const vis = typeof entry === 'object' && entry && entry.opacity != null ? entry.opacity : 0.75;
+      if (src) {
+        bg.style.backgroundImage = 'url("' + src + '")';
+        bg.style.backgroundSize = 'cover';
+        bg.style.backgroundPosition = 'center';
+        bg.style.opacity = String(vis);
+        if (scrim) scrim.style.opacity = String(Math.min(1, 0.45 + vis * 0.6));
+      } else {
+        bg.style.backgroundImage = '';
+        bg.style.opacity = '0';
+        if (scrim) scrim.style.opacity = '0';
+      }
+    });
+  }
+
+  /* grain texture: built as a canvas so no SVG data URI passes through the template */
+  paintGrain() {
+    const el = document.querySelector('[data-grain]');
+    if (!el) return;
+    const n = 140, c = document.createElement('canvas');
+    c.width = n; c.height = n;
+    const ctx = c.getContext('2d');
+    const id = ctx.createImageData(n, n);
+    for (let i = 0; i < id.data.length; i += 4) {
+      const v = 120 + Math.random() * 135;
+      id.data[i] = id.data[i + 1] = id.data[i + 2] = v;
+      id.data[i + 3] = 15 + Math.random() * 16;
+    }
+    ctx.putImageData(id, 0, 0);
+    el.style.backgroundImage = 'url(' + c.toDataURL('image/png') + ')';
+    el.style.backgroundRepeat = 'repeat';
+    el.style.opacity = '0.42';
+  }
+
+  /* ---------- galaxy starfield + cursor web ---------- */
+  initGalaxy() {
+    const cv = this.starRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const self = this;
+    const pal = () => self.themeLight
+      ? { star: 'rgba(20,33,61,1)', web: 'rgba(20,33,61,1)', neb: '20,33,61', nebA: 0.16 }
+      : { star: 'rgba(226,235,255,1)', web: 'rgba(226,235,255,1)', neb: '20,33,61', nebA: 1 };
+    let w = 0, h = 0, dpr = 1, stars = [];
+    const mouse = { x: -9999, y: -9999 };
+
+    const build = () => {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth; h = window.innerHeight;
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const count = Math.min(620, Math.round((w * h) / 2600));
+      stars = Array.from({ length: count }, () => ({
+        x: Math.random() * w, y: Math.random() * h,
+        r: Math.random() * 1.15 + 0.45,
+        a: Math.random() * 0.5 + 0.5,
+        t: Math.random() * Math.PI * 2,
+        ts: Math.random() * 0.9 + 0.25,
+        vx: (Math.random() - 0.5) * 0.09,
+        vy: (Math.random() - 0.5) * 0.09,
+        warm: Math.random() < 0.16,
+      }));
+    };
+
+    this.onResize = () => build();
+    build();
+    window.addEventListener('resize', this.onResize);
+    this.onStarMove = e => { mouse.x = e.clientX; mouse.y = e.clientY; };
+    window.addEventListener('pointermove', this.onStarMove, { passive: true });
+    this.onStarLeave = () => { mouse.x = -9999; mouse.y = -9999; };
+    window.addEventListener('pointerleave', this.onStarLeave);
+
+    const NEB = [
+      { x: 0.78, y: 0.18, r: 0.55, a: 0.55 },
+      { x: 0.16, y: 0.62, r: 0.45, a: 0.40 },
+    ];
+
+    const frame = now => {
+      this.raf = requestAnimationFrame(frame);
+      ctx.clearRect(0, 0, w, h);
+      const P = pal();
+
+      // drifting nebula clouds
+      NEB.forEach((n, i) => {
+        const dx = Math.sin(now / (26000 + i * 9000)) * 40;
+        const dy = Math.cos(now / (31000 + i * 7000)) * 30;
+        const R = Math.max(w, h) * n.r;
+        const g = ctx.createRadialGradient(n.x * w + dx, n.y * h + dy, 0, n.x * w + dx, n.y * h + dy, R);
+        g.addColorStop(0, 'rgba(' + P.neb + ',' + (n.a * P.nebA).toFixed(3) + ')'); g.addColorStop(1, 'rgba(20,33,61,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      });
+
+      const R = 210, R2 = R * R;
+      const near = [];
+      for (const s of stars) {
+        s.x += s.vx; s.y += s.vy; s.t += 0.02 * s.ts;
+        if (s.x < -10) s.x = w + 10; if (s.x > w + 10) s.x = -10;
+        if (s.y < -10) s.y = h + 10; if (s.y > h + 10) s.y = -10;
+
+        const dx = s.x - mouse.x, dy = s.y - mouse.y, d2 = dx * dx + dy * dy;
+        const close = d2 < R2;
+        if (close) near.push(s);
+
+        const tw = 0.55 + 0.45 * Math.sin(s.t);
+        const alpha = Math.min(1, s.a * tw + (close ? 0.22 * (1 - Math.sqrt(d2) / R) : 0));
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r * (close ? 1.25 : 1), 0, Math.PI * 2);
+        ctx.fillStyle = s.warm ? self.accColor : P.star;
+        ctx.globalAlpha = alpha;
+        ctx.fill();
+      }
+
+      // spider web: cursor → nearby stars, and star → star
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 0.65;
+      for (const s of near) {
+        const d = Math.hypot(s.x - mouse.x, s.y - mouse.y);
+        ctx.strokeStyle = self.accColor;
+        ctx.globalAlpha = 0.3 * (1 - d / R);
+        ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(s.x, s.y); ctx.stroke();
+      }
+      ctx.lineWidth = 0.7;
+      const web = near.length > 80 ? near.slice(0, 80) : near;
+      for (let i = 0; i < web.length; i++) {
+        for (let j = i + 1; j < web.length; j++) {
+          const a = web[i], b = web[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d > 150) continue;
+          ctx.strokeStyle = P.web;
+          ctx.globalAlpha = 0.14 * (1 - d / 150);
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+      if (near.length) {
+        ctx.globalAlpha = 0.3;
+        ctx.fillStyle = acc;
+        ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 1.8, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    };
+    this.raf = requestAnimationFrame(frame);
+  }
+
+
+  readTheme() {
+    let t = 'dark';
+    try { t = localStorage.getItem('pg-theme') || 'dark'; } catch (e) {}
+    return t === 'light' ? 'light' : 'dark';
+  }
+
+  applyTheme(theme) {
+    this.themeLight = theme === 'light';
+    const root = document.documentElement;
+    if (this.themeLight) root.setAttribute('data-theme', 'light');
+    else root.removeAttribute('data-theme');
+    const overridden = this.props.accent && this.props.accent !== '#FCA311';
+    if (overridden) root.style.setProperty('--acc', this.props.accent);
+    else root.style.removeProperty('--acc');
+    this.accColor = overridden ? this.props.accent
+      : (getComputedStyle(root).getPropertyValue('--acc') || '#FCA311').trim();
+    const grain = document.querySelector('[data-grain]');
+    if (grain) grain.style.opacity = this.themeLight ? '.13' : '.45';
+    document.querySelectorAll('[data-lightplate]').forEach(el => { el.style.opacity = this.themeLight ? '1' : '0'; });
+    document.querySelectorAll('[data-heroimg]').forEach(el => {
+      const m = this.themeLight ? 'radial-gradient(62% 68% at 50% 44%, #000 30%, rgba(0,0,0,.7) 56%, rgba(0,0,0,.28) 76%, transparent 92%)' : '';
+      el.style.webkitMaskImage = m; el.style.maskImage = m;
+    });
+    document.querySelectorAll('[data-knob]').forEach(el => { el.style.transform = this.themeLight ? 'translateX(13px)' : 'none'; });
+    document.querySelectorAll('[data-strip]').forEach(el => { el.style.color = 'var(--acc)'; el.style.opacity = this.themeLight ? '.95' : '.5'; });
+    document.querySelectorAll('[data-ok]').forEach(el => { el.style.color = this.themeLight ? '#0E7A55' : '#34d399'; });
+    try { localStorage.setItem('pg-theme', theme); } catch (e) {}
+  }
+
+  toggleTheme() {
+    const next = this.themeLight ? 'dark' : 'light';
+    this.applyTheme(next);
+    this.setState({ theme: next });
+  }
+
+  componentDidMount() {
+    const t0 = this.readTheme();
+    this.applyTheme(t0);
+    if (t0 !== this.state.theme) this.setState({ theme: t0 });
+    if (this.props.showBolts === false) document.querySelectorAll('[data-bolt]').forEach(el => { el.style.display = 'none'; });
+    this._wasSplash = this.props.splash !== false;
+    this.paintGrain();
+    this.applyProjectBgs();
+    this.applyResume();
+    this.onStorage = e => { if (!e || e.key === 'pg-project-bgs') this.applyProjectBgs(); if (!e || e.key === 'pg-resume') this.applyResume(); };
+    window.addEventListener('storage', this.onStorage);
+    this.onFocus = () => { this.applyProjectBgs(); this.applyResume(); };
+    window.addEventListener('focus', this.onFocus);
+    if (this.props.galaxy !== false) this.initGalaxy();
+    this.hideReveals();
+    this.bindScroll();
+    this.bindPointer();
+    this.typeLoop();
+    let skip = false;
+    try { skip = new URLSearchParams(window.location.search).has('nosplash'); } catch (e) {}
+    if (this.props.splash === false || skip) { this._wasSplash = false; this.setState({ splash: false }); this.startReveals(120); }
+    else this.runSplash();
+  }
+
+  componentWillUnmount() {
+    this.timers.forEach(clearTimeout);
+    if (this.io) this.io.disconnect();
+    if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.sweepTimer) clearInterval(this.sweepTimer);
+    if (this.onAnyScroll) window.removeEventListener('scroll', this.onAnyScroll, { capture: true });
+    if (this.onResize) window.removeEventListener('resize', this.onResize);
+    if (this.onStarMove) window.removeEventListener('pointermove', this.onStarMove);
+    if (this.onStarLeave) window.removeEventListener('pointerleave', this.onStarLeave);
+    if (this.onScroll) window.removeEventListener('scroll', this.onScroll);
+    if (this.onMove) window.removeEventListener('pointermove', this.onMove);
+  }
+
+  after(ms, fn) { const t = setTimeout(fn, ms); this.timers.push(t); return t; }
+  afterSplash(ms, fn) {
+    if (!this.splashTimers) this.splashTimers = [];
+    const t = setTimeout(fn, ms);
+    this.splashTimers.push(t); this.timers.push(t);
+    return t;
+  }
+
+  /* ---------- splash ---------- */
+  runSplash() {
+    this.splashTimers = [];
+    const boot = this.bootRef.current;
+    if (boot) [...boot.children].forEach((line, i) => this.afterSplash(560 + i * 820, () => {
+      line.style.opacity = '1'; line.style.transform = 'none';
+    }));
+    let pct = 0;
+    const tick = () => {
+      pct = Math.min(100, pct + Math.random() * 6 + 2.2);
+      if (this.barRef.current) this.barRef.current.style.width = pct + '%';
+      if (this.pctRef.current) this.pctRef.current.textContent = String(Math.round(pct)).padStart(3, '0') + '%';
+      if (pct < 100) this.afterSplash(140, tick);
+    };
+    this.afterSplash(220, tick);
+    this.afterSplash(4600, () => this.finishSplash());
+  }
+
+  finishSplash() {
+    (this.splashTimers || []).forEach(clearTimeout); this.splashTimers = [];
+    const el = this.splashRef.current;
+    if (el) { el.style.transform = 'translateY(-101%)'; el.style.opacity = '0'; }
+    this.startReveals(320);
+    this.after(1150, () => this.setState({ splash: false }));
+  }
+
+  /* ---------- reveals ---------- */
+  hideReveals() {
+    [...document.querySelectorAll('[data-reveal]')].forEach(el => {
+      const t = el.dataset.reveal;
+      el.style.willChange = 'opacity, transform';
+      el.style.transition = 'opacity .85s cubic-bezier(.16,1,.3,1), transform 1.05s cubic-bezier(.16,1,.3,1)';
+      el.style.transitionDelay = (Number(el.dataset.delay || 0) / 1000) + 's';
+      delete el.dataset.shown;
+      el.style.opacity = '0';
+      el.style.transform = t === 'pop' ? 'scale(.25) rotate(-28deg)'
+        : t === 'rise' ? 'translateY(90px) scale(.93)'
+        : t === 'left' ? 'translateX(-46px)'
+        : 'translateY(38px)';
+      if (t === 'pop') el.style.transition = 'opacity .5s ease, transform .9s cubic-bezier(.34,1.56,.4,1)';
+    });
+  }
+
+  showEl(el) {
+    if (el.dataset.shown) return;
+    el.dataset.shown = '1';
+    el.style.opacity = '1';
+    el.style.transform = 'none';
+    if (el.dataset.count) this.countUp(el);
+    // safety net: if transitions are paused/blocked, force the final state
+    setTimeout(() => {
+      if (parseFloat(getComputedStyle(el).opacity) < 0.9) {
+        el.style.transition = 'none';
+        el.style.opacity = '1';
+        el.style.transform = 'none';
+      }
+    }, 1700 + Number(el.dataset.delay || 0));
+  }
+
+  sweepReveals() {
+    const els = [...document.querySelectorAll('[data-reveal]')];
+    let pending = 0;
+    els.forEach(el => {
+      if (el.dataset.shown) return;
+      const r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight * 0.95) this.showEl(el); else pending++;
+    });
+    document.querySelectorAll('[data-count]').forEach(el => {
+      if (el.dataset.counted) return;
+      if (el.getBoundingClientRect().top < window.innerHeight * 0.95) this.countUp(el);
+    });
+    return pending;
+  }
+
+  startSweepLoop() {
+    if (this.sweepTimer) clearInterval(this.sweepTimer);
+    this.sweepTimer = setInterval(() => this.sweepReveals(), 140);
+    window.addEventListener('scroll', this.onAnyScroll = () => this.sweepReveals(), { capture: true, passive: true });
+  }
+
+  startReveals(delay) {
+    this.after(delay, () => {
+      this.sweeping = true;
+      this.sweepReveals();
+      this.startSweepLoop();
+      this.io = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (!e.isIntersecting) return;
+          this.showEl(e.target);
+          this.io.unobserve(e.target);
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+      this.observeAll();
+    });
+  }
+
+  observeAll() {
+    if (!this.io) return;
+    document.querySelectorAll('[data-reveal],[data-count]').forEach(el => {
+      if (!el.dataset.shown) this.io.observe(el);
+    });
+  }
+
+  componentDidUpdate() {
+    if (this._wasSplash && !this.state.splash) {
+      this.sweeping = true;
+      this.sweepReveals();
+      this.observeAll();
+      this.startSweepLoop();
+    }
+    this._wasSplash = this.state.splash;
+  }
+
+  countUp(el) {
+    if (el.dataset.counted) return;
+    el.dataset.counted = '1';
+    const target = Number(el.dataset.count) || 0;
+    const suffix = el.dataset.suffix || '';
+    const t0 = performance.now(), dur = 1300;
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur);
+      el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))) + suffix;
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  /* ---------- scroll + pointer ---------- */
+  bindScroll() {
+    const paras = [...document.querySelectorAll('[data-para]')];
+    let raf = null;
+    this.onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const sc = document.scrollingElement || document.documentElement;
+        const y = window.scrollY || sc.scrollTop || document.body.scrollTop;
+        const max = Math.max(sc.scrollHeight, document.body.scrollHeight) - window.innerHeight;
+        if (this.progressRef.current) this.progressRef.current.style.width = (max > 0 ? (y / max) * 100 : 0) + '%';
+        if (this.sweeping) this.sweepReveals();
+        paras.forEach(el => {
+          const f = Number(el.dataset.para) || 0;
+          const r = el.getBoundingClientRect();
+          const mid = r.top + r.height / 2 - window.innerHeight / 2;
+          el.style.transform = 'translate3d(0,' + (-mid * f).toFixed(1) + 'px,0)' + (el.tagName === 'IMG' ? ' scale(1.1)' : '');
+        });
+      });
+    };
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+    this.onScroll();
+  }
+
+  bindPointer() {
+    const tiltHost = document.querySelector('[data-tilt]');
+    const tiltEl = document.querySelector('[data-tilt-inner]');
+    this.onMove = e => {
+      const g = this.glowRef.current;
+      if (g) g.style.transform = 'translate3d(' + e.clientX + 'px,' + e.clientY + 'px,0)';
+      if (tiltHost && tiltEl) {
+        const r = tiltHost.getBoundingClientRect();
+        const nx = (e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2);
+        const ny = (e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2);
+        tiltEl.style.transform = 'rotateY(' + (nx * 7).toFixed(2) + 'deg) rotateX(' + (-ny * 5).toFixed(2) + 'deg) translate3d(' + (nx * 14).toFixed(1) + 'px,' + (ny * 8).toFixed(1) + 'px,0)';
+      }
+    };
+    window.addEventListener('pointermove', this.onMove, { passive: true });
+  }
+
+  /* ---------- typewriter ---------- */
+  typeLoop() {
+    let ri = 0, ci = 0, del = false;
+    const step = () => {
+      const word = ROLES[ri];
+      if (!del) {
+        ci++;
+        this.setState({ typed: word.slice(0, ci) });
+        if (ci === word.length) { del = true; this.after(2600, step); return; }
+        this.after(85, step);
+      } else {
+        ci--;
+        this.setState({ typed: word.slice(0, ci) });
+        if (ci === 0) { del = false; ri = (ri + 1) % ROLES.length; }
+        this.after(40, step);
+      }
+    };
+    this.after(600, step);
+  }
+
+  renderVals() {
+    return {
+      themeLabel: this.state.theme === 'light' ? 'DARK MODE' : 'LIGHT MODE',
+      toggleTheme: () => this.toggleTheme(),
+      splash: this.state.splash,
+      typed: this.state.typed,
+      splashRef: this.splashRef,
+      bootRef: this.bootRef,
+      barRef: this.barRef,
+      pctRef: this.pctRef,
+      progressRef: this.progressRef,
+      glowRef: this.glowRef,
+      starRef: this.starRef,
+      formError: this.state.formError,
+      formSent: this.state.formSent,
+      fName: this.state.form.name,
+      fEmail: this.state.form.email,
+      fMessage: this.state.form.message,
+      submitLabel: this.state.sending ? 'SENDING…' : this.state.formSent ? 'SENT ✓' : 'SEND MESSAGE',
+      onField: e => {
+        const { name, value } = e.target;
+        this.setState(s => ({ form: { ...s.form, [name]: value }, formError: '', formSent: false }));
+      },
+      onSubmit: e => {
+        e.preventDefault();
+        const formEl = e.target;
+        const { name, email, message } = this.state.form;
+        if (!name.trim() || !email.trim() || !message.trim()) return this.setState({ formError: 'All three fields are required.', formSent: false });
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return this.setState({ formError: 'That email address looks off.', formSent: false });
+        this.setState({ sending: true, formError: '', formSent: false });
+        setTimeout(() => {
+          if (formEl && formEl.reset) formEl.reset();
+          this.setState({ sending: false, formSent: true, formError: '', form: { name: '', email: '', message: '' } });
+        }, 900);
+      },
+      skip: () => this.finishSplash(),
+      replay: () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        this.setState({ splash: true }, () => { this.hideReveals(); this.runSplash(); });
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>
