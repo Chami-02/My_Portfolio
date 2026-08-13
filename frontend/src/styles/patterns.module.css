@@ -1,0 +1,81 @@
+/* frontend/src/styles/patterns.module.css
+ *
+ * Shared structural patterns, transcribed from the prototype.
+ *
+ * These are the values repeated across multiple sections. One-off
+ * gradients stay in their own section's module — do not generalise
+ * something used once.
+ *
+ * Composed via `composes:` from a section module:
+ *
+ *   .hero {
+ *     composes: section from '../styles/patterns.module.css';
+ *     background: radial-gradient(…);
+ *   }
+ */
+
+/* Site-wide section rhythm */
+.section {
+  padding: clamp(80px, 12vh, 140px) clamp(16px, 4vw, 40px);
+  position: relative;
+}
+
+/* Hero has its own vertical rhythm */
+.section-hero {
+  padding: clamp(120px, 16vh, 180px) clamp(16px, 4vw, 40px) 70px;
+  min-height: 100vh;
+  min-height: 100dvh;   /* avoids the mobile address-bar jump */
+  position: relative;
+}
+
+/* Raised surface — cards, panels */
+.surface {
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .1);
+  border-radius: 18px;
+}
+
+/* Recessed surface — inset rows inside a card */
+.surface-inset {
+  background: rgba(var(--gnd), .32);
+  border: 1px solid rgba(var(--ln), .14);
+  border-radius: 14px;
+}
+
+/* Pill button, ghost variant */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .18);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  transition: color .2s, border-color .2s, background .2s, transform .2s;
+}
+
+/* Pill button, accent variant */
+.pill-accent {
+  composes: pill;
+  border-color: rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .08);
+  color: var(--acc);
+}
+
+.pill-accent:hover {
+  background: var(--acc);
+  color: var(--accInk);
+  transform: translateY(-2px);
+}
+
+/* Mono eyebrow label */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}

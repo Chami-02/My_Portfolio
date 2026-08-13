@@ -134,6 +134,11 @@ Where a mistake would be silent, add a test that would catch it.
 - Cloudinary for file storage, behind a provider interface.
 - Résumé is PDF only; a new upload hard-deletes the old.
 - Blog content is `sections[]`, not a flat string.
+- Tailwind `@theme` uses `var()` references to `tokens.css`, so colour
+  utilities follow theme switching. Opacity modifiers (`bg-acc/50`) resolve
+  via `color-mix()` at runtime. On engines without `color-mix()` (pre-2023)
+  they degrade to full opacity — known and accepted. Verified against the
+  emitted CSS in PF-70 Step 2.
 
 ## Environment
 
