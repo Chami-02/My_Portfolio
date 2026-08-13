@@ -7,6 +7,32 @@
     <title>Parindra Chameekara — Full-Stack Developer</title>
     <meta name="description" content="Full-Stack Developer specializing in the MERN stack. Building clean, containerized web applications." />
 
+    <!-- ── FOUC guard (PF-71) ───────────────────────────────────
+         Applies the saved theme before first paint. Must stay inline
+         and blocking — a deferred or external script would run after
+         the browser has already painted, which is the flash this
+         prevents. See PF-72 for the runtime theme provider.
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('pg-theme');
+          // PF-72: ThemeProvider must read this attribute in its useState
+          // initializer, not assume 'dark' and correct in a useEffect —
+          // that would reintroduce the flash as a React re-render.
+          document.documentElement.setAttribute(
+            'data-theme',
+            saved === 'light' ? 'light' : 'dark'
+          );
+        } catch (e) {
+          // localStorage throws in Safari private mode and when cookies
+          // are blocked. Falling through leaves the default dark theme,
+          // which is correct — never let this break page load.
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+
     <!-- Fonts (PF-68: merged into the existing Inter+JetBrains Mono request) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
