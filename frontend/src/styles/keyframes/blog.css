@@ -1,0 +1,9 @@
+@keyframes flt-blog {
+  0%, 100% { transform: translateY(0);     }
+  50%      { transform: translateY(-12px); }
+}
+
+@keyframes sheen-blog {
+  0%   { transform: translateX(-40%) skewX(-18deg); }
+  100% { transform: translateX(140%) skewX(-18deg); }
+}

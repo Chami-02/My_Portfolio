@@ -1,0 +1,17 @@
+@keyframes flt-portfolio {
+  0%, 100% { transform: translateY(0);     }
+  50%      { transform: translateY(-14px); }
+}
+
+@keyframes drift-portfolio {
+  0%   { transform: translate3d(0, 0, 0);        }
+  33%  { transform: translate3d(22px, -14px, 0); }
+  66%  { transform: translate3d(-18px, 10px, 0); }
+  100% { transform: translate3d(0, 0, 0);        }
+}
+
+@keyframes sheen-portfolio {
+  0%   { transform: translateX(-30%)  skewX(-18deg); opacity: 0;   }
+  50%  {                                             opacity: .55; }
+  100% { transform: translateX(130%)  skewX(-18deg); opacity: 0;   }
+}

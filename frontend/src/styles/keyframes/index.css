@@ -1,0 +1,13 @@
+ /* Single import point for the keyframe library.
+ *
+ * base.css holds the 22 animations identical across all screens.
+ * The three screen files hold variants where the prototype defines
+ * the same animation differently — flt, drift and sheen — under
+ * explicit variant names so a component's animation: declaration
+ * says which one it uses.
+ */
+
+@import './base.css';
+@import './portfolio.css';
+@import './blog.css';
+@import './admin.css';

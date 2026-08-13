@@ -5,7 +5,8 @@ import { ReactQueryDevtools }               from '@tanstack/react-query-devtools
 import { Analytics }                        from '@vercel/analytics/react';
 import App from './App.jsx';
 import './styles/global.css';
-import './styles/tokens.css';    // must come AFTER global.css — see PF-67
+import './styles/tokens.css';   
+import './styles/keyframes/index.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
