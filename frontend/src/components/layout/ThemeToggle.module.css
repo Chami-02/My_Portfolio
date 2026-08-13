@@ -1,0 +1,52 @@
+/* frontend/src/components/layout/ThemeToggle.module.css
+ *
+ * Structural implementation. The prototype's exact visual treatment
+ * lands with the navbar rebuild in Sprint 11 — check
+ * docs/design/Portfolio Revolution.dc.html for the final styling.
+ */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .18);
+  background: rgba(var(--srf), .5);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+
+.toggle:hover {
+  border-color: rgba(var(--acc2rgb), .5);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.knob {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--acc2);
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), background .28s;
+}
+
+/* The knob slides when the light theme is active. Scoped to the
+   document attribute rather than a prop, so it follows whatever
+   applyTheme() set — including a cross-tab change. */
+:global(html[data-theme='light']) .knob {
+  transform: translateX(4px);
+  background: var(--acc);
+}
+
+.label {
+  min-width: 34px;   /* stops the pill resizing between "Dark" and "Light" */
+  text-align: left;
+}

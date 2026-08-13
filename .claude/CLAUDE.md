@@ -18,8 +18,8 @@ docs/design/
 
 ### ⚠️ `docs/screenshots/` is NOT the design
 
-That directory holds an image of the **Phase 1 UI** — the old site, before
-this rebuild. It is historical reference only.
+That directory holds an image of the **Phase 1 UI** — the old site, before this
+rebuild. It is historical reference only.
 
 **Never use it as a visual target.** It shows the previous slate/indigo palette
 and Inter typography, both of which Phase 2 replaces. If a screenshot and the
@@ -46,7 +46,9 @@ produces something that looks approximately right and feels wrong, in a way
 that is very hard to diagnose later.
 
 **Three keyframes differ per screen** — `flt`, `drift`, `sheen`. Check which
-screen you are building before copying a value.
+screen you are building before copying a value. They live under explicit
+variant names (`flt-portfolio`, `flt-blog`, `flt-admin`) in
+`frontend/src/styles/keyframes/`.
 
 ### Reading `.dc.html` files
 
@@ -60,29 +62,29 @@ map. Read the inline value and re-express it.
 `support.js` is the Claude Design runtime. It is deliberately **not** in this
 repo and must never be added.
 
-`Admin.dc.html` contains hardcoded demo credentials in its logic block. That
-is expected for design reference, and CI's credential scan skips `.html`
+`Admin.dc.html` contains hardcoded demo credentials in its logic block. That is
+expected for design reference, and CI's credential scan skips `.html`
 deliberately. Do not strip them; do not copy them into application code.
 
 ## Project state
 
-Phase 1 (PF-1 → PF-51) complete. Sprint 9 (PF-52, PF-59 → PF-65) complete
-and merged — the API serves every field Phase 2 requires.
+Phase 1 (PF-1 → PF-51) complete. Sprint 9 (PF-52, PF-59 → PF-65) complete and
+merged — the API serves every field Phase 2 requires.
 
 Currently **Sprint 10 — Epic E6 Design System Foundations**, branch
 `sprint-10-design-system`.
 
-| Ticket | Work |
-| --- | --- |
-| PF-66 | E2E database isolation ✅ |
-| PF-67 | Design token stylesheet ✅ |
-| PF-68 | Font pipeline ✅ |
-| PF-69 | Keyframe library |
-| PF-70 | Tailwind theme wiring |
-| PF-71 | FOUC guard |
-| PF-72 | ThemeProvider |
-| PF-73 | MotionProvider |
-| PF-74 | Motion primitives |
+| Ticket | Work | Status |
+| --- | --- | --- |
+| PF-66 | E2E database isolation | ✅ |
+| PF-67 | Design token stylesheet | ✅ |
+| PF-68 | Font pipeline | ✅ |
+| PF-69 | Keyframe library | ✅ |
+| PF-70 | Tailwind theme wiring | ✅ |
+| PF-71 | FOUC guard | ✅ |
+| PF-72 | ThemeProvider | in progress |
+| PF-73 | MotionProvider | to do |
+| PF-74 | Motion primitives | to do |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -102,13 +104,16 @@ Paste the value verbatim; no translation, no drift.
 **Tailwind utilities** for simple layout only — `flex`, `gap-4`, `items-center`.
 
 Rationale: translating `radial-gradient(120% 90% at 78% 18%, rgba(var(--srf),.62)…)`
-into a Tailwind arbitrary value needs underscore-escaping, and a mistake
-**fails silently** — no error, the element just renders without a background.
+into a Tailwind arbitrary value needs underscore-escaping, and a mistake **fails
+silently** — no error, the element just renders without a background.
+
+Shared structural patterns live in `frontend/src/styles/patterns.module.css`
+and are pulled in with `composes:`. Do not generalise a value used once.
 
 ## Silent failures
 
-This project has been bitten four times. Assume any of these can happen with
-no error message:
+This project has been bitten repeatedly. Assume any of these can happen with no
+error message:
 
 - **Mistyped CSS custom property** → declaration dropped, element inherits
 - **Mistyped `animation-name`** → element simply does not animate
@@ -118,6 +123,11 @@ no error message:
   document order
 - **Connection string with no database path** → driver silently defaults to a
   database named `test`
+- **Inline custom property on `<html>`** → beats the `html[data-theme]` block in
+  the cascade, so every subsequent edit to `tokens.css` becomes dead code. The
+  page renders a stale value and nothing you change has any effect. Never write
+  inline styles to `documentElement` — set `data-theme` and nothing else.
+  Guarded by a test in `frontend/src/utils/__tests__/theme.test.js`.
 
 Where a mistake would be silent, add a test that would catch it.
 
@@ -128,17 +138,20 @@ Where a mistake would be silent, add a test that would catch it.
 - Channel-triplet tokens stay as triplets.
 - `tokens.css` imports **after** `global.css` in `main.jsx` — `global.css`
   contains both the Tailwind import and the phase-1 `:root` block.
+- Tailwind `@theme` uses `var()` references to `tokens.css`, so colour utilities
+  follow theme switching. Opacity modifiers (`bg-acc/50`) resolve via
+  `color-mix()` at runtime. On engines without `color-mix()` (pre-2023) they
+  degrade to full opacity — known and accepted. Verified against the emitted CSS
+  in PF-70 Step 2.
+- Fonts are deliberately **not** in `@theme` — `--font-*` collides with
+  `tokens.css`'s own property names, so a `var()` reference would be
+  self-referential. Typography goes through CSS Modules directly.
 - `body { font-family }` is deliberately NOT set until cutover, so the Phase 1
   site keeps Inter.
 - Vocabulary deletion is hard-delete with cascade, behind an impact-count confirm.
 - Cloudinary for file storage, behind a provider interface.
 - Résumé is PDF only; a new upload hard-deletes the old.
 - Blog content is `sections[]`, not a flat string.
-- Tailwind `@theme` uses `var()` references to `tokens.css`, so colour
-  utilities follow theme switching. Opacity modifiers (`bg-acc/50`) resolve
-  via `color-mix()` at runtime. On engines without `color-mix()` (pre-2023)
-  they degrade to full opacity — known and accepted. Verified against the
-  emitted CSS in PF-70 Step 2.
 
 ## Environment
 
@@ -156,6 +169,10 @@ Backend tests live in `backend/src/__tests__/`. Run via `npm test`, never
 `npx jest` — the wrapper rewrites the Mongo URI to `/portfolio_test`, which is
 the only thing making `clearDB`'s wipe safe.
 
+Frontend tests use **per-module `__tests__` directories** —
+`src/utils/__tests__/`, `src/styles/__tests__/`, `src/providers/__tests__/`.
+Not a top-level `src/__tests__/`.
+
 ## Working agreement
 
 Per-ticket `.md` guides are pasted into chat and are the source of truth for
@@ -168,8 +185,12 @@ stop. VS Code has auto-staged unintended files twice; always show
 **Flag concerns before executing, not after.**
 
 **Ticket file paths are sometimes wrong for this repo.** When a ticket's path
-conflicts with the actual convention, the convention wins — note it as a
-correct deviation, not a defect.
+conflicts with the actual convention, the convention wins — note it as a correct
+deviation, not a defect.
+
+Prefer verifying against generated output or a real browser over reasoning from
+description — grepping built CSS and driving Playwright have both caught things
+a visual check would have missed.
 
 Explain **why**, not just what. When something breaks, give the causal
 mechanism.
