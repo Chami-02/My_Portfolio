@@ -28,3 +28,7 @@ dist-ssr
 .env.local
 .env.development.local
 .env.production.local
+
+# Playwright run output (PF-66) — reports, traces, screenshots, videos
+/playwright-report/
+/test-results/

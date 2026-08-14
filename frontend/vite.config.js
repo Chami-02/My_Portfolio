@@ -5,6 +5,23 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
 
+  css: {
+    modules: {
+      // Kebab-case class names in CSS become camelCase in JS.
+      // .card-header  →  styles.cardHeader
+      //
+      // 'dashes' keeps the original AND adds the camelCase alias,
+      // so styles['card-header'] also works. Less surprising than
+      // 'camelCaseOnly' when copying class names from the prototype.
+      localsConvention: 'dashes',
+
+      // Readable class names in dev, hashed in production
+      generateScopedName: process.env.NODE_ENV === 'production'
+        ? '[hash:base64:6]'
+        : '[name]__[local]',
+    },
+  },
+
   // ── Vitest configuration ─────────────────────────────────────────────────
   test: {
     environment: 'jsdom',      // Simulate browser DOM

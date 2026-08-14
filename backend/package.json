@@ -6,8 +6,10 @@
   "type": "commonjs",
   "scripts": {
     "dev": "nodemon src/server.js",
+    "dev:e2e": "dotenv -e .env.e2e -- node src/server.js",
     "start": "node src/server.js",
     "seed": "node src/seed.js",
+    "seed:e2e": "dotenv -e .env.e2e -- node src/seed.js",
     "test": "node scripts/run-jest.js --runInBand --detectOpenHandles --forceExit",
     "test:coverage": "node scripts/run-jest.js --coverage --runInBand --detectOpenHandles --forceExit",
     "test:watch": "node scripts/run-jest.js --watch"
@@ -50,6 +52,7 @@
     "slugify": "^1.6.9"
   },
   "devDependencies": {
+    "dotenv-cli": "^11.0.0",
     "jest": "^30.4.2",
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2"

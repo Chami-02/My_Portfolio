@@ -1,0 +1,154 @@
+/*
+* Animation vocabulary — PF-69.
+ * Transcribed verbatim from the Portfolio Revolution prototype.
+ *
+ * These 22 are identical across all three screens. Three others
+ * (flt, drift, sheen) differ per screen and live in the sibling
+ * portfolio/blog/admin files under explicit variant names.
+ *
+ * Timings and magnitudes are exact. Do not round.
+ * scale(1.022) is not scale(1.02). translateY(-14px) is not -12px.
+ */
+
+/* ── Entrance ────────────────────────────────────────────── */
+
+/* The workhorse — scroll reveals, staggered form fields */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+/* Plain opacity fade. Admin banners, panel shell, modal overlay. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Splash boot-log line reveal */
+@keyframes typeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* Decorative accent rule that draws itself in.
+   Requires transform-origin: left on the element. */
+@keyframes barGrow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* ── Pulses and glows ────────────────────────────────────── */
+
+/* Status dot — expanding ring that fades out */
+@keyframes dot {
+  0%, 100% { box-shadow: 0 0 0 0    rgba(252,163,17,.55); }
+  70%      { box-shadow: 0 0 0 10px rgba(252,163,17,0);   }
+}
+
+/* Pulsing lead dot on hero role pills */
+@keyframes glowdot {
+  0%, 100% { box-shadow: 0 0 8px  rgba(252,163,17,.7); transform: scale(1);    }
+  50%      { box-shadow: 0 0 18px rgba(252,163,17,1);  transform: scale(1.28); }
+}
+
+/* Contact and ADMIN pill outlines */
+@keyframes glowpulse {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(252,163,17,.35); }
+  50%      { box-shadow: 0 0 0 6px rgba(252,163,17,0);   }
+}
+
+/* Orbit rings — scales the element itself */
+@keyframes pulsering {
+  0%, 100% { transform: scale(1);    opacity: .55; }
+  50%      { transform: scale(1.06); opacity: 1;   }
+}
+
+/* Splash logo ring — expands a shadow, does NOT scale the element */
+@keyframes ringPulse {
+  0%   { box-shadow: 0 0 0 0    rgba(252,163,17,.5); }
+  70%  { box-shadow: 0 0 0 22px rgba(252,163,17,0);  }
+  100% { box-shadow: 0 0 0 0    rgba(252,163,17,0);  }
+}
+
+/* Lightning bolt decoration */
+@keyframes boltp {
+  0%, 100% { opacity: .85; transform: translateY(0)    scale(1);    }
+  50%      { opacity: 1;   transform: translateY(-8px) scale(1.03); }
+}
+
+/* ── Motion ──────────────────────────────────────────────── */
+
+/* Cards and logo — almost subliminal */
+@keyframes breathe {
+  0%, 100% { transform: scale(1);     }
+  50%      { transform: scale(1.02);  }
+}
+
+/* Slow vertical float — logo, decorative elements */
+@keyframes floatY {
+  0%, 100% { transform: translateY(0);     }
+  50%      { transform: translateY(-10px); }
+}
+
+/* Scroll-down cue */
+@keyframes nudge {
+  0%, 100% { transform: translateY(0);   opacity: .55; }
+  50%      { transform: translateY(6px); opacity: 1;   }
+}
+
+/* Loaders, orbit rings */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Dots orbiting the splash logo — orbit radius baked into the transform */
+@keyframes orbdot {
+  from { transform: rotate(0deg)   translateX(52px) rotate(0deg);    }
+  to   { transform: rotate(360deg) translateX(52px) rotate(-360deg); }
+}
+
+/* ── Travelling light ────────────────────────────────────── */
+
+/* Vertical light pass over cards */
+@keyframes sweep {
+  0%   { transform: translateY(-120%); }
+  100% { transform: translateY(120%);  }
+}
+
+/* Horizontal shimmer — accent rules */
+@keyframes shimmerline {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%);  }
+}
+
+/* Skeleton loading shimmer — background-position, not transform */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0;  }
+}
+
+/* ── Texture ─────────────────────────────────────────────── */
+
+/* CRT scanline — splash and admin login */
+@keyframes scanline {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+/* CRT flicker — irregular on purpose */
+@keyframes flicker {
+  0%, 100% { opacity: .55; }
+  50%      { opacity: .85; }
+}
+
+/* Infinite marquee strip */
+@keyframes marq {
+  from { transform: translateX(0);    }
+  to   { transform: translateX(-50%); }
+}
+
+/* Terminal cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}

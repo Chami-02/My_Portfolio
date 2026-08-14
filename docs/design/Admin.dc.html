@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--acc:#FCA311;--gnd:5,6,9;--srf:20,33,61;--ln:229,229,229;--ftr:10,16,32;--shd:0,0,0;--bg:#050609;--text:#E5E5E5;--strong:#ffffff;--muted:#93a0b8;--muted2:#6b7891;--faint:#5c677d;--thumb:#1d2740;--acc2:#7AA6D6;--acc2rgb:122,166,214;--accInk:#0a0a0a;--ok:#34d399;--danger:#f87171}
+html[data-theme="light"]{--gnd:255,255,255;--srf:255,255,255;--ln:20,33,61;--ftr:226,212,190;--shd:20,33,61;--bg:#EDE8DF;--text:#16223B;--strong:#0B1220;--muted:#45536D;--muted2:#4F5D76;--faint:#55637C;--thumb:#C9C2B6;--acc:#7E4800;--acc2:#2F5D8C;--acc2rgb:47,93,140;--accInk:#ffffff;--ok:#0E7A55;--danger:#B4231F}
+html{background:var(--bg)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--acc,#FCA311);text-decoration:none}
+a:hover{color:var(--strong)}
+input,textarea,select,button{font-family:inherit}
+input::placeholder,textarea::placeholder{color:var(--faint)}
+::selection{background:var(--acc,#FCA311);color:var(--accInk)}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--thumb);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--acc,#FCA311)}
+@keyframes glowdot{0%,100%{box-shadow:0 0 8px rgba(252,163,17,.7);transform:scale(1)}50%{box-shadow:0 0 18px rgba(252,163,17,1);transform:scale(1.28)}}
+@keyframes glowpulse{0%,100%{box-shadow:0 0 16px rgba(252,163,17,.16)}50%{box-shadow:0 0 26px rgba(252,163,17,.4)}}
+@keyframes riseIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-9px)}}
+@keyframes sheen{0%{transform:translateX(-120%)}55%,100%{transform:translateX(220%)}}
+@keyframes ringPulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.12);opacity:1}}
+@keyframes auroraA{0%,100%{transform:translate3d(-6%,-4%,0) scale(1)}50%{transform:translate3d(8%,6%,0) scale(1.16)}}
+@keyframes auroraB{0%,100%{transform:translate3d(6%,5%,0) scale(1.1)}50%{transform:translate3d(-7%,-6%,0) scale(1)}}
+@keyframes scanline{0%{transform:translateY(-10%)}100%{transform:translateY(1100%)}}
+@keyframes typeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes barGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+</style>
+</helmet>
+
+<div style="position:relative;min-height:100vh">
+
+<canvas ref="{{ webRef }}" aria-hidden="true" style="position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block"></canvas>
+
+<!-- ══ LOGIN ══ -->
+<sc-if value="{{ isLocked }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Admin login" style="position:relative;z-index:2;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 20px;overflow:hidden">
+  <span aria-hidden="true" style="position:absolute;z-index:0;top:-18%;right:-14%;width:min(74vw,720px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(252,163,17,.20),rgba(252,163,17,0) 68%);filter:blur(6px);animation:auroraA 17s ease-in-out infinite"></span>
+  <span aria-hidden="true" style="position:absolute;z-index:0;bottom:-22%;left:-16%;width:min(70vw,660px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(var(--acc2rgb),.22),rgba(var(--acc2rgb),0) 68%);filter:blur(6px);animation:auroraB 21s ease-in-out infinite"></span>
+  <span aria-hidden="true" style="position:absolute;z-index:0;inset:0;opacity:.5;mix-blend-mode:screen;background:linear-gradient(180deg,transparent,rgba(252,163,17,.10) 48%,transparent);height:12%;animation:scanline 7s linear infinite"></span>
+
+  <div style="position:relative;z-index:2;width:100%;max-width:440px;padding:clamp(24px,4vw,36px);border-radius:26px;background:rgba(var(--srf),.62);border:1px solid rgba(var(--ln),.14);box-shadow:0 40px 90px rgba(var(--shd),.42);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);animation:riseIn .9s cubic-bezier(.16,1,.3,1) both">
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:26px;animation:typeIn .7s cubic-bezier(.16,1,.3,1) .05s both">
+      <span style="position:relative;display:inline-flex;flex:none;animation:floatY 6s ease-in-out infinite">
+        <span aria-hidden="true" style="position:absolute;inset:-9px;border-radius:50%;border:1px solid rgba(252,163,17,.35);animation:ringPulse 3.4s ease-in-out infinite"></span>
+        <img src="assets/logo.png" alt="Parindra Gallage" width="54" height="54" style="position:relative;width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid var(--acc,#FCA311);box-shadow:0 0 26px rgba(252,163,17,.4)">
+      </span>
+      <span style="display:grid;gap:4px">
+        <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:var(--strong)">PARINDRA<span style="color:var(--acc,#FCA311)">.</span>DEV</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;color:var(--muted2)">PORTFOLIO CMS</span>
+      </span>
+    </div>
+
+    <h1 style="animation:typeIn .7s cubic-bezier(.16,1,.3,1) .14s both;font-family:'Anton',sans-serif;font-size:clamp(38px,7vw,60px);line-height:.92;letter-spacing:.02em;text-transform:uppercase;color:var(--strong);margin:0 0 10px">Admin <span style="-webkit-text-stroke:1.5px var(--acc,#FCA311);color:transparent">sign in</span></h1>
+    <p style="animation:typeIn .7s cubic-bezier(.16,1,.3,1) .22s both;color:var(--muted);font-size:14.5px;line-height:1.7;margin:0 0 26px">Restricted area. Sign in to manage projects, skills, profile, writing and messages.</p>
+
+    <sc-if value="{{ loginError }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:13px 15px;margin-bottom:18px;border-radius:12px;background:rgba(180,35,31,.08);border:1px solid rgba(180,35,31,.4);animation:fadeIn .3s both">
+        <span aria-hidden="true" style="flex:none;width:16px;height:16px;margin-top:2px;border-radius:50%;border:1.5px solid var(--danger);color:var(--danger);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:13px;text-align:center">!</span>
+        <p style="margin:0;color:var(--danger);font-size:13.5px;line-height:1.5">{{ loginError }}</p>
+      </div>
+    </sc-if>
+
+    <form onSubmit="{{ onLogin }}" style="display:grid;gap:16px">
+      <span aria-hidden="true" style="display:block;height:2px;border-radius:2px;transform-origin:left;background:linear-gradient(90deg,var(--acc,#FCA311),transparent);animation:barGrow .9s cubic-bezier(.16,1,.3,1) .3s both"></span>
+      <label style="display:grid;gap:8px;animation:typeIn .6s cubic-bezier(.16,1,.3,1) .34s both">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)">Email address</span>
+        <input type="email" required autocomplete="email" placeholder="admin@portfolio.dev" value="{{ email }}" onInput="{{ onEmail }}" style="width:100%;padding:14px 16px;border-radius:12px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14.5px;outline:none;transition:border-color .25s,box-shadow .25s" style-focus="border-color:var(--acc,#FCA311);box-shadow:0 0 0 3px rgba(252,163,17,.14)">
+      </label>
+      <label style="display:grid;gap:8px;animation:typeIn .6s cubic-bezier(.16,1,.3,1) .42s both">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)">Password</span>
+        <input type="password" required autocomplete="current-password" placeholder="••••••••" value="{{ password }}" onInput="{{ onPassword }}" style="width:100%;padding:14px 16px;border-radius:12px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14.5px;outline:none;transition:border-color .25s,box-shadow .25s" style-focus="border-color:var(--acc,#FCA311);box-shadow:0 0 0 3px rgba(252,163,17,.14)">
+      </label>
+      <button type="submit" style="position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:10px;margin-top:4px;width:100%;padding:16px 24px;border:none;border-radius:999px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12.5px;letter-spacing:.1em;cursor:pointer;box-shadow:0 12px 34px rgba(252,163,17,.28);animation:typeIn .6s cubic-bezier(.16,1,.3,1) .5s both;transition:transform .25s,box-shadow .25s" style-hover="transform:translateY(-3px);box-shadow:0 20px 46px rgba(252,163,17,.42)">
+        <span aria-hidden="true" style="position:absolute;top:0;bottom:0;width:38%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:sheen 3.6s ease-in-out infinite"></span>
+        <span style="position:relative">{{ loginLabel }}</span>
+      </button>
+    </form>
+
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-top:26px;padding-top:20px;border-top:1px solid rgba(var(--ln),.1);animation:typeIn .6s cubic-bezier(.16,1,.3,1) .58s both">
+      <a href="Portfolio Revolution.dc.html?nosplash=1" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--muted);border:1px solid rgba(var(--ln),.18);border-radius:999px;padding:10px 16px" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">← BACK TO PORTFOLIO</a>
+      <button onClick="{{ toggleTheme }}" aria-label="Toggle colour theme" style="display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;padding:8px 13px 8px 10px;border-radius:999px;background:rgba(var(--srf),.5);border:1px solid var(--acc2);color:var(--acc2);cursor:pointer;transition:color .25s,background .25s,box-shadow .25s" style-hover="color:var(--strong);background:rgba(var(--acc2rgb),.16);box-shadow:0 0 20px rgba(var(--acc2rgb),.35)">
+        <span aria-hidden="true" style="position:relative;display:inline-block;flex:none;width:30px;height:15px;border-radius:999px;background:rgba(var(--acc2rgb),.16);border:1px solid var(--acc2)">
+          <span data-knob="" style="position:absolute;top:1.5px;left:1.5px;width:10px;height:10px;border-radius:50%;background:var(--acc2);box-shadow:0 0 10px rgba(var(--acc2rgb),.9);transition:transform .4s cubic-bezier(.34,1.56,.4,1)"></span>
+        </span>{{ themeLabel }}
+      </button>
+    </div>
+
+    <p style="margin:18px 0 0;font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.8;letter-spacing:.06em;color:var(--faint)">DESIGN PREVIEW — try <span style="color:var(--acc,#FCA311)">admin@portfolio.dev</span> / <span style="color:var(--acc,#FCA311)">Admin@1234!</span></p>
+  </div>
+</div>
+</sc-if>
+
+<!-- ══ PANEL ══ -->
+<sc-if value="{{ isUnlocked }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Admin panel" style="position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column;animation:fadeIn .5s both">
+
+  <header style="position:sticky;top:0;z-index:40;background:rgba(var(--ftr),.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(var(--ln),.1)">
+    <div style="display:flex;align-items:center;gap:16px;padding:11px clamp(14px,3vw,26px)">
+      <a href="Portfolio Revolution.dc.html?nosplash=1" style="display:flex;align-items:center;gap:12px;color:var(--strong)">
+        <img src="assets/logo.png" alt="Parindra Gallage" width="40" height="40" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid var(--acc,#FCA311);box-shadow:0 0 18px rgba(252,163,17,.35)">
+        <span style="display:grid;gap:2px">
+          <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:var(--strong)">PARINDRA<span style="color:var(--acc,#FCA311)">.</span>DEV</span>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;color:var(--muted2)">ADMIN PANEL</span>
+        </span>
+      </a>
+      <span style="display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;border:1px solid rgba(252,163,17,.4);background:rgba(252,163,17,.09);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--acc,#FCA311)">
+        <span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:var(--acc,#FCA311);animation:glowdot 2.4s ease-in-out infinite"></span>CMS
+      </span>
+      <span style="flex:1"></span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2)">admin@portfolio.dev</span>
+      <a href="Portfolio Revolution.dc.html?nosplash=1" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--muted);border:1px solid rgba(var(--ln),.18);border-radius:999px;padding:9px 14px" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">↗ HOME</a>
+      <button onClick="{{ signOut }}" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--danger);background:none;border:1px solid rgba(180,35,31,.35);border-radius:999px;padding:9px 14px;cursor:pointer;transition:background .25s" style-hover="background:rgba(180,35,31,.1)">⏻ SIGN OUT</button>
+      <span aria-hidden="true" style="width:1px;height:26px;margin-left:6px;background:rgba(var(--ln),.16)"></span>
+      <button onClick="{{ toggleTheme }}" aria-label="Toggle colour theme" style="display:inline-flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;padding:8px 13px 8px 10px;border-radius:999px;background:rgba(var(--srf),.5);border:1px solid var(--acc2);color:var(--acc2);cursor:pointer;transition:color .25s,background .25s,box-shadow .25s" style-hover="color:var(--strong);background:rgba(var(--acc2rgb),.16);box-shadow:0 0 20px rgba(var(--acc2rgb),.35)">
+        <span aria-hidden="true" style="position:relative;display:inline-block;flex:none;width:30px;height:15px;border-radius:999px;background:rgba(var(--acc2rgb),.16);border:1px solid var(--acc2)">
+          <span data-knob="" style="position:absolute;top:1.5px;left:1.5px;width:10px;height:10px;border-radius:50%;background:var(--acc2);box-shadow:0 0 10px rgba(var(--acc2rgb),.9);transition:transform .4s cubic-bezier(.34,1.56,.4,1)"></span>
+        </span>{{ themeLabel }}
+      </button>
+    </div>
+  </header>
+
+  <div style="flex:1;display:grid;grid-template-columns:236px minmax(0,1fr);align-items:start;gap:0">
+
+    <!-- sidebar -->
+    <aside style="position:sticky;top:63px;align-self:start;padding:20px 14px;border-right:1px solid rgba(var(--ln),.1);background:rgba(var(--srf),.34);min-height:calc(100vh - 63px);display:flex;flex-direction:column;gap:6px">
+      <p style="margin:0 0 8px 10px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.2em;color:var(--faint)">MANAGE</p>
+      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+        <button onClick="{{ item.onClick }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:11px 14px;border-radius:12px;cursor:pointer;font-size:14px;background:{{ item.bg }};border:1px solid {{ item.border }};color:{{ item.color }};font-weight:{{ item.weight }};transition:background .2s,color .2s,border-color .2s,transform .2s" style-hover="border-color:var(--acc,#FCA311);transform:translateX(3px)">
+          <span aria-hidden="true" style="flex:none;width:24px;white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:12px;color:{{ item.iconColor }}">{{ item.icon }}</span>{{ item.label }}
+          <span style="margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2)">{{ item.count }}</span>
+        </button>
+      </sc-for>
+      <span style="flex:1"></span>
+      <div style="padding:14px;border-radius:14px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+        <p style="margin:0 0 6px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.18em;color:var(--acc,#FCA311)">SESSION</p>
+        <p style="margin:0;font-size:12.5px;line-height:1.6;color:var(--muted)">Signed in as admin. Changes here are local to this design preview.</p>
+      </div>
+    </aside>
+
+    <!-- main -->
+    <main style="padding:clamp(18px,3vw,30px) clamp(14px,3vw,30px) 40px;min-width:0">
+      <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:14px;margin-bottom:22px">
+        <h1 style="font-family:'Anton',sans-serif;font-size:clamp(26px,4vw,44px);line-height:1;letter-spacing:.015em;text-transform:uppercase;color:var(--strong);margin:0">{{ tabTitle }}</h1>
+        <span style="flex:1;min-width:40px;height:1px;background:linear-gradient(90deg,rgba(252,163,17,.5),transparent)"></span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;color:var(--muted2)">{{ tabMeta }}</span>
+      </div>
+
+      <sc-if value="{{ savedFlash }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;margin-bottom:18px;border-radius:12px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.35);animation:fadeIn .3s both">
+          <span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--ok)"></span>
+          <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.06em;color:var(--ok)">{{ savedFlash }}</p>
+        </div>
+      </sc-if>
+
+      <!-- ─── OVERVIEW ─── -->
+      <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;gap:18px">
+        <div style="padding:clamp(20px,3vw,30px);border-radius:20px;background:linear-gradient(150deg,rgba(252,163,17,.12),rgba(var(--srf),.6) 46%,rgba(var(--gnd),.7));border:1px solid rgba(252,163,17,.28)">
+          <p style="margin:0 0 10px;display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.18em;color:var(--acc,#FCA311)"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--acc,#FCA311);animation:glowdot 2.4s ease-in-out infinite"></span>{{ greeting }}</p>
+          <h2 style="font-family:'Anton',sans-serif;font-size:clamp(30px,4.4vw,52px);line-height:.98;letter-spacing:.015em;text-transform:uppercase;color:var(--strong);margin:0 0 12px">Welcome back, <span style="-webkit-text-stroke:1.5px var(--acc,#FCA311);color:transparent">Parindra</span></h2>
+          <p style="margin:0;color:var(--muted);font-size:14.5px;line-height:1.7;max-width:62ch">Everything on the public site — projects, skills, the about profile, writing and inbound messages — is edited from this panel.</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:14px">
+          <sc-for list="{{ stats }}" as="stat" hint-placeholder-count="4">
+            <div style="padding:22px 20px;border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1);transition:transform .25s,border-color .25s,box-shadow .25s" style-hover="transform:translateY(-6px);border-color:var(--acc,#FCA311);box-shadow:0 24px 50px rgba(var(--shd),.28)">
+              <p style="margin:0 0 12px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--acc,#FCA311)">{{ stat.icon }}</p>
+              <p style="margin:0 0 6px;font-family:'Anton',sans-serif;font-size:40px;line-height:1;color:var(--strong)">{{ stat.value }}</p>
+              <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.14em;color:var(--muted2)">{{ stat.label }}</p>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="padding:24px 22px;border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <h3 style="margin:0 0 16px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--acc,#FCA311)">JUMP BACK IN</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <sc-for list="{{ quickActions }}" as="qa" hint-placeholder-count="4">
+              <button onClick="{{ qa.onClick }}" style="display:inline-flex;align-items:center;gap:9px;padding:11px 16px;border-radius:999px;cursor:pointer;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.06em;transition:background .25s,color .25s,border-color .25s,transform .25s" style-hover="color:var(--accInk);background:var(--acc,#FCA311);border-color:var(--acc,#FCA311);transform:translateY(-3px)">{{ qa.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ─── PROJECTS ─── -->
+      <sc-if value="{{ isProjects }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;gap:18px">
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:20px">
+            <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--strong)">{{ projectFormTitle }}</h3>
+            <span style="flex:1"></span>
+            <sc-if value="{{ editingProject }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ cancelProject }}" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:var(--muted);background:none;border:1px solid rgba(var(--ln),.18);border-radius:999px;padding:8px 14px;cursor:pointer" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">CANCEL EDIT</button>
+            </sc-if>
+          </div>
+          <form onSubmit="{{ saveProject }}" style="display:grid;gap:14px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:14px">
+              <label style="display:grid;gap:7px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Title</span>
+                <input required placeholder="Project title" value="{{ pf.title }}" onInput="{{ pf.onTitle }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+              </label>
+              <label style="display:grid;gap:7px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">GitHub URL</span>
+                <input required placeholder="https://github.com/..." value="{{ pf.githubUrl }}" onInput="{{ pf.onGithub }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+              </label>
+              <label style="display:grid;gap:7px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Live URL</span>
+                <input placeholder="https://live-demo.com (optional)" value="{{ pf.liveUrl }}" onInput="{{ pf.onLive }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+              </label>
+              <label style="display:grid;gap:7px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Order</span>
+                <input placeholder="0" value="{{ pf.order }}" onInput="{{ pf.onOrder }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+              </label>
+            </div>
+            <label style="display:grid;gap:7px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Description</span>
+              <textarea required rows="3" placeholder="What does this project do? Be honest and specific." value="{{ pf.description }}" onInput="{{ pf.onDescription }}" style="width:100%;padding:12px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;line-height:1.65;outline:none;resize:vertical;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)"></textarea>
+            </label>
+            <label style="display:grid;gap:7px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Tech stack (comma separated)</span>
+              <input placeholder="React, Node.js, MongoDB, Docker" value="{{ pf.tech }}" onInput="{{ pf.onTech }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+            </label>
+            <div style="padding:14px;border-radius:12px;background:rgba(var(--gnd),.32);border:1px dashed rgba(var(--ln),.18)">
+              <p style="margin:0 0 10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)">CLICK TO PICK · ✓ = SELECTED · × REMOVES IT FROM THIS LIST</p>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                <sc-for list="{{ techChips }}" as="chip" hint-placeholder-count="8">
+                  <span style="display:inline-flex;align-items:stretch;border-radius:999px;overflow:hidden;background:{{ chip.bg }};border:1px solid {{ chip.border }};transition:border-color .2s,transform .2s" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-2px)">
+                    <button type="button" onClick="{{ chip.onClick }}" title="{{ chip.tip }}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 4px 7px 12px;background:none;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ chip.color }}">{{ chip.mark }}{{ chip.label }}</button>
+                    <button type="button" onClick="{{ chip.onRemove }}" title="Remove from the list" aria-label="Remove chip" style="display:inline-flex;align-items:center;padding:0 10px 0 6px;background:none;border:none;border-left:1px solid {{ chip.divider }};cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1;color:{{ chip.xColor }};transition:color .2s,background .2s" style-hover="color:#fff;background:var(--danger)">×</button>
+                  </span>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center">
+                <input placeholder="New tag name…" value="{{ pf.newTag }}" onInput="{{ pf.onNewTag }}" onKeyDown="{{ pf.onNewTagKey }}" style="flex:1;min-width:160px;padding:9px 13px;border-radius:999px;background:rgba(var(--gnd),.45);border:1px solid rgba(var(--ln),.16);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+                <button type="button" onClick="{{ pf.addTag }}" style="flex:none;padding:10px 16px;border-radius:999px;border:1px solid rgba(252,163,17,.4);background:rgba(252,163,17,.08);color:var(--acc,#FCA311);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.1em;cursor:pointer;transition:color .2s,background .2s" style-hover="color:var(--accInk);background:var(--acc,#FCA311)">+ ADD TAG</button>
+              </div>
+            </div>
+            <div style="display:grid;gap:12px;padding:16px;border-radius:14px;background:rgba(var(--gnd),.32);border:1px solid rgba(var(--ln),.14)">
+              <p style="margin:0;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)">Card background image — shown behind this project on the home page</p>
+              <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+                <span aria-hidden="true" style="flex:none;width:132px;height:84px;border-radius:12px;border:1px solid rgba(var(--ln),.18);background-color:rgba(var(--srf),.6);background-size:cover;background-position:center;background-image:{{ pf.bgCss }};opacity:{{ pf.bgPreviewOpacity }}"></span>
+                <div style="flex:1;min-width:220px;display:grid;gap:9px">
+                  <input placeholder="https://image-url.jpg  (or upload →)" value="{{ pf.bgImage }}" onInput="{{ pf.onBgUrl }}" style="width:100%;padding:10px 13px;border-radius:10px;background:rgba(var(--gnd),.45);border:1px solid rgba(var(--ln),.16);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+                  <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center">
+                    <label style="display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border-radius:999px;border:1px solid rgba(252,163,17,.4);background:rgba(252,163,17,.08);color:var(--acc,#FCA311);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.1em;cursor:pointer;transition:color .2s,background .2s" style-hover="color:var(--accInk);background:var(--acc,#FCA311)">
+                      ↑ UPLOAD IMAGE
+                      <input type="file" accept="image/*" onChange="{{ pf.onBgFile }}" style="display:none">
+                    </label>
+                    <button type="button" onClick="{{ pf.clearBg }}" style="padding:9px 15px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--danger);border-color:var(--danger)">CLEAR</button>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding-top:4px">
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Image visibility</span>
+                    <input type="range" min="10" max="100" step="5" value="{{ pf.bgOpacity }}" onInput="{{ pf.onBgOpacity }}" style="flex:1;min-width:150px;accent-color:var(--acc,#FCA311);cursor:pointer">
+                    <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:var(--acc,#FCA311);min-width:44px;text-align:right">{{ pf.bgOpacityLabel }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" checked="{{ pf.featured }}" onChange="{{ pf.onFeatured }}" style="width:16px;height:16px;accent-color:var(--acc,#FCA311);cursor:pointer">
+              <span style="font-size:14px;color:var(--text)">Mark as featured project</span>
+            </label>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:2px">
+              <button type="submit" style="display:inline-flex;align-items:center;gap:9px;padding:13px 22px;border:none;border-radius:999px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.1em;cursor:pointer;box-shadow:0 10px 28px rgba(252,163,17,.26);transition:transform .25s,box-shadow .25s" style-hover="transform:translateY(-3px);box-shadow:0 18px 42px rgba(252,163,17,.4)">{{ projectSubmitLabel }}</button>
+            </div>
+          </form>
+        </div>
+
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <h3 style="margin:0 0 16px;font-size:15px;font-weight:700;color:var(--strong)">{{ projectsCountLabel }}</h3>
+          <div style="display:grid;gap:10px">
+            <sc-for list="{{ projects }}" as="p" hint-placeholder-count="4">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:15px 17px;border-radius:14px;background:rgba(var(--gnd),.4);border:1px solid {{ p.border }};transition:border-color .25s,transform .25s" style-hover="transform:translateX(4px)">
+                <span style="display:grid;gap:5px;min-width:0;flex:1">
+                  <span style="display:flex;flex-wrap:wrap;align-items:center;gap:9px">
+                    <span style="font-weight:700;font-size:14.5px;color:var(--strong)">{{ p.title }}</span>
+                    <sc-if value="{{ p.featured }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;padding:3px 9px;border-radius:999px;border:1px solid rgba(252,163,17,.4);background:rgba(252,163,17,.1);color:var(--acc,#FCA311)">★ FEATURED</span>
+                    </sc-if>
+                  </span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.6;color:var(--muted2)">{{ p.techLine }}</span>
+                </span>
+                <span style="display:flex;gap:8px;flex:none">
+                  <button onClick="{{ p.onEdit }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:8px 14px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">EDIT</button>
+                  <button onClick="{{ p.onDelete }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:8px 14px;border-radius:999px;background:none;border:1px solid rgba(180,35,31,.35);color:var(--danger);cursor:pointer;transition:background .2s" style-hover="background:rgba(180,35,31,.1)">DELETE</button>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ─── SKILLS ─── -->
+      <sc-if value="{{ isSkills }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;gap:18px">
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <h3 style="margin:0 0 20px;font-size:15px;font-weight:700;color:var(--strong)">Add new skill</h3>
+          <form onSubmit="{{ saveSkill }}" style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+            <label style="display:grid;gap:7px;flex:2 1 220px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Skill name</span>
+              <input required placeholder="e.g. TypeScript" value="{{ sf.name }}" onInput="{{ sf.onName }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+            </label>
+            <label style="display:grid;gap:7px;flex:1 1 160px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Category</span>
+              <select value="{{ sf.category }}" onChange="{{ sf.onCategory }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;cursor:pointer">
+                <option value="language">language</option>
+                <option value="frontend">frontend</option>
+                <option value="backend">backend</option>
+                <option value="database">database</option>
+                <option value="devops">devops</option>
+                <option value="other">other</option>
+              </select>
+            </label>
+            <label style="display:grid;gap:7px;flex:1 1 150px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Level</span>
+              <select value="{{ sf.level }}" onChange="{{ sf.onLevel }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;cursor:pointer">
+                <option value="beginner">beginner</option>
+                <option value="intermediate">intermediate</option>
+                <option value="advanced">advanced</option>
+              </select>
+            </label>
+            <button type="submit" style="flex:none;padding:13px 22px;border:none;border-radius:999px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.1em;cursor:pointer;box-shadow:0 10px 28px rgba(252,163,17,.26);transition:transform .25s,box-shadow .25s" style-hover="transform:translateY(-3px);box-shadow:0 18px 42px rgba(252,163,17,.4)">+ ADD SKILL</button>
+          </form>
+        </div>
+
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <h3 style="margin:0 0 20px;font-size:15px;font-weight:700;color:var(--strong)">{{ skillsCountLabel }}</h3>
+          <div style="display:grid;gap:22px">
+            <sc-for list="{{ skillGroups }}" as="group" hint-placeholder-count="5">
+              <div>
+                <p style="margin:0 0 11px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted2)">{{ group.category }}</p>
+                <div style="display:flex;flex-wrap:wrap;gap:9px">
+                  <sc-for list="{{ group.items }}" as="s" hint-placeholder-count="5">
+                    <span style="display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);transition:border-color .25s,transform .25s" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-2px)">
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text)">{{ s.name }}</span>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--faint)">· {{ s.level }}</span>
+                      <button onClick="{{ s.onDelete }}" aria-label="Delete skill" style="background:none;border:none;color:var(--muted2);cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 3px;transition:color .2s" style-hover="color:var(--danger)">×</button>
+                    </span>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ─── ABOUT ─── -->
+      <sc-if value="{{ isAbout }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;padding:16px 20px;border-radius:16px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;color:var(--muted2)">STATUS</span>
+          <span style="display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:14px;color:{{ availabilityColor }}">
+            <span aria-hidden="true" style="width:8px;height:8px;border-radius:50%;background:{{ availabilityColor }}"></span>{{ availabilityLabel }}
+          </span>
+          <span style="flex:1"></span>
+          <button onClick="{{ toggleAvailability }}" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;padding:9px 16px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">TOGGLE</button>
+        </div>
+
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <h3 style="margin:0 0 18px;font-size:15px;font-weight:700;color:var(--strong)">Basic info</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:14px">
+            <sc-for list="{{ basicFields }}" as="f" hint-placeholder-count="5">
+              <label style="display:grid;gap:7px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">{{ f.label }}</span>
+                <input placeholder="{{ f.placeholder }}" value="{{ f.value }}" onInput="{{ f.onInput }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+              </label>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:18px">
+            <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--strong)">Bio paragraphs</h3>
+            <span style="flex:1"></span>
+            <button onClick="{{ addBio }}" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;padding:9px 15px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">+ ADD PARAGRAPH</button>
+          </div>
+          <div style="display:grid;gap:12px">
+            <sc-for list="{{ bioParas }}" as="b" hint-placeholder-count="2">
+              <div style="display:flex;gap:10px;align-items:flex-start">
+                <span style="flex:none;width:22px;text-align:right;margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted2)">{{ b.no }}</span>
+                <textarea rows="3" placeholder="Paragraph text…" value="{{ b.text }}" onInput="{{ b.onInput }}" style="flex:1;padding:12px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;line-height:1.7;outline:none;resize:vertical;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)"></textarea>
+                <button onClick="{{ b.onRemove }}" aria-label="Remove paragraph" style="flex:none;margin-top:8px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:20px;line-height:1;padding:0 4px">×</button>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:16px">
+            <h3 style="margin:0;font-size:15px;font-weight:700;color:var(--strong)">Résumé / CV</h3>
+            <span style="flex:1"></span>
+            <span style="display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;padding:5px 11px;border-radius:999px;border:1px solid {{ cv.badgeBorder }};background:{{ cv.badgeBg }};color:{{ cv.badgeColor }}">
+              <span aria-hidden="true" style="width:6px;height:6px;border-radius:50%;background:{{ cv.badgeColor }}"></span>{{ cv.badge }}
+            </span>
+          </div>
+          <p style="margin:0 0 16px;color:var(--muted);font-size:13.5px;line-height:1.7;max-width:66ch">Uploading a new file <strong style="color:var(--strong)">replaces</strong> the current résumé everywhere — the hero and contact Download CV buttons both point at whatever is stored here. One file, one source of truth.</p>
+
+          <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:16px;border-radius:14px;background:rgba(var(--gnd),.32);border:1px solid rgba(var(--ln),.14)">
+            <span aria-hidden="true" style="position:relative;flex:none;display:flex;align-items:center;justify-content:center;width:62px;height:80px;border-radius:8px;background:rgba(var(--srf),.7);border:1px solid {{ cv.badgeBorder }}">
+              <span style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.06em;color:{{ cv.badgeColor }}">{{ cv.ext }}</span>
+              <span aria-hidden="true" style="position:absolute;top:0;right:0;width:16px;height:16px;background:rgba(var(--gnd),.6);clip-path:polygon(0 0,100% 100%,100% 0)"></span>
+            </span>
+            <div style="flex:1;min-width:220px;display:grid;gap:8px">
+              <span style="font-weight:700;font-size:14.5px;color:var(--strong);word-break:break-all">{{ cv.fileName }}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2)">{{ cv.meta }}</span>
+              <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:4px">
+                <label style="display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;border:1px solid rgba(252,163,17,.4);background:rgba(252,163,17,.08);color:var(--acc,#FCA311);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.1em;cursor:pointer;transition:color .2s,background .2s,transform .2s" style-hover="color:var(--accInk);background:var(--acc,#FCA311);transform:translateY(-2px)">
+                  {{ cv.uploadLabel }}
+                  <input type="file" accept=".pdf,.doc,.docx" onChange="{{ cv.onFile }}" style="display:none">
+                </label>
+                <sc-if value="{{ cv.hasFile }}" hint-placeholder-val="{{ false }}">
+                  <a href="{{ cv.href }}" download="{{ cv.fileName }}" style="padding:10px 16px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">↓ PREVIEW</a>
+                  <button type="button" onClick="{{ cv.onRemove }}" style="padding:10px 16px;border-radius:999px;background:none;border:1px solid rgba(180,35,31,.35);color:var(--danger);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;cursor:pointer;transition:background .2s" style-hover="background:rgba(180,35,31,.1)">REMOVE</button>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+          <p style="margin:12px 0 0;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:var(--faint)">PDF, DOC or DOCX · max 5 MB recommended</p>
+        </div>
+
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <h3 style="margin:0 0 18px;font-size:15px;font-weight:700;color:var(--strong)">Social links</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:14px">
+            <sc-for list="{{ socialFields }}" as="f" hint-placeholder-count="4">
+              <label style="display:grid;gap:7px">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">{{ f.label }}</span>
+                <input placeholder="{{ f.placeholder }}" value="{{ f.value }}" onInput="{{ f.onInput }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12.5px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+              </label>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <button onClick="{{ saveAbout }}" style="display:inline-flex;align-items:center;gap:9px;padding:14px 24px;border:none;border-radius:999px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.1em;cursor:pointer;box-shadow:0 10px 28px rgba(252,163,17,.26);transition:transform .25s,box-shadow .25s" style-hover="transform:translateY(-3px);box-shadow:0 18px 42px rgba(252,163,17,.4)">SAVE PROFILE</button>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ─── BLOG ─── -->
+      <sc-if value="{{ isBlog }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+          <sc-if value="{{ blogListView }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ newPost }}" style="padding:13px 22px;border:none;border-radius:999px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.1em;cursor:pointer;box-shadow:0 10px 28px rgba(252,163,17,.26);transition:transform .25s,box-shadow .25s" style-hover="transform:translateY(-3px);box-shadow:0 18px 42px rgba(252,163,17,.4)">+ NEW POST</button>
+          </sc-if>
+          <sc-if value="{{ blogEditView }}" hint-placeholder-val="{{ false }}">
+            <button onClick="{{ backToList }}" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.12em;padding:11px 18px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">← BACK TO LIST</button>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ blogEditView }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <h3 style="margin:0 0 18px;font-size:15px;font-weight:700;color:var(--strong)">{{ postFormTitle }}</h3>
+          <form onSubmit="{{ savePost }}" style="display:grid;gap:14px">
+            <label style="display:grid;gap:7px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Title *</span>
+              <input required placeholder="Blog post title" value="{{ bf.title }}" onInput="{{ bf.onTitle }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+            </label>
+            <label style="display:grid;gap:7px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Excerpt * (max 300 chars)</span>
+              <textarea required rows="2" placeholder="Short description shown in the blog list…" value="{{ bf.excerpt }}" onInput="{{ bf.onExcerpt }}" style="width:100%;padding:12px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-size:14px;line-height:1.65;outline:none;resize:vertical;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)"></textarea>
+            </label>
+            <label style="display:grid;gap:7px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Content * (Markdown supported)</span>
+              <textarea required rows="14" placeholder="## Introduction&#10;&#10;Your content here…" value="{{ bf.content }}" onInput="{{ bf.onContent }}" style="width:100%;padding:14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.75;outline:none;resize:vertical;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)"></textarea>
+            </label>
+            <label style="display:grid;gap:7px">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)">Tags (comma separated)</span>
+              <input placeholder="React, Node.js, Docker" value="{{ bf.tags }}" onInput="{{ bf.onTags }}" style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.16);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+            </label>
+            <div style="padding:14px;border-radius:12px;background:rgba(var(--gnd),.32);border:1px dashed rgba(var(--ln),.18)">
+              <p style="margin:0 0 10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)">CLICK TO PICK · ✓ = SELECTED · × REMOVES IT FROM THIS LIST</p>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                <sc-for list="{{ tagChips }}" as="chip" hint-placeholder-count="8">
+                  <span style="display:inline-flex;align-items:stretch;border-radius:999px;overflow:hidden;background:{{ chip.bg }};border:1px solid {{ chip.border }};transition:border-color .2s,transform .2s" style-hover="border-color:var(--acc,#FCA311);transform:translateY(-2px)">
+                    <button type="button" onClick="{{ chip.onClick }}" title="{{ chip.tip }}" style="display:inline-flex;align-items:center;gap:6px;padding:7px 4px 7px 12px;background:none;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:{{ chip.color }}">{{ chip.mark }}{{ chip.label }}</button>
+                    <button type="button" onClick="{{ chip.onRemove }}" title="Remove from the list" aria-label="Remove chip" style="display:inline-flex;align-items:center;padding:0 10px 0 6px;background:none;border:none;border-left:1px solid {{ chip.divider }};cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1;color:{{ chip.xColor }};transition:color .2s,background .2s" style-hover="color:#fff;background:var(--danger)">×</button>
+                  </span>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center">
+                <input placeholder="New tag name…" value="{{ bf.newTag }}" onInput="{{ bf.onNewTag }}" onKeyDown="{{ bf.onNewTagKey }}" style="flex:1;min-width:160px;padding:9px 13px;border-radius:999px;background:rgba(var(--gnd),.45);border:1px solid rgba(var(--ln),.16);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;outline:none;transition:border-color .2s" style-focus="border-color:var(--acc,#FCA311)">
+                <button type="button" onClick="{{ bf.addTag }}" style="flex:none;padding:10px 16px;border-radius:999px;border:1px solid rgba(252,163,17,.4);background:rgba(252,163,17,.08);color:var(--acc,#FCA311);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.1em;cursor:pointer;transition:color .2s,background .2s" style-hover="color:var(--accInk);background:var(--acc,#FCA311)">+ ADD TAG</button>
+              </div>
+            </div>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+              <input type="checkbox" checked="{{ bf.published }}" onChange="{{ bf.onPublished }}" style="width:16px;height:16px;accent-color:var(--acc,#FCA311);cursor:pointer">
+              <span style="font-size:14px;color:var(--text)">Publish immediately (uncheck to save as draft)</span>
+            </label>
+            <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:2px">
+              <button type="submit" style="padding:13px 22px;border:none;border-radius:999px;background:var(--acc,#FCA311);color:var(--accInk);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.1em;cursor:pointer;box-shadow:0 10px 28px rgba(252,163,17,.26);transition:transform .25s,box-shadow .25s" style-hover="transform:translateY(-3px);box-shadow:0 18px 42px rgba(252,163,17,.4)">{{ postSubmitLabel }}</button>
+              <button type="button" onClick="{{ backToList }}" style="font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.1em;padding:13px 20px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">CANCEL</button>
+            </div>
+          </form>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ blogListView }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+          <div style="display:grid;gap:11px">
+            <sc-for list="{{ posts }}" as="post" hint-placeholder-count="4">
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:16px 18px;border-radius:14px;background:rgba(var(--gnd),.4);border:1px solid rgba(var(--ln),.14);transition:border-color .25s,transform .25s" style-hover="border-color:var(--acc,#FCA311);transform:translateX(4px)">
+                <span style="display:grid;gap:6px;min-width:0;flex:1">
+                  <span style="display:flex;flex-wrap:wrap;align-items:center;gap:9px">
+                    <span style="font-weight:700;font-size:14.5px;color:var(--strong)">{{ post.title }}</span>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;padding:3px 9px;border-radius:999px;border:1px solid {{ post.badgeBorder }};background:{{ post.badgeBg }};color:{{ post.badgeColor }}">{{ post.badge }}</span>
+                  </span>
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2)">{{ post.meta }}</span>
+                </span>
+                <span style="display:flex;flex-wrap:wrap;gap:8px;flex:none">
+                  <button onClick="{{ post.onToggle }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:8px 14px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">{{ post.toggleLabel }}</button>
+                  <button onClick="{{ post.onEdit }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:8px 14px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--acc,#FCA311);border-color:var(--acc,#FCA311)">EDIT</button>
+                  <button onClick="{{ post.onDelete }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:8px 14px;border-radius:999px;background:none;border:1px solid rgba(180,35,31,.35);color:var(--danger);cursor:pointer;transition:background .2s" style-hover="background:rgba(180,35,31,.1)">DELETE</button>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- ─── MESSAGES ─── -->
+      <sc-if value="{{ isMessages }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:clamp(18px,2.6vw,26px);border-radius:18px;background:rgba(var(--srf),.5);border:1px solid rgba(var(--ln),.1)">
+        <div style="display:grid;gap:12px">
+          <sc-for list="{{ messages }}" as="m" hint-placeholder-count="3">
+            <div style="position:relative;padding:19px;border-radius:14px;background:rgba(var(--gnd),.4);border:1px solid {{ m.border }}">
+              <sc-if value="{{ m.unread }}" hint-placeholder-val="{{ true }}">
+                <span aria-hidden="true" style="position:absolute;top:17px;right:17px;width:8px;height:8px;border-radius:50%;background:var(--acc,#FCA311);animation:glowdot 2.4s ease-in-out infinite"></span>
+              </sc-if>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:11px;margin-bottom:11px;padding-right:20px">
+                <span style="font-weight:700;font-size:14.5px;color:var(--strong)">{{ m.name }}</span>
+                <a href="{{ m.mailto }}" style="font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--acc,#FCA311)">{{ m.email }}</a>
+                <span style="flex:1"></span>
+                <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2)">{{ m.date }}</span>
+              </div>
+              <p style="margin:0 0 15px;color:var(--text);font-size:14px;line-height:1.75">{{ m.message }}</p>
+              <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center">
+                <sc-if value="{{ m.unread }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ m.onRead }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:8px 14px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.18);color:var(--text);cursor:pointer;transition:color .2s,border-color .2s" style-hover="color:var(--ok);border-color:var(--ok)">✓ MARK READ</button>
+                </sc-if>
+                <a href="{{ m.replyTo }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:8px 14px;border-radius:999px;border:1px solid rgba(252,163,17,.35);color:var(--acc,#FCA311)" style-hover="color:var(--accInk);background:var(--acc,#FCA311)">✉ REPLY</a>
+                <span style="flex:1"></span>
+                <button onClick="{{ m.onDelete }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;padding:8px 14px;border-radius:999px;background:none;border:1px solid rgba(180,35,31,.35);color:var(--danger);cursor:pointer;transition:background .2s" style-hover="background:rgba(180,35,31,.1)">DELETE</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ noMessages }}" hint-placeholder-val="{{ false }}">
+          <p style="margin:0;padding:34px 20px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.8;color:var(--muted2)">No messages yet. Once recruiters fill out the contact form, they will appear here.</p>
+        </sc-if>
+      </div>
+      </sc-if>
+    </main>
+  </div>
+
+  <footer style="position:relative;overflow:hidden;border-top:1px solid rgba(var(--ln),.12);background:linear-gradient(180deg,rgba(var(--srf),.4),rgba(var(--ftr),.94));padding:30px clamp(14px,3vw,30px) 24px">
+    <span aria-hidden="true" style="position:absolute;top:-1px;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--acc,#FCA311),transparent);opacity:.7"></span>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:22px;align-items:start;max-width:1180px;margin:0 auto">
+      <div style="display:grid;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <img src="assets/logo.png" alt="" width="42" height="42" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:1px solid rgba(252,163,17,.45);box-shadow:0 0 22px rgba(252,163,17,.2)">
+          <span style="display:grid;gap:3px">
+            <span style="font-family:'Anton',sans-serif;font-size:17px;letter-spacing:.02em;text-transform:uppercase;color:var(--strong);line-height:1">Parindra <span style="color:var(--acc,#FCA311)">Gallage</span></span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.2em;color:var(--muted2)">PORTFOLIO CMS</span>
+          </span>
+        </div>
+        <p style="margin:0;color:var(--muted2);font-size:12.5px;line-height:1.7;max-width:34ch">Content control room for parindra.dev — projects, skills, profile, writing and inbound messages.</p>
+      </div>
+
+      <div style="display:grid;gap:10px;align-content:start">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.2em;color:var(--acc,#FCA311)">SESSION</span>
+        <span style="display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted)"><span aria-hidden="true" style="width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px rgba(52,211,153,.7)"></span>Signed in · admin@portfolio.dev</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted2)">{{ footerCounts }}</span>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end">
+        <a href="Portfolio Revolution.dc.html?nosplash=1" style="display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.12em;color:var(--acc,#FCA311);border:1px solid rgba(252,163,17,.4);background:rgba(252,163,17,.08);border-radius:999px;padding:12px 18px;transition:color .25s,background .25s,transform .25s" style-hover="color:var(--accInk);background:var(--acc,#FCA311);transform:translateY(-3px)">← BACK TO HOME PAGE</a>
+        <button onClick="{{ signOut }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--danger);background:none;border:1px solid rgba(180,35,31,.35);border-radius:999px;padding:12px 18px;cursor:pointer;transition:background .25s" style-hover="background:rgba(180,35,31,.1)">⏻ SIGN OUT</button>
+      </div>
+    </div>
+    <div style="max-width:1180px;margin:22px auto 0;padding-top:16px;border-top:1px solid rgba(var(--ln),.1);text-align:center">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--faint)">© 2026 PARINDRA GALLAGE — CMS DESIGN PREVIEW</span>
+    </div>
+  </footer>
+</div>
+</sc-if>
+
+<!-- delete confirm -->
+<sc-if value="{{ confirmOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;inset:0;z-index:90;background:rgba(var(--shd),.62);display:flex;align-items:center;justify-content:center;padding:22px;animation:fadeIn .25s both">
+  <div style="width:100%;max-width:400px;padding:28px;border-radius:20px;background:rgba(var(--srf),.98);border:1px solid rgba(var(--ln),.16);box-shadow:0 40px 90px rgba(var(--shd),.5);animation:riseIn .4s cubic-bezier(.16,1,.3,1) both">
+    <h3 style="margin:0 0 12px;font-family:'Anton',sans-serif;font-size:24px;text-transform:uppercase;color:var(--strong)">{{ confirmTitle }}</h3>
+    <p style="margin:0 0 22px;color:var(--muted);font-size:14px;line-height:1.7">{{ confirmBody }}</p>
+    <div style="display:flex;flex-wrap:wrap;gap:11px">
+      <button onClick="{{ confirmYes }}" style="padding:12px 20px;border:none;border-radius:999px;background:var(--danger);color:#fff;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;letter-spacing:.1em;cursor:pointer">YES, DELETE</button>
+      <button onClick="{{ confirmNo }}" style="padding:12px 20px;border-radius:999px;background:none;border:1px solid rgba(var(--ln),.2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:.1em;cursor:pointer" style-hover="border-color:var(--acc,#FCA311);color:var(--acc,#FCA311)">CANCEL</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<div aria-hidden="true" data-grain="" style="position:fixed;inset:0;z-index:70;pointer-events:none;opacity:.35"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:860}}">
+const CREDS = { email: 'admin@portfolio.dev', password: 'Admin@1234!' };
+const CATS = ['language', 'frontend', 'backend', 'database', 'devops', 'other'];
+
+const SEED_PROJECTS = [
+  { id: 1, title: 'Personal Portfolio', description: 'A full-stack MERN portfolio tracked in Jira, containerized with Docker, tested with Vitest and Jest, deployed via GitHub Actions CI/CD.', tech: ['React 19', 'Node.js', 'Express.js', 'MongoDB', 'Docker', 'Tailwind CSS', 'GitHub Actions'], githubUrl: 'https://github.com/Chami-02/My_Portfolio', liveUrl: '', featured: true, order: 1 },
+  { id: 2, title: 'ClearDrive.lk', description: 'A full-stack vehicle import platform connecting Sri Lankan buyers with Japanese auctions, built with FastAPI, PostgreSQL, Next.js, Docker and Redis.', tech: ['Python', 'FastAPI', 'Next.js', 'PostgreSQL', 'Docker', 'Redis', 'GitHub Actions', 'Tailwind CSS', 'SQLAlchemy', 'Alembic'], githubUrl: 'https://github.com/ClearDrive-lk/cleardrive-lk', liveUrl: 'https://cleardrive.lk/', featured: true, order: 2 },
+  { id: 3, title: 'Smart Campus API', description: 'A RESTful API for a "Smart Campus" managing rooms and IoT sensors. Built strictly with Java and JAX-RS using in-memory data structures.', tech: ['Java', 'JAX-RS'], githubUrl: 'https://github.com/Chami-02/CSA_CW_W2120595_smart-campus-api', liveUrl: '', featured: false, order: 3 },
+  { id: 4, title: 'Life Below Water', description: 'Interactive awareness platform built with HTML, CSS, JavaScript and XML — splash screen, home page, volunteer page, user profile, feedback form and sitemap.', tech: ['HTML', 'CSS', 'JavaScript', 'XML'], githubUrl: 'https://github.com/Chami-02/WD-D_GP_Goal-14-Life-below-water', liveUrl: '', featured: false, order: 4 },
+];
+
+const SEED_SKILLS = [
+  ['JavaScript', 'language', 'intermediate'], ['Python', 'language', 'intermediate'], ['Java', 'language', 'intermediate'], ['HTML5', 'language', 'intermediate'], ['CSS3', 'language', 'intermediate'],
+  ['React', 'frontend', 'intermediate'], ['Next.js', 'frontend', 'beginner'], ['Vite', 'frontend', 'intermediate'], ['Tailwind CSS', 'frontend', 'intermediate'], ['React Router', 'frontend', 'intermediate'],
+  ['FastAPI', 'backend', 'intermediate'], ['Node.js', 'backend', 'beginner'], ['Express.js', 'backend', 'beginner'], ['REST APIs', 'backend', 'intermediate'], ['JWT Authentication', 'backend', 'beginner'],
+  ['PostgreSQL', 'database', 'beginner'], ['MongoDB', 'database', 'beginner'], ['Redis', 'database', 'beginner'], ['SQLAlchemy', 'database', 'beginner'], ['Mongoose', 'database', 'beginner'],
+  ['Docker', 'devops', 'intermediate'], ['Git', 'devops', 'intermediate'], ['GitHub', 'devops', 'intermediate'], ['GitHub Actions', 'devops', 'beginner'], ['Linux CLI', 'devops', 'beginner'], ['Jira', 'devops', 'intermediate'],
+].map((s, i) => ({ id: i + 1, name: s[0], category: s[1], level: s[2] }));
+
+const SEED_POSTS = [
+  { id: 1, title: 'Developing ClearDrive.lk with FastAPI and Docker', excerpt: 'A look into building a scalable vehicle import platform using FastAPI, PostgreSQL, Docker, Redis, and Agile development practices.', content: '## Project Overview\n\nClearDrive.lk is a full-stack platform that connects Sri Lankan buyers with Japanese vehicle auctions.', tags: 'FastAPI, Python, Docker, PostgreSQL, Agile', published: true, date: '7/19/2026', read: 1, views: 0 },
+  { id: 2, title: 'Building a Production-Style MERN Portfolio', excerpt: 'How I designed and developed my portfolio using professional software engineering practices including Jira, Docker, GitHub Actions, and CI/CD.', content: '## Introduction\n\nI wanted my portfolio to demonstrate more than frontend development.', tags: 'React, MERN, Docker, GitHub Actions', published: true, date: '7/19/2026', read: 1, views: 0 },
+  { id: 3, title: 'Getting Started with Docker Compose', excerpt: 'Everything I learned while using Docker Compose to manage multi-container applications for my projects.', content: '## Why Docker?\n\nDocker provides consistent development environments.', tags: 'Docker, DevOps', published: true, date: '7/19/2026', read: 1, views: 0 },
+  { id: 4, title: 'Building REST APIs with Java and JAX-RS', excerpt: 'Key concepts I learned while developing my Smart Campus REST API using Java and JAX-RS.', content: '## Overview\n\nThis project introduced me to RESTful API design using Java.', tags: 'Java, REST API, JAX-RS', published: true, date: '7/19/2026', read: 1, views: 0 },
+];
+
+const SEED_MESSAGES = [
+  { id: 1, name: 'Test person 1', email: 'parindrachameekara@gmail.com', message: 'Test message 1', date: 'Jul 25, 2026', read: false },
+];
+
+const EMPTY_PROJECT = { title: '', description: '', tech: '', githubUrl: '', liveUrl: '', featured: false, order: '0', bgImage: '', bgOpacity: 75 };
+const EMPTY_POST = { title: '', excerpt: '', content: '', tags: '', published: false };
+
+const SEED_TECH_CHIPS = ['React', 'React 19', 'Next.js', 'Node.js', 'Express.js', 'FastAPI', 'Python', 'Java', 'JAX-RS', 'MongoDB', 'PostgreSQL', 'Redis', 'SQLAlchemy', 'Alembic', 'Docker', 'GitHub Actions', 'Tailwind CSS', 'HTML', 'CSS', 'JavaScript', 'XML'];
+const SEED_TAG_CHIPS = ['React', 'MERN', 'Docker', 'GitHub Actions', 'FastAPI', 'Python', 'PostgreSQL', 'Agile', 'DevOps', 'Java', 'REST API', 'JAX-RS'];
+
+const splitList = v => String(v || '').split(',').map(t => t.trim()).filter(Boolean);
+const joinList = a => a.join(', ');
+
+class Component extends DCLogic {
+  state = {
+    theme: 'dark', authed: false, email: '', password: '', loginError: '', loggingIn: false,
+    tab: 'overview', savedFlash: '',
+    projects: SEED_PROJECTS, pform: Object.assign({}, EMPTY_PROJECT), editingProject: null,
+    skills: SEED_SKILLS, sform: { name: '', category: 'frontend', level: 'beginner' },
+    about: {
+      name: 'Parindra Gallage', title: 'Computer Science Undergraduate | Full-Stack Developer',
+      location: 'Galle, Sri Lanka', email: 'parindrachameekara@gmail.com',
+      availabilityNote: 'Currently seeking Software Engineering Internship opportunities',
+      availableForWork: true,
+      bio: [
+        "I'm a Computer Science undergraduate at the University of Westminster, passionate about building scalable web applications and continuously improving my backend and full-stack development skills.",
+        "I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk.",
+      ],
+      social: { github: 'https://github.com/Chami-02', linkedin: 'https://www.linkedin.com/in/chamikara-gallege-3b0861295/', facebook: 'https://web.facebook.com/parindra.chameekara', instagram: 'https://www.instagram.com/__pc_02/', twitter: '', email: 'parindrachameekara@gmail.com' },
+    },
+    posts: SEED_POSTS, bform: Object.assign({}, EMPTY_POST), editingPost: null, blogView: 'list',
+    messages: SEED_MESSAGES,
+    techChips: SEED_TECH_CHIPS, tagChips: SEED_TAG_CHIPS, newTech: '', newTag: '',
+    resume: null,
+    confirm: null,
+  };
+  webRef = React.createRef();
+
+  syncProjectBgs(list) {
+    const map = {};
+    (list || this.state.projects).forEach(p => { if (p.bgImage) map[p.title] = { src: p.bgImage, opacity: (p.bgOpacity == null ? 75 : p.bgOpacity) / 100 }; });
+    try { localStorage.setItem('pg-project-bgs', JSON.stringify(map)); } catch (e) {}
+  }
+
+  toggleChip(field, value) {
+    const key = field === 'tech' ? 'pform' : 'bform';
+    const prop = field === 'tech' ? 'tech' : 'tags';
+    this.setState(st => {
+      const cur = splitList(st[key][prop]);
+      const has = cur.some(t => t.toLowerCase() === value.toLowerCase());
+      const next = has ? cur.filter(t => t.toLowerCase() !== value.toLowerCase()) : cur.concat([value]);
+      return { [key]: Object.assign({}, st[key], { [prop]: joinList(next) }) };
+    });
+  }
+
+  removeChip(kind, label) {
+    const listKey = kind === 'tech' ? 'techChips' : 'tagChips';
+    const formKey = kind === 'tech' ? 'pform' : 'bform';
+    const prop = kind === 'tech' ? 'tech' : 'tags';
+    this.setState(st => ({
+      [listKey]: st[listKey].filter(c => c !== label),
+      [formKey]: Object.assign({}, st[formKey], { [prop]: joinList(splitList(st[formKey][prop]).filter(t => t.toLowerCase() !== label.toLowerCase())) }),
+    }));
+    this.flash('"' + label + '" removed from the list');
+  }
+
+  addChip(kind) {
+    const isTech = kind === 'tech';
+    const raw = (isTech ? this.state.newTech : this.state.newTag).trim();
+    if (!raw) return;
+    this.setState(st => {
+      const listKey = isTech ? 'techChips' : 'tagChips';
+      const exists = st[listKey].some(c => c.toLowerCase() === raw.toLowerCase());
+      return { [listKey]: exists ? st[listKey] : st[listKey].concat([raw]), [isTech ? 'newTech' : 'newTag']: '' };
+    }, () => { this.toggleChip(isTech ? 'tech' : 'tags', raw); this.flash('"' + raw + '" added to the chip list'); });
+  }
+
+  /* one résumé slot — a new upload overwrites whatever was there before */
+  replaceResume(file) {
+    if (!file) return;
+    const KB = file.size / 1024;
+    const r = new FileReader();
+    r.onload = () => {
+      const resume = {
+        name: file.name,
+        size: KB >= 1024 ? (KB / 1024).toFixed(1) + ' MB' : Math.max(1, Math.round(KB)) + ' KB',
+        ext: (file.name.split('.').pop() || 'PDF').toUpperCase().slice(0, 4),
+        uploaded: new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
+        dataUrl: String(r.result || ''),
+      };
+      const had = !!this.state.resume;
+      this.setState({ resume }, () => this.syncResume());
+      this.flash(had ? '✓ Résumé replaced — "' + file.name + '" is now live' : '✓ Résumé uploaded — "' + file.name + '" is now live');
+    };
+    r.readAsDataURL(file);
+  }
+
+  syncResume() {
+    try {
+      const r = this.state.resume;
+      if (r) localStorage.setItem('pg-resume', JSON.stringify(r));
+      else localStorage.removeItem('pg-resume');
+    } catch (e) {}
+  }
+
+  readImageFile(file, done) {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = () => done(String(r.result || ''));
+    r.readAsDataURL(file);
+  }
+
+  componentDidMount() {
+    const t = this.readTheme();
+    this.applyTheme(t);
+    if (t !== this.state.theme) this.setState({ theme: t });
+    this.paintGrain();
+    this.initWeb();
+    this.syncProjectBgs();
+    try { const raw = localStorage.getItem('pg-resume'); if (raw) this.setState({ resume: JSON.parse(raw) }); } catch (e) {}
+  }
+
+  componentWillUnmount() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.onResize) window.removeEventListener('resize', this.onResize);
+    if (this.onMove) window.removeEventListener('pointermove', this.onMove);
+    if (this.flashTimer) clearTimeout(this.flashTimer);
+  }
+
+  /* theme */
+  readTheme() {
+    let t = 'dark';
+    try { t = localStorage.getItem('pg-theme') || 'dark'; } catch (e) {}
+    return t === 'light' ? 'light' : 'dark';
+  }
+
+  applyTheme(theme) {
+    this.themeLight = theme === 'light';
+    const root = document.documentElement;
+    if (this.themeLight) root.setAttribute('data-theme', 'light');
+    else root.removeAttribute('data-theme');
+    this.accColor = (getComputedStyle(root).getPropertyValue('--acc') || '#FCA311').trim();
+    const grain = document.querySelector('[data-grain]');
+    if (grain) grain.style.opacity = this.themeLight ? '.12' : '.35';
+    document.querySelectorAll('[data-knob]').forEach(el => { el.style.transform = this.themeLight ? 'translateX(13px)' : 'none'; });
+    try { localStorage.setItem('pg-theme', theme); } catch (e) {}
+  }
+
+  toggleTheme() {
+    const next = this.themeLight ? 'dark' : 'light';
+    this.applyTheme(next);
+    this.setState({ theme: next });
+  }
+
+  flash(msg) {
+    this.setState({ savedFlash: msg });
+    if (this.flashTimer) clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => this.setState({ savedFlash: '' }), 2600);
+  }
+
+  /* grain */
+  paintGrain() {
+    const el = document.querySelector('[data-grain]');
+    if (!el) return;
+    const n = 140, c = document.createElement('canvas');
+    c.width = n; c.height = n;
+    const ctx = c.getContext('2d');
+    const id = ctx.createImageData(n, n);
+    for (let i = 0; i < id.data.length; i += 4) {
+      const v = 120 + Math.random() * 135;
+      id.data[i] = id.data[i + 1] = id.data[i + 2] = v;
+      id.data[i + 3] = 12 + Math.random() * 14;
+    }
+    ctx.putImageData(id, 0, 0);
+    el.style.backgroundImage = 'url(' + c.toDataURL('image/png') + ')';
+    el.style.backgroundRepeat = 'repeat';
+  }
+
+  /* background web: static node lattice + cursor-linked strands (no drifting clouds) */
+  initWeb() {
+    const cv = this.webRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const self = this;
+    let w = 0, h = 0, dpr = 1, nodes = [];
+    const mouse = { x: -9999, y: -9999 };
+
+    const build = () => {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth; h = window.innerHeight;
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const count = Math.min(230, Math.round((w * h) / 8500));
+      nodes = Array.from({ length: count }, () => ({
+        x: Math.random() * w, y: Math.random() * h,
+        r: Math.random() * 1.3 + 0.85,
+        vx: (Math.random() - 0.5) * 0.16, vy: (Math.random() - 0.5) * 0.16,
+        warm: Math.random() < 0.16,
+      }));
+    };
+    build();
+    this.onResize = () => build();
+    window.addEventListener('resize', this.onResize);
+    this.onMove = e => { mouse.x = e.clientX; mouse.y = e.clientY; };
+    window.addEventListener('pointermove', this.onMove, { passive: true });
+
+    const frame = () => {
+      this.raf = requestAnimationFrame(frame);
+      ctx.clearRect(0, 0, w, h);
+      const light = self.themeLight;
+      const nodeCol = light ? 'rgba(20,33,61,1)' : 'rgba(232,240,255,1)';
+      const linkCol = light ? 'rgba(20,33,61,1)' : 'rgba(226,235,255,1)';
+      const acc = self.accColor || '#FCA311';
+
+      for (const n of nodes) {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < -8) n.x = w + 8; if (n.x > w + 8) n.x = -8;
+        if (n.y < -8) n.y = h + 8; if (n.y > h + 8) n.y = -8;
+      }
+      // lattice
+      ctx.lineWidth = 0.85;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i], b = nodes[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d > 132) continue;
+          ctx.strokeStyle = linkCol;
+          ctx.globalAlpha = (light ? 0.20 : 0.20) * (1 - d / 132);
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+      // cursor strands
+      const R = 190;
+      for (const n of nodes) {
+        const d = Math.hypot(n.x - mouse.x, n.y - mouse.y);
+        if (d > R) continue;
+        ctx.strokeStyle = acc;
+        ctx.globalAlpha = 0.55 * (1 - d / R);
+        ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(n.x, n.y); ctx.stroke();
+      }
+      // nodes
+      for (const n of nodes) {
+        const d = Math.hypot(n.x - mouse.x, n.y - mouse.y);
+        const close = d < R;
+        ctx.globalAlpha = close ? (light ? 0.85 : 1) : (light ? 0.5 : 0.7);
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.r * (close ? 1.35 : 1), 0, Math.PI * 2);
+        ctx.fillStyle = n.warm ? acc : nodeCol;
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    };
+    this.raf = requestAnimationFrame(frame);
+  }
+
+  /* auth */
+  submitLogin(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const { email, password } = this.state;
+    this.setState({ loggingIn: true, loginError: '' });
+    setTimeout(() => {
+      if (email.trim().toLowerCase() === CREDS.email && password === CREDS.password) {
+        this.setState({ authed: true, loggingIn: false, password: '', tab: 'overview' });
+        window.scrollTo({ top: 0 });
+      } else {
+        this.setState({ loggingIn: false, loginError: 'Invalid email or password. Please try again.' });
+      }
+    }, 650);
+  }
+
+  /* projects */
+  saveProjectForm(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const f = this.state.pform;
+    const tech = f.tech.split(',').map(t => t.trim()).filter(Boolean);
+    if (this.state.editingProject) {
+      this.setState(s => ({
+        projects: s.projects.map(p => p.id === s.editingProject ? Object.assign({}, p, f, { tech }) : p),
+        pform: Object.assign({}, EMPTY_PROJECT), editingProject: null,
+      }));
+      this.flash('Project updated');
+      setTimeout(() => this.syncProjectBgs(), 0);
+    } else {
+      this.setState(s => ({
+        projects: s.projects.concat([Object.assign({}, f, { tech, id: Date.now() })]),
+        pform: Object.assign({}, EMPTY_PROJECT),
+      }));
+      this.flash('Project added');
+      setTimeout(() => this.syncProjectBgs(), 0);
+    }
+  }
+
+  editProject(p) {
+    this.setState({ editingProject: p.id, pform: { title: p.title, description: p.description, tech: p.tech.join(', '), githubUrl: p.githubUrl, liveUrl: p.liveUrl || '', featured: !!p.featured, order: String(p.order || 0), bgImage: p.bgImage || '', bgOpacity: p.bgOpacity == null ? 75 : p.bgOpacity } });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* skills */
+  saveSkillForm(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const f = this.state.sform;
+    if (!f.name.trim()) return;
+    this.setState(s => ({ skills: s.skills.concat([{ id: Date.now(), name: f.name.trim(), category: f.category, level: f.level }]), sform: { name: '', category: f.category, level: f.level } }));
+    this.flash('Skill added');
+  }
+
+  /* blog */
+  savePostForm(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const f = this.state.bform;
+    if (this.state.editingPost) {
+      this.setState(s => ({ posts: s.posts.map(p => p.id === s.editingPost ? Object.assign({}, p, f) : p), bform: Object.assign({}, EMPTY_POST), editingPost: null, blogView: 'list' }));
+      this.flash('Post saved');
+    } else {
+      const now = new Date();
+      this.setState(s => ({ posts: [Object.assign({}, f, { id: Date.now(), date: (now.getMonth() + 1) + '/' + now.getDate() + '/' + now.getFullYear(), read: Math.max(1, Math.round(f.content.split(/\s+/).length / 200)), views: 0 })].concat(s.posts), bform: Object.assign({}, EMPTY_POST), blogView: 'list' }));
+      this.flash('Post created');
+    }
+  }
+
+  askDelete(kind, id, title, body) { this.setState({ confirm: { kind, id, title, body } }); }
+
+  doDelete() {
+    const c = this.state.confirm;
+    if (!c) return;
+    if (c.kind === 'project') this.setState(s => ({ projects: s.projects.filter(p => p.id !== c.id) }), () => this.syncProjectBgs());
+    if (c.kind === 'post') this.setState(s => ({ posts: s.posts.filter(p => p.id !== c.id) }));
+    if (c.kind === 'message') this.setState(s => ({ messages: s.messages.filter(m => m.id !== c.id) }));
+    this.setState({ confirm: null });
+    this.flash('Deleted');
+  }
+
+  setAbout(key, value) { this.setState(s => ({ about: Object.assign({}, s.about, { [key]: value }) })); }
+  setSocial(key, value) { this.setState(s => ({ about: Object.assign({}, s.about, { social: Object.assign({}, s.about.social, { [key]: value }) }) })); }
+  setP(key, value) { this.setState(s => ({ pform: Object.assign({}, s.pform, { [key]: value }) })); }
+  setS(key, value) { this.setState(s => ({ sform: Object.assign({}, s.sform, { [key]: value }) })); }
+  setB(key, value) { this.setState(s => ({ bform: Object.assign({}, s.bform, { [key]: value }) })); }
+
+  renderVals() {
+    const st = this.state;
+    const a = st.about;
+    const published = st.posts.filter(p => p.published).length;
+    const unread = st.messages.filter(m => !m.read).length;
+    const tabs = [
+      { id: 'overview', label: 'Overview', icon: '⊞', count: '' },
+      { id: 'projects', label: 'Projects', icon: '◈', count: String(st.projects.length) },
+      { id: 'skills', label: 'Skills', icon: '{ }', count: String(st.skills.length) },
+      { id: 'about', label: 'About', icon: '◐', count: '' },
+      { id: 'blog', label: 'Blog', icon: '✎', count: String(st.posts.length) },
+      { id: 'messages', label: 'Messages', icon: '✉', count: String(unread) },
+    ];
+    const active = tabs.find(t => t.id === st.tab) || tabs[0];
+    const hr = new Date().getHours();
+    const metaGreeting = hr < 12 ? 'GOOD MORNING' : hr < 18 ? 'GOOD AFTERNOON' : 'GOOD EVENING';
+    const metaByTab = {
+      overview: 'DASHBOARD',
+      projects: st.projects.length + ' ITEMS',
+      skills: st.skills.length + ' ITEMS',
+      about: 'PROFILE',
+      blog: published + ' PUBLISHED · ' + (st.posts.length - published) + ' DRAFT',
+      messages: unread + ' UNREAD · ' + st.messages.length + ' TOTAL',
+    };
+    const basic = [
+      ['name', 'Full name', 'Parindra Gallage'], ['title', 'Job title', 'Full-Stack Developer'],
+      ['location', 'Location', 'Galle, Sri Lanka'], ['email', 'Contact email', 'your@email.com'],
+      ['availabilityNote', 'Availability note', 'Open to junior roles'],
+    ];
+    const socials = [
+      ['github', 'GitHub URL', 'https://github.com/Chami-02'], ['linkedin', 'LinkedIn URL', 'https://linkedin.com/in/...'],
+      ['facebook', 'Facebook URL', 'https://web.facebook.com/...'], ['instagram', 'Instagram URL', 'https://www.instagram.com/...'],
+      ['twitter', 'Twitter URL', 'https://twitter.com/...'], ['email', 'Email address', 'your@email.com'],
+    ];
+
+    return {
+      webRef: this.webRef,
+      greeting: 'ADMIN CONSOLE · ' + metaGreeting,
+      footerCounts: st.projects.length + ' PROJECTS · ' + st.skills.length + ' SKILLS · ' + published + ' POSTS · ' + unread + ' UNREAD',
+      techChips: st.techChips.map(label => {
+        const on = splitList(st.pform.tech).some(t => t.toLowerCase() === label.toLowerCase());
+        return {
+          label, mark: on ? '✓ ' : '+ ',
+          tip: on ? 'Click to unpick' : 'Click to add',
+          bg: on ? 'var(--acc)' : 'rgba(var(--gnd),.45)',
+          border: on ? 'var(--acc)' : 'rgba(var(--ln),.16)',
+          color: on ? 'var(--accInk)' : 'var(--text)',
+          divider: on ? 'rgba(var(--gnd),.35)' : 'rgba(var(--ln),.16)',
+          xColor: on ? 'var(--accInk)' : 'var(--muted2)',
+          onClick: () => this.toggleChip('tech', label),
+          onRemove: () => this.removeChip('tech', label),
+        };
+      }),
+      tagChips: st.tagChips.map(label => {
+        const on = splitList(st.bform.tags).some(t => t.toLowerCase() === label.toLowerCase());
+        return {
+          label, mark: on ? '✓ ' : '+ ',
+          tip: on ? 'Click to unpick' : 'Click to add',
+          bg: on ? 'var(--acc)' : 'rgba(var(--gnd),.45)',
+          border: on ? 'var(--acc)' : 'rgba(var(--ln),.16)',
+          color: on ? 'var(--accInk)' : 'var(--text)',
+          divider: on ? 'rgba(var(--gnd),.35)' : 'rgba(var(--ln),.16)',
+          xColor: on ? 'var(--accInk)' : 'var(--muted2)',
+          onClick: () => this.toggleChip('tags', label),
+          onRemove: () => this.removeChip('tags', label),
+        };
+      }),
+      themeLabel: st.theme === 'light' ? 'DARK MODE' : 'LIGHT MODE',
+      toggleTheme: () => this.toggleTheme(),
+
+      isLocked: !st.authed,
+      isUnlocked: st.authed,
+      email: st.email, password: st.password,
+      onEmail: e => this.setState({ email: e.target.value }),
+      onPassword: e => this.setState({ password: e.target.value }),
+      onLogin: e => this.submitLogin(e),
+      loginError: st.loginError,
+      loginLabel: st.loggingIn ? 'SIGNING IN…' : 'SIGN IN →',
+      signOut: () => this.setState({ authed: false, email: '', password: '', loginError: '' }),
+
+      navItems: tabs.map(t => {
+        const on = t.id === st.tab;
+        return Object.assign({}, t, {
+          bg: on ? 'rgba(252,163,17,.12)' : 'rgba(var(--gnd),.28)',
+          border: on ? 'var(--acc)' : 'rgba(var(--ln),.1)',
+          color: on ? 'var(--acc)' : 'var(--text)',
+          iconColor: on ? 'var(--acc)' : 'var(--muted2)',
+          weight: on ? '700' : '400',
+          onClick: () => this.setState({ tab: t.id }),
+        });
+      }),
+      tabTitle: active.label,
+      tabMeta: metaByTab[st.tab] || '',
+      savedFlash: st.savedFlash,
+
+      isOverview: st.tab === 'overview',
+      isProjects: st.tab === 'projects',
+      isSkills: st.tab === 'skills',
+      isAbout: st.tab === 'about',
+      isBlog: st.tab === 'blog',
+      isMessages: st.tab === 'messages',
+
+      stats: [
+        { icon: '◈', label: 'PROJECTS', value: String(st.projects.length) },
+        { icon: '{ }', label: 'SKILLS', value: String(st.skills.length) },
+        { icon: '✎', label: 'PUBLISHED POSTS', value: String(published) },
+        { icon: '✉', label: 'UNREAD MESSAGES', value: String(unread) },
+      ],
+      quickActions: [
+        { label: '+ NEW PROJECT', onClick: () => this.setState({ tab: 'projects', pform: Object.assign({}, EMPTY_PROJECT), editingProject: null }) },
+        { label: '+ NEW POST', onClick: () => this.setState({ tab: 'blog', blogView: 'edit', bform: Object.assign({}, EMPTY_POST), editingPost: null }) },
+        { label: '+ NEW SKILL', onClick: () => this.setState({ tab: 'skills' }) },
+        { label: 'EDIT PROFILE', onClick: () => this.setState({ tab: 'about' }) },
+      ],
+
+      /* projects */
+      projects: st.projects.map(p => ({
+        title: p.title, featured: !!p.featured, techLine: (p.tech || []).join(', '),
+        border: st.editingProject === p.id ? 'var(--acc)' : 'rgba(var(--ln),.14)',
+        onEdit: () => this.editProject(p),
+        onDelete: () => this.askDelete('project', p.id, 'Delete project?', 'This will permanently remove "' + p.title + '" from your portfolio and cannot be undone.'),
+      })),
+      projectsCountLabel: 'All projects (' + st.projects.length + ')',
+      projectFormTitle: st.editingProject ? 'Edit project' : 'Add new project',
+      projectSubmitLabel: st.editingProject ? 'SAVE CHANGES' : 'ADD PROJECT',
+      editingProject: !!st.editingProject,
+      cancelProject: () => this.setState({ pform: Object.assign({}, EMPTY_PROJECT), editingProject: null }),
+      saveProject: e => this.saveProjectForm(e),
+      pf: {
+        title: st.pform.title, githubUrl: st.pform.githubUrl, liveUrl: st.pform.liveUrl,
+        order: st.pform.order, description: st.pform.description, tech: st.pform.tech, featured: !!st.pform.featured,
+        onTitle: e => this.setP('title', e.target.value),
+        onGithub: e => this.setP('githubUrl', e.target.value),
+        onLive: e => this.setP('liveUrl', e.target.value),
+        onOrder: e => this.setP('order', e.target.value),
+        onDescription: e => this.setP('description', e.target.value),
+        onTech: e => this.setP('tech', e.target.value),
+        onFeatured: e => this.setP('featured', e.target.checked),
+        bgImage: st.pform.bgImage || '',
+        bgCss: st.pform.bgImage ? 'url("' + st.pform.bgImage + '")' : 'none',
+        bgOpacity: String(st.pform.bgOpacity == null ? 75 : st.pform.bgOpacity),
+        bgOpacityLabel: (st.pform.bgOpacity == null ? 75 : st.pform.bgOpacity) + '%',
+        bgPreviewOpacity: String((st.pform.bgOpacity == null ? 75 : st.pform.bgOpacity) / 100),
+        onBgOpacity: e => this.setP('bgOpacity', Number(e.target.value)),
+        onBgUrl: e => this.setP('bgImage', e.target.value),
+        onBgFile: e => { const f = e.target.files && e.target.files[0]; this.readImageFile(f, url => { this.setP('bgImage', url); this.flash('Image loaded — save the project to publish it'); }); },
+        clearBg: () => this.setP('bgImage', ''),
+        newTag: st.newTech,
+        onNewTag: e => this.setState({ newTech: e.target.value }),
+        onNewTagKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.addChip('tech'); } },
+        addTag: () => this.addChip('tech'),
+      },
+
+      /* skills */
+      skillsCountLabel: 'All skills (' + st.skills.length + ')',
+      skillGroups: CATS.map(c => ({
+        category: c,
+        items: st.skills.filter(s => s.category === c).map(s => ({
+          name: s.name, level: s.level,
+          onDelete: () => this.setState(prev => ({ skills: prev.skills.filter(x => x.id !== s.id) })),
+        })),
+      })).filter(g => g.items.length > 0),
+      saveSkill: e => this.saveSkillForm(e),
+      sf: {
+        name: st.sform.name, category: st.sform.category, level: st.sform.level,
+        onName: e => this.setS('name', e.target.value),
+        onCategory: e => this.setS('category', e.target.value),
+        onLevel: e => this.setS('level', e.target.value),
+      },
+
+      /* about */
+      availabilityLabel: a.availableForWork ? 'Open to work' : 'Not available',
+      availabilityColor: a.availableForWork ? 'var(--ok)' : 'var(--danger)',
+      toggleAvailability: () => { this.setAbout('availableForWork', !a.availableForWork); this.flash(a.availableForWork ? 'Marked as not available' : 'Marked as open to work'); },
+      basicFields: basic.map(f => ({ label: f[1], placeholder: f[2], value: a[f[0]] || '', onInput: e => this.setAbout(f[0], e.target.value) })),
+      socialFields: socials.map(f => ({ label: f[1], placeholder: f[2], value: a.social[f[0]] || '', onInput: e => this.setSocial(f[0], e.target.value) })),
+      bioParas: a.bio.map((text, i) => ({
+        no: (i + 1) + '.', text,
+        onInput: e => { const v = e.target.value; this.setState(s => { const bio = s.about.bio.slice(); bio[i] = v; return { about: Object.assign({}, s.about, { bio }) }; }); },
+        onRemove: () => this.setState(s => ({ about: Object.assign({}, s.about, { bio: s.about.bio.filter((_, idx) => idx !== i) }) })),
+      })),
+      addBio: () => this.setState(s => ({ about: Object.assign({}, s.about, { bio: s.about.bio.concat(['']) }) })),
+      cv: (() => {
+        const r = st.resume;
+        return {
+          hasFile: !!r,
+          fileName: r ? r.name : 'No résumé uploaded yet',
+          ext: r ? r.ext : 'PDF',
+          meta: r ? r.size + ' · replaced ' + r.uploaded : 'Upload a PDF to activate the Download CV buttons',
+          href: r ? r.dataUrl : '#',
+          badge: r ? 'LIVE' : 'MISSING',
+          badgeColor: r ? 'var(--ok)' : 'var(--muted2)',
+          badgeBorder: r ? 'rgba(52,211,153,.4)' : 'rgba(var(--ln),.2)',
+          badgeBg: r ? 'rgba(52,211,153,.07)' : 'transparent',
+          uploadLabel: r ? '↑ REPLACE FILE' : '↑ UPLOAD RÉSUMÉ',
+          onFile: e => { const f = e.target.files && e.target.files[0]; this.replaceResume(f); e.target.value = ''; },
+          onRemove: () => this.setState({ resume: null }, () => { this.syncResume(); this.flash('Résumé removed'); }),
+        };
+      })(),
+      saveAbout: () => this.flash('✓ Profile saved successfully'),
+
+      /* blog */
+      blogListView: st.blogView === 'list',
+      blogEditView: st.blogView === 'edit',
+      newPost: () => this.setState({ blogView: 'edit', bform: Object.assign({}, EMPTY_POST), editingPost: null }),
+      backToList: () => this.setState({ blogView: 'list', bform: Object.assign({}, EMPTY_POST), editingPost: null }),
+      postFormTitle: st.editingPost ? 'Edit post' : 'New post',
+      postSubmitLabel: st.editingPost ? 'SAVE CHANGES' : 'CREATE POST',
+      savePost: e => this.savePostForm(e),
+      bf: {
+        title: st.bform.title, excerpt: st.bform.excerpt, content: st.bform.content, tags: st.bform.tags, published: !!st.bform.published,
+        onTitle: e => this.setB('title', e.target.value),
+        onExcerpt: e => this.setB('excerpt', e.target.value),
+        onContent: e => this.setB('content', e.target.value),
+        onTags: e => this.setB('tags', e.target.value),
+        onPublished: e => this.setB('published', e.target.checked),
+        newTag: st.newTag,
+        onNewTag: e => this.setState({ newTag: e.target.value }),
+        onNewTagKey: e => { if (e.key === 'Enter') { e.preventDefault(); this.addChip('tags'); } },
+        addTag: () => this.addChip('tags'),
+      },
+      posts: st.posts.map(p => ({
+        title: p.title,
+        badge: p.published ? '● PUBLISHED' : '○ DRAFT',
+        badgeColor: p.published ? 'var(--ok)' : 'var(--muted2)',
+        badgeBorder: p.published ? 'rgba(52,211,153,.35)' : 'rgba(var(--ln),.2)',
+        badgeBg: p.published ? 'rgba(52,211,153,.07)' : 'transparent',
+        meta: p.date + ' · ' + p.read + ' min read · ' + p.views + ' views',
+        toggleLabel: p.published ? 'UNPUBLISH' : 'PUBLISH',
+        onToggle: () => this.setState(s => ({ posts: s.posts.map(x => x.id === p.id ? Object.assign({}, x, { published: !x.published }) : x) })),
+        onEdit: () => this.setState({ blogView: 'edit', editingPost: p.id, bform: { title: p.title, excerpt: p.excerpt, content: p.content, tags: p.tags, published: p.published } }),
+        onDelete: () => this.askDelete('post', p.id, 'Delete post?', 'This will permanently delete "' + p.title + '" and cannot be undone.'),
+      })),
+
+      /* messages */
+      noMessages: st.messages.length === 0,
+      messages: st.messages.map(m => ({
+        name: m.name, email: m.email, message: m.message, date: m.date, unread: !m.read,
+        border: m.read ? 'rgba(var(--ln),.14)' : 'rgba(252,163,17,.35)',
+        mailto: 'mailto:' + m.email,
+        replyTo: 'mailto:' + m.email + '?subject=Re: Your Portfolio Message',
+        onRead: () => this.setState(s => ({ messages: s.messages.map(x => x.id === m.id ? Object.assign({}, x, { read: true }) : x) })),
+        onDelete: () => this.askDelete('message', m.id, 'Delete message?', 'This will permanently delete the message from ' + m.name + '.'),
+      })),
+
+      /* confirm modal */
+      confirmOpen: !!st.confirm,
+      confirmTitle: st.confirm ? st.confirm.title : '',
+      confirmBody: st.confirm ? st.confirm.body : '',
+      confirmYes: () => this.doDelete(),
+      confirmNo: () => this.setState({ confirm: null }),
+    };
+  }
+}
+</script>
+</body>
+</html>

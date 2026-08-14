@@ -1,0 +1,379 @@
+# Portfolio Revolution — Phase 2
+
+## The design is the authority
+
+`docs/design/` holds the Claude Design prototype this project is rebuilding
+toward. **These files are the source of truth for every visual decision.**
+
+```
+docs/design/
+  Portfolio Revolution.dc.html   main page — splash, hero, about, skills,
+                                 projects, blog teaser, contact, footer
+  Blog.dc.html                   Field Notes — index, search, reading view
+  Admin.dc.html                  CMS — login plus six panels
+  DESIGN.md                      design system spec
+  github.md                      sync log and screen map
+  assets/                        9 source images, full resolution
+```
+
+### ⚠️ `docs/screenshots/` is NOT the design
+
+That directory holds an image of the **Phase 1 UI** — the old site, before this
+rebuild. It is historical reference only.
+
+**Never use it as a visual target.** It shows the previous slate/indigo palette
+and Inter typography, both of which Phase 2 replaces. If a screenshot and the
+prototype disagree, the screenshot is the outdated one.
+
+### Working with the prototype
+
+**Read the relevant file before implementing any visual work.** Grep for the
+exact value rather than reasoning from a description:
+
+```bash
+grep -n "keyframes glowdot" docs/design/*.dc.html
+grep -n "data-screen-label" "docs/design/Portfolio Revolution.dc.html"
+```
+
+**If a ticket and the prototype disagree, the prototype wins.** Say so, then
+implement what the prototype says. This has happened repeatedly — tickets have
+carried wrong keyframe values, a wrong test directory, a wrong import order,
+and a wrong z-index (grain guessed at a low single digit; the prototype has it
+at 70, above the header). The prototype has never been wrong.
+
+**Transcribe exactly. Never round.** `scale(1.022)` is not `scale(1.02)`.
+`translateY(-14px)` is not `-12px`. These carry the design's feel; rounding
+produces something that looks approximately right and feels wrong, in a way
+that is very hard to diagnose later.
+
+**Three keyframes differ per screen** — `flt`, `drift`, `sheen`. Check which
+screen you are building before copying a value. They live under explicit
+variant names (`flt-portfolio`, `flt-blog`, `flt-admin`) in
+`frontend/src/styles/keyframes/`.
+
+### Reading `.dc.html` files
+
+They use a custom DSL compiled by the Claude Design runtime: `<x-dc>` root,
+`<sc-if>` conditionals, `{{ handler }}` bindings, `ref="{{ x }}"`, and a
+`<script type="text/x-dc" data-dc-script>` logic block.
+
+Styling is almost entirely **inline `style` attributes** — no class names to
+map. Read the inline value and re-express it.
+
+`support.js` is the Claude Design runtime. It is deliberately **not** in this
+repo and must never be added.
+
+`Admin.dc.html` contains hardcoded demo credentials in its logic block. That is
+expected for design reference, and CI's credential scan skips `.html`
+deliberately. Do not strip them; do not copy them into application code.
+
+## Project state
+
+Phase 1 (PF-1 → PF-51) complete. Sprint 9 (PF-52, PF-59 → PF-65) complete and
+merged — the API serves every field Phase 2 requires.
+
+**Sprint 10 — Epic E6 Design System Foundations (PF-66 → PF-74) is complete**,
+branch `sprint-10-design-system`, PR #4 into `master`, CI green. Everything
+Sprint 11 needs is in this file — the ticket table below, the Sprint 11 section,
+and the "what's ready to build with" list. There is no separate retrospective
+document; do not link to one.
+
+| Ticket | Work | Status |
+| --- | --- | --- |
+| PF-66 | E2E database isolation | ✅ |
+| PF-67 | Design token stylesheet | ✅ |
+| PF-68 | Font pipeline | ✅ |
+| PF-69 | Keyframe library | ✅ |
+| PF-70 | Tailwind theme wiring | ✅ |
+| PF-71 | FOUC guard | ✅ |
+| PF-72 | ThemeProvider | ✅ |
+| PF-73 | MotionProvider | ✅ |
+| PF-74 | Motion primitives | ✅ |
+
+Numbering note: six Jira epics were created after PF-52, consuming keys
+PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
+
+**⚠️ Before cutting `sprint-11-main-page`:** confirm PR #4 from
+`sprint-10-design-system` has actually merged into `master`
+(`gh pr view 4 --json state,mergedAt`). If Sprint 11 branches before that
+lands, none of PF-66–74's primitives exist on the new branch and the first
+import in PF-75 fails. Check, don't assume.
+
+### Sprint 11 — Epic E7, Main Page Rebuild (`PF-55`)
+
+Branch `sprint-11-main-page`. First sprint where the site visibly becomes the
+Phase 2 design rather than just having the vocabulary to build it with.
+**Scoped to chrome + Hero → Skills only** — Projects, Blog, Contact, Footer,
+and the full responsive audit are Sprint 12. Splitting here, at the hero
+marquee, keeps the riskiest work (two canvases, a splash sequence) from
+competing for attention with straightforward section transcription.
+
+| Order | Ticket | Title | Points | Depends on |
+| --- | --- | --- | --- | --- |
+| 1 | PF-75 | Page shell + ambient layer scaffold | 5 | — |
+| 2 | PF-76 | GalaxyCanvas — star field + cursor web | 8 | PF-75 |
+| 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 |
+| 4 | PF-78 | Splash | 4 | PF-74, PF-75 |
+| 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 |
+| 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 |
+| 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 |
+| 8 | PF-82 | Skills | 3 | PF-81 |
+| 9 | PF-83 | Reduced-motion + a11y pass | 3 | all |
+| 10 | PF-84 | Sprint gate, PR, close | 2 | all |
+
+46 points. PF-75 carries 5, not 3 — it now includes the splash-readiness gate
+(see the silent-failure entry below), pulled forward from PF-78 so the primitive
+change lands in a low-stakes ticket instead of the same one building the splash
+animation. PF-78 drops from 5 to 4 accordingly: it only has to call `setReady()`
+at the right two moments, not build the plumbing.
+
+**Open decisions**, settle before the ticket that needs them:
+- **Mobile nav** (PF-79) — genuinely absent from the prototype at every width.
+  Yours to design, not to transcribe.
+- **Canvas palette on theme change** (PF-76) — the prototype reads star/web
+  colour once at init and never updates it on toggle. Confirm that's a
+  prototype bug before "fixing" it; a light-mode star field in dark colours is
+  probably wrong, but check before assuming.
+- **Star count budget** (PF-76) — `Math.min(620, round(w·h/2600))`, up to 80
+  web nodes, O(n²) pairing. If a real phone misses budget, the lever is the
+  2600 divisor, not the 80 cap — the cap is what keeps the pairing loop
+  survivable.
+
+What's ready to build with — **all of this exists on the branch today**. Exact
+paths, because they are not guessable from the ticket names:
+
+```
+frontend/
+  index.html                     FOUC guard (inline, runs pre-paint) + font <link>s
+  src/
+    main.jsx                     stylesheet import order is load-bearing, see below
+    styles/
+      global.css                 Phase 1 :root + the Tailwind import
+      tokens.css                 Phase 2 tokens, dual theme, Anton fallback @font-face
+      keyframes/
+        index.css                single import point — import this, not the parts
+        base.css                 the 22 shared by every screen
+        portfolio.css            flt-portfolio  drift-portfolio  sheen-portfolio
+        blog.css                 flt-blog  sheen-blog          (no drift — correct)
+        admin.css                flt-admin  drift-admin  sheen-admin  auroraA  auroraB
+      motion.css                 reduced-motion layer — imported LAST, deliberately
+      patterns.module.css        shared structural patterns, pulled in via composes:
+    providers/
+      ThemeProvider.jsx          ThemeContext.js    (context is its own module)
+      MotionProvider.jsx         MotionContext.js
+    hooks/
+      useTheme.js                useReducedMotion.js
+    components/
+      motion/                    index.js barrel — Reveal, CountUp, Marquee
+                                 Reveal.jsx + Reveal.module.css
+                                 CountUp.jsx
+                                 Marquee.jsx + Marquee.module.css
+      layout/                    ThemeToggle.jsx + ThemeToggle.module.css
+    utils/
+      theme.js                   React-free: normalise, readTheme, applyTheme, …
+      motion.js                  React-free: prefersReducedMotion, subscribe…
+```
+
+The import order in `main.jsx`, which is a locked decision and silently breaks
+if disturbed:
+
+```js
+import './styles/global.css';
+import './styles/tokens.css';
+import './styles/keyframes/index.css';
+import './styles/motion.css';   // must be LAST
+```
+
+- **Tokens** (`frontend/src/styles/tokens.css`): flat tokens + 5 channel
+  triplets, dual-theme via `html[data-theme]`.
+- **Fonts**: `var(--font-display)` (Anton, weight 400 only), `var(--font-body)`
+  (Space Grotesk), `var(--font-mono)` (JetBrains Mono), all declared in
+  `tokens.css`. `body`'s `font-family` is still Phase 1's Inter until the
+  cutover ticket. Served from the **Google Fonts CDN**, not self-hosted —
+  there are no `.woff2` files in this repo, and `frontend/index.html` carries
+  one merged `css2?family=` request plus a direct `<link rel="preload">` for
+  Anton's woff2. `tokens.css` also defines an `'Anton Fallback'` `@font-face`
+  (`size-adjust: 88%`, `ascent-override: 90%`, `descent-override: 22%`) so the
+  swap doesn't reflow. Note `--font-mono` is declared in *both* `global.css`
+  and `tokens.css`; tokens.css wins purely because it imports second.
+- **32 keyframes** (`frontend/src/styles/keyframes/`) — `base.css` holds the 22
+  shared by every screen. `flt`/`drift`/`sheen` are per-screen variants, and
+  there are **8 of them, not 9**: the Blog prototype has no `drift` animation
+  at all, so `drift-blog` does not exist and never should. `auroraA`/`auroraB`
+  are Admin-only and live in `admin.css`. 22 + 8 + 2 = 32.
+- **Theming**: `useTheme()`, `<ThemeToggle />`
+  (`components/layout/ThemeToggle.jsx`).
+- **Motion**: `useReducedMotion()` for anything JS-driven; `motion.css`
+  handles CSS-driven motion automatically.
+- **Motion primitives**: `import { Reveal, CountUp, Marquee } from
+  '../components/motion'` — `Reveal` needs `type="up"|"pop"|"rise"|"left"`
+  matched to the prototype's `data-reveal="…"` for that element.
+- **Layout**: CSS Modules for anything copied from the prototype, Tailwind for
+  simple layout, `patterns.module.css` for structural patterns used more than
+  once.
+
+**Not built yet — PF-75 creates it.** `SplashProvider` and `useSplashReady()`
+do **not** exist in the repo. `Reveal` and `CountUp` do not gate on anything
+today; they animate as soon as they intersect. PF-75 adds the provider, the
+hook, and the internal gating in both primitives. Do not import
+`useSplashReady` before PF-75 lands, and do not describe it as available.
+
+## Stack
+
+React 19 · Vite · Tailwind v4 · CSS Modules · React Router v7 · TanStack Query v5
+Express · MongoDB Atlas · Mongoose · JWT · Cloudinary
+Vitest · Jest · Supertest · Playwright · GitHub Actions
+
+## Styling approach
+
+**CSS Modules** (`*.module.css`) for anything copied from the prototype —
+gradients, shadows, keyframe applications, layered backgrounds, transforms.
+Paste the value verbatim; no translation, no drift.
+
+**Tailwind utilities** for simple layout only — `flex`, `gap-4`, `items-center`.
+
+Rationale: translating `radial-gradient(120% 90% at 78% 18%, rgba(var(--srf),.62)…)`
+into a Tailwind arbitrary value needs underscore-escaping, and a mistake **fails
+silently** — no error, the element just renders without a background.
+
+Shared structural patterns live in `frontend/src/styles/patterns.module.css`
+and are pulled in with `composes:`. Do not generalise a value used once.
+
+## React conventions
+
+CI runs ESLint with `--max-warnings=0`, and React 19's hooks plugin enforces two
+rules that shape how components here are written. Both cost a full CI cycle at
+the end of Sprint 10. Sprint 11 writes far more effects than Sprint 10 did —
+two canvases, a splash sequence, scroll and pointer handlers — so read these
+before the first `useEffect`.
+
+**Never call `setState` in an effect body** (`react-hooks/set-state-in-effect`).
+Derive the value during render instead. This is not a style preference: the
+effect version renders once with the wrong value and then re-renders, so the
+user sees the wrong frame first. In Sprint 10 that meant `Reveal` painting one
+frame of its *hidden* state for reduced-motion users, and `ThemeProvider`
+flashing the wrong theme whenever the FOUC guard hadn't run — a FOUC inside the
+component built to prevent FOUC. `setState` inside a callback the effect
+registers (an `IntersectionObserver` callback, a `requestAnimationFrame` step,
+an event listener) is fine and is what effects are for; only the synchronous
+body is the problem. The rule reports one violation per effect, so fixing the
+first can uncover a second in the same hook.
+
+**A provider file exports components and nothing else**
+(`react-refresh/only-export-components`). Contexts live in their own module —
+`providers/ThemeContext.js`, `providers/MotionContext.js` — and the provider
+imports from there. A context exported alongside its provider forces a full page
+reload on every edit instead of a hot swap. **PF-75's `SplashProvider` needs the
+same split**: put the context in `providers/SplashContext.js`, or the ticket
+lands on a red CI for the identical reason.
+
+## Silent failures
+
+This project has been bitten repeatedly. Assume any of these can happen with no
+error message:
+
+- **Mistyped CSS custom property** → declaration dropped, element inherits
+- **Mistyped `animation-name`** → element simply does not animate. `drift-blog`
+  is the trap here: it looks like it should exist by symmetry, and it does not.
+- **`rgba(#hex, .5)`** → invalid, produces nothing. The five channel triplets
+  (`--gnd --srf --ln --ftr --shd`) must stay as bare `R,G,B`
+- **Redefined `@keyframes` of the same name** → later definition wins by
+  document order
+- **Connection string with no database path** → driver silently defaults to a
+  database named `test`
+- **Inline custom property on `<html>`** → beats the `html[data-theme]` block in
+  the cascade, so every subsequent edit to `tokens.css` becomes dead code. The
+  page renders a stale value and nothing you change has any effect. Never write
+  inline styles to `documentElement` — set `data-theme` and nothing else.
+  Guarded by a test in `frontend/src/utils/__tests__/theme.test.js`.
+- **A full-screen overlay with no occlusion awareness** → `IntersectionObserver`
+  and geometric sweeps both measure position, never what's painted on top.
+  Without a splash-readiness gate, every above-the-fold `Reveal`/`CountUp`
+  finishes animating in while the splash still covers the screen — by the time
+  it lifts, the entrance already happened and the hero looks static. No error,
+  no failed test if the test doesn't mount a splash; it just looks like the
+  hero's animation silently doesn't work. **Nothing guards this today** —
+  PF-75's `useSplashReady()` is the fix, and until it lands any splash built on
+  top of the current primitives will show this.
+
+Where a mistake would be silent, add a test that would catch it.
+
+## Locked decisions — do not reopen
+
+- Design fidelity is absolute. Nothing is removed or simplified for performance.
+- No frontend animation libraries. CSS keyframes plus vanilla JS.
+- Channel-triplet tokens stay as triplets.
+- `tokens.css` imports **after** `global.css` in `main.jsx` — `global.css`
+  contains both the Tailwind import and the phase-1 `:root` block.
+- Tailwind `@theme` uses `var()` references to `tokens.css`, so colour utilities
+  follow theme switching. Opacity modifiers (`bg-acc/50`) resolve via
+  `color-mix()` at runtime. On engines without `color-mix()` (pre-2023) they
+  degrade to full opacity — known and accepted. Verified against the emitted CSS
+  in PF-70 Step 2.
+- Fonts are deliberately **not** in `@theme` — `--font-*` collides with
+  `tokens.css`'s own property names, so a `var()` reference would be
+  self-referential. Typography goes through CSS Modules directly.
+- `body { font-family }` is deliberately NOT set until cutover, so the Phase 1
+  site keeps Inter.
+- Contexts live in their own module, separate from the provider that supplies
+  them. Settled in the Sprint 10 lint fix; see React conventions above.
+- **When PF-75 builds `SplashProvider`** it must default to `ready: true` and
+  must **not** throw outside its own provider, unlike `ThemeProvider` and
+  `MotionProvider`. Deliberate: most routes (Admin, Blog) have no splash and
+  never will, and every existing `Reveal`/`CountUp` usage and test predates the
+  ticket and must keep working unwrapped. A missing theme is a bug worth
+  surfacing loudly; a missing splash is the normal case. This is a decision
+  about code not yet written — do not read it as a description of what exists.
+- Vocabulary deletion is hard-delete with cascade, behind an impact-count confirm.
+- Cloudinary for file storage, behind a provider interface.
+- Résumé is PDF only; a new upload hard-deletes the old.
+- Blog content is `sections[]`, not a flat string.
+
+## Environment
+
+macOS, zsh. Use `brew`, `jq`, `sed -i ''` with the empty argument, `~` not
+`%USERPROFILE%`.
+
+Backend runs on **port 5050** — macOS AirPlay occupies 5000. Inside Docker the
+internal target stays `backend:5000`.
+
+E2E runs isolated: database `portfolio_e2e`, backend 5055, frontend 5174.
+
+Prefer `lsof -ti:PORT | xargs kill` over pattern-matched `pkill`.
+
+Backend tests live in `backend/src/__tests__/`. Run via `npm test`, never
+`npx jest` — the wrapper rewrites the Mongo URI to `/portfolio_test`, which is
+the only thing making `clearDB`'s wipe safe.
+
+Frontend tests use **per-module `__tests__` directories** — `src/utils/`,
+`src/styles/`, `src/providers/`, `src/hooks/`, `src/components/motion/` and
+`src/components/layout/` each have their own. Not a top-level `src/__tests__/`.
+
+## Working agreement
+
+Per-ticket `.md` guides are pasted into chat and are the source of truth for
+that ticket — except where the prototype contradicts them.
+
+**Never run `git commit`.** Report "ready to commit, here's the message" and
+stop. VS Code has auto-staged unintended files twice; always show
+`git status --short` and `git diff --cached --stat` first.
+
+**Never document something as existing until it does.** This file is read as
+fact by every session. A pointer to a file that was never written, or a hook
+described as "ready to build with" before its ticket ships, sends the next
+session chasing something that isn't there — and it declines to look in the
+place that does have the answer. Both have already happened here. If it is
+planned, say which ticket builds it.
+
+**Flag concerns before executing, not after.**
+
+**Ticket file paths are sometimes wrong for this repo.** When a ticket's path
+conflicts with the actual convention, the convention wins — note it as a correct
+deviation, not a defect.
+
+Prefer verifying against generated output or a real browser over reasoning from
+description — grepping built CSS and driving Playwright have both caught things
+a visual check would have missed.
+
+Explain **why**, not just what. When something breaks, give the causal
+mechanism.

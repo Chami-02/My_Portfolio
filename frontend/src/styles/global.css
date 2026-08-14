@@ -6,6 +6,40 @@
 
 @import "tailwindcss";
 
+/* ── Tailwind theme bridge (PF-70) ───────────────────────────
+ * Exposes a minimal token subset to Tailwind's utility generator.
+ *
+ * References tokens.css var()s rather than duplicating literals.
+ * Verified (Step 2): Tailwind emits opacity-modifier utilities
+ * (e.g. bg-acc/50) via CSS color-mix(), which resolves var()
+ * references at runtime in the browser, not at Tailwind's build
+ * time — so no duplication is needed and the light theme flows
+ * through automatically.
+ *
+ * Colours only. No font entries: tokens.css already names those
+ * properties --font-display/-body/-mono identically to Tailwind's
+ * own namespace, so a var() reference here would be self-referential.
+ * Typography goes through CSS Modules via var(--font-display) etc.
+ * directly; Tailwind's built-in font-sans/font-mono stay available
+ * for anything that wants them.
+ *
+ * Deliberately minimal. Under the hybrid approach, prototype
+ * surfaces come from CSS Modules; Tailwind handles layout.
+ */
+@theme {
+  /* Colours — flat tokens only. The five channel triplets are NOT
+     exposed; rgba(var(--srf), .62) belongs in CSS Modules. */
+  --color-acc:     var(--acc);
+  --color-ink:     var(--accInk);
+  --color-strong:  var(--strong);
+  --color-body:    var(--text);
+  --color-muted:   var(--muted);
+  --color-muted2:  var(--muted2);
+  --color-faint:   var(--faint);
+  --color-ok:      var(--ok);
+  --color-danger:  var(--danger);
+}
+
 /* ─── DESIGN TOKENS ─────────────────────────────────────────── */
 :root {
   /* Background layers — go from darkest to lightest */

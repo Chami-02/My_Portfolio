@@ -1,0 +1,26 @@
+/* frontend/src/components/motion/Marquee.module.css */
+
+.marquee {
+  overflow: hidden;
+  width: 100%;
+  /* The track overflows by design; this container clips it. */
+}
+
+.track {
+  display: flex;
+  width: max-content;
+  animation-name: marq;              /* from keyframes/base.css */
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.group {
+  display: flex;
+  flex-shrink: 0;
+}
+
+/* Reduced motion → freeze on the first frame rather than hiding.
+   The content is still readable, just static. */
+html[data-motion='reduced'] .track {
+  animation: none;
+}
