@@ -71,8 +71,13 @@ deliberately. Do not strip them; do not copy them into application code.
 Phase 1 (PF-1 → PF-51) complete. Sprint 9 (PF-52, PF-59 → PF-65) complete and
 merged — the API serves every field Phase 2 requires.
 
-Currently **Sprint 10 — Epic E6 Design System Foundations**, branch
-`sprint-10-design-system`.
+**Sprint 10 — Epic E6 Design System Foundations (PF-66 → PF-74) is complete**,
+branch `sprint-10-design-system`, ready for PR into `master`. Full retrospective
+— what shipped, every place a ticket disagreed with the prototype and why the
+prototype won, and a "what Sprint 11 can now assume exists" orientation — is in
+[`docs/sprints/SPRINT-10-design-system.md`](../docs/sprints/SPRINT-10-design-system.md).
+Read it before starting Sprint 11; it's denser than this file and won't be
+repeated here.
 
 | Ticket | Work | Status |
 | --- | --- | --- |
@@ -83,11 +88,33 @@ Currently **Sprint 10 — Epic E6 Design System Foundations**, branch
 | PF-70 | Tailwind theme wiring | ✅ |
 | PF-71 | FOUC guard | ✅ |
 | PF-72 | ThemeProvider | ✅ |
-| PF-73 | MotionProvider | in progress |
-| PF-74 | Motion primitives | to do |
+| PF-73 | MotionProvider | ✅ |
+| PF-74 | Motion primitives | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
+
+**Next: Sprint 11 — Epic E7, Main Page Rebuild** (not yet started, no branch
+cut). Splash, navbar, hero, about, skills — the first sprint where the site
+visibly becomes the Phase 2 design rather than just having the vocabulary to
+build it with. What's ready to build with:
+
+- **Tokens** (`frontend/src/styles/tokens.css`): flat tokens + 5 channel
+  triplets, dual-theme via `html[data-theme]`.
+- **Fonts**: `var(--font-display)` (Anton, weight 400 only), `var(--font-body)`
+  (Space Grotesk), `var(--font-mono)` (JetBrains Mono). `body`'s `font-family`
+  is still Phase 1's Inter until the cutover ticket.
+- **32 keyframes** (`frontend/src/styles/keyframes/`) — `flt`/`drift`/`sheen`
+  are per-screen (`-portfolio`/`-blog`/`-admin`), the other 22 are shared.
+- **Theming**: `useTheme()`, `<ThemeToggle />`.
+- **Motion**: `useReducedMotion()` for anything JS-driven; `motion.css`
+  handles CSS-driven motion automatically.
+- **Motion primitives**: `import { Reveal, CountUp, Marquee } from
+  '../components/motion'` — `Reveal` needs `type="up"|"pop"|"rise"|"left"`
+  matched to the prototype's `data-reveal="…"` for that element.
+- **Layout**: CSS Modules for anything copied from the prototype, Tailwind for
+  simple layout, `patterns.module.css` for structural patterns used more than
+  once.
 
 ## Stack
 
