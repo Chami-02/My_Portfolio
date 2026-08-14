@@ -24,21 +24,20 @@ export default function Reveal({
   const ref = useRef(null);
   const reduced = useReducedMotion();
 
-  // Under reduced motion, start revealed. No transform, no delay.
-  const [revealed, setRevealed] = useState(reduced);
+  const [revealed, setRevealed] = useState(false);
+
+  // Two cases skip the entrance entirely and start revealed: reduced
+  // motion, and no IntersectionObserver (very old browsers, some test
+  // envs) where nothing would ever fire and the content would stay
+  // invisible. Derived during render rather than written by an effect —
+  // a setState in an effect body paints the hidden state first.
+  const immediate = reduced || typeof IntersectionObserver === 'undefined';
 
   useEffect(() => {
-    if (reduced) { setRevealed(true); return; }
+    if (immediate) return;
 
     const el = ref.current;
     if (!el) return;
-
-    // No IntersectionObserver (very old browsers, some test envs)
-    // → reveal immediately rather than leaving content invisible.
-    if (typeof IntersectionObserver === 'undefined') {
-      setRevealed(true);
-      return;
-    }
 
     let sweepId = null;
 
@@ -71,12 +70,12 @@ export default function Reveal({
       observer.disconnect();
       if (sweepId) clearInterval(sweepId);
     };
-  }, [reduced]);
+  }, [immediate]);
 
   return (
     <Tag
       ref={ref}
-      data-reveal={revealed ? 'in' : 'out'}
+      data-reveal={immediate || revealed ? 'in' : 'out'}
       data-type={type}
       className={`${styles.reveal} ${className}`}
       style={reduced ? undefined : { transitionDelay: `${delay}ms` }}

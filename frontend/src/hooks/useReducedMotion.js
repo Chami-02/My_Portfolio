@@ -1,6 +1,6 @@
 // frontend/src/hooks/useReducedMotion.js
 import { useContext } from 'react';
-import { MotionContext } from '../providers/MotionProvider';
+import { MotionContext } from '../providers/MotionContext';
 
 /**
  * Returns true when the user has asked for reduced motion.

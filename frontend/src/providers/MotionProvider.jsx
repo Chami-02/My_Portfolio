@@ -1,12 +1,11 @@
 // frontend/src/providers/MotionProvider.jsx
-import { createContext, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   prefersReducedMotion,
   applyMotionPreference,
   subscribeToMotionPreference,
 } from '../utils/motion';
-
-export const MotionContext = createContext(null);
+import { MotionContext } from './MotionContext';
 
 export function MotionProvider({ children }) {
   // Lazy initialiser — the matchMedia read happens once, not on

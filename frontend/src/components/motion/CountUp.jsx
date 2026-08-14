@@ -61,11 +61,6 @@ export default function CountUp({
       frameId = requestAnimationFrame(step);
     };
 
-    if (typeof IntersectionObserver === 'undefined') {
-      setValue(to);
-      return;
-    }
-
     // Same shared observer config the prototype uses for both
     // data-reveal and data-count elements (startReveals()).
     const observer = new IntersectionObserver(
@@ -80,11 +75,13 @@ export default function CountUp({
       observer.disconnect();
       if (frameId) cancelAnimationFrame(frameId);
     };
-  }, [to, reduced]);
+  }, [to, immediate]);
+
+  const shown = immediate ? to : value;
 
   return (
     <span ref={ref} className={className} {...rest}>
-      {value.toFixed(decimals)}{suffix}
+      {shown.toFixed(decimals)}{suffix}
     </span>
   );
 }

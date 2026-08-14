@@ -1,6 +1,6 @@
 // frontend/src/hooks/useTheme.js
 import { useContext } from 'react';
-import { ThemeContext } from '../providers/ThemeProvider';
+import { ThemeContext } from '../providers/ThemeContext';
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
