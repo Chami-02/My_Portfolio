@@ -82,8 +82,8 @@ Currently **Sprint 10 — Epic E6 Design System Foundations**, branch
 | PF-69 | Keyframe library | ✅ |
 | PF-70 | Tailwind theme wiring | ✅ |
 | PF-71 | FOUC guard | ✅ |
-| PF-72 | ThemeProvider | in progress |
-| PF-73 | MotionProvider | to do |
+| PF-72 | ThemeProvider | ✅ |
+| PF-73 | MotionProvider | in progress |
 | PF-74 | Motion primitives | to do |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys

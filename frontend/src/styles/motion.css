@@ -1,0 +1,59 @@
+/* frontend/src/styles/motion.css
+ *
+ * CSS-side reduced-motion handling — PF-73.
+ *
+ * ⚠️ This file only neutralises CSS animation and transition. It
+ * cannot stop a requestAnimationFrame loop, a canvas render, a
+ * scroll handler or a setInterval. JS-driven motion must gate on
+ * the useReducedMotion() hook.
+ *
+ * Applied via the data-motion attribute rather than a raw media
+ * query, so the provider is the single source of truth and a
+ * future in-app override would work without touching this file.
+ */
+
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  /* Near-zero rather than `none`. An animation with duration 0
+     still fires animationend, so sequences that chain on that
+     event continue to work rather than stalling forever. */
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0ms !important;
+
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+
+  /* Smooth scrolling is itself vestibular-triggering */
+  scroll-behavior: auto !important;
+}
+
+/* Elements whose ONLY purpose is decorative movement. Hidden
+   entirely rather than frozen mid-animation, which can look
+   broken. Sprint 11 components opt in with this attribute. */
+html[data-motion="reduced"] [data-motion-decorative] {
+  display: none !important;
+}
+
+/* ── Reduced-motion policy ───────────────────────────────────
+ *
+ * Category                    Under reduced motion
+ * ─────────────────────────────────────────────────────────────
+ * Splash sequence             Skipped entirely
+ * Canvas backgrounds          Single static frame, rAF loop stopped
+ * Grain overlay               Kept — it does not move
+ * Scroll reveals              Content visible immediately, no transform
+ * Count-ups                   Final value shown immediately
+ * Parallax                    Disabled
+ * Float / breathe / drift     Disabled
+ * Marquee                     Static, showing the first frame
+ * Scanline / flicker          Disabled
+ * Cursor glow                 Disabled
+ * Hover transitions           KEPT — user-initiated and brief
+ * Focus indicators            ALWAYS kept
+ *
+ * Rows above the line marked "disabled" that are JS-driven —
+ * canvas, count-ups, parallax, splash, cursor glow — must ALSO
+ * gate on useReducedMotion(). This stylesheet cannot stop them.
+ * ──────────────────────────────────────────────────────────── */
