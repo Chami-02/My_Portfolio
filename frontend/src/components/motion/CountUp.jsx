@@ -23,11 +23,17 @@ export default function CountUp({
 }) {
   const ref = useRef(null);
   const reduced = useReducedMotion();
-  const [value, setValue] = useState(reduced ? to : 0);
+  const [value, setValue] = useState(0);
+
+  // Two cases never animate: reduced motion, and an environment with
+  // no IntersectionObserver (very old browsers, some test envs) where
+  // nothing would ever trigger the count and it would sit at zero.
+  // Derived during render, not written by an effect — a setState in an
+  // effect body renders once with the wrong number, then again.
+  const immediate = reduced || typeof IntersectionObserver === 'undefined';
 
   useEffect(() => {
-    // Reduced motion → show the final value, run nothing.
-    if (reduced) { setValue(to); return; }
+    if (immediate) return;
 
     const el = ref.current;
     if (!el) return;
