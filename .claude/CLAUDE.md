@@ -72,12 +72,10 @@ Phase 1 (PF-1 → PF-51) complete. Sprint 9 (PF-52, PF-59 → PF-65) complete an
 merged — the API serves every field Phase 2 requires.
 
 **Sprint 10 — Epic E6 Design System Foundations (PF-66 → PF-74) is complete**,
-branch `sprint-10-design-system`, ready for PR into `master`. Full retrospective
-— what shipped, every place a ticket disagreed with the prototype and why the
-prototype won, and a "what Sprint 11 can now assume exists" orientation — is in
-[`docs/sprints/SPRINT-10-design-system.md`](../docs/sprints/SPRINT-10-design-system.md).
-Read it before starting Sprint 11; it's denser than this file and won't be
-repeated here.
+branch `sprint-10-design-system`, PR #4 into `master`, CI green. Everything
+Sprint 11 needs to know is in this file — the ticket table below and the
+"what's ready to build with" list under Sprint 11. There is no separate
+retrospective document.
 
 | Ticket | Work | Status |
 | --- | --- | --- |
