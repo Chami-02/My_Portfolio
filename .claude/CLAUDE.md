@@ -290,6 +290,17 @@ error message:
   hero's animation silently doesn't work. **Nothing guards this today** —
   PF-75's `useSplashReady()` is the fix, and until it lands any splash built on
   top of the current primitives will show this.
+- **Prototype line 834 reads an undeclared `acc`** → transcribe it as
+  `self.accColor`, which its two siblings (lines 806, 816) already use. `acc`
+  appears exactly once in the whole script block, as a read, never a
+  declaration — so it throws a `ReferenceError` once per frame whenever the
+  cursor nears a star. The loop survives only because `requestAnimationFrame`
+  re-arms on the first line of the body, before the throw; the cost is the
+  cursor dot never painting and the trailing `globalAlpha = 1` reset being
+  skipped, leaving alpha at `.3` for the next frame's nebula pass. Verified
+  against `docs/design/Portfolio Revolution.dc.html` on 2026-08-16. This is the
+  first known case of the prototype being wrong, and it is a JS bug, not a
+  design value — "the prototype wins" still holds for everything visual.
 
 Where a mistake would be silent, add a test that would catch it.
 
