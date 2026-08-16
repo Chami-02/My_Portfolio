@@ -127,17 +127,12 @@ change lands in a low-stakes ticket instead of the same one building the splash
 animation. PF-78 drops from 5 to 4 accordingly: it only has to call `setReady()`
 at the right two moments, not build the plumbing.
 
-**Open decisions**, settle before the ticket that needs them:
-- **Mobile nav** (PF-79) — genuinely absent from the prototype at every width.
-  Yours to design, not to transcribe.
-- **Canvas palette on theme change** (PF-76) — the prototype reads star/web
-  colour once at init and never updates it on toggle. Confirm that's a
-  prototype bug before "fixing" it; a light-mode star field in dark colours is
-  probably wrong, but check before assuming.
-- **Star count budget** (PF-76) — `Math.min(620, round(w·h/2600))`, up to 80
-  web nodes, O(n²) pairing. If a real phone misses budget, the lever is the
-  2600 divisor, not the 80 cap — the cap is what keeps the pairing loop
-  survivable.
+Mobile nav treatment and the cursor-web budget lever are decided — see
+Locked decisions. The canvas-palette question that was on this list earlier
+turned out not to be a decision at all: `pal()` is called fresh inside the
+`requestAnimationFrame` loop itself, every frame, not once at setup, so the
+star field already tracks theme toggling live. PF-76 just needs to read the
+same live flag, same as the prototype — nothing to design there.
 
 What's ready to build with — **all of this exists on the branch today**. Exact
 paths, because they are not guessable from the ticket names:
@@ -324,6 +319,19 @@ Where a mistake would be silent, add a test that would catch it.
   ticket and must keep working unwrapped. A missing theme is a bug worth
   surfacing loudly; a missing splash is the normal case. This is a decision
   about code not yet written — do not read it as a description of what exists.
+- **Mobile nav overlay (PF-79)**: the ambient layer shows through — canvas and
+  grain stay visible under the full-screen menu. The overlay uses a translucent
+  surface tone (same move as the header's `rgba(var(--ftr),.86)` + blur), never
+  a solid background. It sits above grain in the stack; exact z-index is fixed
+  when PF-79 is written, but must clear 70.
+- **Cursor-web frame budget (PF-76)**: if a real device misses budget, lower
+  the 80-node web cap first — the 2600 star-density divisor is the fallback,
+  not the first move. Note for whoever revisits this: the cap only bites on
+  pointer-capable hardware. A touch-only phone never fires `pointermove`, so
+  `mouse` sits at `(-9999,-9999)` and the near-cursor array stays empty
+  regardless of the cap — the O(n²) web loop already costs ~nothing there. If
+  a touch-only phone alone misses budget, the cost is the baseline star draw
+  loop, and the divisor is what actually helps.
 - Vocabulary deletion is hard-delete with cascade, behind an impact-count confirm.
 - Cloudinary for file storage, behind a provider interface.
 - Résumé is PDF only; a new upload hard-deletes the old.
