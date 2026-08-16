@@ -452,9 +452,40 @@ if it does not match the branch's own name, a push will go somewhere else.
 Per-ticket `.md` guides are pasted into chat and are the source of truth for
 that ticket — except where the prototype contradicts them.
 
-**Never run `git commit`.** Report "ready to commit, here's the message" and
-stop. VS Code has auto-staged unintended files twice; always show
-`git status --short` and `git diff --cached --stat` first.
+**Always show `git status --short` and `git diff --cached --stat` immediately
+before a commit runs** — not merely once earlier in the session. This holds on
+every branch, with or without standing authorization to commit.
+
+VS Code's Git extension has staged things nobody asked it to three times now.
+The first two were unintended files appearing in the index. The third, during
+PF-76's follow-up just before `22cf50c`, is why the timing above is spelled
+out: `.claude/CLAUDE.md` was checked and confirmed *unstaged* — deliberately
+held back for its own commit — then showed up staged a few minutes later, with
+no command run against it in between. The earlier clean check proved nothing
+about the index by the time the commit came. A second check, run immediately
+before committing, is what caught it; without it the docs change would have
+been swept into the code commit silently, since the commit succeeds either way
+and its message says nothing about docs.
+
+The mechanism differs from the first two: staging *drift* on an already-tracked
+file, not new files appearing. `git status --short` catches both, but only as
+the last thing run before the commit. Check content as well as the file list —
+confirm the staged diffstat still matches what was actually reviewed.
+
+**Committing on sprint branches — standing authorization.** On any
+`sprint-N-*` branch, commit as work completes; no per-commit confirmation
+needed. Two things are mandatory every single time, no exception:
+
+1. `git status --short` and `git diff --cached --stat` **immediately before**
+   each `git commit` runs — not earlier in the session. The drift incident
+   above is why "earlier in the session" does not count.
+2. After every push, confirm the remote actually moved:
+   `git ls-remote --heads origin <branch>` must match local `HEAD`. Compare
+   them and report the comparison — never assume a push landed because the
+   command exited cleanly.
+
+`master` is excluded, always. A commit directly on `master` requires explicit
+sign-off every time; this authorization is scoped to sprint branches only.
 
 **Never document something as existing until it does.** This file is read as
 fact by every session. A pointer to a file that was never written, or a hook
