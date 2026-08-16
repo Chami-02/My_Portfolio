@@ -51,6 +51,68 @@ screen you are building before copying a value. They live under explicit
 variant names (`flt-portfolio`, `flt-blog`, `flt-admin`) in
 `frontend/src/styles/keyframes/`.
 
+### Where you can exceed the prototype, and where you can't
+
+"The prototype wins" governs visual and UX values — colours, spacing, timing,
+easing curves, copy, layout, which features exist. Those transcribe exactly.
+Nothing above or below this section changes that.
+
+Everything else — architecture, robustness, test coverage, performance
+safeguards not visible to the user, accessibility, code organisation — has no
+floor at the prototype's own implementation. The `.dc.html` files are a design
+tool's export: a single class component driving a live preview, not a
+production React app. Treating its JS *structure* as a second source of truth
+alongside its visual values is a mistake this project doesn't need to make.
+Improve it freely, no need to ask first.
+
+Two limits on "freely", both of which already exist elsewhere in this file:
+**Locked decisions still bind** — "no frontend animation libraries" is not
+reopened by an argument that some library is better architecture. And this
+authorizes *writing* the improvement, not committing it; the Working agreement
+below is unchanged, and the user still commits.
+
+Already-sanctioned examples, for calibration:
+
+- **The `visibilitychange` pause (PF-76)** — zero visual difference, pure
+  resource efficiency for a hidden tab. Confirmed absent from the prototype
+  (zero matches for `visibilitychange`, `document.hidden`, `visibilityState`).
+  The cleanest case: nothing to compare on screen, so nothing to raise.
+- **`useSplashReady()`/`SplashProvider` (PF-75)** — note the prototype does
+  gate reveals on the splash; it calls `hideReveals()` at mount (line 892) and
+  defers `startReveals()` until `finishSplash()` (line 945). What it doesn't
+  need is a *propagated* flag, because it arms every reveal in one imperative
+  sweep over `document.querySelectorAll('[data-reveal]')` — deferring a single
+  call is the entire gate. A React port where each `Reveal` mounts and arms its
+  own observer has no such single call, so the state has to travel. The
+  improvement is in porting the concept, not inventing one.
+- **`SplashProvider`'s `initialReady` prop (PF-78)** — fixes a race the
+  prototype is not exposed to. Not because it isn't React: it is
+  (`class Component extends DCLogic`, `React.createRef()`, `this.setState()`).
+  It dodges the race because reveals are armed by that one imperative DOM
+  sweep rather than by per-element effects reading state, so there is no
+  effect that can arm under a stale value while a `setState` is still pending.
+
+Those three share a shape worth naming: each is a place where the prototype's
+*structure* doesn't carry over, not a place where its *judgement* was wrong.
+Read that way, "improve freely" almost never conflicts with fidelity.
+
+**The one rule that doesn't bend: never reduce, and never substitute your own
+aesthetic judgement for the design's, even upward.** A colour that reads as
+more harmonious, a curve that feels smoother, a layout that seems more
+balanced — all real improvements they might be, and all still need to be
+raised and agreed to first, not decided alone. The reduced cursor-web density
+is the model for how this should go: proposed explicitly, reasoned about
+explicitly (which parameters, by how much, why), executed only after being
+asked for, and then recorded in this file as a sanctioned exception — not
+decided unilaterally and presented as already correct.
+
+**The test**: if a person comparing the live site to the prototype side by side
+would notice a difference — in what's visible, audible, interactive, worded, or
+how a specific transition feels — that's a design change. Raise it first,
+regardless of how it's motivated or how minor it seems. If the only difference
+is in code nobody sees without opening dev tools, it's an implementation
+choice. Go ahead.
+
 ### Reading `.dc.html` files
 
 They use a custom DSL compiled by the Claude Design runtime: `<x-dc>` root,
@@ -92,6 +154,7 @@ document; do not link to one.
 | PF-75 | Page shell + ambient scaffold + splash gate | ✅ |
 | PF-76 | GalaxyCanvas — star field + cursor web | ✅ |
 | PF-77 | Grain overlay + cursor glow | ✅ |
+| PF-78 | Splash | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -116,7 +179,7 @@ competing for attention with straightforward section transcription.
 | 1 | PF-75 | Page shell + ambient layer scaffold | 5 | — | ✅ |
 | 2 | PF-76 | GalaxyCanvas — star field + cursor web | 8 | PF-75 | ✅ |
 | 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 | ✅ |
-| 4 | PF-78 | Splash | 4 | PF-74, PF-75 | — |
+| 4 | PF-78 | Splash | 4 | PF-74, PF-75 | ✅ |
 | 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | — |
 | 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | — |
 | 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | — |
@@ -130,8 +193,16 @@ change lands in a low-stakes ticket instead of the same one building the splash
 animation. PF-78 drops from 5 to 4 accordingly: it only has to call `setReady()`
 at the right two moments, not build the plumbing.
 
-**Sprint 11 is in progress** — PF-75, PF-76 and PF-77 done and on the branch
-(16 of 46 points), PF-78 next.
+That last sentence turned out to understate PF-78. It called `setReady()` once,
+not twice — the `setReady(false)` half moved into `SplashProvider`'s new
+`initialReady` prop, because calling it from the splash's own mount effect is a
+render too late (see the race in `providers/SplashProvider.jsx`'s doc comment).
+Full markup transcription plus timer choreography plus that provider change put
+it closer to 7 points than 4. The table above still reads 4, which is what Jira
+has; re-point it there if you want the two to agree.
+
+**Sprint 11 is in progress** — PF-75, PF-76, PF-77 and PF-78 done and on the
+branch (20 of 46 points), PF-79 next.
 
 Mobile nav treatment and the cursor-web budget lever are decided — see
 Locked decisions. The canvas-palette question that was on this list earlier
@@ -221,7 +292,7 @@ import './styles/motion.css';   // must be LAST
 frontend/src/
   providers/
     SplashContext.js       export const SplashContext  (defaults to { ready: true })
-    SplashProvider.jsx     export function SplashProvider
+    SplashProvider.jsx     export function SplashProvider({ children, initialReady = true })
   hooks/
     useSplashReady.js      export function useSplashReady   → boolean, read side
     useSplashControls.js   export function useSplashControls → { ready, setReady }
@@ -241,11 +312,44 @@ the effect re-arms when the splash lifts.
 **All three ambient slots are filled as of PF-77** — `StarfieldCanvas` (PF-76),
 `GrainOverlay` and `CursorGlow` (PF-77). None is a placeholder any more.
 
-One thing that is true but easy to misread as more than it is:
+**Built by PF-78 — the readiness gate is live, not a no-op any more:**
 
-- **`SplashProvider` is still a no-op.** `ready` starts `true` and nothing calls
-  `setReady(false)` yet — PF-78's splash is what gives it teeth. Mounted in
-  `pages/HomePage.jsx`, not `main.jsx`, so `/admin` and Blog never carry it.
+```
+frontend/src/
+  utils/splash.js                shouldShowSplash()  — React-free, no session gate
+  components/splash/
+    index.js                     barrel — Splash
+    Splash.jsx  + .module.css    z-index 100, above grain's 70
+  assets/logo.png                copied from docs/design/assets/, imported by Splash
+```
+
+`SplashProvider` is mounted in `pages/HomePage.jsx`, not `main.jsx`, so `/admin`
+and Blog never carry it. `ready` now starts **`false`** on the home page
+whenever a splash is going to show, via the `initialReady` prop, and flips true
+320ms into the splash's exit. Three things about that are load-bearing:
+
+- **`initialReady`, not a `setReady(false)` effect.** The splash sets readiness
+  false by *never letting it be true*, because an effect would run one commit
+  after the `Reveal`s in the same tree already armed their observers under
+  `ready: true`. The full sequence is in `SplashProvider.jsx`'s doc comment.
+- **`HomePage` freezes the answer** — `const [showSplash] = useState(shouldShowSplash)`.
+  `shouldShowSplash()` reads live `matchMedia`, so re-deriving it per render lets
+  an OS reduced-motion toggle *mid-splash* unmount `Splash` in flight; the
+  cleanup clears the pending `setReady(true)` and, since `initialReady` only
+  seeds state, `ready` stays false forever and nothing on the page ever reveals.
+  A lazy initialiser makes that unreachable. Do not "simplify" it to a bare call.
+- **No `setReady(true)` on unmount as a safety net.** It looks like belt and
+  braces and is a dev-only footgun: StrictMode's simulated remount runs effect
+  cleanup immediately after mount, so the net would fire at ~0ms and open the
+  gate with the splash still covering the screen — the exact bug, in the exact
+  place you would be adding the guard.
+
+No session-gating, deliberately: grep confirmed zero `sessionStorage` in the
+prototype, so the splash runs on **every** load. Reduced motion and `?nosplash`
+both skip it entirely — `?nosplash` is the prototype's own mechanism (line 897),
+reduced motion is this project's decision, since the splash is almost nothing
+but motion. The prototype's `startReveals(120)` skip delay is not reproduced;
+with no splash mounted, `initialReady` is `true` and there is nothing to wait for.
 
 The slots take `ref` as an ordinary prop (`function CursorGlow({ ref })`), not
 via `forwardRef` — React 19 passes `ref` straight through, and these are the
@@ -342,9 +446,13 @@ error message:
   it lifts, the entrance already happened and the hero looks static. No error,
   no failed test if the test doesn't mount a splash; it just looks like the
   hero's animation silently doesn't work. **Guarded since PF-75** — `Reveal` and
-  `CountUp` both gate their observer effect on `useSplashReady()`. The guard is
-  inert until PF-78 calls `setReady(false)`, so a splash built without wiring
-  those two calls reintroduces the bug in full.
+  `CountUp` both gate their observer effect on `useSplashReady()`, and **live
+  since PF-78** — `HomePage` passes `initialReady={false}` whenever a splash is
+  showing. Note the gate has nothing to gate yet: no section uses `Reveal` or
+  `CountUp` on the page today, so PF-80's hero is the first place a regression
+  here would actually be visible. `Splash.test.jsx` mounts a real `Reveal`
+  beside the splash to hold the contract until then; removing `!splashReady`
+  from `Reveal.jsx` fails that test, verified by mutation.
 - **Prototype line 834 reads an undeclared `acc`** → transcribe it as
   `self.accColor`, which its two siblings (lines 806, 816) already use. `acc`
   appears exactly once in the whole script block, as a read, never a
@@ -378,6 +486,13 @@ error message:
   resting `opacity: 0`) passes or fails for the wrong reason. Assert the
   stylesheet as text, as `styles/__tests__/tokens.test.js` does, and assert the
   DOM only for what JS actually writes inline.
+- **A design image referenced by URL 404s in silence.** `docs/design/assets/` is
+  not served by anything — it is design reference, outside the Vite root — and
+  `frontend/public/` holds only `favicon.svg` and `icons.svg`. A ticket saying
+  `src="/assets/logo.png"` renders a broken image with no error. **Copy the
+  asset into `frontend/src/assets/` and `import` it** (established in PF-78,
+  which added that directory and `logo.png`): Vite emits it hashed, and a path
+  that does not resolve fails the build loudly instead of shipping a hole.
 
 Where a mistake would be silent, add a test that would catch it.
 
@@ -456,7 +571,8 @@ Backend tests live in `backend/src/__tests__/`. Run via `npm test`, never
 the only thing making `clearDB`'s wipe safe.
 
 Frontend tests use **per-module `__tests__` directories** — `src/utils/`,
-`src/styles/`, `src/providers/`, `src/hooks/`, `src/components/motion/` and
+`src/styles/`, `src/providers/`, `src/hooks/`, `src/components/motion/`,
+`src/components/ambient/`, `src/components/splash/` and
 `src/components/layout/` each have their own. Not a top-level `src/__tests__/`.
 
 **The first push of a new branch is always `git push -u origin <branch-name>`,
