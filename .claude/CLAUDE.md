@@ -89,6 +89,7 @@ document; do not link to one.
 | PF-72 | ThemeProvider | ✅ |
 | PF-73 | MotionProvider | ✅ |
 | PF-74 | Motion primitives | ✅ |
+| PF-75 | Page shell + ambient scaffold + splash gate | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -108,24 +109,27 @@ and the full responsive audit are Sprint 12. Splitting here, at the hero
 marquee, keeps the riskiest work (two canvases, a splash sequence) from
 competing for attention with straightforward section transcription.
 
-| Order | Ticket | Title | Points | Depends on |
-| --- | --- | --- | --- | --- |
-| 1 | PF-75 | Page shell + ambient layer scaffold | 5 | — |
-| 2 | PF-76 | GalaxyCanvas — star field + cursor web | 8 | PF-75 |
-| 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 |
-| 4 | PF-78 | Splash | 4 | PF-74, PF-75 |
-| 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 |
-| 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 |
-| 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 |
-| 8 | PF-82 | Skills | 3 | PF-81 |
-| 9 | PF-83 | Reduced-motion + a11y pass | 3 | all |
-| 10 | PF-84 | Sprint gate, PR, close | 2 | all |
+| Order | Ticket | Title | Points | Depends on | Status |
+| --- | --- | --- | --- | --- | --- |
+| 1 | PF-75 | Page shell + ambient layer scaffold | 5 | — | ✅ |
+| 2 | PF-76 | GalaxyCanvas — star field + cursor web | 8 | PF-75 | — |
+| 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 | — |
+| 4 | PF-78 | Splash | 4 | PF-74, PF-75 | — |
+| 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | — |
+| 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | — |
+| 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | — |
+| 8 | PF-82 | Skills | 3 | PF-81 | — |
+| 9 | PF-83 | Reduced-motion + a11y pass | 3 | all | — |
+| 10 | PF-84 | Sprint gate, PR, close | 2 | all | — |
 
 46 points. PF-75 carries 5, not 3 — it now includes the splash-readiness gate
 (see the silent-failure entry below), pulled forward from PF-78 so the primitive
 change lands in a low-stakes ticket instead of the same one building the splash
 animation. PF-78 drops from 5 to 4 accordingly: it only has to call `setReady()`
 at the right two moments, not build the plumbing.
+
+**Sprint 11 is in progress** — PF-75 done and on the branch (5 of 46 points),
+PF-76 next.
 
 Mobile nav treatment and the cursor-web budget lever are decided — see
 Locked decisions. The canvas-palette question that was on this list earlier
@@ -207,11 +211,46 @@ import './styles/motion.css';   // must be LAST
   simple layout, `patterns.module.css` for structural patterns used more than
   once.
 
-**Not built yet — PF-75 creates it.** `SplashProvider` and `useSplashReady()`
-do **not** exist in the repo. `Reveal` and `CountUp` do not gate on anything
-today; they animate as soon as they intersect. PF-75 adds the provider, the
-hook, and the internal gating in both primitives. Do not import
-`useSplashReady` before PF-75 lands, and do not describe it as available.
+**Built by PF-75 — all of this exists on the branch today:**
+
+```
+frontend/src/
+  providers/
+    SplashContext.js       export const SplashContext  (defaults to { ready: true })
+    SplashProvider.jsx     export function SplashProvider
+  hooks/
+    useSplashReady.js      export function useSplashReady   → boolean, read side
+    useSplashControls.js   export function useSplashControls → { ready, setReady }
+  components/ambient/
+    index.js               barrel — PageShell, StarfieldCanvas, CursorGlow, GrainOverlay
+    PageShell.jsx          + .module.css   position:relative wrapper, no z-index
+    StarfieldCanvas.jsx    + .module.css   z-index 0
+    CursorGlow.jsx         + .module.css   z-index 1, 520×520
+    GrainOverlay.jsx       + .module.css   z-index 70 — above the header
+```
+
+`Reveal` and `CountUp` **do** gate on splash-readiness now: both call
+`useSplashReady()` and their `IntersectionObserver` effect returns early on
+`if (immediate || !splashReady)`, with `splashReady` in the dependency array so
+the effect re-arms when the splash lifts.
+
+Two things that are true but easy to misread as more than they are:
+
+- **The three ambient slots are empty.** Each renders a single `aria-hidden`
+  element with a class and a forwarded `ref`, nothing more — no `getContext()`,
+  no rAF loop, no pointer handler. PF-76 paints the star field, PF-77 the grain
+  and the cursor glow. The mentions of `paintGrain()`/`getContext()` in those
+  files are comment prose describing future work, not code.
+- **`SplashProvider` is still a no-op.** `ready` starts `true` and nothing calls
+  `setReady(false)` yet — PF-78's splash is what gives it teeth. Mounted in
+  `pages/HomePage.jsx`, not `main.jsx`, so `/admin` and Blog never carry it.
+
+The slots take `ref` as an ordinary prop (`function CursorGlow({ ref })`), not
+via `forwardRef` — React 19 passes `ref` straight through, and these are the
+repo's first ref-forwarding components. Note the silent-failure mode: a
+component that forgets to destructure `ref` still renders perfectly and hands
+back `null`, which only surfaces when PF-76 calls `getContext()`. Guarded by
+`components/ambient/__tests__/ambientSlots.test.jsx`.
 
 ## Stack
 
@@ -258,8 +297,8 @@ first can uncover a second in the same hook.
 (`react-refresh/only-export-components`). Contexts live in their own module —
 `providers/ThemeContext.js`, `providers/MotionContext.js` — and the provider
 imports from there. A context exported alongside its provider forces a full page
-reload on every edit instead of a hot swap. **PF-75's `SplashProvider` needs the
-same split**: put the context in `providers/SplashContext.js`, or the ticket
+reload on every edit instead of a hot swap. `providers/SplashContext.js`
+follows the same split, added in PF-75. Any future provider must too, or it
 lands on a red CI for the identical reason.
 
 ## Silent failures
@@ -287,9 +326,10 @@ error message:
   finishes animating in while the splash still covers the screen — by the time
   it lifts, the entrance already happened and the hero looks static. No error,
   no failed test if the test doesn't mount a splash; it just looks like the
-  hero's animation silently doesn't work. **Nothing guards this today** —
-  PF-75's `useSplashReady()` is the fix, and until it lands any splash built on
-  top of the current primitives will show this.
+  hero's animation silently doesn't work. **Guarded since PF-75** — `Reveal` and
+  `CountUp` both gate their observer effect on `useSplashReady()`. The guard is
+  inert until PF-78 calls `setReady(false)`, so a splash built without wiring
+  those two calls reintroduces the bug in full.
 - **Prototype line 834 reads an undeclared `acc`** → transcribe it as
   `self.accColor`, which its two siblings (lines 806, 816) already use. `acc`
   appears exactly once in the whole script block, as a read, never a
@@ -323,13 +363,18 @@ Where a mistake would be silent, add a test that would catch it.
   site keeps Inter.
 - Contexts live in their own module, separate from the provider that supplies
   them. Settled in the Sprint 10 lint fix; see React conventions above.
-- **When PF-75 builds `SplashProvider`** it must default to `ready: true` and
-  must **not** throw outside its own provider, unlike `ThemeProvider` and
-  `MotionProvider`. Deliberate: most routes (Admin, Blog) have no splash and
-  never will, and every existing `Reveal`/`CountUp` usage and test predates the
-  ticket and must keep working unwrapped. A missing theme is a bug worth
-  surfacing loudly; a missing splash is the normal case. This is a decision
-  about code not yet written — do not read it as a description of what exists.
+- `SplashProvider` fails open: `SplashContext` defaults to `{ ready: true }` and
+  `useSplashReady()` does not throw outside a provider, unlike `ThemeProvider`
+  and `MotionProvider`. Deliberate: most routes (Admin, Blog) have no splash and
+  never will, and every `Reveal`/`CountUp` usage and test that predates PF-75
+  renders unwrapped and must keep working. A missing theme is a bug worth
+  surfacing loudly; a missing splash is the normal case. Settled in PF-75.
+- Splash read and write are **separate hooks** — `useSplashReady()` returns the
+  boolean, `useSplashControls()` returns `{ ready, setReady }`. Unlike
+  `useTheme()`, which bundles read and toggle because toggling is meant to be
+  callable from anywhere, `setReady` should only ever be called by the splash
+  itself (PF-78). Keeping it off the hook that `Reveal` and `CountUp` call stops
+  every consumer of splash state from also being able to control it.
 - **Mobile nav overlay (PF-79)**: the ambient layer shows through — canvas and
   grain stay visible under the full-screen menu. The overlay uses a translucent
   surface tone (same move as the header's `rgba(var(--ftr),.86)` + blur), never
@@ -367,6 +412,31 @@ the only thing making `clearDB`'s wipe safe.
 Frontend tests use **per-module `__tests__` directories** — `src/utils/`,
 `src/styles/`, `src/providers/`, `src/hooks/`, `src/components/motion/` and
 `src/components/layout/` each have their own. Not a top-level `src/__tests__/`.
+
+**The first push of a new branch is always `git push -u origin <branch-name>`,
+never a bare `git push`.** This is not style — PF-75 was pushed straight to
+`master`, bypassing the sprint branch and its PR gate, and the cause is a
+default that will repeat on every sprint branch created the same way.
+
+Creating a branch from the remote-tracking ref (`git checkout -b sprint-N-x
+origin/master`, or picking `origin/master` as the source in VS Code) triggers
+Git's `branch.autoSetupMerge` default of `true`: branching from a
+remote-tracking ref sets upstream automatically, so the new branch inherits
+`branch.<name>.merge = refs/heads/master`. That reads as "my upstream is
+master," and any push honouring it lands on `master`. VS Code's Git extension
+pushes to the configured upstream refspec, so its push button does exactly
+that with no warning. Verified on `sprint-11-main-page`, whose reflog reads
+`branch: Created from origin/master`.
+
+Sprint 9's and Sprint 10's branches were fine because their upstreams were set
+by an actual `-u` publish. That is the habit to keep: `-u` on first push
+overrides whatever upstream the branch inherited at creation, so it makes the
+mistake impossible regardless of how the branch was created. Branching from
+local `master` instead of `origin/master` also avoids it, but relies on
+remembering at creation time rather than at push time.
+
+Check with `git branch -vv` before pushing. The bracketed name is the upstream —
+if it does not match the branch's own name, a push will go somewhere else.
 
 ## Working agreement
 
