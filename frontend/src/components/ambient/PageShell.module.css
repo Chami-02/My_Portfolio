@@ -1,0 +1,6 @@
+/* frontend/src/components/ambient/PageShell.module.css */
+.shell {
+  position: relative;
+  width: 100%;
+  overflow-x: hidden;
+}

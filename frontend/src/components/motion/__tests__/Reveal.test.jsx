@@ -2,6 +2,8 @@ import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Reveal from '../Reveal';
 import { MotionProvider } from '../../../providers/MotionProvider';
+import { SplashProvider } from '../../../providers/SplashProvider';
+import { useSplashControls } from '../../../hooks/useSplashControls';
 
 /** Controllable IntersectionObserver stub — jsdom has none. */
 function mockIO() {
@@ -151,6 +153,87 @@ describe('Reveal (PF-74)', () => {
 
     withMotion(<Reveal as="section" data-testid="r">content</Reveal>);
     expect(screen.getByTestId('r').tagName).toBe('SECTION');
+  });
+
+});
+
+/** Drives the splash gate from inside the provider. */
+function ToggleButtons() {
+  const { setReady } = useSplashControls();
+  return (
+    <>
+      <button onClick={() => setReady(false)}>hide</button>
+      <button onClick={() => setReady(true)}>show</button>
+    </>
+  );
+}
+
+// Reveal still needs MotionProvider here — useReducedMotion throws
+// without one, so the splash provider goes *inside* withMotion.
+const withSplash = (ui) => withMotion(<SplashProvider>{ui}</SplashProvider>);
+
+describe('Reveal — splash gate (PF-75)', () => {
+
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('disconnects its observer the moment the splash becomes not-ready', () => {
+    mockMatchMedia(false);
+    const ios = mockIO();
+
+    withSplash(
+      <>
+        <ToggleButtons />
+        <Reveal data-testid="r">content</Reveal>
+      </>,
+    );
+
+    // SplashProvider defaults to ready — the observer is armed on mount.
+    expect(ios).toHaveLength(1);
+    expect(ios[0].disconnected).toBe(false);
+
+    act(() => { screen.getByText('hide').click(); });
+
+    expect(ios[0].disconnected).toBe(true);
+  });
+
+  it('does not reveal while blocked, even if it would have intersected', () => {
+    mockMatchMedia(false);
+    mockIO();
+
+    withSplash(
+      <>
+        <ToggleButtons />
+        <Reveal data-testid="r">content</Reveal>
+      </>,
+    );
+
+    act(() => { screen.getByText('hide').click(); });
+    expect(screen.getByTestId('r')).toHaveAttribute('data-reveal', 'out');
+  });
+
+  it('re-arms and reveals once the splash becomes ready again', () => {
+    mockMatchMedia(false);
+    const ios = mockIO();
+
+    withSplash(
+      <>
+        <ToggleButtons />
+        <Reveal data-testid="r">content</Reveal>
+      </>,
+    );
+
+    act(() => { screen.getByText('hide').click(); });
+    act(() => { screen.getByText('show').click(); });
+
+    // A second observer instance for the re-armed effect.
+    expect(ios).toHaveLength(2);
+
+    act(() => { ios[1].trigger(true); });
+    expect(screen.getByTestId('r')).toHaveAttribute('data-reveal', 'in');
   });
 
 });

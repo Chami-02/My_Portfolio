@@ -1,6 +1,7 @@
 // frontend/src/components/motion/Reveal.jsx
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useSplashReady } from '../../hooks/useSplashReady';
 import styles from './Reveal.module.css';
 
 /**
@@ -23,6 +24,7 @@ export default function Reveal({
 }) {
   const ref = useRef(null);
   const reduced = useReducedMotion();
+  const splashReady = useSplashReady();
 
   const [revealed, setRevealed] = useState(false);
 
@@ -34,7 +36,16 @@ export default function Reveal({
   const immediate = reduced || typeof IntersectionObserver === 'undefined';
 
   useEffect(() => {
-    if (immediate) return;
+    // Also wait for the splash, if one exists. Neither the observer nor
+    // the sweep below knows a full-screen overlay is sitting on top of
+    // this element — without this, an above-the-fold Reveal finishes
+    // animating in while still hidden behind it. When splashReady flips
+    // from false to true this effect re-runs (it's a dependency now) and
+    // arms the observer fresh against whatever is on screen at that
+    // moment — IntersectionObserver always reports an initial state for
+    // a newly-observed target, so an element already in view when the
+    // splash lifts still reveals correctly with no extra code.
+    if (immediate || !splashReady) return;
 
     const el = ref.current;
     if (!el) return;
@@ -70,7 +81,7 @@ export default function Reveal({
       observer.disconnect();
       if (sweepId) clearInterval(sweepId);
     };
-  }, [immediate]);
+  }, [immediate, splashReady]);
 
   return (
     <Tag

@@ -1,6 +1,7 @@
 // frontend/src/components/motion/CountUp.jsx
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useSplashReady } from '../../hooks/useSplashReady';
 
 const DURATION = 1300;
 
@@ -23,6 +24,7 @@ export default function CountUp({
 }) {
   const ref = useRef(null);
   const reduced = useReducedMotion();
+  const splashReady = useSplashReady();
   const [value, setValue] = useState(0);
 
   // Two cases never animate: reduced motion, and an environment with
@@ -33,7 +35,11 @@ export default function CountUp({
   const immediate = reduced || typeof IntersectionObserver === 'undefined';
 
   useEffect(() => {
-    if (immediate) return;
+    // Same splash gate as Reveal — a count-up that runs to completion
+    // behind the splash overlay has already finished by the time anyone
+    // can see it. While blocked, value stays at its initial 0, so
+    // nothing jumps to the target early either.
+    if (immediate || !splashReady) return;
 
     const el = ref.current;
     if (!el) return;
@@ -75,7 +81,7 @@ export default function CountUp({
       observer.disconnect();
       if (frameId) cancelAnimationFrame(frameId);
     };
-  }, [to, immediate]);
+  }, [to, immediate, splashReady]);
 
   const shown = immediate ? to : value;
 
