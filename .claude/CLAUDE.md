@@ -384,6 +384,15 @@ Where a mistake would be silent, add a test that would catch it.
 ## Locked decisions — do not reopen
 
 - Design fidelity is absolute. Nothing is removed or simplified for performance.
+  **One sanctioned exception exists**, and it is the only one: the star-to-star
+  cursor web in `StarfieldCanvas.jsx` reads more prominently on the real site
+  than in the prototype, so on 2026-08-16 the user asked for it to be toned
+  down. `WEB_LINK_PX` is 130 (prototype: 150) and `WEB_ALPHA` is 0.1
+  (prototype: 0.14), both named constants at the top of that file with the
+  reason attached. The cursor's accent-coloured spray is a separate line family
+  and stays at the prototype's 0.3. Do not "restore" these — the mismatch is a
+  design decision by the site's owner, not a transcription slip, and it is
+  exactly the kind of thing a fidelity check flags as a bug.
 - No frontend animation libraries. CSS keyframes plus vanilla JS.
 - Channel-triplet tokens stay as triplets.
 - `tokens.css` imports **after** `global.css` in `main.jsx` — `global.css`

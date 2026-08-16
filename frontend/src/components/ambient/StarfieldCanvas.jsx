@@ -6,6 +6,25 @@ import { useSplashReady } from '../../hooks/useSplashReady';
 import styles from './StarfieldCanvas.module.css';
 
 /**
+ * Star-to-star cursor web tuning — the ONLY deliberate visual departure
+ * from the prototype in this file, requested directly by the user on
+ * 2026-08-16: the web read as too prominent on the real site.
+ *
+ * Prototype values are 150px and 0.14 (lines 826 and 828). Both are
+ * lowered here, and they compound: a shorter link distance draws fewer
+ * lines, and every line that survives is also fainter, since alpha
+ * falls off across the shorter span. Do NOT "restore" these to match
+ * the prototype — the mismatch is intentional, not a transcription
+ * slip. Named rather than inlined so the next adjustment is one edit.
+ *
+ * The cursor's own accent-coloured spray (cursor → star) is untouched
+ * at 0.3 — it is a separate line family, and the request was about the
+ * web specifically.
+ */
+const WEB_LINK_PX = 130; // prototype: 150
+const WEB_ALPHA = 0.1; // prototype: 0.14
+
+/**
  * Star field + cursor web — PF-76.
  *
  * Transcribed from initGalaxy() in the prototype (lines 733-840), with
@@ -257,9 +276,9 @@ export default function StarfieldCanvas({ ref: externalRef }) {
           const a = web[i];
           const b = web[j];
           const d = Math.hypot(a.x - b.x, a.y - b.y);
-          if (d > 150) continue;
+          if (d > WEB_LINK_PX) continue;
           ctx.strokeStyle = P.web;
-          ctx.globalAlpha = 0.14 * (1 - d / 150);
+          ctx.globalAlpha = WEB_ALPHA * (1 - d / WEB_LINK_PX);
           ctx.beginPath();
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(b.x, b.y);
