@@ -19,6 +19,28 @@ function mockMatchMedia(matches) {
   );
 }
 
+// A single shared MediaQueryList whose `matches` can be flipped and
+// broadcast, so MotionProvider's own subscription drives the change.
+// Must be one object across calls: prefersReducedMotion() reads
+// .matches on the first call, subscribeToMotionPreference() registers
+// on the second, and a fresh object per call would decouple them.
+function mockControllableMatchMedia(initial) {
+  const listeners = new Set();
+  const mq = {
+    _matches: initial,
+    get matches() { return mq._matches; },
+    addEventListener: (_type, h) => listeners.add(h),
+    removeEventListener: (_type, h) => listeners.delete(h),
+  };
+  vi.stubGlobal('matchMedia', vi.fn(() => mq));
+  return {
+    set: (v) => {
+      mq._matches = v;
+      act(() => { listeners.forEach((h) => h({ matches: v })); });
+    },
+  };
+}
+
 function mockCanvasContext() {
   const ctx = {
     clearRect: vi.fn(),
@@ -156,6 +178,38 @@ describe('StarfieldCanvas (PF-76)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'toggle' }));
 
     expect(ctx.clearRect.mock.calls.length).toBeGreaterThan(before);
+  });
+
+  // The draw effect's cleanup nulls the repaint ref. If it did not, the
+  // ref would still hold paintStatic from the torn-down reduced run —
+  // closed over that run's stars, w and h, but over the SAME live canvas
+  // context — and the next theme toggle would paint a stale frame onto
+  // the animating canvas. React flushes all destroys before all creates,
+  // so the null lands before the animated branch starts.
+  it('does not repaint a stale static frame after reduced motion turns off', () => {
+    const mm = mockControllableMatchMedia(true);
+    const ctx = mockCanvasContext();
+    mockRaf();
+
+    render(
+      withProviders(
+        <>
+          <StarfieldCanvas />
+          <ThemeToggleHarness />
+        </>,
+      ),
+    );
+
+    expect(ctx.clearRect.mock.calls.length).toBeGreaterThan(0); // static paint ran
+
+    mm.set(false); // reduced motion off — effect re-runs into the animated branch
+    const afterSwitch = ctx.clearRect.mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: 'toggle' }));
+
+    // The animated branch only clears inside frame(), and no rAF has been
+    // ticked — so any increase here is a torn-down closure being invoked.
+    expect(ctx.clearRect.mock.calls.length).toBe(afterSwitch);
   });
 
   it('caps device pixel ratio at 2', () => {
