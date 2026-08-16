@@ -63,13 +63,15 @@ floor at the prototype's own implementation. The `.dc.html` files are a design
 tool's export: a single class component driving a live preview, not a
 production React app. Treating its JS *structure* as a second source of truth
 alongside its visual values is a mistake this project doesn't need to make.
-Improve it freely, no need to ask first.
+Improve it freely, no need to ask first — this is covered by the same standing
+authorization already given for committing to the sprint branch (see the
+Working agreement), and inherits that scope exactly: sprint branches only,
+`master` excluded, both mandatory checks every time.
 
-Two limits on "freely", both of which already exist elsewhere in this file:
-**Locked decisions still bind** — "no frontend animation libraries" is not
-reopened by an argument that some library is better architecture. And this
-authorizes *writing* the improvement, not committing it; the Working agreement
-below is unchanged, and the user still commits.
+One limit on "freely", and it already exists elsewhere in this file: **Locked
+decisions still bind.** "No frontend animation libraries" is not reopened by an
+argument that some library is better architecture, and the same holds for every
+other entry there.
 
 Already-sanctioned examples, for calibration:
 
@@ -498,7 +500,8 @@ Where a mistake would be silent, add a test that would catch it.
 
 ## Locked decisions — do not reopen
 
-- Design fidelity is absolute. Nothing is removed or simplified for performance.
+- Design fidelity is absolute. Nothing visible is removed or simplified for
+  performance.
   **One sanctioned exception exists**, and it is the only one: the star-to-star
   cursor web in `StarfieldCanvas.jsx` reads more prominently on the real site
   than in the prototype, so on 2026-08-16 the user asked for it to be toned
@@ -611,28 +614,49 @@ should offer this check when asked whether one landed.
 Per-ticket `.md` guides are pasted into chat and are the source of truth for
 that ticket — except where the prototype contradicts them.
 
-**The user commits. Claude does not.** This holds on every branch, sprint
-branches included, and supersedes the standing sprint-branch authorization that
-used to live here — it was granted, then countermanded in practice twice
-(PF-61 on 2026-08-08, PF-77 on 2026-08-16, both "I will commit myself"), so it
-is gone rather than left as a trap for the next session. Do not run
-`git commit` unless the user asks for that specific commit, in those words, in
-that moment. The same goes for `git push`.
+**Committing on sprint branches — standing authorization.** On any
+`sprint-N-*` branch, commit as work completes; no per-commit confirmation
+needed. Two things are mandatory every single time, no exception:
 
-What to do instead, at the end of a ticket:
+1. `git status --short` and `git diff --cached --stat` **immediately before**
+   each `git commit` runs — not earlier in the session. The drift incidents
+   below are why "earlier in the session" does not count.
+2. After every push, confirm the remote actually moved:
+   `git ls-remote --heads origin <branch>` must match local `HEAD`. Compare
+   them and report the comparison — never assume a push landed because the
+   command exited cleanly.
 
-1. Stage exactly the files the ticket touches — `git add <paths>`, never
-   `git add -A` or `git add .`
-2. Run the full verification (tests, lint, browser checks) and report it
-3. Show `git status --short` and `git diff --cached --stat` as the **last**
-   thing before handing off, and say plainly what is staged, what is not, and
-   why
-4. Quote the commit message from the ticket, ready to paste
-5. Stop
+`master` is excluded, always. A commit directly on `master` requires explicit
+sign-off every time; this authorization is scoped to sprint branches only.
 
-**Show `git status --short` and `git diff --cached --stat` immediately before
-handing off** — not merely once earlier in the session. The index moves on its
-own here.
+Granted in `dfe813e`, revoked about two hours later inside `9ad74c0` — the
+PF-77 *feature* commit — and restored here on 2026-08-16, after the
+revocation's stated evidence was checked and did not survive:
+
+- The revocation claimed the authorization had been "countermanded in practice
+  twice (PF-61 on 2026-08-08, PF-77 on 2026-08-16)". **PF-61 cannot count.**
+  This file did not exist on 2026-08-08: it was created 2026-08-13 in
+  `5be0e66`, and the authorization was not granted until 2026-08-16 in
+  `dfe813e`. Nothing said during PF-61 could countermand a permission that
+  would not exist for another eight days. Under the blanket rule in force at
+  the time — "Never run `git commit`" — "I will commit myself" restates the
+  rule rather than overriding a permission.
+- That leaves PF-77: one instance, not a pattern.
+- And the revocation went in unmentioned. `9ad74c0`'s message is five bullets
+  about grain texture and cursor glow; it says nothing about rewriting the
+  Working agreement. The change carries no recorded reasoning anywhere in git
+  beyond the assertion it inserted into this file.
+
+If this needs revoking again, revoke it in a commit whose message says so, and
+cite evidence that postdates `dfe813e`.
+
+**Stage exactly the files the ticket touches** — `git add <paths>`, never
+`git add -A` or `git add .` — and run the full verification (tests, lint,
+browser checks) before committing, reporting it. When handing off *without*
+committing, show `git status --short` and `git diff --cached --stat` as the
+**last** thing before doing so, and say plainly what is staged, what is not,
+and why. Either way the index moves on its own here, so the check is the last
+thing run, never merely an earlier one.
 
 VS Code's Git extension has staged things nobody asked it to **four** times now.
 The first two were unintended files appearing in the index. The third, during
@@ -642,13 +666,14 @@ held back for its own commit — then showed up staged a few minutes later, with
 no command run against it in between. The earlier clean check proved nothing
 about the index by the time the commit came.
 
-The fourth was PF-77, and it is the reason the hand-off check is now mandatory
-rather than the pre-commit check: the same file, again deliberately held back
-and again confirmed unstaged right after `git add` of the six code files, was
-staged by the time the ticket was reported done. Nothing ran against it in
-between. Since the user is the one committing, a drift that Claude never
-re-checks is a drift the user inherits silently — the commit succeeds either
-way and its message says nothing about docs.
+The fourth was PF-77: the same file, again deliberately held back and again
+confirmed unstaged right after `git add` of the six code files, was staged by
+the time the ticket was reported done. Nothing ran against it in between. So
+the check binds at both moments — immediately before a commit, and immediately
+before a hand-off — because a drift nobody re-checks lands silently either way:
+the commit succeeds regardless and its message says nothing about docs. That is
+exactly how `9ad74c0` came to carry a Working-agreement rewrite under a feature
+message.
 
 The mechanism differs from the first two: staging *drift* on an already-tracked
 file, not new files appearing. `git status --short` catches both, but only as
