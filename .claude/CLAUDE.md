@@ -112,7 +112,7 @@ competing for attention with straightforward section transcription.
 | Order | Ticket | Title | Points | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
 | 1 | PF-75 | Page shell + ambient layer scaffold | 5 | — | ✅ |
-| 2 | PF-76 | GalaxyCanvas — star field + cursor web | 8 | PF-75 | — |
+| 2 | PF-76 | GalaxyCanvas — star field + cursor web | 8 | PF-75 | ✅ |
 | 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 | — |
 | 4 | PF-78 | Splash | 4 | PF-74, PF-75 | — |
 | 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | — |
