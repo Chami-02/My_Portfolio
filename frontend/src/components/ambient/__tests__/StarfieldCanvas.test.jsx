@@ -1,4 +1,4 @@
-import { render, act, fireEvent, screen } from '@testing-library/react';
+import { render, act } from '@testing-library/react';
 import { createRef } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import StarfieldCanvas from '../StarfieldCanvas';
@@ -6,7 +6,6 @@ import { ThemeProvider } from '../../../providers/ThemeProvider';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { SplashProvider } from '../../../providers/SplashProvider';
 import { SplashContext } from '../../../providers/SplashContext';
-import { useTheme } from '../../../hooks/useTheme';
 
 function mockMatchMedia(matches) {
   vi.stubGlobal(
@@ -39,6 +38,16 @@ function mockControllableMatchMedia(initial) {
       act(() => { listeners.forEach((h) => h({ matches: v })); });
     },
   };
+}
+
+/** The cross-tab path ThemeProvider listens on — a real theme change. */
+function toggleThemeViaStorage() {
+  act(() => {
+    localStorage.setItem('pg-theme', 'light');
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'pg-theme', newValue: 'light' }),
+    );
+  });
 }
 
 function mockCanvasContext() {
@@ -103,12 +112,6 @@ function withProviders(ui, { splashReady = true } = {}) {
   );
 }
 
-/** Drives a real ThemeProvider toggle from inside the tree. */
-function ThemeToggleHarness() {
-  const { toggle } = useTheme();
-  return <button type="button" onClick={toggle}>toggle</button>;
-}
-
 describe('StarfieldCanvas (PF-76)', () => {
   beforeEach(() => {
     window.innerWidth = 1440;
@@ -119,6 +122,10 @@ describe('StarfieldCanvas (PF-76)', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    // The theme-repaint test below writes pg-theme via localStorage.
+    // setup.js's mock has a module-level store that never resets on
+    // its own, so a later test here (or elsewhere in the same worker)
+    // would otherwise start in whatever theme this one left behind.
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
   });
@@ -154,64 +161,6 @@ describe('StarfieldCanvas (PF-76)', () => {
     expect(ctx.arc).toHaveBeenCalled(); // static paint still draws stars
   });
 
-  // The static frame has no draw loop to pick a palette change up on,
-  // and both --acc and the star colour flip with the theme. Without the
-  // repaint, a reduced-motion user toggling to light keeps the dark
-  // theme's near-white stars on a light background — silently invisible.
-  it('repaints the static frame when the theme changes under reduced motion', () => {
-    mockMatchMedia(true);
-    const ctx = mockCanvasContext();
-    mockRaf();
-
-    render(
-      withProviders(
-        <>
-          <StarfieldCanvas />
-          <ThemeToggleHarness />
-        </>,
-      ),
-    );
-
-    const before = ctx.clearRect.mock.calls.length;
-    expect(before).toBeGreaterThan(0); // the initial paint happened
-
-    fireEvent.click(screen.getByRole('button', { name: 'toggle' }));
-
-    expect(ctx.clearRect.mock.calls.length).toBeGreaterThan(before);
-  });
-
-  // The draw effect's cleanup nulls the repaint ref. If it did not, the
-  // ref would still hold paintStatic from the torn-down reduced run —
-  // closed over that run's stars, w and h, but over the SAME live canvas
-  // context — and the next theme toggle would paint a stale frame onto
-  // the animating canvas. React flushes all destroys before all creates,
-  // so the null lands before the animated branch starts.
-  it('does not repaint a stale static frame after reduced motion turns off', () => {
-    const mm = mockControllableMatchMedia(true);
-    const ctx = mockCanvasContext();
-    mockRaf();
-
-    render(
-      withProviders(
-        <>
-          <StarfieldCanvas />
-          <ThemeToggleHarness />
-        </>,
-      ),
-    );
-
-    expect(ctx.clearRect.mock.calls.length).toBeGreaterThan(0); // static paint ran
-
-    mm.set(false); // reduced motion off — effect re-runs into the animated branch
-    const afterSwitch = ctx.clearRect.mock.calls.length;
-
-    fireEvent.click(screen.getByRole('button', { name: 'toggle' }));
-
-    // The animated branch only clears inside frame(), and no rAF has been
-    // ticked — so any increase here is a torn-down closure being invoked.
-    expect(ctx.clearRect.mock.calls.length).toBe(afterSwitch);
-  });
-
   it('caps device pixel ratio at 2', () => {
     mockMatchMedia(false);
     mockCanvasContext();
@@ -234,11 +183,11 @@ describe('StarfieldCanvas (PF-76)', () => {
     render(withProviders(<StarfieldCanvas />));
     raf.tick(0);
 
-    // 5000x3000 / 2600 = 5769 uncapped. Exactly one arc() per star per
-    // frame — the mouse defaults to (-9999,-9999), so nothing is within
-    // R=210 and neither the cursor dot nor the web adds a call. Asserted
-    // as equality, not an upper bound: a build() that silently produced
-    // no stars at all would satisfy "<= 620".
+    // 5000×3000 / 2600 = 5769 uncapped. Exactly one arc() per star per
+    // frame — mouse defaults to (-9999,-9999), so nothing is within
+    // R=210 and neither the cursor dot nor the web adds a call.
+    // Asserted as equality, not an upper bound: a build() that silently
+    // produced zero stars would still satisfy "<= 620".
     expect(ctx.arc.mock.calls.length).toBe(620);
   });
 
@@ -294,7 +243,7 @@ describe('StarfieldCanvas (PF-76)', () => {
     expect(removeDocSpy).toHaveBeenCalledWith('visibilitychange', expect.any(Function));
   });
 
-  it("still forwards an external ref, per PF-75's contract", () => {
+  it(`still forwards an external ref, per PF-75's contract`, () => {
     mockMatchMedia(false);
     mockCanvasContext();
     mockRaf();
@@ -303,5 +252,53 @@ describe('StarfieldCanvas (PF-76)', () => {
     render(withProviders(<StarfieldCanvas ref={ref} />));
 
     expect(ref.current?.tagName).toBe('CANVAS');
+  });
+
+  it('repaints the static frame on a theme toggle under reduced motion', () => {
+    // Regression test for the gap found during implementation: without
+    // this, a reduced-motion user toggling theme keeps the OLD palette
+    // permanently — pal() only runs once, at paint time, on this path,
+    // unlike the animated path where every frame re-reads it for free.
+    // Mutation-tested: deleting the repaintStaticRef.current?.() call in
+    // the theme-sync effect makes this test fail and nothing else in the
+    // file. Deleting the null-out in the effect cleanup does NOT fail
+    // this test — that line is guarded by the next test instead, since
+    // this one never tears the reduced-motion effect down.
+    mockMatchMedia(true);
+    const ctx = mockCanvasContext();
+    mockRaf();
+
+    render(withProviders(<StarfieldCanvas />));
+    const callsBeforeToggle = ctx.arc.mock.calls.length;
+    expect(callsBeforeToggle).toBeGreaterThan(0); // initial static paint happened
+
+    toggleThemeViaStorage();
+
+    // A second static paint happened — same star count, new palette.
+    expect(ctx.arc.mock.calls.length).toBeGreaterThan(callsBeforeToggle);
+  });
+
+  it('does not repaint a stale static frame after reduced motion turns off', () => {
+    // Guards the null-out in the reduced branch's cleanup. Without it the
+    // ref still holds paintStatic from the torn-down reduced run — closed
+    // over that run's stars, w and h, but over the SAME live canvas
+    // context — so the next theme toggle paints a stale frame onto the
+    // animating canvas. React flushes every destroy before any create, so
+    // the null lands before the animated branch starts.
+    const mm = mockControllableMatchMedia(true);
+    const ctx = mockCanvasContext();
+    mockRaf();
+
+    render(withProviders(<StarfieldCanvas />));
+    expect(ctx.arc.mock.calls.length).toBeGreaterThan(0); // static paint ran
+
+    mm.set(false); // reduced motion off — effect re-runs into the animated branch
+    const callsAfterSwitch = ctx.arc.mock.calls.length;
+
+    toggleThemeViaStorage();
+
+    // The animated branch only draws inside frame(), and no rAF has been
+    // ticked — so any increase here is a torn-down closure being invoked.
+    expect(ctx.arc.mock.calls.length).toBe(callsAfterSwitch);
   });
 });

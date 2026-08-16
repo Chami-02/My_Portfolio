@@ -166,6 +166,13 @@ export default function StarfieldCanvas({ ref: externalRef }) {
       };
       window.addEventListener('resize', onResize);
       return () => {
+        // Cleared before the animated branch's setup runs — React
+        // flushes every effect's cleanup in a commit before any
+        // effect's new setup runs, so there is no window where a later
+        // theme toggle could reach this closure after this effect run
+        // has torn down. Confirmed by mutation test, not just this
+        // comment: removing this line makes exactly one test fail, the
+        // stale-frame one in StarfieldCanvas.test.jsx.
         repaintStaticRef.current = null;
         window.removeEventListener('resize', onResize);
       };
