@@ -9,6 +9,12 @@
   z-index: 1;
   pointer-events: none;
   border-radius: 50%;
+  /* PF-77: invisible until the first pointermove, which sets opacity
+     inline. No prototype source for either value — 260ms is just a
+     quick, unobtrusive fade that does not fight the cursor's own
+     movement speed. See CursorGlow.jsx for why the fade-in exists. */
+  opacity: 0;
+  transition: opacity 260ms ease;
   background: radial-gradient(
     circle,
     rgba(252, 163, 17, 0.1) 0%,

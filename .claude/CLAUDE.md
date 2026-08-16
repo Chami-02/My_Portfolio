@@ -91,6 +91,7 @@ document; do not link to one.
 | PF-74 | Motion primitives | ✅ |
 | PF-75 | Page shell + ambient scaffold + splash gate | ✅ |
 | PF-76 | GalaxyCanvas — star field + cursor web | ✅ |
+| PF-77 | Grain overlay + cursor glow | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -114,7 +115,7 @@ competing for attention with straightforward section transcription.
 | --- | --- | --- | --- | --- | --- |
 | 1 | PF-75 | Page shell + ambient layer scaffold | 5 | — | ✅ |
 | 2 | PF-76 | GalaxyCanvas — star field + cursor web | 8 | PF-75 | ✅ |
-| 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 | — |
+| 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 | ✅ |
 | 4 | PF-78 | Splash | 4 | PF-74, PF-75 | — |
 | 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | — |
 | 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | — |
@@ -129,8 +130,8 @@ change lands in a low-stakes ticket instead of the same one building the splash
 animation. PF-78 drops from 5 to 4 accordingly: it only has to call `setReady()`
 at the right two moments, not build the plumbing.
 
-**Sprint 11 is in progress** — PF-75 and PF-76 done and on the branch
-(13 of 46 points), PF-77 next.
+**Sprint 11 is in progress** — PF-75, PF-76 and PF-77 done and on the branch
+(16 of 46 points), PF-78 next.
 
 Mobile nav treatment and the cursor-web budget lever are decided — see
 Locked decisions. The canvas-palette question that was on this list earlier
@@ -237,29 +238,34 @@ frontend/src/
 `if (immediate || !splashReady)`, with `splashReady` in the dependency array so
 the effect re-arms when the splash lifts.
 
-Two things that are true but easy to misread as more than they are:
+**All three ambient slots are filled as of PF-77** — `StarfieldCanvas` (PF-76),
+`GrainOverlay` and `CursorGlow` (PF-77). None is a placeholder any more.
 
-- **Two of the three ambient slots are still empty** — `CursorGlow` and
-  `GrainOverlay`. Each renders a single `aria-hidden` element with a class and
-  a forwarded `ref`, nothing more — no `getContext()`, no rAF loop, no pointer
-  handler. PF-77 paints the grain and the cursor glow. The mentions of
-  `paintGrain()`/`getContext()` in those two files are comment prose describing
-  future work, not code. `StarfieldCanvas` is no longer one of them — PF-76
-  filled it in, and it now owns an internal ref and its own draw loop.
+One thing that is true but easy to misread as more than it is:
+
 - **`SplashProvider` is still a no-op.** `ready` starts `true` and nothing calls
   `setReady(false)` yet — PF-78's splash is what gives it teeth. Mounted in
   `pages/HomePage.jsx`, not `main.jsx`, so `/admin` and Blog never carry it.
 
 The slots take `ref` as an ordinary prop (`function CursorGlow({ ref })`), not
 via `forwardRef` — React 19 passes `ref` straight through, and these are the
-repo's first ref-forwarding components. Note the silent-failure mode: a
-component that forgets to destructure `ref` still renders perfectly and hands
-back `null`, which only surfaces when something calls `getContext()` on it.
-Guarded by `components/ambient/__tests__/ambientSlots.test.jsx` for the two
-remaining slots; `StarfieldCanvas`'s ref test moved to its own
-`StarfieldCanvas.test.jsx` in PF-76, because it now calls `useTheme()` and
-`useReducedMotion()`, both of which throw when rendered outside their
-providers the way that shared file renders its two.
+repo's first ref-forwarding components. Each now merges that external ref with
+an internal one via a `setRef` callback, since all three need direct element
+access themselves. Note the silent-failure mode: a component that forgets to
+destructure `ref` still renders perfectly and hands back `null`, which only
+surfaces when something tries to use the element. Each component's own test
+file carries that assertion — `StarfieldCanvas.test.jsx` since PF-76,
+`GrainOverlay.test.jsx` and `CursorGlow.test.jsx` since PF-77. The shared
+`ambientSlots.test.jsx` was deleted in PF-77; its last two subjects had both
+grown real logic, and `GrainOverlay` calls `useTheme()`, which throws when
+rendered outside its provider the way that shared file rendered them.
+
+`CursorGlow` is the one ambient component needing no provider at all: it gates
+on neither `useSplashReady()` nor `useReducedMotion()`, deliberately. There is
+no loop to defer — just one style write per `pointermove` — the tracking is a
+1:1 response to the user's own cursor rather than autoplaying motion, and its
+only animation is a CSS `transition`, which `motion.css` already collapses
+globally. `GrainOverlay` skips both gates for the same reason: it paints once.
 
 ## Stack
 
@@ -350,6 +356,28 @@ error message:
   against `docs/design/Portfolio Revolution.dc.html` on 2026-08-16. This is the
   first known case of the prototype being wrong, and it is a JS bug, not a
   design value — "the prototype wins" still holds for everything visual.
+- **Grain's `0.42` opacity looks like a bug and is not.** `GrainOverlay`'s two
+  effects are ordered so the theme one (`.13`/`.45`) runs first on mount and the
+  paint one overwrites it with `0.42` immediately after. That is the prototype:
+  `componentDidMount()` calls `applyTheme(t0)` at line 881 and `paintGrain()` at
+  884, and `paintGrain()` sets opacity unconditionally. So `0.42` is the real
+  resting value from first load until the user's first theme toggle, in **both**
+  themes — not a flash. React runs effects in declaration order, so reordering
+  the two effects in that file silently changes the shipped look. Verified in a
+  browser on 2026-08-16, including a fresh load already in light theme. Guarded
+  by `GrainOverlay.test.jsx`. PF-75's original comment in that file claimed the
+  opposite; PF-77 corrected it.
+- **`el.style.opacity` reads back normalised, not as written.** The CSSOM
+  canonicalises, so a component writing the prototype's `'.13'` verbatim reads
+  back as `'0.13'`. A test asserting the source string fails against correct
+  code. Assert the effective value; keep the verbatim write in the component.
+- **CSS-Module rules are invisible to Vitest.** `frontend/vite.config.js` sets
+  no `test.css`, so CSS Modules are stubbed and no stylesheet is ever applied in
+  jsdom — `getComputedStyle` reports initial values and `element.style` sees
+  only inline writes. A test asserting a class-declared value (`CursorGlow`'s
+  resting `opacity: 0`) passes or fails for the wrong reason. Assert the
+  stylesheet as text, as `styles/__tests__/tokens.test.js` does, and assert the
+  DOM only for what JS actually writes inline.
 
 Where a mistake would be silent, add a test that would catch it.
 
@@ -447,45 +475,60 @@ remembering at creation time rather than at push time.
 Check with `git branch -vv` before pushing. The bracketed name is the upstream —
 if it does not match the branch's own name, a push will go somewhere else.
 
+After a push, confirm the remote actually moved: `git ls-remote --heads origin
+<branch>` must match local `HEAD`. Compare them rather than assuming the push
+landed because the command exited cleanly — that is exactly how PF-75 reached
+`master` unnoticed. Claude does not run the push (see Working agreement), but
+should offer this check when asked whether one landed.
+
 ## Working agreement
 
 Per-ticket `.md` guides are pasted into chat and are the source of truth for
 that ticket — except where the prototype contradicts them.
 
-**Always show `git status --short` and `git diff --cached --stat` immediately
-before a commit runs** — not merely once earlier in the session. This holds on
-every branch, with or without standing authorization to commit.
+**The user commits. Claude does not.** This holds on every branch, sprint
+branches included, and supersedes the standing sprint-branch authorization that
+used to live here — it was granted, then countermanded in practice twice
+(PF-61 on 2026-08-08, PF-77 on 2026-08-16, both "I will commit myself"), so it
+is gone rather than left as a trap for the next session. Do not run
+`git commit` unless the user asks for that specific commit, in those words, in
+that moment. The same goes for `git push`.
 
-VS Code's Git extension has staged things nobody asked it to three times now.
+What to do instead, at the end of a ticket:
+
+1. Stage exactly the files the ticket touches — `git add <paths>`, never
+   `git add -A` or `git add .`
+2. Run the full verification (tests, lint, browser checks) and report it
+3. Show `git status --short` and `git diff --cached --stat` as the **last**
+   thing before handing off, and say plainly what is staged, what is not, and
+   why
+4. Quote the commit message from the ticket, ready to paste
+5. Stop
+
+**Show `git status --short` and `git diff --cached --stat` immediately before
+handing off** — not merely once earlier in the session. The index moves on its
+own here.
+
+VS Code's Git extension has staged things nobody asked it to **four** times now.
 The first two were unintended files appearing in the index. The third, during
 PF-76's follow-up just before `22cf50c`, is why the timing above is spelled
 out: `.claude/CLAUDE.md` was checked and confirmed *unstaged* — deliberately
 held back for its own commit — then showed up staged a few minutes later, with
 no command run against it in between. The earlier clean check proved nothing
-about the index by the time the commit came. A second check, run immediately
-before committing, is what caught it; without it the docs change would have
-been swept into the code commit silently, since the commit succeeds either way
-and its message says nothing about docs.
+about the index by the time the commit came.
+
+The fourth was PF-77, and it is the reason the hand-off check is now mandatory
+rather than the pre-commit check: the same file, again deliberately held back
+and again confirmed unstaged right after `git add` of the six code files, was
+staged by the time the ticket was reported done. Nothing ran against it in
+between. Since the user is the one committing, a drift that Claude never
+re-checks is a drift the user inherits silently — the commit succeeds either
+way and its message says nothing about docs.
 
 The mechanism differs from the first two: staging *drift* on an already-tracked
 file, not new files appearing. `git status --short` catches both, but only as
-the last thing run before the commit. Check content as well as the file list —
+the last thing run before handing off. Check content as well as the file list —
 confirm the staged diffstat still matches what was actually reviewed.
-
-**Committing on sprint branches — standing authorization.** On any
-`sprint-N-*` branch, commit as work completes; no per-commit confirmation
-needed. Two things are mandatory every single time, no exception:
-
-1. `git status --short` and `git diff --cached --stat` **immediately before**
-   each `git commit` runs — not earlier in the session. The drift incident
-   above is why "earlier in the session" does not count.
-2. After every push, confirm the remote actually moved:
-   `git ls-remote --heads origin <branch>` must match local `HEAD`. Compare
-   them and report the comparison — never assume a push landed because the
-   command exited cleanly.
-
-`master` is excluded, always. A commit directly on `master` requires explicit
-sign-off every time; this authorization is scoped to sprint branches only.
 
 **Never document something as existing until it does.** This file is read as
 fact by every session. A pointer to a file that was never written, or a hook
