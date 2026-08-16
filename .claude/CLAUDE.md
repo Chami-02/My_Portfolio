@@ -90,6 +90,7 @@ document; do not link to one.
 | PF-73 | MotionProvider | ✅ |
 | PF-74 | Motion primitives | ✅ |
 | PF-75 | Page shell + ambient scaffold + splash gate | ✅ |
+| PF-76 | GalaxyCanvas — star field + cursor web | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -128,15 +129,17 @@ change lands in a low-stakes ticket instead of the same one building the splash
 animation. PF-78 drops from 5 to 4 accordingly: it only has to call `setReady()`
 at the right two moments, not build the plumbing.
 
-**Sprint 11 is in progress** — PF-75 done and on the branch (5 of 46 points),
-PF-76 next.
+**Sprint 11 is in progress** — PF-75 and PF-76 done and on the branch
+(13 of 46 points), PF-77 next.
 
 Mobile nav treatment and the cursor-web budget lever are decided — see
 Locked decisions. The canvas-palette question that was on this list earlier
 turned out not to be a decision at all: `pal()` is called fresh inside the
 `requestAnimationFrame` loop itself, every frame, not once at setup, so the
-star field already tracks theme toggling live. PF-76 just needs to read the
-same live flag, same as the prototype — nothing to design there.
+star field already tracks theme toggling live. PF-76 read that same live flag
+through a ref updated by its own small effect, rather than putting `isLight`
+in the draw loop's dependency array — which would have torn the loop down and
+regenerated every star's position on each toggle.
 
 What's ready to build with — **all of this exists on the branch today**. Exact
 paths, because they are not guessable from the ticket names:
@@ -236,11 +239,13 @@ the effect re-arms when the splash lifts.
 
 Two things that are true but easy to misread as more than they are:
 
-- **The three ambient slots are empty.** Each renders a single `aria-hidden`
-  element with a class and a forwarded `ref`, nothing more — no `getContext()`,
-  no rAF loop, no pointer handler. PF-76 paints the star field, PF-77 the grain
-  and the cursor glow. The mentions of `paintGrain()`/`getContext()` in those
-  files are comment prose describing future work, not code.
+- **Two of the three ambient slots are still empty** — `CursorGlow` and
+  `GrainOverlay`. Each renders a single `aria-hidden` element with a class and
+  a forwarded `ref`, nothing more — no `getContext()`, no rAF loop, no pointer
+  handler. PF-77 paints the grain and the cursor glow. The mentions of
+  `paintGrain()`/`getContext()` in those two files are comment prose describing
+  future work, not code. `StarfieldCanvas` is no longer one of them — PF-76
+  filled it in, and it now owns an internal ref and its own draw loop.
 - **`SplashProvider` is still a no-op.** `ready` starts `true` and nothing calls
   `setReady(false)` yet — PF-78's splash is what gives it teeth. Mounted in
   `pages/HomePage.jsx`, not `main.jsx`, so `/admin` and Blog never carry it.
@@ -249,8 +254,12 @@ The slots take `ref` as an ordinary prop (`function CursorGlow({ ref })`), not
 via `forwardRef` — React 19 passes `ref` straight through, and these are the
 repo's first ref-forwarding components. Note the silent-failure mode: a
 component that forgets to destructure `ref` still renders perfectly and hands
-back `null`, which only surfaces when PF-76 calls `getContext()`. Guarded by
-`components/ambient/__tests__/ambientSlots.test.jsx`.
+back `null`, which only surfaces when something calls `getContext()` on it.
+Guarded by `components/ambient/__tests__/ambientSlots.test.jsx` for the two
+remaining slots; `StarfieldCanvas`'s ref test moved to its own
+`StarfieldCanvas.test.jsx` in PF-76, because it now calls `useTheme()` and
+`useReducedMotion()`, both of which throw when rendered outside their
+providers the way that shared file renders its two.
 
 ## Stack
 
