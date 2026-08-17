@@ -29,6 +29,23 @@ html[data-motion="reduced"] *::after {
   scroll-behavior: auto !important;
 }
 
+/* ⚠️ The rule above uses a DESCENDANT selector, so `*` matches
+   everything inside <html> but never <html> itself — and the root
+   element is the one that decides how the document scrolls. Its
+   `scroll-behavior: smooth` therefore escaped the override entirely:
+   data-motion="reduced" was set, every descendant was neutralised,
+   and anchor jumps still animated smoothly.
+
+   Not theoretical. Caught in a real browser during PF-79, where
+   getComputedStyle(document.documentElement).scrollBehavior read
+   'smooth' with reduced motion active. Nothing else in this file
+   needs the same treatment — animation and transition are only ever
+   declared on descendants — but scroll-behavior lives on the root by
+   definition. */
+html[data-motion="reduced"] {
+  scroll-behavior: auto !important;
+}
+
 /* Elements whose ONLY purpose is decorative movement. Hidden
    entirely rather than frozen mid-animation, which can look
    broken. Sprint 11 components opt in with this attribute. */

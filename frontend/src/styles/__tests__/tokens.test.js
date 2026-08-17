@@ -63,4 +63,14 @@ describe('Design tokens (PF-67)', () => {
     expect(lightBlock).toMatch(/--accInk:\s*#ffffff/i);
   });
 
+  it('publishes --header-h for sections to offset their anchor jumps (PF-79)', () => {
+    // 12px padding + 44px logo + 12px padding + 2px progress track +
+    // 1px bottom border. Confirmed against the rendered header's
+    // getBoundingClientRect().height in Chromium — the border is the
+    // easy pixel to lose, and a --header-h that is short by one lands
+    // every section heading a hair under the fixed header with no
+    // error to show for it.
+    expect(css).toMatch(/--header-h:\s*71px/);
+  });
+
 });

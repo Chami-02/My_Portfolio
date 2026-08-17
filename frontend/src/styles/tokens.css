@@ -47,6 +47,39 @@
   --font-display: 'Anton', 'Anton Fallback', 'Arial Narrow', sans-serif;
   --font-body:    'Space Grotesk', system-ui, -apple-system, sans-serif;
   --font-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* ── Layout (PF-79) ──────────────────────────────────────── */
+  /* Height of the fixed header: 12px padding + 44px logo + 12px
+     padding + 2px progress track + 1px bottom border. Every section
+     from PF-80 onward carries `scroll-margin-top: var(--header-h)`
+     so an anchor jump does not land its heading underneath the
+     header. Confirmed against the rendered header's
+     getBoundingClientRect().height in Chromium at 1440x900: 71, not
+     the 70 the ticket estimated — the estimate dropped the border. */
+  --header-h: 71px;
+}
+
+/* Smooth scroll — SANCTIONED EXCEPTION (PF-79).
+ *
+ * The prototype uses the browser's native instant anchor-jump; zero
+ * matches for scroll-behavior anywhere in it. Raised explicitly and
+ * approved, same category as the cursor-web density change.
+ *
+ * ⚠️ This is a DUPLICATE, deliberately. global.css:86 has carried the
+ * identical rule since Phase 1, so smooth scrolling was already live
+ * on the site before PF-79 — the ticket's framing of it as newly
+ * introduced is wrong. Restated here because global.css is the Phase 1
+ * stylesheet and gets trimmed at cutover; if the behaviour is only
+ * declared there, it disappears with it. Same value in both, so the
+ * cascade order between them does not matter.
+ *
+ * CSS rather than a JS scrollTo, so it covers every source of anchor
+ * navigation — nav clicks, browser back/forward, a typed URL with a
+ * #hash — instead of only clicks on the navbar. motion.css overrides
+ * it with `scroll-behavior: auto !important` under reduced motion;
+ * confirmed in the emitted CSS, not assumed. */
+html {
+  scroll-behavior: smooth;
 }
 
 html[data-theme="light"] {

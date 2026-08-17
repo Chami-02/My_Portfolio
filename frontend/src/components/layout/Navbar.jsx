@@ -1,239 +1,242 @@
-import { useState, useEffect } from 'react';
+// frontend/src/components/layout/Navbar.jsx
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ThemeToggle } from './ThemeToggle';
+import logo from '../../assets/logo.png';
+import styles from './Navbar.module.css';
 
 const NAV_LINKS = [
-  { label: 'About',    href: '#about' },
-  { label: 'Skills',   href: '#skills' },
-  { label: 'Projects', href: '#projects' },
-  { label: 'Blog',     href: '#blog'     },
-  { label: 'Contact',  href: '#contact' },
+  { href: '#about', label: 'ABOUT' },
+  { href: '#skills', label: 'SKILLS' },
+  { href: '#projects', label: 'PROJECTS' },
+  { href: '#blog', label: 'BLOG' },
 ];
 
+/**
+ * Navbar — PF-79. Full replacement of the Phase 1 component.
+ *
+ * Transcribed from the prototype's <header> (lines 56-82) and
+ * bindScroll() (1041-1063), with one sanctioned visual deviation and
+ * one genuine gap this project fills in:
+ *
+ *   - Smooth scroll: the prototype uses native instant anchor-jump.
+ *     Explicitly asked and approved as a deviation. The mechanism is
+ *     CSS, not JS — html { scroll-behavior: smooth } in tokens.css,
+ *     plus --header-h / scroll-margin-top on the sections PF-80
+ *     onward will build. CSS covers every source of anchor navigation
+ *     (nav clicks, back/forward, a typed #hash), not just clicks on
+ *     this navbar, and motion.css already neutralises it under
+ *     reduced motion.
+ *   - Mobile nav: confirmed absent from the prototype at every
+ *     breakpoint. Visual treatment was already locked in CLAUDE.md;
+ *     the 768px breakpoint, z-index 80 and interaction details are
+ *     this ticket's own judgment calls.
+ *
+ * bindScroll()'s other two responsibilities are deliberately NOT
+ * here. The reveal-sweep-on-scroll duplicates each Reveal's own
+ * interval (PF-74/75), and the data-para parallax handling belongs to
+ * PF-81 — no [data-para] element exists in the DOM until it lands.
+ *
+ * No active-link highlighting: the prototype has none (grepped for
+ * isActive/activeSection, zero matches). Phase 1's navbar did have
+ * it; dropping it is fidelity, not an omission.
+ */
 export function Navbar() {
-  const [scrolled,  setScrolled]  = useState(false);
-  const [menuOpen,  setMenuOpen]  = useState(false);
-  const [activeId,  setActiveId]  = useState('');
+  const progressRef = useRef(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // ── Scroll-based effects ──────────────────────────────────────
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 40);
+    let raf = null;
 
-      // Highlight the section currently in view
-      const sectionIds = NAV_LINKS.map((l) => l.href.slice(1));
-      for (const id of [...sectionIds].reverse()) {
-        const el = document.getElementById(id);
-        if (el && window.scrollY >= el.offsetTop - 120) {
-          setActiveId(id);
-          break;
+    /** Prototype bindScroll()'s onScroll, progress-bar portion only. */
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const sc = document.scrollingElement || document.documentElement;
+        const y = window.scrollY || sc.scrollTop || document.body.scrollTop;
+        const max =
+          Math.max(sc.scrollHeight, document.body.scrollHeight) - window.innerHeight;
+        if (progressRef.current) {
+          progressRef.current.style.width = `${max > 0 ? (y / max) * 100 : 0}%`;
         }
-      }
+      });
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+
+    // Matches the prototype's trailing this.onScroll() call: the bar
+    // reflects reality from mount, not only after the first scroll
+    // event. Matters when the browser restores a scroll position or
+    // the URL carries a #hash — otherwise the bar sits at 0% over a
+    // page that is already halfway down.
+    onScroll();
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, []);
 
-  // ── Lock body scroll when mobile menu is open ─────────────────
+  // Body scroll lock while the overlay is open. Restores the previous
+  // value rather than clearing to '', so this never clobbers a lock
+  // some other component set.
   useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [menuOpen]);
+    if (!mobileOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
 
-  const handleNavClick = (e, href) => {
-    e.preventDefault();
-    setMenuOpen(false);
-    const target = document.querySelector(href);
-    if (target) {
-      const offset = 80; // Navbar height compensation
-      const top = target.getBoundingClientRect().top + window.scrollY - offset;
-      window.scrollTo({ top, behavior: 'smooth' });
-    }
-  };
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
     <>
-      {/* ── Main Nav Bar ── */}
-      <header
-        style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0,
-          zIndex: 50,
-          transition: 'all 0.3s ease',
-          ...(scrolled ? {
-            background: 'rgba(3, 7, 18, 0.85)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            borderBottom: '1px solid var(--border)',
-          } : {
-            background: 'transparent',
-          }),
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 'var(--content-max)',
-            margin: '0 auto',
-            padding: '0 var(--content-px)',
-            height: '4.5rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          {/* Logo */}
-          <Link
-            to="/"
-            style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                fontSize: '1.1rem',
-                color: 'var(--text-primary)',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              <span style={{ color: 'var(--accent)' }}>&lt;</span>
-              PC
-              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/</span>
-              <span style={{ color: 'var(--accent)' }}>&gt;</span>
+      <header className={styles.header}>
+        <div className={styles.inner}>
+          <a href="#hero" className={styles.brand}>
+            <img
+              src={logo}
+              alt="Parindra Gallage"
+              width={44}
+              height={44}
+              className={styles.logo}
+            />
+            <span className={styles.brandText}>
+              PARINDRA<span className={styles.brandDot}>.</span>DEV
             </span>
-          </Link>
+          </a>
 
-          {/* Desktop Nav Links */}
-          <nav style={{ display: 'flex', gap: '0.25rem' }} className="hidden-mobile">
-            {NAV_LINKS.map(({ label, href }) => {
-              const isActive = activeId === href.slice(1);
-              return (
-                <a
-                  key={label}
-                  href={href}
-                  onClick={(e) => handleNavClick(e, href)}
-                  style={{
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                    padding: '0.5rem 1rem',
-                    borderRadius: '0.5rem',
-                    textDecoration: 'none',
-                    transition: 'all 0.2s',
-                    color: isActive ? 'var(--accent)' : 'var(--text-body)',
-                    background: isActive ? 'var(--accent-glow)' : 'transparent',
-                  }}
-                >
-                  {label}
-                </a>
-              );
-            })}
+          <nav className={styles.nav}>
+            {NAV_LINKS.map((link) => (
+              <a key={link.href} href={link.href} className={styles.navLink}>
+                {link.label}
+              </a>
+            ))}
+            <a href="#contact" className={styles.contactPill}>
+              CONTACT
+            </a>
+            <span aria-hidden="true" className={styles.divider} />
+            <ThemeToggle />
+            <Link to="/admin/login" className={styles.adminLink}>
+              <span aria-hidden="true" className={styles.adminDot} />
+              ADMIN
+            </Link>
           </nav>
 
-          {/* Hamburger — mobile only */}
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            className="show-mobile"
-            style={{
-              background: 'none',
-              border: '1px solid var(--border)',
-              borderRadius: '0.375rem',
-              padding: '0.5rem',
-              cursor: 'pointer',
-              color: 'var(--text-primary)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              width: '40px',
-              height: '40px',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            type="button"
+            className={styles.hamburger}
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            data-open={mobileOpen || undefined}
+            onClick={() => setMobileOpen((v) => !v)}
           >
-            <span
-              style={{
-                display: 'block', width: '18px', height: '2px',
-                background: 'currentColor', borderRadius: '1px',
-                transition: 'all 0.3s',
-                transform: menuOpen ? 'rotate(45deg) translateY(6px)' : 'none',
-              }}
-            />
-            <span
-              style={{
-                display: 'block', width: '18px', height: '2px',
-                background: 'currentColor', borderRadius: '1px',
-                transition: 'all 0.3s',
-                opacity: menuOpen ? 0 : 1,
-              }}
-            />
-            <span
-              style={{
-                display: 'block', width: '18px', height: '2px',
-                background: 'currentColor', borderRadius: '1px',
-                transition: 'all 0.3s',
-                transform: menuOpen ? 'rotate(-45deg) translateY(-6px)' : 'none',
-              }}
-            />
+            <span />
+            <span />
+            <span />
           </button>
+        </div>
+
+        <div className={styles.progressTrack}>
+          <div ref={progressRef} className={styles.progressFill} />
         </div>
       </header>
 
-      {/* ── Mobile Full-Screen Menu ── */}
-      <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 40,
-          background: 'rgba(3, 7, 18, 0.98)',
-          backdropFilter: 'blur(20px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.5rem',
-          transition: 'opacity 0.3s, visibility 0.3s',
-          opacity: menuOpen ? 1 : 0,
-          visibility: menuOpen ? 'visible' : 'hidden',
-          pointerEvents: menuOpen ? 'auto' : 'none',
-        }}
-      >
-        {NAV_LINKS.map(({ label, href }, i) => (
-          <a
-            key={label}
-            href={href}
-            onClick={(e) => handleNavClick(e, href)}
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: '2rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              textDecoration: 'none',
-              padding: '0.5rem 2rem',
-              borderRadius: '0.5rem',
-              transition: 'color 0.2s',
-              transform: menuOpen ? 'translateY(0)' : 'translateY(16px)',
-              transitionDelay: `${i * 0.07}s`,
-              opacity: menuOpen ? 1 : 0,
-            }}
-            onMouseEnter={(e) => { e.target.style.color = 'var(--accent)'; }}
-            onMouseLeave={(e) => { e.target.style.color = 'var(--text-primary)'; }}
-          >
-            {label}
-          </a>
-        ))}
-      </div>
-
-      {/* ── Responsive CSS (inline style tag workaround for Tailwind v4) ── */}
-      <style>{`
-        @media (min-width: 768px) {
-          .hidden-mobile { display: flex !important; }
-          .show-mobile   { display: none !important; }
-        }
-        @media (max-width: 767px) {
-          .hidden-mobile { display: none !important; }
-          .show-mobile   { display: flex !important; }
-        }
-      `}</style>
+      {mobileOpen && <MobileOverlay onClose={closeMobile} />}
     </>
   );
 }
+
+/**
+ * Full-screen mobile nav overlay — no prototype precedent.
+ *
+ * Ambient layer (canvas + grain) shows through by design: the
+ * backdrop supplies a translucent surface, never a solid background.
+ *
+ * Focus moves to the first link on open. A full keyboard focus-trap
+ * loop is PF-83's systematic a11y pass, not this ticket — aria-modal
+ * is set as the conventional marker for the surface, and Escape plus
+ * an always-present close button cover the keyboard exit today.
+ */
+function MobileOverlay({ onClose }) {
+  const firstLinkRef = useRef(null);
+
+  useEffect(() => {
+    firstLinkRef.current?.focus();
+  }, []);
+
+  return (
+    // The surface IS the backdrop: one element carrying the
+    // translucent tone, the centring, and the click-to-dismiss.
+    //
+    // A separate backdrop layer underneath a full-size panel does not
+    // work — whichever element is on top swallows every click, so the
+    // backdrop only ever receives the ones that miss it, which on a
+    // full-viewport panel is none. Letting clicks bubble to this root
+    // and having the nav stop them is the version that actually
+    // dismisses on a tap outside the menu.
+    <div
+      className={styles.overlay}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Site navigation"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        className={styles.overlayClose}
+        aria-label="Close menu"
+        onClick={onClose}
+      >
+        ×
+      </button>
+
+      {/* Clicks on the menu itself are not "outside" clicks. Each link
+          still closes via its own handler — stopping the bubble here
+          only prevents the theme toggle, and the gaps between items,
+          from dismissing the menu. */}
+      <nav className={styles.overlayNav} onClick={(e) => e.stopPropagation()}>
+        {NAV_LINKS.map((link, i) => (
+          <a
+            key={link.href}
+            href={link.href}
+            ref={i === 0 ? firstLinkRef : undefined}
+            className={styles.overlayLink}
+            onClick={onClose}
+          >
+            {link.label}
+          </a>
+        ))}
+        <a
+          href="#contact"
+          className={styles.overlayContactPill}
+          onClick={onClose}
+        >
+          CONTACT
+        </a>
+        <ThemeToggle />
+        <Link
+          to="/admin/login"
+          className={styles.overlayAdminLink}
+          onClick={onClose}
+        >
+          ADMIN
+        </Link>
+      </nav>
+    </div>
+  );
+}
+
+export default Navbar;
