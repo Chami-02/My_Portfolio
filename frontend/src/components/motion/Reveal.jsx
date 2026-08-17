@@ -20,6 +20,7 @@ export default function Reveal({
   type = 'up',
   as: Tag = 'div',
   className = '',
+  style,
   ...rest
 }) {
   const ref = useRef(null);
@@ -89,7 +90,13 @@ export default function Reveal({
       data-reveal={immediate || revealed ? 'in' : 'out'}
       data-type={type}
       className={`${styles.reveal} ${className}`}
-      style={reduced ? undefined : { transitionDelay: `${delay}ms` }}
+      // A caller's style is MERGED, never dropped. `style` is
+      // destructured out of props above for exactly this reason: left in
+      // `rest`, it would spread over this attribute and silently take
+      // the stagger delay with it — the element still reveals, just all
+      // at once with its siblings, with no error to point at. The
+      // caller's own keys spread last so an explicit override still wins.
+      style={reduced ? style : { transitionDelay: `${delay}ms`, ...style }}
       {...rest}
     >
       {children}

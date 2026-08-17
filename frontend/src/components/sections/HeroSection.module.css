@@ -1,0 +1,727 @@
+/* frontend/src/components/sections/HeroSection.module.css
+ *
+ * Transcribed from `docs/design/Portfolio Revolution.dc.html` lines
+ * 83-191. Every value here is the prototype's, verbatim — no rounding.
+ *
+ * Every `animation` in this file arrives through `composes: kf-* from
+ * global`, with the timing spelled out as LONGHANDS underneath. Writing
+ * `animation-name: flt-portfolio` directly in a module gets the name
+ * scoped to an identifier no @keyframes defines, and the element then
+ * silently does not animate. See styles/animations.css.
+ */
+
+/* `section.hero`, not `.hero`, and the element qualifier is the whole
+   point. Phase 1's global.css:338 carries `[id] { scroll-margin-top:
+   5rem }` — specificity (0,1,0), identical to a bare class, so the tie
+   breaks on stylesheet order and the global rule wins. The anchor jump
+   then clears 80px for a 71px header and lands the badge 9px low: a
+   wrong-by-a-little value, on screen, with nothing in this file looking
+   wrong. Adding the element name makes it (0,1,1) and settles it
+   outright. Every section from PF-81 on needs the same treatment until
+   global.css is trimmed at cutover. */
+section.hero {
+  position: relative;
+  min-height: 100vh;
+  padding: clamp(120px, 16vh, 180px) clamp(16px, 4vw, 40px) 70px;
+  display: flex;
+  align-items: center;
+  background: radial-gradient(
+    120% 90% at 78% 18%,
+    rgba(var(--srf), .62) 0%,
+    rgba(var(--gnd), .55) 62%
+  );
+  /* Not the prototype's — it has no fixed header to clear. Required
+     here so an #hero anchor jump does not land the badge under the
+     71px navbar. Locked decision: every section from PF-80 on. */
+  scroll-margin-top: var(--header-h);
+}
+
+.parallaxGrid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(252, 163, 17, .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(252, 163, 17, .05) 1px, transparent 1px);
+  background-size: 74px 74px;
+  mask-image: radial-gradient(90% 70% at 50% 30%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(90% 70% at 50% 30%, #000 0%, transparent 75%);
+}
+
+.inner {
+  position: relative;
+  z-index: 2;
+  max-width: 1240px;
+  margin: 0 auto;
+  width: 100%;
+  display: grid;
+  /* auto-fit + minmax is the prototype's own responsive mechanism: the
+     portrait drops below the text column on its own once 430px stops
+     fitting twice. No media query involved. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr));
+  gap: clamp(28px, 5vw, 56px);
+  align-items: center;
+}
+
+/* ── badge ────────────────────────────────────────────────────────── */
+
+.badge {
+  composes: kf-glowpulse from global;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(252, 163, 17, .5);
+  background: rgba(252, 163, 17, .10);
+  border-radius: 999px;
+  padding: 8px 16px;
+  margin-bottom: 26px;
+  box-shadow: 0 0 22px rgba(252, 163, 17, .22), inset 0 0 18px rgba(252, 163, 17, .08);
+  animation-duration: 3s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.badgeDot {
+  composes: kf-dot from global;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+  animation-duration: 2s;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+.badgeText {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .16em;
+  color: var(--acc, #FCA311);
+  text-shadow: 0 0 14px rgba(252, 163, 17, .7);
+}
+
+/* ── eyebrow + heading ────────────────────────────────────────────── */
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .28em;
+  color: var(--muted2);
+  margin: 0 0 14px;
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(56px, 9.4vw, 138px);
+  line-height: .86;
+  letter-spacing: .022em;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 22px;
+}
+
+.headingLine {
+  display: block;
+  margin-bottom: .10em;
+}
+
+.headingAccent {
+  display: block;
+  color: var(--acc, #FCA311);
+}
+
+/* ── role pills ───────────────────────────────────────────────────── */
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.rolePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .28);
+  background: rgba(var(--srf), .55);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  color: var(--text);
+}
+
+/* The pill is itself a Reveal, so two `transition` declarations compete
+   on one element: Reveal's entrance and the pill's own hover. They
+   cannot merge — one wins outright — so this hands the element over
+   deliberately once the entrance has finished.
+   [data-reveal='in'] is set by Reveal at that exact moment, and the
+   doubled attribute selector clears .reveal[data-type='pop']'s
+   specificity (0,2,0) rather than tying with it and depending on
+   stylesheet order. During the entrance the pop transition still owns
+   the element; afterwards the hover values do. */
+.rolePill[data-reveal='in'][data-type='pop'] {
+  transition: border-color .25s, background .25s, transform .25s;
+}
+
+.rolePill:hover {
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .12);
+  transform: translateY(-2px);
+}
+
+.rolePillDot {
+  composes: kf-glowdot from global;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+  box-shadow: 0 0 10px rgba(252, 163, 17, .9);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* ── "Lets build something loud!" CTA ────────────────────────────────
+   Owner-requested, 2026-08-17. Not in the prototype. Deliberately a copy
+   of .badge's surface rather than a `composes:` of it — the two are the
+   same today by intent, not by rule, and a shared base would make a
+   future tweak to the badge silently move this too. The one difference
+   is the dot: .badgeDot pulses, .loudCtaDot does not. */
+
+.loudCta {
+  composes: kf-glowpulse from global;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(252, 163, 17, .5);
+  background: rgba(252, 163, 17, .10);
+  border-radius: 999px;
+  padding: 8px 16px;
+  box-shadow: 0 0 22px rgba(252, 163, 17, .22), inset 0 0 18px rgba(252, 163, 17, .08);
+  text-decoration: none;
+  cursor: pointer;
+  animation-duration: 3s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* Same specificity trick as .rolePill: this element is a Reveal, so
+   Reveal's pop transition owns it during the entrance and hands over
+   afterwards. Without the doubled attribute selector the two `transition`
+   declarations tie at (0,2,0) and stylesheet order decides. */
+.loudCta[data-reveal='in'][data-type='pop'] {
+  transition: border-color .25s, background .25s, box-shadow .25s, transform .25s;
+}
+
+.loudCta:hover {
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .18);
+  box-shadow: 0 0 30px rgba(252, 163, 17, .34), inset 0 0 18px rgba(252, 163, 17, .10);
+  transform: translateY(-2px);
+}
+
+/* Static by request — no `composes: kf-dot`, so nothing animates here.
+   Everything else matches .badgeDot. */
+.loudCtaDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+}
+
+.loudCtaText {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .16em;
+  color: var(--acc, #FCA311);
+  text-shadow: 0 0 14px rgba(252, 163, 17, .7);
+  white-space: nowrap;
+}
+
+.rolePillDotA { animation-duration: 2.4s; }
+.rolePillDotB { animation-duration: 3.1s; }
+.rolePillDotC { animation-duration: 2.7s; }
+
+.body {
+  max-width: 470px;
+  color: var(--muted);
+  font-size: clamp(14.5px, 1.5vw, 17px);
+  line-height: 1.75;
+  margin: 0 0 34px;
+}
+
+/* ── CTAs ─────────────────────────────────────────────────────────── */
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 44px;
+}
+
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--acc, #FCA311);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: .1em;
+  padding: 16px 26px;
+  border-radius: 999px;
+  box-shadow: 0 12px 34px rgba(252, 163, 17, .3);
+  text-decoration: none;
+  transition: transform .25s, box-shadow .25s;
+}
+
+.ctaPrimary:hover {
+  color: var(--accInk);
+  transform: translateY(-3px);
+  box-shadow: 0 20px 46px rgba(252, 163, 17, .45);
+}
+
+.ctaSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: .1em;
+  padding: 16px 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .22);
+  text-decoration: none;
+  transition: color .25s, border-color .25s, background .25s;
+}
+
+.ctaSecondary:hover {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .08);
+}
+
+/* ── portrait stage ───────────────────────────────────────────────── */
+
+.portraitStage {
+  position: relative;
+  height: clamp(430px, 60vw, 680px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1100px;
+}
+
+.portraitGlow {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(104%, 600px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(252, 163, 17, .20) 0%,
+    rgba(var(--srf), .55) 40%,
+    transparent 72%
+  );
+}
+
+.portraitRingDashed {
+  composes: kf-spin from global;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(98%, 560px);
+  aspect-ratio: 1;
+  border: 1px dashed rgba(var(--ln), .14);
+  border-radius: 50%;
+  animation-duration: 52s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.portraitRingSolid {
+  composes: kf-pulsering from global;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(74%, 430px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(252, 163, 17, .22);
+  border-radius: 50%;
+  animation-duration: 5.5s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* Light-theme-only plate. The `opacity: 1` half is NOT here: the
+   element carries a `data-lightplate` attribute and
+   tokens.css:150 already has
+   `html[data-theme="light"] [data-lightplate] { opacity: 1 }`,
+   transcribed from the prototype's line 18 back in PF-67 and dead code
+   until this element existed. Attribute selectors are not scoped by CSS
+   Modules, so that global rule reaches this element as-is; duplicating
+   it here would leave two declarations to keep in step. The attribute is
+   therefore load-bearing, not decorative — HeroSection.test.jsx asserts
+   it, because dropping it fails silently and only in light theme. */
+.lightPlate {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 3%;
+  width: min(98%, 560px);
+  height: 82%;
+  margin-left: min(-49%, -280px);
+  border-radius: 50%;
+  background: radial-gradient(
+    62% 60% at 50% 45%,
+    rgba(237, 232, 223, .98),
+    rgba(237, 232, 223, .72) 54%,
+    rgba(237, 232, 223, 0) 84%
+  );
+  opacity: 0;
+  transition: opacity .4s;
+}
+
+.portraitFrame {
+  position: relative;
+  z-index: 3;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.portraitInner {
+  position: relative;
+  height: 100%;
+  /* The tilt transform is written here by JS on every pointermove; this
+     transition is what turns those discrete writes into a smooth
+     follow. motion.css collapses it under reduced motion. */
+  transition: transform .35s cubic-bezier(.2, .8, .2, 1);
+  transform-style: preserve-3d;
+}
+
+.portraitImg {
+  composes: kf-breathe from global;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  display: block;
+  animation-duration: 9s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+
+  /* ── edge blend ──────────────────────────────────────────────────
+     Owner-requested, 2026-08-17. Not in the prototype, which paints the
+     PNG as-is.
+
+     hero-ai.png is an egg-shaped cutout on transparency: the sky and the
+     decorative arcs stop at a hard rim, and the turtleneck is cut flat
+     by the bottom of the frame. Both edges read as cut-out rather than
+     composited, which is what this softens.
+
+     Two mask layers, intersected:
+       · the radial dissolves the oval rim on every side
+       · the linear additionally dissolves the flat bottom cut, which the
+         radial alone barely touches — the bottom-centre sits nearest the
+         ellipse's minor axis and so stays near-opaque right up to the
+         edge, exactly where the shoulders are
+
+     Both radii are 50%, deliberately: that inscribes the ellipse in the
+     element box, so the mask reaches zero AT the edge rather than past
+     it. Radii over 50% would clip the gradient mid-fade and reintroduce
+     a hard line — the very artefact this removes, and it would look like
+     the mask "didn't work" rather than like a wrong number.
+
+     The element box tracks the image exactly (height:100% with width
+     auto derives from the intrinsic ratio, so `contain` letterboxes
+     nothing) — that is why box-relative percentages line up with the
+     picture at all. If a width is ever set here, re-check this. */
+  -webkit-mask-image:
+    radial-gradient(ellipse 50% 50% at 50% 47%, #000 64%, rgba(0, 0, 0, .55) 85%, transparent 100%),
+    linear-gradient(to bottom, #000 78%, transparent 100%);
+  mask-image:
+    radial-gradient(ellipse 50% 50% at 50% 47%, #000 64%, rgba(0, 0, 0, .55) 85%, transparent 100%),
+    linear-gradient(to bottom, #000 78%, transparent 100%);
+  /* Both spellings: the standard property and the legacy WebKit one,
+     whose keyword differs. Without either, mask-composite defaults to
+     `add` — the layers union instead of intersecting, which covers
+     almost the whole box and silently gives back the unmasked image. */
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+/* ── ambient drift blobs ──────────────────────────────────────────── */
+
+.blob {
+  composes: kf-drift-portfolio from global;
+  position: absolute;
+  z-index: 2;
+  border-radius: 999px;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.blobA {
+  top: 8%;
+  left: -6%;
+  width: clamp(120px, 20vw, 230px);
+  height: clamp(46px, 7vw, 84px);
+  background: radial-gradient(
+    60% 100% at 40% 50%,
+    rgba(226, 235, 255, .20),
+    rgba(226, 235, 255, .06) 60%,
+    transparent 75%
+  );
+  filter: blur(10px);
+  animation-duration: 22s;
+}
+
+.blobB {
+  top: 38%;
+  right: -8%;
+  width: clamp(140px, 24vw, 280px);
+  height: clamp(52px, 8vw, 96px);
+  background: radial-gradient(
+    60% 100% at 60% 50%,
+    rgba(226, 235, 255, .16),
+    rgba(226, 235, 255, .05) 60%,
+    transparent 78%
+  );
+  filter: blur(12px);
+  animation-duration: 28s;
+  animation-delay: 3s;
+  animation-direction: reverse;
+}
+
+/* z-index 4 is the prototype's, and it is the only blob above the
+   portrait frame's 3 — this one drifts in FRONT of the image. */
+.blobC {
+  z-index: 4;
+  bottom: 14%;
+  left: 2%;
+  width: clamp(100px, 18vw, 210px);
+  height: clamp(40px, 6vw, 74px);
+  background: radial-gradient(
+    60% 100% at 50% 50%,
+    rgba(226, 235, 255, .14),
+    transparent 76%
+  );
+  filter: blur(9px);
+  animation-duration: 19s;
+  animation-delay: 1.5s;
+}
+
+.blobD {
+  top: 66%;
+  right: 6%;
+  width: clamp(90px, 15vw, 170px);
+  height: clamp(34px, 5vw, 62px);
+  background: radial-gradient(
+    60% 100% at 50% 50%,
+    rgba(252, 163, 17, .10),
+    transparent 76%
+  );
+  filter: blur(10px);
+  animation-duration: 25s;
+  animation-delay: 2s;
+  animation-direction: reverse;
+}
+
+/* ── floating tech chips ──────────────────────────────────────────── */
+
+.chip {
+  composes: kf-flt-portfolio from global;
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: rgba(var(--gnd), .82);
+  border: 1px solid rgba(var(--ln), .16);
+  backdrop-filter: blur(8px);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.chipDot {
+  width: 8px;
+  height: 8px;
+}
+
+.chipLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.chipReact {
+  top: 16%;
+  left: -2%;
+  border-color: rgba(252, 163, 17, .3);
+  animation-duration: 5.5s;
+}
+.chipReact .chipDot { background: var(--acc, #FCA311); border-radius: 2px; }
+
+.chipNode {
+  top: 46%;
+  right: -3%;
+  animation-duration: 6.5s;
+  animation-delay: .8s;
+}
+.chipNode .chipDot { background: #34d399; border-radius: 50%; }
+
+.chipDocker {
+  bottom: 22%;
+  right: 4%;
+  animation-duration: 5.9s;
+  animation-delay: .4s;
+}
+.chipDocker .chipDot { background: #61dafb; border-radius: 2px; transform: rotate(45deg); }
+
+.chipMongo {
+  bottom: 6%;
+  left: 8%;
+  animation-duration: 7s;
+  animation-delay: 1.1s;
+}
+.chipMongo .chipDot { background: #4db33d; border-radius: 50%; }
+
+.chipPython {
+  top: 6%;
+  right: 6%;
+  animation-duration: 6.2s;
+  animation-delay: .2s;
+}
+.chipPython .chipDot { background: #f5d547; border-radius: 50%; }
+
+.chipPostgres {
+  bottom: 38%;
+  left: -4%;
+  animation-duration: 7.4s;
+  animation-delay: .9s;
+}
+.chipPostgres .chipDot { background: #7aa6d6; border-radius: 2px; }
+
+.chipGit {
+  top: 66%;
+  left: 16%;
+  animation-duration: 5.4s;
+  animation-delay: 1.4s;
+}
+.chipGit .chipDot { background: #e8703a; border-radius: 2px; transform: rotate(45deg); }
+
+.chipFastapi {
+  top: 32%;
+  right: -6%;
+  border-color: rgba(252, 163, 17, .3);
+  animation-duration: 6.8s;
+  animation-delay: .5s;
+}
+.chipFastapi .chipDot { background: #05998b; border-radius: 50%; }
+
+/* Owner-requested ninth chip, 2026-08-17 — not one of the prototype's
+   eight. Duration and delay are values the other eight do not already
+   use, so its float stays out of phase with its neighbours.
+   The dot is var(--strong), not a fixed brand hex like the rest: Next.js
+   is monochrome, and a fixed black or white would disappear into one of
+   the two themes. --strong flips (#ffffff dark / #0B1220 light) and
+   reads in both. */
+.chipNext {
+  top: 36%;
+  left: -5%;
+  animation-duration: 6s;
+  animation-delay: .65s;
+}
+.chipNext .chipDot { background: var(--strong); border-radius: 50%; }
+
+/* Owner-requested tenth chip, 2026-08-17 — below Docker (bottom 22%,
+   right 4%) on the right flank, clear of MongoDB over on the left.
+   Java's blue rather than its orange: the orange marks would sit a few
+   degrees from Git's #e8703a and the accent itself, and this chip's
+   nearest neighbours are already warm. Square, because squares are the
+   least-used of the three dot shapes and both neighbours here are a
+   diamond and a circle. Duration and delay again avoid every value the
+   other nine use. */
+.chipJava {
+  bottom: 4%;
+  right: 12%;
+  animation-duration: 6.35s;
+  animation-delay: 1.25s;
+}
+.chipJava .chipDot { background: #5382a1; border-radius: 2px; }
+
+/* ── scroll indicator ─────────────────────────────────────────────── */
+
+.scrollIndicator {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.scrollLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .24em;
+  color: var(--faint);
+}
+
+.scrollLine {
+  composes: kf-nudge from global;
+  width: 1px;
+  height: 34px;
+  background: linear-gradient(to bottom, var(--acc, #FCA311), transparent);
+  animation-duration: 2.2s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* ── marquee strip ────────────────────────────────────────────────── */
+
+.marqueeWrap {
+  background: var(--acc, #FCA311);
+  transform: rotate(-1.1deg) scale(1.03);
+  /* Negative margin pulls the strip up under the hero's bottom padding;
+     the rotation then needs the 1.03 scale so the tilted corners still
+     cover the full width instead of showing triangles of page. */
+  margin: -10px 0 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(var(--shd), .25);
+  border-bottom: 1px solid rgba(var(--shd), .25);
+}
+
+/* The prototype puts this padding on the animated track. Marquee owns
+   that element, so it lands on the clipping container instead — the
+   track is the only thing inside it, so the painted result is identical.
+
+   Owner-requested slimming, 2026-08-17: the prototype's 14px. The strip
+   stays full-bleed; only the band's thickness comes down. */
+.marqueeInner {
+  padding: 8px 0;
+}
+
+.marqueeText {
+  font-family: var(--font-display);
+  /* Prototype: clamp(20px, 2.6vw, 34px). Scaled down with the padding
+     above — this is the larger half of the height reduction, since the
+     line box dominates. */
+  font-size: clamp(13px, 1.6vw, 21px);
+  text-transform: uppercase;
+  color: var(--accInk);
+  white-space: nowrap;
+  /* Prototype: 34px. Scaled with the type so the gap between repeats
+     stays proportionally the same rather than opening up. */
+  padding-right: 24px;
+}

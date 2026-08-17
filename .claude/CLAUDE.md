@@ -162,6 +162,8 @@ document; do not link to one.
 | PF-76 | GalaxyCanvas — star field + cursor web | ✅ |
 | PF-77 | Grain overlay + cursor glow | ✅ |
 | PF-78 | Splash | ✅ |
+| PF-79 | Navbar, scroll progress, mobile nav | ✅ |
+| PF-80 | Hero + marquee strip | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -188,7 +190,7 @@ competing for attention with straightforward section transcription.
 | 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 | ✅ |
 | 4 | PF-78 | Splash | 4 | PF-74, PF-75 | ✅ |
 | 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | ✅ |
-| 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | — |
+| 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | ✅ |
 | 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | — |
 | 8 | PF-82 | Skills | 3 | PF-81 | — |
 | 9 | PF-83 | Reduced-motion + a11y pass | 3 | all | — |
@@ -208,8 +210,8 @@ Full markup transcription plus timer choreography plus that provider change put
 it closer to 7 points than 4. The table above still reads 4, which is what Jira
 has; re-point it there if you want the two to agree.
 
-**Sprint 11 is in progress** — PF-75, PF-76, PF-77, PF-78 and PF-79 done and on
-the branch (25 of 46 points), PF-80 next.
+**Sprint 11 is in progress** — PF-75 through PF-80 done and on the branch
+(33 of 46 points), PF-81 next.
 
 PF-79 also carried three things beyond its own scope, all recorded below:
 `ThemeToggle`'s visual transcription (PF-72 deferred it here in its own module
@@ -431,6 +433,92 @@ Four things worth knowing before touching it:
 - **No active-link highlighting.** The prototype has none; Phase 1's navbar did.
   Dropping it is fidelity, and `Navbar.test.jsx` asserts all four links share one
   class so it cannot creep back.
+
+**Built by PF-80 — the hero is Phase 2, and the page has real content now:**
+
+```
+frontend/src/
+  components/sections/
+    HeroSection.jsx  + .module.css   REPLACES the Phase 1 hero, same path
+    __tests__/HeroSection.test.jsx   new per-module test directory
+  utils/parallax.js                  computeParallaxTransform() — pure, shared
+  utils/__tests__/parallax.test.js
+  assets/hero-ai.png                 copied from docs/design/assets/
+  styles/animations.css              + 5 carriers (see below)
+  components/motion/Reveal.jsx       style prop now MERGED, not dropped
+```
+
+`HeroSection` renders a **fragment**, not a single element: the marquee follows
+`</section>` in the prototype (line 187), and nesting it inside a
+`min-height:100vh; display:flex; align-items:center` section lays it out as a
+centred flex item instead of a full-bleed strip. Guarded by a test.
+
+Five things worth knowing before touching it, all found by checking the
+prototype rather than the ticket:
+
+- **There are four drift blobs, not eight, and they live inside the portrait
+  stage.** The PF-80 ticket's inventory listed four in the section background
+  *and* four more around the portrait. The prototype has four total, all
+  children of `[data-tilt]` (lines 138-141). `blobC` is at **z-index 4**, above
+  the portrait frame's 3, so it drifts in *front* of the image while the other
+  three stay behind — flattening the z-index or hoisting them to the section
+  loses that depth. Guarded by a test asserting the count and the containment.
+- **React and FastAPI chips carry an accent border**, `rgba(252,163,17,.3)`,
+  where the other six use `rgba(var(--ln),.16)`. Reads like a copy-paste slip
+  in the prototype and is not — they are the two nearest the portrait's glow.
+- **The hero owns its own parallax.** PF-79's record said parallax was entirely
+  PF-81's, reasoning from a count of two `data-para` elements: the count was
+  right, the attribution was not. Line 84 is the hero's grid at `0.12`; line
+  202 is About's portrait at `0.05`. `computeParallaxTransform()` is shared;
+  the scroll listener is not, matching `Reveal`'s own precedent. **PF-81 needs
+  its own listener** — import the util, not a hook, because there isn't one.
+- **Parallax gates on reduced motion; the portrait tilt does not.** Different
+  categories, not an inconsistency. Parallax exists to move an element at a
+  *different* rate from the scroll driving it, and that rate mismatch is the
+  named vestibular trigger; tilt is a 1:1 pointer follow, same as `CursorGlow`,
+  which is ungated for the same reason. Both directions are tested.
+- **`data-lightplate` on the plate element is load-bearing.** The light-theme
+  `opacity: 1` is *not* in `HeroSection.module.css` — `tokens.css:150` has
+  carried `html[data-theme="light"] [data-lightplate] { opacity: 1 }` since
+  PF-67, transcribed from the prototype's line 18 and dead code until this
+  element existed. Attribute selectors are not scoped by CSS Modules, so the
+  global rule reaches the element as-is. Drop the attribute and the plate
+  silently never appears in light theme, with nothing wrong in either file read
+  on its own. Guarded by a test. The prototype *also* writes this opacity from
+  JS in `applyTheme()` (line 861); that write is genuinely redundant with the
+  CSS rule, so it is not ported.
+
+**`HeroSection` is now wrapped in `<ErrorBoundary>` in `HomePage.jsx`**
+(owner-approved during PF-80). Worth knowing why it matters more than it
+looks: **there is no `ErrorBoundary` anywhere else in the chain** — not in
+`App.jsx`, not around `<App />` in `main.jsx`. The only four in the whole app
+were the ones in `HomePage.jsx`, and `App.jsx` uses React Router's legacy
+`<BrowserRouter>`/`<Routes>` component API, which has no `errorElement` and no
+error handling of any kind (a `createBrowserRouter` data router would). So a
+bare Hero throw unmounted the entire root: verified by probe before the change,
+`#root` came back **completely empty** — zero bytes, no navbar, no footer, no
+sections — and the error escaped `render()` itself. After the wrap the same
+throw leaves navbar, footer and all five other sections standing. Guarded by
+`pages/__tests__/HomePage.test.jsx`, confirmed by mutation.
+**`ContactSection` is still bare**, and is now the only one — same exposure,
+untouched because PF-80's scope was Hero.
+
+`animations.css` gained five carriers: `kf-dot`, `kf-glowdot`, `kf-nudge`,
+`kf-drift-portfolio`, `kf-flt-portfolio`. The last two keep the screen suffix
+because it is part of the real keyframe name — there is no unsuffixed `flt` or
+`drift` to fall back on. Verified in the built bundle: every `animation-name:`
+in `dist/assets/*.css` resolves to a real, unscoped keyframe, and all 15
+animated hero elements report `getAnimations().length === 1` in Chromium with
+the expected name and duration.
+
+**`Reveal` now merges a caller's `style` instead of dropping it.** It used to
+spread `{...rest}` over its own `style` attribute, so any caller passing
+`style` silently lost `transitionDelay` — the element still revealed, just with
+the whole group's stagger collapsed to zero and nothing to point at. PF-80 was
+the first ticket to pass `style` at all, which is why it surfaced now. Two
+tests cover it. The hero itself ended up not needing it: per-chip float timing
+lives in the eight position modifier classes instead, which is closer to
+"paste the prototype's value into CSS" anyway.
 
 ## Stack
 
@@ -671,6 +759,19 @@ error message:
   animation and transition are only ever declared on descendants — but any
   future property that lives on the root does. Guarded by
   `styles/__tests__/motion.test.js`, added in PF-79.
+- **A bare `.section` class loses `scroll-margin-top` to Phase 1's `[id]`
+  rule.** `global.css:338` carries `[id] { scroll-margin-top: 5rem }` —
+  specificity (0,1,0), *identical* to a single class, so the tie breaks on
+  stylesheet order and the global rule wins. A section writing
+  `.hero { scroll-margin-top: var(--header-h) }` therefore computes **80px, not
+  71px**, and the anchor jump lands the content 9px low: the wrong-by-a-little
+  value again, on screen, with nothing in the module looking wrong. Found in a
+  browser during PF-80 (`getComputedStyle(section).scrollMarginTop` read
+  `'80px'` with the module rule plainly present). Fix is to qualify with the
+  element name — `section.hero { … }`, specificity (0,1,1) — which settles it
+  outright. **Every section from PF-81 on needs the same treatment** until
+  `global.css` is trimmed at cutover. Note a jsdom test cannot catch this:
+  CSS Modules are stubbed under Vitest, so no cascade exists to lose.
 - **Two stacked full-size layers: only the top one gets clicks.** A backdrop
   element under a full-viewport panel receives nothing, because hit-testing
   gives the click to the topmost box at that point. Neither `z-index: -1` nor
@@ -686,8 +787,9 @@ Where a mistake would be silent, add a test that would catch it.
 
 - Design fidelity is absolute. Nothing visible is removed or simplified for
   performance.
-  **Two sanctioned exceptions exist to the "nothing is reduced" half**, both
-  asked for by the site's owner. They are the only two.
+  **Three sanctioned exceptions exist to the "nothing is reduced" half**, all
+  asked for by the site's owner. They are the only three — the third is the
+  hero marquee's slimmed band, recorded with the other PF-80 deviations below.
   First, the star-to-star
   cursor web in `StarfieldCanvas.jsx` reads more prominently on the real site
   than in the prototype, so on 2026-08-16 the user asked for it to be toned
@@ -729,6 +831,79 @@ Where a mistake would be silent, add a test that would catch it.
     is one line if a screen needs it.
   The splash is therefore **12 animated elements, not 14** — the count in any
   older note or ticket predates this.
+- **Hero deviations (2026-08-17, owner-requested).** Five changes to PF-80's
+  hero, all asked for directly after seeing it live. None is in the prototype;
+  do not "restore" any of them to it.
+  - **A fourth item in the pill row: the "Lets build something loud!" CTA.**
+    Styled as a copy of the OPEN TO OPPORTUNITIES badge's surface — same
+    border, tint, glow shadow and lead dot. **The pill's `glowpulse` outline
+    still breathes; only the dot's own `dot` pulse is dropped.** That split
+    was specified explicitly and is the entire reason `.loudCtaDot` exists
+    beside `.badgeDot` instead of reusing it: the two are visually identical
+    and animate differently, so folding them into one class silently puts the
+    pulse back. `.loudCta` deliberately does not `composes:` `.badge` either —
+    they match today by intent, not by rule.
+    Rendered as `<a href="#contact">`, not `<button>`: it moves the reader
+    to another place in the document, which is what a link is for, and it
+    matches the two CTAs below it. That also inherits the native smooth
+    scroll and its reduced-motion override, keyboard activation and
+    open-in-new-tab, none of which a `<button>` + `scrollTo` would carry.
+    Copy is transcribed exactly as written, sentence case and all — the
+    badge's own text is uppercase in content, not via `text-transform`.
+  - **Two extra floating chips — the prototype has eight, the hero now has
+    ten.** Every added chip continues the reveal stagger rather than
+    restarting it, and takes a float duration and delay no other chip uses,
+    so none of them drift in phase. A test asserts all ten durations are
+    distinct, and a browser pass confirms zero overlap between any pair of
+    the ten boxes at 1440px.
+    - **Next.js** — `top: 36%; left: -5%`, the free gap on the left flank
+      between React (top 16%) and PostgreSQL (~top 57%). Float 6s / .65s,
+      reveal 1280. Its dot is **`var(--strong)`, not a fixed brand hex**
+      like every other chip: Next.js is monochrome, and a hardcoded black
+      or white disappears into one of the two themes. `--strong` flips
+      (#ffffff / #0B1220) and reads in both.
+    - **Java** — `bottom: 4%; right: 12%`, below Docker on the right flank
+      and clear of MongoDB over on the left. Float 6.35s / 1.25s, reveal
+      1340. Dot is Java's **blue `#5382a1`, not its orange**: the orange
+      marks sit a few degrees from Git's `#e8703a` and the accent itself,
+      and this chip's nearest neighbours are already warm. Square, the
+      least-used of the three dot shapes, between a diamond and a circle.
+  - **The portrait's edges are masked, not painted as-is.** `hero-ai.png` is
+    an egg-shaped cutout on transparency: the sky and the decorative arcs
+    stop at a hard rim, and the turtleneck is cut flat by the bottom of the
+    frame. The prototype ships both edges raw. `.portraitImg` now carries
+    two intersected mask layers — a radial that dissolves the oval rim on
+    every side, and a linear that additionally dissolves the flat bottom,
+    which the radial alone barely reaches (the bottom-centre sits nearest
+    the ellipse's minor axis and stays near-opaque right where the shoulders
+    are). Three things are load-bearing:
+    - **Both radii are 50%.** That inscribes the ellipse in the element box
+      so the mask reaches zero *at* the edge. Anything over 50% clips the
+      gradient mid-fade and puts a hard line back — the exact artefact this
+      removes, and it reads as "the mask didn't work" rather than as a
+      wrong number. A test pins both radii at ≤ 50%.
+    - **Both `mask-composite` spellings are present** — standard `intersect`
+      and legacy `-webkit-mask-composite: source-in`. With neither, the
+      property defaults to `add`: the layers union instead of intersecting,
+      which covers nearly the whole box and silently hands back the
+      unmasked image. Also guarded by a test.
+    - **Box-relative percentages only line up because the box tracks the
+      picture.** `height: 100%` with width auto derives from the intrinsic
+      ratio, so `object-fit: contain` letterboxes nothing. Verified in
+      Chromium: rendered box ratio 0.798 == intrinsic 0.798. Set a width
+      here and the mask geometry silently stops matching the image.
+  - **The marquee band is slimmer** — `.marqueeInner` padding 14px → 8px,
+    `.marqueeText` font `clamp(20px,2.6vw,34px)` → `clamp(13px,1.6vw,21px)`,
+    and its inter-repeat `padding-right` 34px → 24px so the gap stays
+    proportional instead of opening up. Measured in Chromium at 1440px: the
+    band goes **84px → 52px, a 38% reduction**. Both halves are needed —
+    dropping the padding alone barely moves it, because the line box
+    dominates. **The strip stays full-bleed**; "reduce the width" was
+    confirmed to mean thickness, not horizontal extent, and a test asserts
+    no `max-width` or horizontal margin creeps onto `.marqueeWrap`.
+    Note `getBoundingClientRect().height` reads ~82px here and is not the
+    band: the wrapper is rotated -1.1deg, and a 1440px-wide element rotated
+    that far adds ~28px to its axis-aligned box. Measure `offsetHeight`.
 - **Splash timing and the progress bar (2026-08-17, owner-requested).** Two
   more deviations from the prototype, both in `Splash.jsx`:
   - **`SPLASH_MS` is 7000, not the prototype's 4600.** The owner asked for
@@ -857,8 +1032,9 @@ the only thing making `clearDB`'s wipe safe.
 
 Frontend tests use **per-module `__tests__` directories** — `src/utils/`,
 `src/styles/`, `src/providers/`, `src/hooks/`, `src/components/motion/`,
-`src/components/ambient/`, `src/components/splash/` and
-`src/components/layout/` each have their own. Not a top-level `src/__tests__/`.
+`src/components/ambient/`, `src/components/splash/`,
+`src/components/layout/` and `src/components/sections/` each have their own.
+Not a top-level `src/__tests__/`.
 
 **The first push of a new branch is always `git push -u origin <branch-name>`,
 never a bare `git push`.** This is not style — PF-75 was pushed straight to

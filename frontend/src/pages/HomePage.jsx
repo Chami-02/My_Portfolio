@@ -41,7 +41,15 @@ export function HomePage() {
         <StarfieldCanvas />
         <CursorGlow />
 
-        <HeroSection />
+        {/* Wrapped as of PF-80. Hero used to be bare, and with no
+            ErrorBoundary anywhere above it — not in App.jsx, not around
+            <App /> in main.jsx — a throw here unmounted the entire root:
+            no navbar, no footer, no sections, an empty #root. Verified,
+            not assumed. PF-80 gives Hero a pointermove handler, a scroll
+            handler and eight individually positioned chips, which is
+            enough new surface to be worth degrading to a fallback
+            instead. */}
+        <ErrorBoundary><HeroSection /></ErrorBoundary>
         <ErrorBoundary><AboutSection /></ErrorBoundary>
         <ErrorBoundary><SkillsSection /></ErrorBoundary>
         <ErrorBoundary><ProjectsSection /></ErrorBoundary>

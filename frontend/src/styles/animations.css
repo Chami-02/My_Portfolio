@@ -51,10 +51,20 @@
  */
 
 .kf-breathe    { animation-name: breathe; }
+.kf-dot        { animation-name: dot; }
 .kf-flicker    { animation-name: flicker; }
+.kf-glowdot    { animation-name: glowdot; }
 .kf-glowpulse  { animation-name: glowpulse; }
 .kf-marq       { animation-name: marq; }
+.kf-nudge      { animation-name: nudge; }
 .kf-orbdot     { animation-name: orbdot; }
 .kf-pulsering  { animation-name: pulsering; }
 .kf-riseIn     { animation-name: riseIn; }
 .kf-spin       { animation-name: spin; }
+
+/* Per-screen variants. The screen suffix is part of the keyframe's real
+   name — `flt` and `drift` differ per screen, so there is no unsuffixed
+   carrier to fall back on. Portfolio's are the only ones a module needs
+   so far; blog/admin get their own lines when a screen uses them. */
+.kf-drift-portfolio { animation-name: drift-portfolio; }
+.kf-flt-portfolio   { animation-name: flt-portfolio; }
