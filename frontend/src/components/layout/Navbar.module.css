@@ -89,6 +89,12 @@
 }
 
 .contactPill {
+  /* The keyframe NAME must come from a global class — CSS Modules
+     rewrites an in-module animation-name to a scoped identifier that
+     no @keyframes defines, and the element then silently never
+     animates. See styles/animations.css. Longhands, not the
+     shorthand: the shorthand would reset the composed name to none. */
+  composes: kf-glowpulse from global;
   margin-left: 4px;
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
@@ -102,7 +108,9 @@
   text-shadow: 0 0 14px rgba(252, 163, 17, .55);
   box-shadow: 0 0 18px rgba(252, 163, 17, .18);
   text-decoration: none;
-  animation: glowpulse 3s ease-in-out infinite;
+  animation-duration: 3s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
   transition: color .25s, background .25s, border-color .25s, text-shadow .25s;
 }
 

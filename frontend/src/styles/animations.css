@@ -1,0 +1,58 @@
+/* frontend/src/styles/animations.css
+ *
+ * Global `animation-name` carriers — one per keyframe in the library.
+ *
+ * ── Why this file has to exist ────────────────────────────────────
+ *
+ * CSS Modules scopes `@keyframes` names, and it rewrites the NAME in
+ * an `animation` / `animation-name` declaration to match. Our keyframes
+ * are not in a module — they live in styles/keyframes/*.css and stay
+ * global — so a module writing
+ *
+ *     animation: pulsering 6s ease-in-out infinite;
+ *
+ * compiles to `animation-name: Splash-module__pulsering`, a name no
+ * @keyframes rule defines. The result is the silent failure this repo
+ * already knows about: the element simply does not animate. No error,
+ * no warning, `getComputedStyle` still reports the animation as
+ * "running", and only `element.getAnimations().length === 0` gives it
+ * away. It cost the whole splash, the navbar's CONTACT pill and the
+ * Marquee before anyone noticed.
+ *
+ * There is no per-declaration escape hatch: `:global(name)` in a value
+ * fails to parse, and `:global .foo { }` works only by making the class
+ * global too. `composes: … from global` is the one route that keeps the
+ * consuming class scoped.
+ *
+ * ── How to use it ─────────────────────────────────────────────────
+ *
+ *     .ringOuter {
+ *       composes: kf-pulsering from global;
+ *       animation-duration: 6s;
+ *       animation-timing-function: ease-in-out;
+ *       animation-iteration-count: infinite;
+ *     }
+ *
+ * Two rules, both load-bearing:
+ *
+ *   1. `composes` must be the first declaration in the rule.
+ *   2. **Use the animation LONGHANDS, never the shorthand.** The
+ *      shorthand resets every longhand it omits, so `animation: 6s
+ *      ease-in-out infinite` with the name left out sets
+ *      animation-name back to `none` and undoes the composed class.
+ *
+ * Timing, easing, delay, direction and fill stay in the component's own
+ * module — those are the transcribed design values, and they belong
+ * next to the rest of the element's styles. This file carries nothing
+ * but the name.
+ */
+
+.kf-breathe    { animation-name: breathe; }
+.kf-flicker    { animation-name: flicker; }
+.kf-glowpulse  { animation-name: glowpulse; }
+.kf-marq       { animation-name: marq; }
+.kf-orbdot     { animation-name: orbdot; }
+.kf-pulsering  { animation-name: pulsering; }
+.kf-riseIn     { animation-name: riseIn; }
+.kf-scanline   { animation-name: scanline; }
+.kf-spin       { animation-name: spin; }
