@@ -7,22 +7,30 @@ import styles from './StarfieldCanvas.module.css';
 
 /**
  * Star-to-star cursor web tuning — the ONLY deliberate visual departure
- * from the prototype in this file, requested directly by the user on
- * 2026-08-16: the web read as too prominent on the real site.
+ * from the prototype in this file, requested directly by the user: the
+ * web read as too prominent on the real site.
  *
- * Prototype values are 150px and 0.14 (lines 826 and 828). Both are
- * lowered here, and they compound: a shorter link distance draws fewer
- * lines, and every line that survives is also fainter, since alpha
- * falls off across the shorter span. Do NOT "restore" these to match
- * the prototype — the mismatch is intentional, not a transcription
- * slip. Named rather than inlined so the next adjustment is one edit.
+ * Toned down twice, both times on request:
+ *   prototype   150px / 0.14   (lines 826 and 828)
+ *   2026-08-16  130px / 0.1
+ *   2026-08-17  105px / 0.065  ← current, "reduce a bit more"
  *
- * The cursor's own accent-coloured spray (cursor → star) is untouched
- * at 0.3 — it is a separate line family, and the request was about the
- * web specifically.
+ * The two levers compound: a shorter link distance draws fewer lines,
+ * and every line that survives is also fainter, since alpha falls off
+ * across the shorter span. At 105/0.065 the mesh is roughly a third of
+ * the prototype's visual weight. Do NOT "restore" these — the mismatch
+ * is intentional, not a transcription slip. Named rather than inlined
+ * so the next adjustment stays one edit.
+ *
+ * ⚠️ The cursor's accent-coloured spray (cursor → star, line ~263) is a
+ * SEPARATE line family and is still at the prototype's 0.3 — three
+ * times the web's alpha, and now by far the loudest part of the
+ * effect. Every reduction so far has been to the web only, because
+ * that is what was asked for each time. If the cursor effect still
+ * reads too hot, that 0.3 is the next lever, not these two.
  */
-const WEB_LINK_PX = 130; // prototype: 150
-const WEB_ALPHA = 0.1; // prototype: 0.14
+const WEB_LINK_PX = 105; // prototype: 150 · was 130
+const WEB_ALPHA = 0.065; // prototype: 0.14 · was 0.1
 
 /**
  * Star field + cursor web — PF-76.

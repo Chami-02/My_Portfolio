@@ -691,12 +691,25 @@ Where a mistake would be silent, add a test that would catch it.
   First, the star-to-star
   cursor web in `StarfieldCanvas.jsx` reads more prominently on the real site
   than in the prototype, so on 2026-08-16 the user asked for it to be toned
-  down. `WEB_LINK_PX` is 130 (prototype: 150) and `WEB_ALPHA` is 0.1
-  (prototype: 0.14), both named constants at the top of that file with the
-  reason attached. The cursor's accent-coloured spray is a separate line family
-  and stays at the prototype's 0.3. Do not "restore" these — the mismatch is a
-  design decision by the site's owner, not a transcription slip, and it is
-  exactly the kind of thing a fidelity check flags as a bug.
+  down — **twice now**, both times on direct request:
+
+  | | `WEB_LINK_PX` | `WEB_ALPHA` |
+  | --- | --- | --- |
+  | prototype (lines 826, 828) | 150 | 0.14 |
+  | 2026-08-16 | 130 | 0.1 |
+  | **2026-08-17 (current)** | **105** | **0.065** |
+
+  Both are named constants at the top of that file with the reason attached.
+  They compound — a shorter link distance draws fewer lines, and each surviving
+  line is fainter because alpha falls off across the shorter span — so 105/0.065
+  is roughly a third of the prototype's visual weight, not two thirds.
+  **The cursor's accent-coloured spray (cursor → star) is a separate line family
+  and is still at the prototype's 0.3.** Every reduction so far has been to the
+  star-to-star web only, because that is what was asked each time; at 3× the
+  web's alpha it is now the loudest part of the cursor effect, and it is the
+  next lever if the effect still reads too hot. Do not "restore" any of these —
+  the mismatch is a design decision by the site's owner, not a transcription
+  slip, and it is exactly the kind of thing a fidelity check flags as a bug.
 
   Second, **the splash's two travelling scan lines are removed** (2026-08-17).
   The prototype has two `<div>`s inside the scanline layer running the
