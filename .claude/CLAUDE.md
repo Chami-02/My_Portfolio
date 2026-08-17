@@ -478,15 +478,37 @@ prototype rather than the ticket:
   named vestibular trigger; tilt is a 1:1 pointer follow, same as `CursorGlow`,
   which is ungated for the same reason. Both directions are tested.
 - **`data-lightplate` on the plate element is load-bearing.** The light-theme
-  `opacity: 1` is *not* in `HeroSection.module.css` — `tokens.css:150` has
-  carried `html[data-theme="light"] [data-lightplate] { opacity: 1 }` since
-  PF-67, transcribed from the prototype's line 18 and dead code until this
-  element existed. Attribute selectors are not scoped by CSS Modules, so the
-  global rule reaches the element as-is. Drop the attribute and the plate
-  silently never appears in light theme, with nothing wrong in either file read
-  on its own. Guarded by a test. The prototype *also* writes this opacity from
-  JS in `applyTheme()` (line 861); that write is genuinely redundant with the
-  CSS rule, so it is not ported.
+  `opacity: 1` is *not* in `HeroSection.module.css` — it is in `tokens.css:150`.
+  Attribute selectors are not scoped by CSS Modules, so that global rule reaches
+  the element as-is. Drop the attribute and the plate silently never appears in
+  light theme, with nothing wrong in either file read on its own. Guarded by a
+  test. The prototype *also* writes this opacity from JS in `applyTheme()`
+  (line 861); that write is genuinely redundant with the CSS rule, so it is not
+  ported.
+
+  **How that rule got there, since the honest version is more useful than the
+  flattering one.** It was not groundwork laid for an element six days out.
+  PF-67 (`e23d97b`, 2026-08-11) created `tokens.css` by transcribing the
+  prototype's `<style>` block, and its light-mode section came across
+  **wholesale** — both rules, verbatim, from the prototype's own lines 18-19:
+
+  ```css
+  /* ── Light-mode-only rules ───────────────────────────────── */
+  html[data-theme="light"] [data-lightplate] { opacity: 1; }
+  html[data-theme="light"] [data-terminal]   { box-shadow: 0 30px 60px rgba(20,33,61,.22); }
+  ```
+
+  Neither is a token. Both are component-coupled attribute selectors sitting in
+  a stylesheet otherwise made of flat tokens and channel triplets — worth
+  knowing before citing "it's in tokens.css" as though it were designed there.
+  `data-lightplate` found its element in PF-80, six days later.
+  **`data-terminal` has not. As of 2026-08-17 it has exactly one occurrence in
+  the whole tree — the rule itself.** Nothing renders that attribute, in any
+  file type. Checked, not assumed; re-check before relying on it either way.
+
+  (Blame reads line 150 for a commit whose stat shows 115 insertions, which
+  looks contradictory and is not: PF-67 created the file at 115 lines with this
+  rule at line 99, and PF-68 and PF-79 grew it to 203, pushing the rule down.)
 
 **`HeroSection` is now wrapped in `<ErrorBoundary>` in `HomePage.jsx`**
 (owner-approved during PF-80). Worth knowing why it matters more than it
@@ -737,6 +759,36 @@ error message:
   resting `opacity: 0`) passes or fails for the wrong reason. Assert the
   stylesheet as text, as `styles/__tests__/tokens.test.js` does, and assert the
   DOM only for what JS actually writes inline.
+- **⚠️ A green test suite actively hides dead code — it does not merely fail to
+  catch it.** This is the sharper version of the usual "tests don't prove much"
+  caveat, and it is worth reading twice: a module's own test file keeps
+  reporting PASS forever after its last consumer disappears, because the test
+  imports the module directly. The suite therefore says *alive* about code
+  nothing in the app reaches, with **zero signal** that anything changed. Test
+  count goes up, not down. Nothing turns red. Coverage still counts the lines.
+
+  **Live example, created by PF-80 and left in place deliberately.** Replacing
+  the Phase 1 `HeroSection` orphaned two Phase 1 modules, which were its only
+  consumers:
+
+  | Module | Consumers | Own tests | How it presents |
+  | --- | --- | --- | --- |
+  | `hooks/useTypewriter.js` | **0** | `hooks/__tests__/useTypewriter.test.js` — **4 passing** | reads as healthy, tested code |
+  | `components/common/TerminalWindow.jsx` | **0** | none | invisible; nothing mentions it at all |
+
+  Two different failure shapes from one cause, and `useTypewriter` is the
+  dangerous one: a cleanup sweep looking for untested or unreferenced files
+  finds `TerminalWindow` and walks straight past `useTypewriter`, because the
+  green test looks like evidence of use. It is evidence of nothing but the test.
+
+  **Both are still in the tree on purpose.** Deleting Phase 1 code is cutover
+  work, not PF-80's — the Phase 1 sections around them are still mounted in
+  `HomePage.jsx` and get replaced by PF-81/82. **"Not deleted" here means
+  "noticed and deferred", not "missed".** Do not treat either as in use, and do
+  not re-import them; the Phase 2 hero has no typewriter (see the PF-80 entry
+  on `typeLoop()`/`ROLES`). Re-check consumer counts before deleting — grep for
+  the identifier and discount the module's own file and its own test, which is
+  exactly the discount that makes the count look non-zero if skipped.
 - **A design image referenced by URL 404s in silence.** `docs/design/assets/` is
   not served by anything — it is design reference, outside the Vite root — and
   `frontend/public/` holds only `favicon.svg` and `icons.svg`. A ticket saying
