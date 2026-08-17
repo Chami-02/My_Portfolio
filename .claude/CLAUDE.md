@@ -182,7 +182,7 @@ competing for attention with straightforward section transcription.
 | 2 | PF-76 | GalaxyCanvas — star field + cursor web | 8 | PF-75 | ✅ |
 | 3 | PF-77 | Grain overlay + cursor glow | 3 | PF-75 | ✅ |
 | 4 | PF-78 | Splash | 4 | PF-74, PF-75 | ✅ |
-| 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | — |
+| 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | ✅ |
 | 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | — |
 | 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | — |
 | 8 | PF-82 | Skills | 3 | PF-81 | — |
@@ -203,8 +203,15 @@ Full markup transcription plus timer choreography plus that provider change put
 it closer to 7 points than 4. The table above still reads 4, which is what Jira
 has; re-point it there if you want the two to agree.
 
-**Sprint 11 is in progress** — PF-75, PF-76, PF-77 and PF-78 done and on the
-branch (20 of 46 points), PF-79 next.
+**Sprint 11 is in progress** — PF-75, PF-76, PF-77, PF-78 and PF-79 done and on
+the branch (25 of 46 points), PF-80 next.
+
+PF-79 also carried three things beyond its own scope, all recorded below:
+`ThemeToggle`'s visual transcription (PF-72 deferred it here in its own module
+comment, so this was the deferral landing, not a re-style), the `motion.css`
+root-selector fix, and `--header-h`. It is 5 points in Jira; its ticket
+recommends 8, and that looks right — re-point it there if you want the two to
+agree.
 
 Mobile nav treatment and the cursor-web budget lever are decided — see
 Locked decisions. The canvas-palette question that was on this list earlier
@@ -373,6 +380,48 @@ no loop to defer — just one style write per `pointermove` — the tracking is 
 only animation is a CSS `transition`, which `motion.css` already collapses
 globally. `GrainOverlay` skips both gates for the same reason: it paints once.
 
+**Built by PF-79 — the chrome is Phase 2 now:**
+
+```
+frontend/src/
+  components/layout/
+    Navbar.jsx  + .module.css   header z-index 60, overlay z-index 80
+    ThemeToggle.jsx + .module.css   visuals now match the prototype
+    __tests__/Navbar.test.jsx  __tests__/ThemeToggle.test.jsx
+  styles/
+    tokens.css                  + --header-h: 71px, + html{scroll-behavior}
+    motion.css                  + the root-element scroll-behavior override
+    __tests__/motion.test.js    new — guards that override
+  utils/theme.js                + themeModeLabel()
+```
+
+`Navbar` is mounted by `App.jsx` for every route except `/admin/*`, which was
+already true in Phase 1 and is unchanged. It is a **named** export; a default
+export exists too but nothing imports it.
+
+Four things worth knowing before touching it:
+
+- **The scroll listener ports only the progress-bar third of the prototype's
+  `bindScroll()`.** The reveal-sweep call is redundant with each `Reveal`'s own
+  140ms interval (PF-74/75), and `data-para` parallax is PF-81's — no
+  `[data-para]` element exists in the DOM yet. **PF-81 needs its own scroll
+  listener**; do not expect to find a hook here for it.
+- **The bar is set from a ref inside a rAF, and updated once at mount too** —
+  matching the prototype's trailing `this.onScroll()`. Without that call the bar
+  sits at 0% over a page the browser restored mid-scroll. Known limitation,
+  inherited from the prototype and left alone deliberately: the mount reading
+  uses the layout height *at mount*, so if the page grows or shrinks afterwards
+  the bar is proportionally off until the first scroll event corrects it.
+  Observed at ~22% where ~26% was right, on a reload with restored scroll. If
+  this becomes visible enough to matter once real sections land, it is a design
+  change (the prototype has the same behaviour) — raise it, don't just fix it.
+- **`ThemeToggle` is used in both the desktop nav and the overlay**, so two
+  elements with `data-testid="theme-toggle"` exist whenever the menu is open.
+  Any test touching it while open must use `getAllByTestId`.
+- **No active-link highlighting.** The prototype has none; Phase 1's navbar did.
+  Dropping it is fidelity, and `Navbar.test.jsx` asserts all four links share one
+  class so it cannot creep back.
+
 ## Stack
 
 React 19 · Vite · Tailwind v4 · CSS Modules · React Router v7 · TanStack Query v5
@@ -495,6 +544,29 @@ error message:
   asset into `frontend/src/assets/` and `import` it** (established in PF-78,
   which added that directory and `logo.png`): Vite emits it hashed, and a path
   that does not resolve fails the build loudly instead of shipping a hole.
+  **PF-79's ticket carried this exact mistake** (`src="/assets/logo.png"` for
+  the navbar logo), so it is a live trap, not a historical one.
+- **`html[data-motion="reduced"] *` never matches `<html>` itself.** It is a
+  descendant selector, so `motion.css`'s universal rule reaches everything
+  *inside* the root element and not the root element. That mattered exactly
+  once and badly: the document's scrolling box takes `scroll-behavior` from the
+  root, so `html { scroll-behavior: smooth }` escaped the reduced-motion
+  override entirely — `data-motion="reduced"` was set, every descendant was
+  neutralised, and anchor jumps still animated. Found in a real browser during
+  PF-79 (`getComputedStyle(document.documentElement).scrollBehavior` read
+  `'smooth'` with reduced motion active); PF-79 added a second rule targeting
+  the root itself. Nothing else in that file needs the same treatment —
+  animation and transition are only ever declared on descendants — but any
+  future property that lives on the root does. Guarded by
+  `styles/__tests__/motion.test.js`, added in PF-79.
+- **Two stacked full-size layers: only the top one gets clicks.** A backdrop
+  element under a full-viewport panel receives nothing, because hit-testing
+  gives the click to the topmost box at that point. Neither `z-index: -1` nor
+  ordering saves it — a negative-z child of a stacking context paints *behind
+  its parent's own background* and is still not hit first. There is no error;
+  the dismiss simply never fires. PF-79's overlay was built this way, and only
+  a browser check caught it. See the mobile-nav locked decision for the shape
+  that works.
 
 Where a mistake would be silent, add a test that would catch it.
 
@@ -502,7 +574,8 @@ Where a mistake would be silent, add a test that would catch it.
 
 - Design fidelity is absolute. Nothing visible is removed or simplified for
   performance.
-  **One sanctioned exception exists**, and it is the only one: the star-to-star
+  **One sanctioned exception exists to the "nothing is reduced" half**, and it
+  is the only one: the star-to-star
   cursor web in `StarfieldCanvas.jsx` reads more prominently on the real site
   than in the prototype, so on 2026-08-16 the user asked for it to be toned
   down. `WEB_LINK_PX` is 130 (prototype: 150) and `WEB_ALPHA` is 0.1
@@ -511,6 +584,33 @@ Where a mistake would be silent, add a test that would catch it.
   and stays at the prototype's 0.3. Do not "restore" these — the mismatch is a
   design decision by the site's owner, not a transcription slip, and it is
   exactly the kind of thing a fidelity check flags as a bug.
+- **Smooth scroll — sanctioned exception (PF-79, 2026-08-17).** The prototype
+  uses the browser's native instant anchor-jump: zero matches for
+  `scroll-behavior`, and the only `behavior:'smooth'` in its script is a
+  design-tool "replay splash" affordance, not a site feature. Smooth scrolling
+  was raised explicitly and approved, per the PF-79 ticket. This is an
+  *addition*, so it sits under the "never substitute your own aesthetic
+  judgement, even upward" rule rather than the reduction rule above — same
+  process, different direction. Do not "correct" it back to instant.
+  Two things about the implementation:
+  - **It predates PF-79.** `global.css:86` has carried
+    `html { scroll-behavior: smooth }` since Phase 1, so the site was already
+    scrolling smoothly before the ticket that sanctioned it. PF-79 restates the
+    rule in `tokens.css` because `global.css` is the Phase 1 stylesheet and gets
+    trimmed at cutover; if the behaviour is only declared there it silently
+    disappears. Two identical declarations, so cascade order between them is
+    irrelevant — do not "de-duplicate" by deleting the `tokens.css` one.
+  - **CSS, not a JS `scrollTo`**, so it covers browser back/forward and a typed
+    `#hash` URL, not just clicks on the navbar.
+- **`--header-h` is 71px, and it is measured.** A `position: fixed` header over
+  the viewport lands any anchor-jump target under itself unless something
+  compensates. `tokens.css` publishes `--header-h`; **every section from PF-80
+  onward carries `scroll-margin-top: var(--header-h)`.** 12px padding + 44px
+  logo + 12px padding + 2px progress track + **1px bottom border** = 71, checked
+  against the rendered header's `getBoundingClientRect().height` in Chromium.
+  The PF-79 ticket estimated 70 by dropping the border — the classic
+  wrong-by-a-little value that stays wrong silently. Guarded by
+  `styles/__tests__/tokens.test.js`.
 - No frontend animation libraries. CSS keyframes plus vanilla JS.
 - Channel-triplet tokens stay as triplets.
 - `tokens.css` imports **after** `global.css` in `main.jsx` — `global.css`
@@ -539,11 +639,22 @@ Where a mistake would be silent, add a test that would catch it.
   callable from anywhere, `setReady` should only ever be called by the splash
   itself (PF-78). Keeping it off the hook that `Reveal` and `CountUp` call stops
   every consumer of splash state from also being able to control it.
-- **Mobile nav overlay (PF-79)**: the ambient layer shows through — canvas and
-  grain stay visible under the full-screen menu. The overlay uses a translucent
-  surface tone (same move as the header's `rgba(var(--ftr),.86)` + blur), never
-  a solid background. It sits above grain in the stack; exact z-index is fixed
-  when PF-79 is written, but must clear 70.
+- **Mobile nav overlay (PF-79, now built)**: the ambient layer shows through —
+  canvas and grain stay visible under the full-screen menu. The overlay uses a
+  translucent surface tone (same move as the header's `rgba(var(--ftr),.86)` +
+  blur), never a solid background. Settled when PF-79 was written: **z-index
+  80** (clears grain's 70, stays under splash's 100), **breakpoint 768px**
+  (this stack's Tailwind `md:` default, nothing prototype-derived), content is
+  the same nav restacked — no item invented, none dropped.
+  **The overlay root is itself the backdrop — one element, not a backdrop layer
+  plus a panel on top of it.** Two stacked full-size layers means the upper box
+  swallows every click, so a backdrop underneath receives only the clicks that
+  miss the panel, which on a full-viewport panel is none. Built that way first
+  and caught in a browser: backdrop-click did nothing. The surface, the
+  centring and the click-to-dismiss have to be the same box, with the inner
+  `<nav>` calling `stopPropagation()` so the theme toggle does not dismiss the
+  menu. Guarded by two tests in `Navbar.test.jsx` — one that an outside click
+  closes, one that an inside click does not.
 - **Cursor-web frame budget (PF-76)**: if a real device misses budget, lower
   the 80-node web cap first — the 2600 star-density divisor is the fallback,
   not the first move. Note for whoever revisits this: the cap only bites on
