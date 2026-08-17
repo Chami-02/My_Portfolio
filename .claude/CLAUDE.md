@@ -264,8 +264,13 @@ if disturbed:
 import './styles/global.css';
 import './styles/tokens.css';
 import './styles/keyframes/index.css';
-import './styles/motion.css';   // must be LAST
+import './styles/animations.css';   // after keyframes/ — PF-79 follow-up
+import './styles/motion.css';       // must be LAST
 ```
+
+`animations.css` holds the `.kf-*` carriers that let a CSS Module reference a
+global keyframe at all — see the entry in Silent failures, and read it before
+writing any `animation` declaration in a `*.module.css`.
 
 - **Tokens** (`frontend/src/styles/tokens.css`): flat tokens + 5 channel
   triplets, dual-theme via `html[data-theme]`.
@@ -443,6 +448,22 @@ silently** — no error, the element just renders without a background.
 Shared structural patterns live in `frontend/src/styles/patterns.module.css`
 and are pulled in with `composes:`. Do not generalise a value used once.
 
+**Animations are the one thing a CSS Module cannot express directly.** A
+keyframe name written in a `*.module.css` gets scoped and silently resolves to
+nothing. Pull the name in with `composes: kf-<name> from global` and keep the
+timing values in the module as longhands:
+
+```css
+.ringOuter {
+  composes: kf-pulsering from global;   /* must be the first declaration */
+  animation-duration: 6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+```
+
+Full reasoning in Silent failures; carriers in `styles/animations.css`.
+
 ## React conventions
 
 CI runs ESLint with `--max-warnings=0`, and React 19's hooks plugin enforces two
@@ -479,6 +500,30 @@ error message:
 - **Mistyped CSS custom property** → declaration dropped, element inherits
 - **Mistyped `animation-name`** → element simply does not animate. `drift-blog`
   is the trap here: it looks like it should exist by symmetry, and it does not.
+- **⚠️ Naming a keyframe inside a `*.module.css` breaks it — always.** This is
+  the single most expensive silent failure found so far, and it is *not* a
+  typo class: correctly-spelled names fail too. CSS Modules scopes `@keyframes`
+  names and rewrites the name in an `animation` / `animation-name` declaration
+  to match. The library lives in `styles/keyframes/*.css`, which are **not**
+  modules, so those names stay global — and a module writing
+  `animation: pulsering 6s ease-in-out infinite` compiles to
+  `animation-name: Splash-module__pulsering`, which nothing defines.
+  **The correct way is `composes: kf-<name> from global`** — carriers live in
+  `frontend/src/styles/animations.css`, one per keyframe, each setting only
+  `animation-name`. The module keeps duration/easing/delay/direction/fill as
+  **longhands**. Never the shorthand: `animation: 6s ease-in-out infinite` with
+  the name omitted resets `animation-name` to `none` and undoes the composed
+  class. `:global(name)` in a value position does not parse at all, and
+  `:global .foo {}` works only by making the class global too.
+  How bad it was: found 2026-08-17 from the live site, reported as "the splash
+  has no motion". It had none — **all 14 splash animations were dead, plus the
+  navbar's CONTACT pill and the Marquee: 16 at once**, spanning PF-74, PF-78 and
+  PF-79, and every one of them shipped. Nothing surfaces it. No error, no
+  warning, and **`getComputedStyle` still reports `animationPlayState: running`**
+  — the only tell is `element.getAnimations().length === 0`. Use that when
+  checking, not computed style. Guarded by `styles/__tests__/animations.test.js`,
+  which fails on any module naming a keyframe and prints the file; verified by
+  mutation.
 - **`rgba(#hex, .5)`** → invalid, produces nothing. The five channel triplets
   (`--gnd --srf --ln --ftr --shd`) must stay as bare `R,G,B`
 - **Redefined `@keyframes` of the same name** → later definition wins by
