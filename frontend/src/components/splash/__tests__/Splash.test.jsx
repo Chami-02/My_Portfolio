@@ -22,6 +22,27 @@ const advance = (ms) => act(() => { vi.advanceTimersByTime(ms); });
 
 const rootOf = (container) => container.querySelector('[class*="splash"]');
 
+/* Mirrors of Splash.jsx's own constants, duplicated on purpose rather
+   than imported: exporting them alongside the component would put a
+   non-component export in a component file, and the point of a timing
+   test is to PIN the numbers. Change Splash.jsx and these fail, which
+   is the intended alarm. */
+const SPLASH_MS = 4500;
+const PROTOTYPE_SPLASH_MS = 4600;
+const BAR_START_MS = 220;
+const BAR_TICK_MS = 140;
+const BAR_TRANSITION_MS = 250;
+const BOOT_FIRST_MS = Math.round(SPLASH_MS * (560 / PROTOTYPE_SPLASH_MS));
+const BOOT_STEP_MS = Math.round(SPLASH_MS * (820 / PROTOTYPE_SPLASH_MS));
+const BAR_TICKS = Math.ceil(
+  (SPLASH_MS - BAR_START_MS - BAR_TRANSITION_MS) / BAR_TICK_MS,
+);
+/** When the final tick fires — bar writes 100% here. */
+const LAST_TICK_MS = BAR_START_MS + (BAR_TICKS - 1) * BAR_TICK_MS;
+/** The last of the four boot lines. */
+const LAST_BOOT_MS = BOOT_FIRST_MS + 3 * BOOT_STEP_MS;
+const pctAtTick = (n) => `${Math.round((n / BAR_TICKS) * 100)}%`;
+
 describe('Splash (PF-78)', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -41,7 +62,7 @@ describe('Splash (PF-78)', () => {
     // starts calling setReady(false) from its own effect instead of
     // relying on initialReady, this still passes — which is why the
     // race is guarded in SplashProvider.test.jsx too, not only here.
-    advance(4599);
+    advance(SPLASH_MS - 1);
     expect(screen.getByTestId('ready')).toHaveTextContent('false');
   });
 
@@ -54,7 +75,7 @@ describe('Splash (PF-78)', () => {
     expect(img.getAttribute('src')).toMatch(/logo\.png/);
   });
 
-  it('reveals boot lines at 560, 1380, 2200, 3020', () => {
+  it('reveals the four boot lines spread across the sequence', () => {
     const { container } = render(withSplash(<Splash />));
     const lines = container.querySelectorAll('[class*="bootLine"]');
     expect(lines).toHaveLength(4);
@@ -63,7 +84,7 @@ describe('Splash (PF-78)', () => {
     // "not yet revealed" is an empty inline style, not '0'.
     expect(lines[0].style.opacity).toBe('');
 
-    advance(559);
+    advance(BOOT_FIRST_MS - 1);
     expect(lines[0].style.opacity).toBe('');
 
     advance(1);
@@ -71,35 +92,35 @@ describe('Splash (PF-78)', () => {
     expect(lines[0].style.transform).toBe('none');
     expect(lines[1].style.opacity).toBe('');
 
-    advance(820);
+    advance(BOOT_STEP_MS);
     expect(lines[1].style.opacity).toBe('1');
 
-    advance(820);
+    advance(BOOT_STEP_MS);
     expect(lines[2].style.opacity).toBe('1');
 
-    advance(820);
+    advance(BOOT_STEP_MS);
     expect(lines[3].style.opacity).toBe('1');
+
+    // The last line must land with time left to read it, not flash past
+    // as the splash leaves. Derived from SPLASH_MS, so this keeps
+    // holding if the sequence length changes again.
+    expect(SPLASH_MS - LAST_BOOT_MS).toBeGreaterThanOrEqual(1500);
   });
 
   it('ticks the progress bar to exactly 100 and then stops', () => {
-    // Math.min clamps the last tick, but only a fixed increment makes
-    // "lands on 100, never 104.2" a deterministic assertion.
-    vi.spyOn(Math, 'random').mockReturnValue(0.5); // → +5.2 per tick
     const { container } = render(withSplash(<Splash />));
 
     const bar = container.querySelector('[class*="progressFill"]');
     const label = container.querySelector('[class*="progressLabels"] span:last-child');
-    expect(label.textContent).toBe('000%');
+    expect(label.textContent).toBe('0%');
 
-    advance(220);                       // first tick
-    expect(label.textContent).toBe('005%');
-    expect(bar.style.width).toBe('5.2%');
+    advance(BAR_START_MS);              // first tick
+    expect(label.textContent).toBe(pctAtTick(1));
 
-    advance(140);                       // second
-    expect(label.textContent).toBe('010%');
+    advance(BAR_TICK_MS);               // second
+    expect(label.textContent).toBe(pctAtTick(2));
 
-    // 100 / 5.2 → 20 ticks, the last at 220 + 19*140 = 2880ms.
-    advance(2880 - 360);
+    advance(LAST_TICK_MS - BAR_START_MS - BAR_TICK_MS);
     expect(label.textContent).toBe('100%');
     expect(bar.style.width).toBe('100%');
 
@@ -109,10 +130,50 @@ describe('Splash (PF-78)', () => {
     expect(bar.style.width).toBe('100%');
   });
 
-  it('starts exiting at 4600, not when the bar fills', () => {
+  it('shows the percentage unpadded — 3%, not 003%', () => {
+    const { container } = render(withSplash(<Splash />));
+    const label = container.querySelector('[class*="progressLabels"] span:last-child');
+
+    // The prototype zero-fills to three digits. Dropped at the owner's
+    // request, so a regression here is a visible one.
+    expect(label.textContent).toBe('0%');
+    advance(BAR_START_MS);
+    expect(label.textContent).toBe(pctAtTick(1));
+    expect(label.textContent).not.toMatch(/^0\d/);
+
+    advance(LAST_TICK_MS);
+    expect(label.textContent).toBe('100%');
+  });
+
+  it('fills the bar in step with the exit, not well ahead of it', () => {
+    // THE BUG THIS GUARDS. The prototype's increment was random
+    // (Math.random()*6 + 2.2 per 140ms), so the bar finished around
+    // 2.9s and then sat full for another 1.7s while the splash ran on
+    // to 4600ms — a visible dead gap, and the reason these two numbers
+    // are now derived from one another rather than chosen separately.
+    const { container } = render(withSplash(<Splash />));
+    const bar = container.querySelector('[class*="progressFill"]');
+
+    // Still climbing one tick before the end.
+    advance(LAST_TICK_MS - BAR_TICK_MS);
+    expect(parseFloat(bar.style.width)).toBeLessThan(100);
+
+    // Full, and the splash has NOT left yet.
+    advance(BAR_TICK_MS);
+    expect(bar.style.width).toBe('100%');
+    expect(rootOf(container)).not.toHaveAttribute('data-exiting');
+
+    // The gap between the bar landing and the exit is one CSS
+    // transition-length or so — not seconds.
+    const visuallyFull = LAST_TICK_MS + BAR_TRANSITION_MS;
+    expect(SPLASH_MS - visuallyFull).toBeGreaterThanOrEqual(0);
+    expect(SPLASH_MS - visuallyFull).toBeLessThan(400);
+  });
+
+  it('starts exiting at SPLASH_MS, not when the bar fills', () => {
     const { container } = render(withSplash(<Splash />));
 
-    advance(4599);
+    advance(SPLASH_MS - 1);
     expect(rootOf(container)).not.toHaveAttribute('data-exiting');
 
     advance(1);
@@ -122,7 +183,7 @@ describe('Splash (PF-78)', () => {
   it('arms reveals 320ms after the exit begins, not immediately', () => {
     render(withSplash(<Splash />));
 
-    advance(4600);
+    advance(SPLASH_MS);
     expect(screen.getByTestId('ready')).toHaveTextContent('false');
 
     advance(319);
@@ -135,7 +196,7 @@ describe('Splash (PF-78)', () => {
   it('leaves the DOM 1150ms after the exit begins', () => {
     const { container } = render(withSplash(<Splash />));
 
-    advance(4600 + 1149);
+    advance(SPLASH_MS + 1149);
     expect(rootOf(container)).toBeTruthy();
 
     advance(1);
@@ -162,7 +223,7 @@ describe('Splash (PF-78)', () => {
     const { container } = render(withSplash(<Splash />));
     const lines = container.querySelectorAll('[class*="bootLine"]');
 
-    advance(560);
+    advance(BOOT_FIRST_MS);
     expect(lines[0].style.opacity).toBe('1');
 
     act(() => { screen.getByText('SKIP INTRO →').click(); });
@@ -177,10 +238,10 @@ describe('Splash (PF-78)', () => {
   // ready/unmount timers and schedule fresh ones — reveals arming 320ms
   // late and the splash lingering another 1150ms, with nothing to
   // explain either.
-  it('a SKIP click after the 4600ms finish does not restart the exit clock', () => {
+  it('a SKIP click after the SPLASH_MS finish does not restart the exit clock', () => {
     const { container } = render(withSplash(<Splash />));
 
-    advance(4600);
+    advance(SPLASH_MS);
     act(() => { screen.getByText('SKIP INTRO →').click(); });
 
     advance(320);
@@ -218,7 +279,7 @@ describe('Splash (PF-78)', () => {
     const gated = container.querySelector('[data-testid="gated"]');
     expect(gated).toHaveAttribute('data-reveal', 'out');
 
-    advance(4600);
+    advance(SPLASH_MS);
     expect(gated).toHaveAttribute('data-reveal', 'out');
 
     advance(319);

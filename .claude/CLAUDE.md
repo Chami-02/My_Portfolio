@@ -505,30 +505,92 @@ error message:
 - **Mistyped CSS custom property** → declaration dropped, element inherits
 - **Mistyped `animation-name`** → element simply does not animate. `drift-blog`
   is the trap here: it looks like it should exist by symmetry, and it does not.
-- **⚠️ Naming a keyframe inside a `*.module.css` breaks it — always.** This is
-  the single most expensive silent failure found so far, and it is *not* a
-  typo class: correctly-spelled names fail too. CSS Modules scopes `@keyframes`
-  names and rewrites the name in an `animation` / `animation-name` declaration
-  to match. The library lives in `styles/keyframes/*.css`, which are **not**
-  modules, so those names stay global — and a module writing
-  `animation: pulsering 6s ease-in-out infinite` compiles to
-  `animation-name: Splash-module__pulsering`, which nothing defines.
-  **The correct way is `composes: kf-<name> from global`** — carriers live in
-  `frontend/src/styles/animations.css`, one per keyframe, each setting only
-  `animation-name`. The module keeps duration/easing/delay/direction/fill as
-  **longhands**. Never the shorthand: `animation: 6s ease-in-out infinite` with
+- **⚠️ Naming a keyframe inside a `*.module.css` breaks it — always.** The most
+  expensive silent failure found so far, and **not a typo class**: correctly
+  spelled names fail too. CSS Modules scopes `@keyframes` names, and it rewrites
+  the name inside an `animation` / `animation-name` declaration to match. The
+  library lives in `styles/keyframes/*.css`, which are **not** modules, so those
+  names stay global — and the two never meet.
+
+  **The wrong pattern**, which looks completely ordinary:
+
+  ```css
+  /* Splash.module.css */
+  .ringOuter { animation: pulsering 6s ease-in-out infinite; }
+  ```
+
+  **What it actually compiles to.** Real build output, not a description —
+  dev naming first, then the same rule in production:
+
+  ```css
+  .Splash-module__ringOuter{…;animation:6s ease-in-out infinite Splash-module__pulsering;…}
+  /* production: animation:6s ease-in-out infinite EWAVTs */
+  ```
+
+  …while the only matching rule in the whole bundle is `@keyframes pulsering`.
+  So it resolves to **a scoped name that matches nothing** — not to empty, and
+  not to the real keyframe. The declaration is valid CSS and present in the
+  sheet; it just names an animation that does not exist, and per spec no
+  animation is applied.
+
+  **The fix — `composes: kf-<name> from global`:**
+
+  ```css
+  /* styles/animations.css — a plain global sheet, NOT a module */
+  .kf-pulsering { animation-name: pulsering; }
+
+  /* Splash.module.css */
+  .ringOuter {
+    composes: kf-pulsering from global;   /* must be the first declaration */
+    animation-duration: 6s;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+  }
+  ```
+
+  ```css
+  /* emitted: two classes on the element, name supplied by the global one */
+  .Splash-module__ringOuter{…;animation-duration:6s;animation-timing-function:ease-in-out;…}
+  .kf-pulsering{animation-name:pulsering}
+  ```
+
+  **Why the indirection works when a direct reference in the same file does
+  not:** `composes` does not write a name into the module at all — it adds a
+  second class to the element, and the name is declared in `animations.css`,
+  which is not a module and so is never rewritten. The module keeps only the
+  timing values, which the compiler has no reason to touch.
+
+  **Longhands, never the shorthand.** `animation: 6s ease-in-out infinite` with
   the name omitted resets `animation-name` to `none` and undoes the composed
-  class. `:global(name)` in a value position does not parse at all, and
-  `:global .foo {}` works only by making the class global too.
-  How bad it was: found 2026-08-17 from the live site, reported as "the splash
-  has no motion". It had none — **all 14 splash animations were dead, plus the
-  navbar's CONTACT pill and the Marquee: 16 at once**, spanning PF-74, PF-78 and
-  PF-79, and every one of them shipped. Nothing surfaces it. No error, no
-  warning, and **`getComputedStyle` still reports `animationPlayState: running`**
-  — the only tell is `element.getAnimations().length === 0`. Use that when
-  checking, not computed style. Guarded by `styles/__tests__/animations.test.js`,
-  which fails on any module naming a keyframe and prints the file; verified by
-  mutation.
+  class. That is why the timing is spelled out property by property.
+
+  There is no per-declaration escape hatch: `:global(name)` in a value position
+  fails to parse (`CssSyntaxError: Double colon`), and `:global .foo {}` works
+  only by making the class global too.
+
+  **Detection — do not trust computed style.** `getComputedStyle` reports
+  `animationName: "Splash-module__pulsering"` and `animationPlayState: "running"`
+  for an animation that does not exist. The only reliable tell is
+  **`element.getAnimations().length === 0`**.
+
+  **Scope when found (2026-08-17)**, from the live site, reported as "the splash
+  has no motion" — it had none. **16 declarations, every one shipped**, across
+  three tickets: 14 in `Splash.module.css` (PF-78), 1 on the navbar's CONTACT
+  pill (`glowpulse`, PF-79), 1 on `Marquee`'s track (`marq`, PF-74). All 16
+  fixed in `e087712`; the splash is 14 of them at discovery and 12 today, since
+  the two scan lines were later removed. Guarded by
+  `styles/__tests__/animations.test.js`, which fails on any module naming a
+  keyframe and prints the offending file — confirmed by mutation.
+
+  **This is the second global-stylesheet interaction to fail silently in Sprint
+  11**, and the pair is worth reading together: here a global `@keyframes` that
+  a scoped rule could not reach, and in PF-79 a global `motion.css` rule that
+  could not reach the root element (see the `html[data-motion="reduced"] *`
+  entry below). Both were correct-looking CSS that simply never applied. When a
+  rule spans the module/global boundary, verify it in a browser rather than by
+  reading it. (Distinct from the `tokens.css`-after-`global.css` ordering rule
+  in Locked decisions — that one is global-vs-global cascade order, no modules
+  involved.)
 - **`rgba(#hex, .5)`** → invalid, produces nothing. The five channel triplets
   (`--gnd --srf --ln --ftr --shd`) must stay as bare `R,G,B`
 - **Redefined `@keyframes` of the same name** → later definition wins by
@@ -654,6 +716,32 @@ Where a mistake would be silent, add a test that would catch it.
     is one line if a screen needs it.
   The splash is therefore **12 animated elements, not 14** — the count in any
   older note or ticket predates this.
+- **Splash timing and the progress bar (2026-08-17, owner-requested).** Two
+  more deviations from the prototype, both in `Splash.jsx`:
+  - **`SPLASH_MS` is 7000, not the prototype's 4600.** The owner asked for
+    ~2.5s more. Boot lines were re-scaled by the same ratio to
+    `850 + i*1250` (850, 2100, 3350, 4600); left at the prototype's
+    `560 + i*820` they finish by 3s and the remaining 4s reads as a stall.
+  - **The bar is derived from the exit, not racing it.** The prototype's
+    increment is random — `Math.random()*6 + 2.2` every 140ms — so it finished
+    around 2.9s and then sat at 100% for ~1.7s while the splash ran on. That
+    dead gap is what the owner reported. It now counts ticks:
+    `pct = ticks / BAR_TICKS`, with
+    `BAR_TICKS = ceil((SPLASH_MS - BAR_START_MS - BAR_TRANSITION_MS) / BAR_TICK_MS)`.
+    **Derived, so changing `SPLASH_MS` alone keeps the two in step** — the
+    desync came from two independently chosen numbers, and hardcoding the tick
+    count would reintroduce exactly that. The `BAR_TRANSITION_MS` subtraction
+    is not incidental: `.progressFill` has `transition: width .25s`, so writing
+    100% at the exit moment would leave the bar visibly still growing as the
+    splash slides away. Measured in a browser: bar writes 100% at ~6.7s,
+    visually full at the exit, exit at ~7.0s.
+  - **The percentage is unpadded** — `2%`, `50%`, `100%`, not the prototype's
+    zero-filled `002%` / `050%`. The `padStart(3, '0')` is gone.
+  - The exit is still a fixed timer and still **not** triggered by the bar
+    reaching 100%. Do not "simplify" it into one — the bar measures nothing,
+    and letting it drive the sequence hands the length to a decoration.
+  All four are guarded by `components/splash/__tests__/Splash.test.jsx`, which
+  mirrors the constants deliberately rather than importing them.
 - **Smooth scroll — sanctioned exception (PF-79, 2026-08-17).** The prototype
   uses the browser's native instant anchor-jump: zero matches for
   `scroll-behavior`, and the only `behavior:'smooth'` in its script is a
