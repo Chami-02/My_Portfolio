@@ -135,9 +135,10 @@ export default function Splash() {
       <div aria-hidden="true" className={styles.ringMid} />
       <div aria-hidden="true" className={styles.ringInner} />
 
+      {/* The prototype's two travelling scan lines are deliberately not
+          here — removed at the owner's request, see the module. The
+          static CRT hatch below is a different element and stays. */}
       <div aria-hidden="true" className={styles.scanlineLayer}>
-        <div className={styles.scanline1} />
-        <div className={styles.scanline2} />
         <div className={styles.scanTexture} />
       </div>
 

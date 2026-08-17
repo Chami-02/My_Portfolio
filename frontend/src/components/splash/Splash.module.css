@@ -20,10 +20,18 @@
  * no JS, unlike StarfieldCanvas (canvas cannot read CSS vars) or
  * GrainOverlay (per-theme inline opacity).
  *
- * The seven keyframes used below — pulsering, spin, scanline, orbdot,
- * breathe, riseIn, flicker — all live in styles/keyframes/base.css from
- * PF-69, each defined exactly once. None is a per-screen flt/drift/sheen
+ * The six keyframes used below — pulsering, spin, orbdot, breathe,
+ * riseIn, flicker — all live in styles/keyframes/base.css from PF-69,
+ * each defined exactly once. None is a per-screen flt/drift/sheen
  * variant, so there is no -portfolio suffix to remember here.
+ * (`scanline` was a seventh until the travelling lines were removed —
+ * see the note further down. The keyframe itself is still in base.css.)
+ *
+ * Keyframe names cannot be written directly in a CSS Module — they get
+ * scoped to an identifier no @keyframes defines and the element then
+ * silently does not animate. Every rule below pulls its name in with
+ * `composes: kf-… from global` and keeps the timing as longhands. See
+ * styles/animations.css.
  */
 
 .splash {
@@ -119,32 +127,28 @@
   overflow: hidden;
 }
 
-.scanline1 {
-  composes: kf-scanline from global;
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(252, 163, 17, .55), transparent);
-  animation-duration: 4.2s;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
-.scanline2 {
-  composes: kf-scanline from global;
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(226, 235, 255, .35), transparent);
-  animation-duration: 6.4s;
-  animation-timing-function: linear;
-  animation-delay: 1.2s;
-  animation-iteration-count: infinite;
-}
+/* ⚠️ SANCTIONED DEVIATION — the two travelling scan lines are removed.
+ *
+ * The prototype has two here, both running the `scanline` keyframe
+ * (translateY -100% → 100vh) down the full height of the splash:
+ *
+ *   .scanline1  2px, rgba(252,163,17,.55) gradient, 4.2s linear
+ *   .scanline2  1px, rgba(226,235,255,.35) gradient, 6.4s linear, 1.2s delay
+ *
+ * Removed on 2026-08-17 at the site owner's request — they read as two
+ * horizontal lines scrolling down the screen. Both were confirmed
+ * animating correctly in a browser first; this is a design decision,
+ * not a fix for something broken. Do not "restore" them from the
+ * prototype: a fidelity check will flag their absence, and the absence
+ * is deliberate.
+ *
+ * The ELEMENTS are gone, not just their animation. Removing only the
+ * animation would leave two static gradient lines pinned at top:0,
+ * which is a worse artefact than the motion being complained about.
+ *
+ * .scanTexture below is NOT one of them and stays: it is the static
+ * CRT-style hatch over the whole splash, it has never moved, and the
+ * `scanline` keyframe in keyframes/base.css is untouched. */
 
 .scanTexture {
   position: absolute;

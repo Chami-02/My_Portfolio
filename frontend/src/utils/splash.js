@@ -18,7 +18,7 @@ import { prefersReducedMotion } from './motion';
  *   - Reduced motion is this project's decision, not a transcription. It
  *     routes through the same skip path rather than inventing a static
  *     splash presentation: the splash is almost entirely motion —
- *     orbiting dots, two spinning rings, scanlines, a flickering accent,
+ *     orbiting dots, two spinning rings, a flickering accent,
  *     a breathing portrait — so there is very little left once motion is
  *     removed, and reusing a behaviour the design already defines beats
  *     designing a new one from nothing.

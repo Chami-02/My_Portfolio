@@ -1,6 +1,9 @@
 /* frontend/src/styles/animations.css
  *
- * Global `animation-name` carriers — one per keyframe in the library.
+ * Global `animation-name` carriers — one per keyframe a CSS Module
+ * actually needs, not one per keyframe in the library. Add a line when
+ * a module needs a name that is not here yet; the library itself
+ * (styles/keyframes/) stays complete regardless of what is used.
  *
  * ── Why this file has to exist ────────────────────────────────────
  *
@@ -54,5 +57,4 @@
 .kf-orbdot     { animation-name: orbdot; }
 .kf-pulsering  { animation-name: pulsering; }
 .kf-riseIn     { animation-name: riseIn; }
-.kf-scanline   { animation-name: scanline; }
 .kf-spin       { animation-name: spin; }

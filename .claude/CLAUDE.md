@@ -63,10 +63,15 @@ floor at the prototype's own implementation. The `.dc.html` files are a design
 tool's export: a single class component driving a live preview, not a
 production React app. Treating its JS *structure* as a second source of truth
 alongside its visual values is a mistake this project doesn't need to make.
-Improve it freely, no need to ask first — this is covered by the same standing
-authorization already given for committing to the sprint branch (see the
-Working agreement), and inherits that scope exactly: sprint branches only,
-`master` excluded, both mandatory checks every time.
+Improve it freely, no need to ask first. Scope: work on `sprint-N-*` branches,
+`master` excluded.
+
+⚠️ This grant used to be worded as inheriting the sprint-branch *commit*
+authorization. That authorization was revoked on 2026-08-17 (see the Working
+agreement) and the cross-reference was removed then. The two are independent
+and always were: this one is about making implementation decisions without
+asking first, and it still stands. It has never implied permission to commit,
+and now explicitly does not — improve freely, then hand the work over.
 
 One limit on "freely", and it already exists elsewhere in this file: **Locked
 decisions still bind.** "No frontend animation libraries" is not reopened by an
@@ -619,8 +624,9 @@ Where a mistake would be silent, add a test that would catch it.
 
 - Design fidelity is absolute. Nothing visible is removed or simplified for
   performance.
-  **One sanctioned exception exists to the "nothing is reduced" half**, and it
-  is the only one: the star-to-star
+  **Two sanctioned exceptions exist to the "nothing is reduced" half**, both
+  asked for by the site's owner. They are the only two.
+  First, the star-to-star
   cursor web in `StarfieldCanvas.jsx` reads more prominently on the real site
   than in the prototype, so on 2026-08-16 the user asked for it to be toned
   down. `WEB_LINK_PX` is 130 (prototype: 150) and `WEB_ALPHA` is 0.1
@@ -629,6 +635,25 @@ Where a mistake would be silent, add a test that would catch it.
   and stays at the prototype's 0.3. Do not "restore" these — the mismatch is a
   design decision by the site's owner, not a transcription slip, and it is
   exactly the kind of thing a fidelity check flags as a bug.
+
+  Second, **the splash's two travelling scan lines are removed** (2026-08-17).
+  The prototype has two `<div>`s inside the scanline layer running the
+  `scanline` keyframe down the full height — 2px orange at 4.2s, 1px white at
+  6.4s with a 1.2s delay. The owner asked for them gone: they read as two
+  horizontal lines scrolling down the screen. Both were **confirmed animating
+  correctly first** — this was a design call, not a repair. Three things to
+  keep straight:
+  - The **elements** are gone, not just their animation. Removing only the
+    animation leaves two static gradient lines pinned at `top: 0`, which is a
+    worse artefact than the motion complained about.
+  - **`.scanTexture` stays.** It is a different element — the static CRT hatch
+    over the whole splash — and has never moved. It is not one of the two.
+  - The `scanline` **keyframe stays in `base.css`**, and
+    `styles/__tests__/keyframes.test.js` still asserts all 32. Only the
+    now-unused `kf-scanline` carrier came out of `animations.css`; re-adding it
+    is one line if a screen needs it.
+  The splash is therefore **12 animated elements, not 14** — the count in any
+  older note or ticket predates this.
 - **Smooth scroll — sanctioned exception (PF-79, 2026-08-17).** The prototype
   uses the browser's native instant anchor-jump: zero matches for
   `scroll-behavior`, and the only `behavior:'smooth'` in its script is a
@@ -770,41 +795,48 @@ should offer this check when asked whether one landed.
 Per-ticket `.md` guides are pasted into chat and are the source of truth for
 that ticket — except where the prototype contradicts them.
 
-**Committing on sprint branches — standing authorization.** On any
-`sprint-N-*` branch, commit as work completes; no per-commit confirmation
-needed. Two things are mandatory every single time, no exception:
+**Never run `git commit`. Committing is the user's, on every branch.**
 
-1. `git status --short` and `git diff --cached --stat` **immediately before**
-   each `git commit` runs — not earlier in the session. The drift incidents
-   below are why "earlier in the session" does not count.
-2. After every push, confirm the remote actually moved:
-   `git ls-remote --heads origin <branch>` must match local `HEAD`. Compare
-   them and report the comparison — never assume a push landed because the
-   command exited cleanly.
+Stated directly by the user on **2026-08-17**, during PF-79, after four
+commits had gone in under the previous authorization: *"dont commit by your
+self keep it to me as my part."* No sprint-branch exception, no
+"as work completes" — Claude prepares the work and hands it over, the user
+authors the commit.
 
-`master` is excluded, always. A commit directly on `master` requires explicit
-sign-off every time; this authorization is scoped to sprint branches only.
+This is a standing instruction, not a per-session mood. Do not infer that a
+`sprint-N-*` branch, a green test run, or an explicit "go ahead" on a *ticket*
+re-opens it — "go ahead" authorizes the work, never the commit. Only the user
+saying so in as many words does.
 
-Granted in `dfe813e`, revoked about two hours later inside `9ad74c0` — the
-PF-77 *feature* commit — and restored here on 2026-08-16, after the
-revocation's stated evidence was checked and did not survive:
+**Handing off instead.** Do the full verification (tests, lint, browser
+checks) and report it, stage nothing unless asked, and make
+`git status --short` plus `git diff --cached --stat` the **last** thing run
+before handing back — see the staging-drift note below for why the timing is
+load-bearing. Say plainly what changed, what is staged, what is not, and why.
+Writing a suggested commit message into chat is useful and welcome; running
+`git commit` is not.
 
-- The revocation claimed the authorization had been "countermanded in practice
-  twice (PF-61 on 2026-08-08, PF-77 on 2026-08-16)". **PF-61 cannot count.**
-  This file did not exist on 2026-08-08: it was created 2026-08-13 in
-  `5be0e66`, and the authorization was not granted until 2026-08-16 in
-  `dfe813e`. Nothing said during PF-61 could countermand a permission that
-  would not exist for another eight days. Under the blanket rule in force at
-  the time — "Never run `git commit`" — "I will commit myself" restates the
-  rule rather than overriding a permission.
-- That leaves PF-77: one instance, not a pattern.
-- And the revocation went in unmentioned. `9ad74c0`'s message is five bullets
-  about grain texture and cursor glow; it says nothing about rewriting the
-  Working agreement. The change carries no recorded reasoning anywhere in git
-  beyond the assertion it inserted into this file.
+Pushing was already the user's and stays that way. When asked whether a push
+landed, offer the check — `git ls-remote --heads origin <branch>` must match
+local `HEAD`, compared rather than assumed.
 
-If this needs revoking again, revoke it in a commit whose message says so, and
-cite evidence that postdates `dfe813e`.
+History of this permission, since it has moved several times and the reasoning
+matters more than the verdict:
+
+- Granted in `dfe813e` (2026-08-16), scoped to sprint branches.
+- Revoked ~2 hours later inside `9ad74c0`, the PF-77 *feature* commit, with no
+  mention in that commit's message.
+- Restored on 2026-08-16 after that revocation's stated evidence was checked
+  and did not hold up: it cited PF-61 (2026-08-08), but this file did not exist
+  then — created 2026-08-13 in `5be0e66` — so nothing said during PF-61 could
+  countermand a permission granted eight days later. That left one instance,
+  not a pattern.
+- **Revoked for good on 2026-08-17 by direct instruction**, quoted above. This
+  one needs no inference and rests on no disputed evidence, which the earlier
+  two did. It supersedes `dfe813e` entirely.
+
+If it is ever restored, it takes an unambiguous statement from the user, and
+the restoring commit's message must say so.
 
 **Stage exactly the files the ticket touches** — `git add <paths>`, never
 `git add -A` or `git add .` — and run the full verification (tests, lint,
