@@ -67,12 +67,37 @@ describe('Splash (PF-78)', () => {
   });
 
   it('renders a resolvable logo, not a bare path', () => {
-    render(withSplash(<Splash />));
-    const img = screen.getByAltText('Parindra Gallage');
+    const { container } = render(withSplash(<Splash />));
+    // Queried by tag, not by alt text: PF-83 emptied this image's alt (see
+    // the next test), so there is no accessible name left to find it by.
+    const img = container.querySelector('img');
     // Imported through Vite rather than referenced as /assets/logo.png:
     // a missing import fails the build, a missing public path 404s in
     // silence.
     expect(img.getAttribute('src')).toMatch(/logo\.png/);
+  });
+
+  it('treats the logo as decorative rather than announcing the name twice', () => {
+    const { container } = render(withSplash(<Splash />));
+
+    // PF-83. This was the THIRD element reading alt="Parindra Gallage" —
+    // the ticket named only the navbar logo and the hero portrait, so this
+    // one came out of a grep rather than the brief. It gets the opposite
+    // treatment to the hero portrait deliberately: .nameBlock, its sibling
+    // in the same cluster, renders "Parindra Gallage" and "Full-Stack
+    // Developer" as real text, so any alt here announces the name twice
+    // running. Empty alt keeps the image out of the accessible name
+    // computation entirely; the surrounding text carries the meaning.
+    //
+    // Asserted as an exact empty string rather than a falsy check —
+    // a MISSING alt attribute also reads as falsy and is a different,
+    // worse thing: screen readers fall back to announcing the filename.
+    const img = container.querySelector('img');
+    expect(img.getAttribute('alt')).toBe('');
+    expect(screen.queryByAltText('Parindra Gallage')).toBeNull();
+
+    // The name is still on screen, as text, so nothing was lost.
+    expect(screen.getByText('Full-Stack Developer')).toBeInTheDocument();
   });
 
   it('reveals the four boot lines spread across the sequence', () => {

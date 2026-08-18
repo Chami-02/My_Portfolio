@@ -1,0 +1,55 @@
+/* frontend/src/components/layout/SkipLink.module.css — PF-83
+ *
+ * Designed, not transcribed. The prototype has no skip link (zero
+ * matches for skip-to-content / skip-link / skip-nav), so there is no
+ * value here to be faithful to.
+ */
+
+.skipLink {
+  position: fixed;
+  top: -100%;
+  left: 16px;
+
+  /* ⚠️ 200 is deliberate, and it is the only value in this project
+     above splash's 100. The whole stack today is canvas 0 · cursor glow
+     1 · header 60 · grain 70 · mobile overlay 80 · splash 100. A skip
+     link that cannot be seen while the splash covers the screen fails
+     exactly the user it exists for — someone tabbing into the page
+     before any content is on screen — so it has to clear the splash,
+     not sit under it. */
+  z-index: 200;
+
+  padding: 12px 20px;
+  border-radius: 8px;
+  background: var(--acc);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-decoration: none;
+  transition: top .2s ease;
+}
+
+/* `:focus`, not `:focus-visible`. While hidden the link is off-screen
+   and unreachable by pointer, so the only thing that can focus it is a
+   keyboard or an assistive tool — the two selectors have the same
+   practical audience. The difference is the failure mode: if the
+   `:focus-visible` heuristic ever declines to match, the link holds
+   focus while parked off-screen and the page reads as though Tab did
+   nothing at all. `:focus` cannot fail that way. */
+.skipLink:focus {
+  top: 16px;
+
+  /* tokens.css's global `a:focus-visible` ring is `var(--acc)` — the
+     same colour as this element's own fill, so inherited it would draw
+     an accent ring around an accent pill and read as no ring at all.
+     `--accInk` is the token that already means "ink placed ON accent
+     fills" and flips with the theme (#0a0a0a / #ffffff), so it
+     contrasts against the fill in both.
+
+     This override lands because `.skipLink:focus` is (0,2,0) against
+     the global rule's `a:focus-visible` at (0,1,1). It does not depend
+     on stylesheet order. */
+  outline: 2px solid var(--accInk);
+  outline-offset: 2px;
+}

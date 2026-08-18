@@ -258,4 +258,158 @@ describe('Navbar (PF-79)', () => {
     unmount();
     expect(removeSpy).toHaveBeenCalledWith('scroll', expect.any(Function));
   });
+
+  /**
+   * Nested rather than a sibling describe so these inherit the rAF
+   * harness and scroll stubs above — Navbar's progress-bar effect needs
+   * them regardless of what the test is actually asserting.
+   */
+  describe('keyboard a11y (PF-83)', () => {
+    /** The overlay's focusable set, in the same document order the
+     *  component's own querySelectorAll sees. Deliberately re-queried
+     *  from the DOM rather than hardcoded to a count: the assertion is
+     *  "Tab wraps at the real edges", not "there are seven of them". */
+    const overlayFocusables = () =>
+      screen
+        .getByRole('dialog')
+        .querySelectorAll('a[href], button:not([disabled])');
+
+    const openMenu = () => {
+      render(withProviders(<Navbar />));
+      act(() => {
+        screen.getByLabelText('Open menu').click();
+      });
+    };
+
+    /** cancelable, so the handler's preventDefault() is a real call and
+     *  not silently inert. */
+    const pressTab = (shiftKey = false) => {
+      act(() => {
+        document.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Tab', shiftKey, cancelable: true }),
+        );
+      });
+    };
+
+    it('wraps Tab from the last focusable back to the first', () => {
+      openMenu();
+      const focusable = overlayFocusables();
+      const last = focusable[focusable.length - 1];
+
+      last.focus();
+      expect(document.activeElement).toBe(last);
+
+      pressTab();
+      expect(document.activeElement).toBe(focusable[0]);
+    });
+
+    it('wraps Shift+Tab from the first focusable back to the last', () => {
+      openMenu();
+      const focusable = overlayFocusables();
+
+      focusable[0].focus();
+      pressTab(true);
+      expect(document.activeElement).toBe(focusable[focusable.length - 1]);
+    });
+
+    it('leaves Tab alone in the middle of the overlay', () => {
+      openMenu();
+      const focusable = overlayFocusables();
+      const middle = focusable[1];
+
+      middle.focus();
+      pressTab();
+
+      // The trap only intervenes at the edges — the browser's own
+      // sequential navigation handles everything between them, and jsdom
+      // does not implement it, so focus simply stays put here. Asserting
+      // that documents the boundary: a trap that moved focus on EVERY
+      // Tab would pass both wrap tests above and still be broken.
+      expect(document.activeElement).toBe(middle);
+    });
+
+    it('pulls focus back in when it has escaped the overlay', () => {
+      openMenu();
+      const focusable = overlayFocusables();
+
+      // Focus outside the dialog entirely, as happens when the user
+      // clicks the browser chrome and tabs back. Neither edge test
+      // matches in that state, so without the containment check the
+      // default Tab walks the header behind the overlay.
+      //
+      // blur(), not document.body.focus(): <body> is not focusable, so
+      // focusing it is a silent no-op in jsdom and activeElement stays on
+      // the overlay link the open effect focused — which made the first
+      // version of this test assert the middle-of-the-set case instead
+      // and fail against correct code. blur() genuinely resets
+      // activeElement to <body>.
+      act(() => {
+        document.activeElement.blur();
+      });
+      expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(false);
+
+      pressTab();
+      expect(document.activeElement).toBe(focusable[0]);
+    });
+
+    it('returns focus to the hamburger when the overlay closes', () => {
+      render(withProviders(<Navbar />));
+      const trigger = screen.getByLabelText('Open menu');
+      trigger.focus();
+
+      act(() => {
+        trigger.click();
+      });
+      expect(document.activeElement).not.toBe(trigger);
+
+      // Queried inside the dialog on purpose. While the overlay is open
+      // TWO elements carry aria-label="Close menu" — the hamburger, whose
+      // label flips when open, and the overlay's own × button — so a bare
+      // getByLabelText('Close menu') throws on multiple matches.
+      const closeButton = screen
+        .getByRole('dialog')
+        .querySelector('button[aria-label="Close menu"]');
+      act(() => {
+        closeButton.click();
+      });
+
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it('removes the document keydown listener when the overlay closes', () => {
+      // ⚠️ Asserted against removeEventListener, NOT by pressing Tab
+      // afterwards and checking that focus stays put. That version was
+      // written first and mutation testing showed it was blind: React
+      // nulls overlayRef on unmount, so a LEAKED listener still bails on
+      // `if (!root) return` and does nothing observable. Deleting the
+      // cleanup entirely left the test green.
+      //
+      // The listener is on document, and the Escape handler above is on
+      // window, so this is unambiguous about which one it is watching.
+      const removeSpy = vi.spyOn(document, 'removeEventListener');
+      render(withProviders(<Navbar />));
+      const trigger = screen.getByLabelText('Open menu');
+
+      act(() => {
+        trigger.click();
+      });
+      expect(removeSpy).not.toHaveBeenCalledWith('keydown', expect.any(Function));
+
+      act(() => {
+        trigger.click();
+      });
+      expect(removeSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+    });
+
+    it('gives the logo alt text distinct from the hero portrait and splash', () => {
+      render(withProviders(<Navbar />));
+
+      // All three used to read exactly "Parindra Gallage". The sibling
+      // halves of this assertion live in HeroSection.test.jsx and
+      // Splash.test.jsx — one file per module, so each pins its own
+      // string and none can drift back to the shared one unnoticed.
+      const logo = screen.getByRole('img');
+      expect(logo).toHaveAttribute('alt', 'Parindra Gallage — back to top');
+    });
+  });
 });

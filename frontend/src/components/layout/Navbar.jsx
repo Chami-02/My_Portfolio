@@ -108,7 +108,11 @@ export function Navbar() {
           <a href="#hero" className={styles.brand}>
             <img
               src={logo}
-              alt="Parindra Gallage"
+              /* PF-83. Was "Parindra Gallage", identical to the hero
+                 portrait's and the splash's — three images announcing
+                 the same string. This one is the only link of the three,
+                 so its text says where it goes. */
+              alt="Parindra Gallage — back to top"
               width={44}
               height={44}
               className={styles.logo}
@@ -165,16 +169,86 @@ export function Navbar() {
  * Ambient layer (canvas + grain) shows through by design: the
  * backdrop supplies a translucent surface, never a solid background.
  *
- * Focus moves to the first link on open. A full keyboard focus-trap
- * loop is PF-83's systematic a11y pass, not this ticket — aria-modal
- * is set as the conventional marker for the surface, and Escape plus
- * an always-present close button cover the keyboard exit today.
+ * Focus moves to the first link on open, and PF-83 closed the loop
+ * PF-79 left open: Tab / Shift+Tab are now bound to the overlay's own
+ * first and last focusable element, and focus returns to the hamburger
+ * when the overlay unmounts. Escape, backdrop-click and link-click
+ * close were already correct in PF-79 and are untouched.
  */
 function MobileOverlay({ onClose }) {
   const firstLinkRef = useRef(null);
+  const overlayRef = useRef(null);
+  const triggerRef = useRef(null);
 
   useEffect(() => {
+    // Captured here rather than as useRef(document.activeElement),
+    // which would re-read the DOM on every render to use the first
+    // render's value. Nothing moves focus between the hamburger's
+    // onClick and this effect, so the reading is the same either way.
+    triggerRef.current = document.activeElement;
     firstLinkRef.current?.focus();
+
+    return () => {
+      // Return focus to whatever opened the overlay — the hamburger —
+      // rather than abandoning it on whichever link happened to be
+      // focused when it closed, which would drop the user's Tab
+      // position to the top of the document.
+      //
+      // Note what StrictMode does to this in dev: the simulated remount
+      // runs this cleanup immediately after the mount above, so focus
+      // goes first link → hamburger → first link. It settles on the
+      // right element because the re-run re-focuses, which is exactly
+      // why this is safe here and why the analogous setReady(true)
+      // "safety net" in SplashProvider is not — that one had no second
+      // run to correct it.
+      triggerRef.current?.focus?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== 'Tab') return;
+
+      const root = overlayRef.current;
+      if (!root) return;
+
+      // Queried per keypress, not cached at mount. The overlay's
+      // focusable set is static today, but a cached NodeList would go
+      // stale the moment anything conditional lands in here, and the
+      // failure would be a Tab that escapes the trap rather than an
+      // error.
+      const focusable = root.querySelectorAll('a[href], button:not([disabled])');
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      // Focus is not in the overlay at all — the user clicked the
+      // browser chrome and tabbed back, or focus fell to <body>. A trap
+      // that only wraps at its own edges leaks in that case, because
+      // neither edge test matches and the default Tab walks the header
+      // sitting behind the overlay. Pull it back in instead.
+      if (!root.contains(active)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    // On document, not on the overlay element. Both work while focus is
+    // inside (keydown bubbles), but only this one sees the keypress in
+    // the escaped-focus case handled above.
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
   return (
@@ -188,6 +262,7 @@ function MobileOverlay({ onClose }) {
     // and having the nav stop them is the version that actually
     // dismisses on a tap outside the menu.
     <div
+      ref={overlayRef}
       className={styles.overlay}
       role="dialog"
       aria-modal="true"

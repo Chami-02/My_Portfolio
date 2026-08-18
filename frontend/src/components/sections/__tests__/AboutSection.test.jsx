@@ -4,6 +4,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import postcss from 'postcss';
 import { AboutSection } from '../AboutSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
@@ -324,6 +325,75 @@ describe('AboutSection (PF-81)', () => {
     });
 
     expect(rafQueue).toHaveLength(1);
+  });
+
+  // ── dark-theme contrast fix (PF-83, owner-approved) ────────────────
+
+  describe('stat label contrast', () => {
+    /**
+     * postcss rather than ruleBody() here, deliberately. The comment
+     * above the override names --muted, --muted2, data-theme, the
+     * specificity pair and the failing ratio while explaining itself —
+     * every assertion below would match the prose instead of the rule.
+     * A declaration walk never visits comment nodes at all.
+     */
+    const rules = [];
+    postcss.parse(css).walkRules((rule) => {
+      const decls = {};
+      rule.walkDecls((d) => { decls[d.prop] = d.value; });
+      rules.push({ selector: rule.selector, decls });
+    });
+    const bySelector = (s) => rules.find((r) => r.selector === s);
+
+    it('leaves the light theme on the prototype value', () => {
+      // Prototype line 218 is color:var(--muted2), and in light theme it
+      // measures 5.95:1 — over AA already. The base rule must not move.
+      expect(bySelector('.statLabel').decls.color).toBe('var(--muted2)');
+    });
+
+    it('overrides only the dark theme, up one step to --muted', () => {
+      const dark = bySelector(":global(html[data-theme='dark']) .statLabel");
+      expect(dark).toBeDefined();
+      expect(dark.decls.color).toBe('var(--muted)');
+    });
+
+    it('scopes the override to dark, never to light or unscoped', () => {
+      const overrides = rules.filter(
+        (r) => r.selector.includes('.statLabel') && r.decls.color,
+      );
+      // Exactly two rules colour this element: the base and the dark
+      // override. A third — or one scoped to light — would move the
+      // theme that was already compliant.
+      expect(overrides).toHaveLength(2);
+      expect(overrides.some((r) => r.selector.includes("data-theme='light'"))).toBe(false);
+    });
+
+    /**
+     * The load-bearing one. Two rules tying at the same specificity and
+     * resolving on source order is the bug that has bitten this project
+     * five times (.rolePill, .statCard, .card, .pill, section-eyebrow).
+     * This override must win outright: (0,2,1) against (0,1,0).
+     */
+    it('wins on specificity, not on being declared second', () => {
+      const dark = bySelector(":global(html[data-theme='dark']) .statLabel");
+      expect(dark.selector).toMatch(/\[data-theme=['"]dark['"]\]/);
+      // A bare `.statLabel` second rule would tie at (0,1,0) and settle
+      // on emission order instead.
+      expect(dark.selector).not.toBe('.statLabel');
+    });
+
+    it('targets a class all four cards share, including the static one', () => {
+      // Three cards come from the CountUp map, the fourth ("LEARNING")
+      // is written out separately — one rule only fixes all four if they
+      // genuinely share the class.
+      const { container } = render(withMotion(<AboutSection />));
+      const labels = [...container.querySelectorAll('[class]')].filter((el) =>
+        [...el.classList].some((c) => c.replace(/^_|_[^_]*$/g, '').endsWith('statLabel')
+          || /(^|_)statLabel(_|$)/.test(c)),
+      );
+      expect(labels).toHaveLength(4);
+      expect(labels.map((l) => l.textContent)).toContain('LEARNING');
+    });
   });
 
   // ── teardown ───────────────────────────────────────────────────────

@@ -228,8 +228,41 @@ section.about {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: .12em;
+  /* The prototype's own value (line 218), and still correct in light
+     theme, where it measures 5.95:1 — comfortably over AA. Left alone;
+     only the dark theme is overridden below. */
   color: var(--muted2);
   margin: 0;
+}
+
+/* ── Dark-theme contrast fix — PF-83, owner-approved ──────────────────
+ * --muted2 (#6b7891) at 10.5px on the stat card's rgba(var(--srf),.5)
+ * over the --gnd ground composites to rgb(13,20,35) and measures
+ * 4.15:1. WCAG AA wants 4.5:1 for small text. --muted (#93a0b8) is one
+ * step lighter, already the token About's body copy uses, and clears it.
+ *
+ * ⚠️ Scoped to the dark theme deliberately. A change to the base rule
+ * would move light theme too, which was never failing.
+ *
+ * ⚠️ And it wins on SPECIFICITY, not on being declared second.
+ * :global(html[data-theme='dark']) .statLabel is (0,2,1) against the
+ * base rule's (0,1,0), so the cascade settles this outright. Two rules
+ * tying at the same specificity and resolving on source order is the
+ * bug that has bitten this project repeatedly — .rolePill, .statCard,
+ * .card, .pill and the section-eyebrow extraction, five times now — so
+ * this fix does not add a sixth instance of it.
+ *
+ * :global() around the attribute selector follows ThemeToggle.module.css
+ * line 78, the one existing precedent in this build. CSS Modules would
+ * leave a bare html[data-theme] alone anyway, since it scopes only
+ * classes and ids, but matching the proven form costs nothing.
+ *
+ * Both themes set data-theme explicitly — the FOUC guard writes 'dark'
+ * at index.html:31 — so this is not relying on dark being the absent
+ * default, which would never match.
+ */
+:global(html[data-theme='dark']) .statLabel {
+  color: var(--muted);
 }
 
 /* ── CTAs ─────────────────────────────────────────────────────────────

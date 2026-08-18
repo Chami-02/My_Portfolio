@@ -132,6 +132,44 @@ a:hover    { color: var(--strong); }
 ::-webkit-scrollbar-thumb  { background: var(--thumb); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--acc); }
 
+/* ── Focus indicators (PF-83) ─────────────────────────────────
+ * No prototype precedent for ANY of this. The prototype's only focus
+ * styling is on Contact's three form inputs (lines 518/522/527), and
+ * it is a `style-focus="border-color:var(--acc)"` border shift that
+ * works only because those inputs already carry a visible 1px border
+ * to shift. Nothing in PF-83's scope does: the nav links, the CONTACT
+ * pill, the hero CTAs and the hamburger are all borderless at rest,
+ * so there is no border to recolour. An outline is drawn outside the
+ * box and needs nothing from the element underneath.
+ *
+ * ⚠️ Form controls are DELIBERATELY absent from this selector list.
+ * Sprint 12 rebuilds Contact and should transcribe the prototype's own
+ * border shift for those three inputs; a global ring here would either
+ * fight that or silently pre-empt it. Until then they keep the UA
+ * default ring — there is no `outline: none` anywhere in this repo,
+ * checked, so "no rule" means "browser default", not "nothing".
+ *
+ * ⚠️ No `border-radius` in this rule, and the omission is
+ * load-bearing. Outlines already follow the element's own border curve
+ * in every current engine, so a radius declared here would not shape
+ * the ring — it would overwrite the ELEMENT's radius while focused.
+ * The CONTACT pill and both hero CTAs are `border-radius: 999px`; a
+ * 4px value squares them off the moment they take keyboard focus, and
+ * only then. Nothing errors, and a mouse user never sees it.
+ *
+ * `:focus-visible`, not `:focus`, so a mouse click on a link does not
+ * leave a ring behind. `ThemeToggle.module.css` has carried this same
+ * treatment since PF-72 at a 2px offset; its `.toggle:focus-visible`
+ * is (0,2,0) and keeps winning over this rule's (0,1,1), which is
+ * intended — a 30px switch wants a tighter ring than a text link.
+ */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 3px;
+}
+
 /* ── Anton guard (PF-68) ─────────────────────────────────────
  * Anton ships ONE weight. Any other value triggers synthetic
  * bolding, which looks wrong on a condensed face. This makes the

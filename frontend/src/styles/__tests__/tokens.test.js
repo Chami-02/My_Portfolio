@@ -126,4 +126,72 @@ describe('Design tokens (PF-67)', () => {
     });
   });
 
+  describe('Focus indicators (PF-83)', () => {
+    /**
+     * ⚠️ Comments stripped, and here that is not a precaution — the
+     * block's own prose contains "border-radius", "999px", "4px",
+     * ":focus" and the word "input" while explaining what it must NOT
+     * do. Every negative assertion below would match the explanation
+     * instead of the rule and report PASS. See CLAUDE.md's
+     * Silent-failures entry on raw-text CSS assertions matching
+     * comments.
+     */
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const start = stripped.indexOf('a:focus-visible');
+    const rule = start === -1
+      ? ''
+      : stripped.slice(start, stripped.indexOf('}', start) + 1);
+
+    it('declares the rule at all', () => {
+      // Guards the slice itself. Every other test here reads `rule`, and
+      // an empty string satisfies all four negative assertions below — so
+      // deleting the block outright would turn those green rather than red.
+      expect(start).toBeGreaterThan(-1);
+      expect(rule).not.toBe('');
+    });
+
+    it('rings links, buttons and anything explicitly tabbable', () => {
+      expect(rule).toContain('a:focus-visible');
+      expect(rule).toContain('button:focus-visible');
+      expect(rule).toContain('[tabindex]:focus-visible');
+    });
+
+    it('draws an accent outline offset outward', () => {
+      expect(rule).toContain('outline: 2px solid var(--acc)');
+      expect(rule).toContain('outline-offset: 3px');
+    });
+
+    /**
+     * The load-bearing negative. The ticket's sketch carried
+     * `border-radius: 4px` in this rule. Outlines already follow the
+     * element's own border curve in every current engine, so a radius
+     * here does not shape the ring — it overwrites the ELEMENT's radius
+     * while focused. The navbar CONTACT pill and both hero CTAs are
+     * `border-radius: 999px`, so 4px visibly squares them off the moment
+     * they take keyboard focus, and only then. Nothing errors, and a
+     * mouse user never sees it.
+     */
+    it('never sets border-radius, which would square off the 999px pills', () => {
+      expect(rule).not.toContain('border-radius');
+    });
+
+    /**
+     * Contact's three inputs are the prototype's ONLY focus styling
+     * (lines 518/522/527) and use a border-color shift. Sprint 12 should
+     * transcribe that; a global ring reaching form controls now would
+     * either fight it or silently pre-empt it.
+     */
+    it('leaves form controls to Sprint 12 rather than claiming them', () => {
+      expect(rule).not.toMatch(/\b(input|textarea|select):focus/);
+    });
+
+    it('uses :focus-visible so a mouse click leaves no ring behind', () => {
+      // A bare `a:focus` selector in this rule would ring every clicked
+      // link. Checked against the stripped text, so the phrase
+      // ":focus-visible, not :focus" in the comment cannot satisfy it.
+      expect(rule).not.toMatch(/(^|[^-])\ba:focus\s*[,{]/);
+      expect(rule).not.toMatch(/\bbutton:focus\s*[,{]/);
+    });
+  });
+
 });

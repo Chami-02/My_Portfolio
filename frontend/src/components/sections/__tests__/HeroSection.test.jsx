@@ -155,7 +155,14 @@ describe('HeroSection (PF-80)', () => {
     mockMatchMedia(false);
     const { container } = render(withMotion(<HeroSection />));
 
-    expect(screen.getByAltText('Parindra Gallage')).toBeInTheDocument();
+    // PF-83 retitled this from the bare "Parindra Gallage" it shared with
+    // the navbar logo and the splash logo — three images announcing one
+    // string. Asserted as an exact value, and asserted here rather than
+    // in one central place, because the sibling halves live in
+    // Navbar.test.jsx and Splash.test.jsx: one file per module, so no
+    // single edit can quietly collapse them back onto each other.
+    expect(screen.getByAltText('Portrait of Parindra Gallage')).toBeInTheDocument();
+    expect(screen.queryByAltText('Parindra Gallage')).toBeNull();
     // Marquee duplicates its children, so both copies match.
     expect(pickAll(container, 'marqueeText')).toHaveLength(2);
   });

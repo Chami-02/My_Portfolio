@@ -234,7 +234,22 @@ function HeroPortrait() {
 
       <Reveal type="rise" delay={180} className={styles.portraitFrame}>
         <div ref={innerRef} className={styles.portraitInner}>
-          <img src={heroImg} alt="Parindra Gallage" className={styles.portraitImg} />
+          {/* PF-83. Was "Parindra Gallage" — the same string the navbar
+              logo and the splash both carried. The alternative
+              considered was alt="" on the reasoning that the <h1> beside
+              it already announces the name, so the image adds no new
+              information. Described instead, for two reasons: the
+              portrait is this section's primary visual content rather
+              than an ornament, and AboutSection's portrait has read
+              "Parindra Gallage in the visor" since PF-81, so describing
+              is already this repo's answer for a portrait. Worth a pass
+              with a real screen reader at some point; it is a judgment
+              call, not a settled fact. */}
+          <img
+            src={heroImg}
+            alt="Portrait of Parindra Gallage"
+            className={styles.portraitImg}
+          />
         </div>
       </Reveal>
 
