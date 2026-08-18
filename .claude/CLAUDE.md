@@ -166,6 +166,7 @@ document; do not link to one.
 | PF-80 | Hero + marquee strip | ✅ |
 | PF-81 | About — parallax, stats, outline type | ✅ |
 | PF-82 | Skills — wired to the API | ✅ |
+| PF-83 | Reduced-motion + a11y pass | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -195,7 +196,7 @@ competing for attention with straightforward section transcription.
 | 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | ✅ |
 | 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | ✅ |
 | 8 | PF-82 | Skills | 3 | PF-81 | ✅ |
-| 9 | PF-83 | Reduced-motion + a11y pass | 3 | all | — |
+| 9 | PF-83 | Reduced-motion + a11y pass | 3 | all | ✅ |
 | 10 | PF-84 | Sprint gate, PR, close | 2 | all | — |
 
 46 points. PF-75 carries 5, not 3 — it now includes the splash-readiness gate
@@ -212,8 +213,13 @@ Full markup transcription plus timer choreography plus that provider change put
 it closer to 7 points than 4. The table above still reads 4, which is what Jira
 has; re-point it there if you want the two to agree.
 
-**Sprint 11 is in progress** — PF-75 through PF-82 done and on the branch
-(41 of 46 points), PF-83 next.
+**Sprint 11 is in progress** — PF-75 through PF-83 done and on the branch
+(44 of 46 points), PF-84 next.
+
+PF-83 is 3 points in Jira and its own ticket recommends 6–7. That looks
+right: no single piece is hard, but it audits eight tickets' worth of built
+surface and designs two things (focus indicators, a skip link) with no
+prototype precedent. Re-point it there if you want the two to agree.
 
 PF-82 ran close to its 3 points on the frontend and then grew a backend
 half the ticket did not anticipate: correcting `seed.js` does nothing for
@@ -634,6 +640,150 @@ anything — so both were decided here and both are owner-approved (2026-08-18):
 already wrapped in `<ErrorBoundary>` in `HomePage.jsx` — that was PF-80's
 doing and needed no change here. **`ContactSection` remains the only bare
 one.**
+
+**Built by PF-83 — the a11y pass, and the first ticket with no new
+prototype surface to transcribe at all:**
+
+```
+frontend/src/
+  components/layout/
+    SkipLink.jsx  + .module.css      NEW — no prototype precedent whatsoever
+    __tests__/SkipLink.test.jsx      9 tests, postcss-based
+    Navbar.jsx                       focus trap completed, logo alt
+  components/sections/HeroSection.jsx   portrait alt
+  components/splash/Splash.jsx          logo alt → "" (see below)
+  styles/tokens.css                  + the global :focus-visible rule
+  App.jsx                            + <SkipLink />, + <main id="main-content">
+```
+
+**⚠️ The ticket's focus rule carried a `border-radius: 4px` that had to be
+dropped, and this is a new silent failure worth knowing.** Outlines already
+follow the element's own border curve in every current engine, so a radius
+in a `:focus-visible` rule does not shape the ring — it overwrites the
+ELEMENT's radius while focused. The navbar CONTACT pill, ADMIN link, theme
+toggle and both hero CTAs are all `border-radius: 999px`; 4px squares them
+off the moment they take keyboard focus and only then, so a mouse user never
+sees it and nothing errors. Confirmed in Chromium after the fix: all four
+still report `999px` while focused. Guarded in `tokens.test.js`.
+
+Six decisions worth knowing, all made here rather than transcribed:
+
+- **The focus rule lives in `tokens.css`, not a new stylesheet.** That file
+  already carries base element rules (`a`, `::selection`, the scrollbar,
+  `html{scroll-behavior}`), and adding a sixth import would disturb the
+  locked order in `main.jsx` for no gain.
+- **Form controls are deliberately NOT in the selector list.** Contact's
+  three inputs are the prototype's *only* focus styling (lines 518/522/527)
+  and use a `border-color` shift, which works because they already have a
+  border to shift. Sprint 12 should transcribe that; a global ring now would
+  pre-empt it. Until then they keep the UA default — there is no
+  `outline: none` anywhere in this repo, checked.
+- **`ThemeToggle` keeps its own 2px offset** from PF-72. `.toggle:focus-visible`
+  is (0,2,0) and beats the new rule's (0,1,1). Intended, not an oversight — a
+  30px switch wants a tighter ring than a text link.
+- **The skip link is `position: fixed`, not the ticket's `absolute`.** An
+  absolute one sits at the top of the DOCUMENT, and browsers scroll a
+  newly-focused element into view — so tabbing to it from halfway down the
+  page yanks the viewport to the top before the user asked to go there.
+- **It reveals on `:focus`, not `:focus-visible`.** While hidden it is
+  off-screen and unreachable by pointer, so the two have the same audience;
+  they differ only in failure mode. If the `:focus-visible` heuristic ever
+  declines to match, the link holds focus while parked off-screen and Tab
+  reads as doing nothing.
+- **Its focus ring is `--accInk`, not the global accent one.** The link's own
+  fill is `var(--acc)`, so the inherited ring would be accent-on-accent and
+  read as no ring at all.
+
+**z-index 200 is the only value in this project above splash's 100**, and it
+is load-bearing rather than defensive: verified in a browser that with the
+splash up, Tab focuses the link, it renders at `top: 16px` **inside the
+viewport**, and `elementFromPoint` at its centre returns the link itself
+rather than the splash.
+
+**⚠️ THREE elements shared `alt="Parindra Gallage"`, not the two the ticket
+named.** The third is the splash logo, found by grepping `alt=` rather than
+from the brief. They deliberately get different answers:
+
+| Element | Now | Why |
+| --- | --- | --- |
+| Navbar logo | `Parindra Gallage — back to top` | the only link of the three; says where it goes |
+| Hero portrait | `Portrait of Parindra Gallage` | the section's primary visual content |
+| Splash logo | `""` (decorative) | its own `.nameBlock` sibling renders the name and role as real text one line below |
+
+The hero one is a judgment call, not a settled fact — `alt=""` was the
+alternative, on the reasoning that the adjacent `<h1>` already says the name.
+Described instead because the portrait is content rather than ornament, and
+because `AboutSection`'s portrait has read `"Parindra Gallage in the visor"`
+since PF-81. Worth a pass with a real screen reader.
+
+**The mobile-nav trap pulls focus back when it has ESCAPED the overlay**, not
+only at the two edges. A trap that wraps only at first/last leaks if focus is
+on `<body>` — the user clicked the browser chrome and tabbed back — because
+neither edge test matches and the default Tab then walks the header behind
+the overlay. The listener is on `document` for the same reason: an
+overlay-scoped one never sees that keypress.
+
+**⚠️ Writing the test for that found a jsdom trap.** `document.body.focus()`
+is a **silent no-op** — `<body>` is not focusable — so `activeElement` stays
+on whatever the open effect focused, and the test ends up asserting the
+middle-of-the-set case while *looking* like it asserts the escape case. It
+failed against correct code. `document.activeElement.blur()` genuinely
+resets `activeElement` to `<body>`.
+
+**All 18 new guards were mutation-tested and one was blind.** "Stops trapping
+Tab after close" asserted that pressing Tab left focus alone — but React nulls
+`overlayRef` on unmount, so a **leaked** listener also bails on `if (!root)`
+and does nothing observable. Deleting the cleanup left it green. Rewritten to
+spy on `document.removeEventListener`, which catches it. The listener is on
+`document` and the Escape handler is on `window`, so the spy is unambiguous.
+
+**The consolidated verification pass — measured in Chromium, not reasoned
+from the stylesheets.** The numbers, since "verified" on its own is worth
+nothing next session:
+
+| Check | Result |
+| --- | --- |
+| `data-motion` under reduce | `reduced` |
+| root `scroll-behavior` | `auto` — PF-79's root-selector fix has not regressed |
+| Splash under reduce | not mounted |
+| rAF calls in 1 idle second | **0** under reduce · **61** with motion allowed |
+| `getAnimations()` page-wide | **0** under reduce · **29** with motion allowed |
+| About portrait parallax | `transform: none` under reduce |
+| Tab order | skip → logo → 4 links → CONTACT → toggle → ADMIN, exactly as specified |
+| Focus ring | present on all 10 stops; `999px` radii intact |
+| Mouse click | `:focus-visible` false, no ring |
+| Mobile overlay | 8 focusables, cycles both directions, never leaks, Escape returns focus to the hamburger |
+| Headings | 1×H1, 5×H2, 8×H3, **no level skips** |
+| `<img>` without alt | 0 |
+| canvas / grain `aria-hidden` | both true |
+
+**The 0-vs-61 and 0-vs-29 pairs matter more than the zeros.** A probe that
+is simply broken also reports zero; running the same probe with motion
+allowed is what distinguishes "gated correctly" from "measuring nothing".
+
+**⚠️ One real accessibility finding — raised, approved, and FIXED
+2026-08-19.** About's four stat labels failed AA in dark theme only
+(4.15:1 against a required 4.5:1). Inherited from the prototype rather
+than introduced, so it was reported instead of quietly changed; the owner
+approved the fix. Now 7.0:1, light theme untouched at 5.95:1, and **zero
+AA failures across the in-scope surface in both themes**. Full record in
+Locked decisions.
+
+**Two things the ticket's checklist assumed that are no longer true**, both
+already recorded elsewhere in this file — worth flagging so the next reader
+does not go looking:
+
+- **"Hero: parallax grid static"** — there is no parallax grid. It was
+  removed whole in the 2026-08-18 background removal, along with the hero's
+  scroll listener. Nothing to check.
+- **"all 8 chips"** — the hero has **ten**, per the owner-requested
+  deviations. All ten report 0 animations under reduce.
+
+Also: the checklist says to reuse "whatever contrast-measurement utility the
+Phase 1 fix already built". **There isn't one** — grepping for
+contrast/luminance/wcag across the repo returns nothing but a comment. The
+Phase 1 bridge's numbers were measured ad-hoc and never committed. PF-83's
+audit scripts live in the session scratchpad, not the repo.
 
 **PF-82 created no new orphans**, unlike PF-80 and PF-81. Checked rather than
 assumed: `useInView` keeps three consumers (Projects, Blog, Contact) and every
@@ -1204,6 +1354,24 @@ error message:
   detectable by inspection.** A guard written against raw text must be
   mutated before it is trusted, or written with Fix B so there is nothing
   to trust.
+- **`border-radius` inside a `:focus-visible` rule reshapes the ELEMENT, not
+  the ring.** Outlines already follow the element's own border curve in every
+  current engine, so a radius declared alongside `outline` does not round the
+  ring — it overwrites the element's own radius, but only while focused. The
+  PF-83 ticket's sketch carried `border-radius: 4px`; against this project's
+  `999px` pills (navbar CONTACT and ADMIN, the theme toggle, both hero CTAs)
+  that squares them off the instant they take keyboard focus. Invisible to a
+  mouse user, invisible in review, and it reads as a rendering glitch rather
+  than a stylesheet bug. Omit it; the ring inherits the right shape for free.
+  Verified in Chromium — all four report `borderRadius: 999px` while focused.
+  Guarded by `styles/__tests__/tokens.test.js`.
+- **`document.body.focus()` is a silent no-op in jsdom**, because `<body>` is
+  not focusable. A test that uses it to simulate "focus has escaped this
+  container" does not move `activeElement` at all, so it silently asserts a
+  different case than the one it names — and can fail against perfectly
+  correct code, which is how it presents. Found writing PF-83's focus-trap
+  escape test. Use `document.activeElement.blur()`, which genuinely resets
+  `activeElement` to `<body>`.
 - **A `[class*="name"]` test selector silently matches longer class names.**
   Distinct from the entry above about stylesheets, and easy to conflate with
   it. That one still holds exactly — verified again in PF-82,
@@ -1566,6 +1734,55 @@ Where a mistake would be silent, add a test that would catch it.
   tests in `styles/__tests__/tokens.test.js`, including one that fails if
   the rule is ever widened; all three mutations caught.
 
+- **About's stat labels are one token lighter in DARK theme only
+  (2026-08-19, raised and explicitly approved).** A sanctioned deviation,
+  not a transcription — the prototype's line 218 is
+  `color:var(--muted2);font-size:10.5px` on `background:rgba(var(--srf),.5)`,
+  and PF-83 transcribed it faithfully before measuring it.
+
+  | | value | measured |
+  | --- | --- | --- |
+  | prototype / light theme | `--muted2` | 5.95:1 — **compliant, untouched** |
+  | dark theme, before | `--muted2` #6b7891 on rgb(13,20,35) | **4.15:1 — fails AA** |
+  | dark theme, now | `--muted` #93a0b8 | **7.0:1** |
+
+  AA wants 4.5:1 for small text, and 10.5px is small text. `--muted` is one
+  step lighter and already the token About's own body copy uses, so this
+  moves within the existing palette rather than introducing a colour.
+
+  These four labels — `PROJECTS BUILT`, `TECHNOLOGIES`, `GITHUB REPOS`,
+  `LEARNING` — were the **only** AA failures across the whole in-scope
+  surface (header, Hero, About, Skills, both themes, every text node
+  measured against its composited background). After the fix: zero, both
+  themes.
+
+  Three things about the implementation are load-bearing:
+
+  - **Scoped to dark, so light theme does not move at all.** Light was
+    never failing; a change to the base rule would have shifted a
+    compliant colour for no reason. Re-measured after: still 5.95:1,
+    still `rgb(79,93,118)`.
+  - **⚠️ It wins on SPECIFICITY, not on source order.**
+    `:global(html[data-theme='dark']) .statLabel` is **(0,2,1)** against
+    the base rule's (0,1,0). Two rules tying at equal specificity and
+    resolving on emission order is the bug that has bitten this project
+    five separate times — `.rolePill`, `.statCard`, `.card`, `.pill`, and
+    the section-eyebrow extraction — so this fix deliberately does not
+    add a sixth. Do not "simplify" it to a second bare `.statLabel`.
+  - **It relies on dark being an EXPLICIT attribute, and it is.** The
+    FOUC guard writes `data-theme="dark"` at `index.html:31` and
+    `applyTheme()` at `theme.js:63`, so dark is never merely the absent
+    default. Had it been, the selector would have matched nothing and
+    the fix would have silently done nothing in the one theme it exists
+    for. Checked before writing it, not after.
+
+  All four cards share one `.statLabel` class — the three from the
+  `CountUp` map and the static "LEARNING" card — so one rule covers all
+  four. Verified in the DOM, not assumed, and guarded by a test that
+  counts exactly four and asserts "LEARNING" is among them. Five
+  mutations, all caught; `:global()` follows `ThemeToggle.module.css:78`,
+  the one existing precedent in this build.
+
 - **Card hover transitions (2026-08-18, owner-approved).** The prototype
   declares **no** `transition` on either About's stat card (line 216) or
   Skills' category card (line 253) — only the `style-hover` end state, so
@@ -1581,32 +1798,68 @@ Where a mistake would be silent, add a test that would catch it.
   Both are gated on `[data-reveal='in']` — see the Silent-failures entry on
   a bare `transition:` eating a `Reveal`'s entrance. That gating is a
   correctness requirement, not part of this deviation.
-- **Splash timing and the progress bar (2026-08-17, owner-requested).** Two
-  more deviations from the prototype, both in `Splash.jsx`:
-  - **`SPLASH_MS` is 7000, not the prototype's 4600.** The owner asked for
-    ~2.5s more. Boot lines were re-scaled by the same ratio to
-    `850 + i*1250` (850, 2100, 3350, 4600); left at the prototype's
-    `560 + i*820` they finish by 3s and the remaining 4s reads as a stall.
+- **Splash timing and the progress bar (2026-08-17, owner-requested;
+  timing corrected 2026-08-19).** Deviations from the prototype, all in
+  `Splash.jsx`:
+  - **`SPLASH_MS` is 4500** — `Splash.jsx:31`, read fresh on 2026-08-19.
+    The prototype's own sequence is 4600, so the splash is very slightly
+    SHORTER than the prototype's, not longer.
+    ⚠️ This entry previously said 7000, with boot lines hardcoded at
+    `850 + i*1250` and browser measurements derived from that number.
+    All of it was wrong — 4500 is the owner's explicit, final call, and
+    every figure below is recalculated against it rather than edited.
+    The tests never agreed with the old text: `Splash.test.jsx` has
+    mirrored 4500 and passed throughout.
+  - **The boot lines are DERIVED, not hardcoded.** They hold the
+    prototype's proportions — 560 and 820 out of 4600 — so they re-scale
+    with `SPLASH_MS` instead of needing hand-tuning every time it moves:
+    `BOOT_FIRST_MS = round(SPLASH_MS * 560/4600)` = **548**,
+    `BOOT_STEP_MS = round(SPLASH_MS * 820/4600)` = **802**.
+    That puts the four lines at **548, 1350, 2152, 2954**.
+    Measured in Chromium: observed 810/800/800ms apart, against the
+    derived 802. Pinned to the prototype's absolute values instead they
+    finish early and the remainder reads as a stall; hand-scaled to one
+    particular `SPLASH_MS` they silently rot the next time it changes.
   - **The bar is derived from the exit, not racing it.** The prototype's
-    increment is random — `Math.random()*6 + 2.2` every 140ms — so it finished
-    around 2.9s and then sat at 100% for ~1.7s while the splash ran on. That
-    dead gap is what the owner reported. It now counts ticks:
+    increment is random — `Math.random()*6 + 2.2` every 140ms — so it
+    finished around 2.9s and then sat at 100% while the splash ran on.
+    That dead gap is what the owner reported. It now counts ticks:
     `pct = ticks / BAR_TICKS`, with
-    `BAR_TICKS = ceil((SPLASH_MS - BAR_START_MS - BAR_TRANSITION_MS) / BAR_TICK_MS)`.
-    **Derived, so changing `SPLASH_MS` alone keeps the two in step** — the
-    desync came from two independently chosen numbers, and hardcoding the tick
-    count would reintroduce exactly that. The `BAR_TRANSITION_MS` subtraction
-    is not incidental: `.progressFill` has `transition: width .25s`, so writing
-    100% at the exit moment would leave the bar visibly still growing as the
-    splash slides away. Measured in a browser: bar writes 100% at ~6.7s,
-    visually full at the exit, exit at ~7.0s.
-  - **The percentage is unpadded** — `2%`, `50%`, `100%`, not the prototype's
-    zero-filled `002%` / `050%`. The `padStart(3, '0')` is gone.
-  - The exit is still a fixed timer and still **not** triggered by the bar
-    reaching 100%. Do not "simplify" it into one — the bar measures nothing,
-    and letting it drive the sequence hands the length to a decoration.
-  All four are guarded by `components/splash/__tests__/Splash.test.jsx`, which
-  mirrors the constants deliberately rather than importing them.
+    `BAR_TICKS = ceil((SPLASH_MS - BAR_START_MS - BAR_TRANSITION_MS) / BAR_TICK_MS)`
+    = `ceil((4500 - 220 - 250) / 140)` = **29**.
+    **Derived, so changing `SPLASH_MS` alone keeps the two in step** —
+    the desync came from two independently chosen numbers, and hardcoding
+    the tick count would reintroduce exactly that. The
+    `BAR_TRANSITION_MS` subtraction is not incidental: `.progressFill`
+    has `transition: width .25s`, so writing 100% at the exit moment
+    would leave the bar visibly still growing as the splash slides away.
+    Computed, then measured in Chromium (polled every 10ms, times
+    relative to component mount):
+
+    | | computed | measured |
+    | --- | --- | --- |
+    | first tick | 220ms | ~219ms |
+    | `width:100%` written | 4140ms | ~4239ms |
+    | bar visually full | 4390ms | ~4469ms |
+    | exit begins | 4500ms | 4500ms |
+    | unmount | 5650ms | ~5649ms |
+
+    The ~99ms the bar runs late is **chained-timer drift, not a bug**:
+    the 29 ticks each schedule the next with `setTimeout`, so per-timer
+    overhead accumulates rather than cancelling. It lands the bar
+    visually full ~31ms before the exit, which is the intended look.
+  - **The percentage is unpadded** — not the prototype's zero-filled
+    `002%` / `050%`; the `padStart(3, '0')` is gone.
+    ⚠️ The first label is **3%**, not the `2%` this entry used to claim:
+    with `BAR_TICKS` at 29, tick one is `round(1/29*100)` = 3. Confirmed
+    on screen at ~219ms after mount.
+  - The exit is still a fixed timer and still **not** triggered by the
+    bar reaching 100%. Do not "simplify" it into one — the bar measures
+    nothing, and letting it drive the sequence hands the length to a
+    decoration.
+  All of the above are guarded by
+  `components/splash/__tests__/Splash.test.jsx`, which mirrors the
+  constants deliberately rather than importing them.
 - **Smooth scroll — sanctioned exception (PF-79, 2026-08-17).** The prototype
   uses the browser's native instant anchor-jump: zero matches for
   `scroll-behavior`, and the only `behavior:'smooth'` in its script is a
