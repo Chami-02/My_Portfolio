@@ -47,7 +47,17 @@ section.about {
    First consumer of patterns.module.css anywhere in the app — PF-70
    created it and nothing had imported it until now. */
 
-.eyebrow      { composes: section-eyebrow from '../../styles/patterns.module.css'; }
+/* `margin-bottom` is local, not composed. PF-81 put 38px into the shared
+   `.section-eyebrow`; PF-82 found the prototype's Skills eyebrow at 14px
+   (line 247) against this one's 38px (line 195), so the two sections
+   never agreed and the property was generalised from one observation.
+   Pulled out of the shared class rather than overridden here, because a
+   composed class and its composer tie at (0,1,0) and the winner falls out
+   of bundle emission order. */
+.eyebrow {
+  composes: section-eyebrow from '../../styles/patterns.module.css';
+  margin-bottom: 38px;
+}
 .eyebrowLabel { composes: section-eyebrow-label from '../../styles/patterns.module.css'; }
 .eyebrowLine  { composes: section-eyebrow-line from '../../styles/patterns.module.css'; }
 .outlined     { composes: outline-text from '../../styles/patterns.module.css'; }
@@ -117,15 +127,12 @@ section.about {
   animation-iteration-count: infinite;
 }
 
-.portraitCaption {
-  position: absolute;
-  left: 20px;
-  bottom: 18px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: .16em;
-  color: var(--text);
-}
+/* `.portraitCaption` was here and is gone (owner-requested, 2026-08-18).
+   Removed rather than left unused: a rule whose element no longer exists
+   reads as live code to the next person and is exactly the dead-code
+   shape CLAUDE.md warns about. The prototype's values, if it is ever
+   wanted back: position absolute, left 20px, bottom 18px, mono 11px,
+   letter-spacing .16em, color var(--text). */
 
 /* ── content column ───────────────────────────────────────────────────── */
 

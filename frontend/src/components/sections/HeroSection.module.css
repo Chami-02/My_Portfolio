@@ -25,27 +25,28 @@ section.hero {
   padding: clamp(120px, 16vh, 180px) clamp(16px, 4vw, 40px) 70px;
   display: flex;
   align-items: center;
-  background: radial-gradient(
-    120% 90% at 78% 18%,
-    rgba(var(--srf), .62) 0%,
-    rgba(var(--gnd), .55) 62%
-  );
+  /* ⚠️ Deliberately NO background — owner-requested, 2026-08-18.
+     The prototype paints
+       radial-gradient(120% 90% at 78% 18%,
+                       rgba(var(--srf),.62) 0%, rgba(var(--gnd),.55) 62%)
+     here. Every section wash was removed site-wide so the StarfieldCanvas
+     reads through the whole page instead of only under the two sections
+     that happened to have no background. Do not "restore" this from the
+     prototype — see Locked decisions. */
   /* Not the prototype's — it has no fixed header to clear. Required
      here so an #hero anchor jump does not land the badge under the
      71px navbar. Locked decision: every section from PF-80 on. */
   scroll-margin-top: var(--header-h);
 }
 
-.parallaxGrid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(252, 163, 17, .05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(252, 163, 17, .05) 1px, transparent 1px);
-  background-size: 74px 74px;
-  mask-image: radial-gradient(90% 70% at 50% 30%, #000 0%, transparent 75%);
-  -webkit-mask-image: radial-gradient(90% 70% at 50% 30%, #000 0%, transparent 75%);
-}
+/* `.parallaxGrid` was here and is gone (owner-requested, 2026-08-18) —
+   the prototype's 74px accent lattice on its data-para="0.12" layer
+   (line 84). Removed along with every section background so the star
+   field reads through the hero uninterrupted. Its component went too,
+   not just this rule: see HeroSection.jsx. The prototype's values, if
+   ever wanted back — position absolute, inset 0, two 1px
+   rgba(252,163,17,.05) gradients at background-size 74px 74px, masked
+   with radial-gradient(90% 70% at 50% 30%, #000 0%, transparent 75%). */
 
 .inner {
   position: relative;

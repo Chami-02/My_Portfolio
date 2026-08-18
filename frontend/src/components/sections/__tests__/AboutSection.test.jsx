@@ -138,14 +138,30 @@ describe('AboutSection (PF-81)', () => {
       .toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
   });
 
-  it('renders the portrait with its alt text and the location caption', () => {
+  it('renders the portrait with its alt text', () => {
     mockMatchMedia(false);
     const { container } = render(withMotion(<AboutSection />));
 
     expect(screen.getByAltText('Parindra Gallage in the visor')).toBeInTheDocument();
-    expect(screen.getByText('GALLE, SRI LANKA — SEEING THE STACK')).toBeInTheDocument();
     // The sweep and the fade are decoration, not content.
     expect(pick(container, 'portraitSweep')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  // Owner-requested removal, 2026-08-18. Asserted as absent rather than
+  // simply deleted, because the prototype still carries it at line 205 —
+  // a later fidelity pass comparing the two would otherwise read this as
+  // a transcription gap and "fix" it back in.
+  it('does not render the prototype\'s location caption', () => {
+    mockMatchMedia(false);
+    const { container } = render(withMotion(<AboutSection />));
+
+    expect(screen.queryByText(/GALLE, SRI LANKA/)).toBeNull();
+    expect(screen.queryByText(/SEEING THE STACK/)).toBeNull();
+    // The element, not just its text — an empty positioned div would
+    // still occupy the frame's bottom-left corner.
+    expect(pick(container, 'portraitCaption')).toBeNull();
+    // The fade is a different element and stays.
+    expect(pick(container, 'portraitFade')).not.toBeNull();
   });
 
   // ── stylesheet assertions ──────────────────────────────────────────
@@ -186,6 +202,15 @@ describe('AboutSection (PF-81)', () => {
         });
       // The stroke itself lives in patterns.module.css, not here.
       expect(css).not.toContain('-webkit-text-stroke');
+    });
+
+    // PF-82 moved margin-bottom OUT of the shared .section-eyebrow — the
+    // prototype's Skills eyebrow is 14px against this one's 38px, so the
+    // two sections never agreed and PF-81 had generalised from a single
+    // observation. This section's own 38px has to be restored locally or
+    // the gap under `01 / ABOUT` silently collapses to zero.
+    it('declares its own 38px eyebrow gap, no longer inherited', () => {
+      expect(ruleBody('.eyebrow')).toContain('margin-bottom: 38px');
     });
 
     // Prototype line 211 is 18px, line 212 is 20px. Collapsing the pair to

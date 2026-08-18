@@ -179,9 +179,13 @@ function AboutPortrait() {
       />
       <div aria-hidden="true" className={styles.portraitFade} />
       <div aria-hidden="true" className={styles.portraitSweep} />
-      <div className={styles.portraitCaption}>
-        GALLE, SRI LANKA — SEEING THE STACK
-      </div>
+      {/* The prototype's "GALLE, SRI LANKA — SEEING THE STACK" caption
+          (line 205) was removed 2026-08-18 at the owner's request. The
+          ELEMENT is gone, not just its text — an empty positioned div
+          would leave a stray box in the frame's bottom-left. `.portraitFade`
+          stays: it is a separate element that softens the photo's bottom
+          edge into the frame, and it predates the caption rather than
+          existing to serve it. */}
     </div>
   );
 }

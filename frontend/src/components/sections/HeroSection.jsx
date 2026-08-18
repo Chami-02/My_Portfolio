@@ -1,8 +1,6 @@
 // frontend/src/components/sections/HeroSection.jsx
 import { useEffect, useRef } from 'react';
 import { Reveal, Marquee } from '../motion';
-import { useReducedMotion } from '../../hooks/useReducedMotion';
-import { computeParallaxTransform } from '../../utils/parallax';
 import heroImg from '../../assets/hero-ai.png';
 import styles from './HeroSection.module.css';
 
@@ -73,8 +71,17 @@ export function HeroSection() {
   return (
     <>
       <section id="hero" className={styles.hero}>
-        <HeroParallaxGrid />
+        {/* The prototype's parallax grid layer (line 84) was here — a
+            74px accent lattice on a data-para="0.12" element. Removed
+            2026-08-18 at the owner's request, with every other section
+            background, so the StarfieldCanvas reads through the hero.
 
+            The whole COMPONENT went, not just its background-image. The
+            grid was the element's only visual content, so leaving it
+            would have kept an invisible div running a scroll listener
+            and a requestAnimationFrame write per frame for something
+            nobody can see. computeParallaxTransform() itself stays —
+            AboutSection's portrait still uses it at 0.05. */}
         <div className={styles.inner}>
           <div>
             <Reveal type="up" className={styles.badge}>
@@ -173,55 +180,6 @@ export function HeroSection() {
       </div>
     </>
   );
-}
-
-/**
- * Hero's own data-para="0.12" grid (line 84).
- *
- * PF-79's record said parallax was entirely PF-81's — the count of two
- * data-para elements was right, the attribution was not. This one is
- * Hero's; About's portrait is the other.
- *
- * Gated on reduced motion, unlike the portrait tilt below. The two are
- * different categories, not an inconsistency: parallax exists to move an
- * element at a DIFFERENT rate from the scroll that drives it, and that
- * rate mismatch is the specific thing named as a vestibular trigger.
- * Tilt is a 1:1 follow of the pointer, same as CursorGlow, which is
- * ungated for the same reason.
- */
-function HeroParallaxGrid() {
-  const ref = useRef(null);
-  const reduced = useReducedMotion();
-
-  useEffect(() => {
-    if (reduced) return undefined;
-    const el = ref.current;
-    if (!el) return undefined;
-
-    let raf = null;
-    const onScroll = () => {
-      // Coalesce to one write per frame — scroll fires far faster than
-      // the compositor can use, and the prototype throttles the same way.
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = null;
-        el.style.transform = computeParallaxTransform(el, 0.12);
-      });
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    // Matching the prototype's trailing this.onScroll(): a reload that
-    // restores mid-page scroll would otherwise leave the grid at its
-    // unshifted position until the user scrolls again.
-    onScroll();
-
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [reduced]);
-
-  return <div ref={ref} aria-hidden="true" className={styles.parallaxGrid} />;
 }
 
 /**

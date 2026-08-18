@@ -147,6 +147,46 @@ a:hover    { color: var(--strong); }
 }
 
 /* ── Light-mode-only rules ───────────────────────────────── */
+/* ── Phase 1 sections in light theme — TEMPORARY, delete at cutover ─────
+ *
+ * Projects, Blog and Contact are still Phase 1 components and read their
+ * colours from global.css's `:root`, which is a single dark palette that
+ * never flips: `--text-primary` is #f1f5f9 (near-white) in BOTH themes.
+ * On the warm-paper light ground that measures **1.11:1** — invisible.
+ *
+ * This did not start with the 2026-08-18 background removal. Projects has
+ * been unreadable in light theme for as long as light theme has existed;
+ * Contact merely looked fine because its own dark `--bg-surface` wash sat
+ * behind the text, so removing that wash exposed the same bug rather than
+ * causing it. Measured before and after, not inferred.
+ *
+ * ⚠️ Scoped to the three section elements ON PURPOSE. These tokens are
+ * also read by every admin panel, whose surfaces are the un-flipped dark
+ * `--bg-surface`. Redefining them at `html[data-theme="light"]` would put
+ * dark text on those dark panels and break /admin in exactly the way this
+ * fixes the home page. Custom properties inherit, so declaring them on
+ * the sections re-scopes everything inside them and nothing outside.
+ *
+ * Mapped onto Phase 2 tokens rather than fresh hex, so these sections
+ * track the real palette until they are rebuilt in Sprint 12 — at which
+ * point this whole block goes, along with global.css's `:root`.
+ */
+html[data-theme="light"] #projects,
+html[data-theme="light"] #blog,
+html[data-theme="light"] #contact {
+  --text-primary:  var(--strong);
+  --text-body:     var(--text);
+  --text-muted:    var(--muted2);
+  --bg-surface:    rgba(var(--srf), .52);
+  --border:        rgba(var(--ln), .16);
+  --border-bright: rgba(var(--ln), .28);
+  /* Phase 1's indigo #818cf8 measures 2.44:1 on the paper ground and
+     2.91:1 on a card — the same failure --acc was deepened to #7E4800
+     to avoid (6.12:1 / 7.28:1). Point it at the real accent. */
+  --accent:        var(--acc);
+  --accent-glow:   rgba(252, 163, 17, .15);
+}
+
 html[data-theme="light"] [data-lightplate] { opacity: 1; }
 html[data-theme="light"] [data-terminal]   { box-shadow: 0 30px 60px rgba(20,33,61,.22); }
 

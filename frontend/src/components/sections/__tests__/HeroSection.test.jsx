@@ -28,27 +28,11 @@ function mockMatchMedia(matches) {
   );
 }
 
-/**
- * A flushable requestAnimationFrame queue.
- *
- * Deliberately NOT a stub that invokes the callback synchronously: the
- * component does `raf = requestAnimationFrame(cb)`, and a synchronous
- * stub runs cb — which clears `raf` — before that assignment lands, so
- * `raf` ends up holding a stale handle and the coalescing guard latches
- * shut forever. Real rAF is always async, so queueing reproduces it and
- * a sync stub does not.
- */
-let rafQueue = [];
-function queueRaf() {
-  rafQueue = [];
-  vi.stubGlobal('requestAnimationFrame', (cb) => rafQueue.push(cb));
-  vi.stubGlobal('cancelAnimationFrame', () => {});
-}
-function flushRaf() {
-  const pending = rafQueue;
-  rafQueue = [];
-  act(() => { pending.forEach((cb) => cb()); });
-}
+/* The flushable requestAnimationFrame queue that used to live here went
+   with the parallax grid (2026-08-18) — it existed only to drive that
+   scroll listener's coalescing, and HeroSection no longer calls rAF at
+   all. AboutSection.test.jsx still has the same harness and still needs
+   it, including the note on why a synchronous stub does not work. */
 
 function mockRect(el, rect) {
   vi.spyOn(el, 'getBoundingClientRect').mockReturnValue(rect);
@@ -62,7 +46,6 @@ describe('HeroSection (PF-80)', () => {
   beforeEach(() => {
     window.innerWidth = 1440;
     window.innerHeight = 900;
-    queueRaf();
   });
 
   afterEach(() => {
@@ -224,6 +207,20 @@ describe('HeroSection (PF-80)', () => {
   // would pass or fail for the wrong reason.
 
   describe('stylesheet', () => {
+
+    // Owner-requested, 2026-08-18: every section wash was removed so the
+    // StarfieldCanvas reads through the whole page. Asserted as absent
+    // because the PROTOTYPE STILL HAS IT — a later fidelity pass diffing
+    // the two would read this as a missing transcription and paint it
+    // back, which is precisely the regression worth catching. 
+    it('paints no section background, so the starfield reads through', () => {
+      // Comments stripped: the rule DOCUMENTS the removed prototype
+      // gradient in place, so a raw check matches the note explaining the
+      // absence rather than an actual declaration.
+      const rule = ruleBody('section.hero').replace(/\/\*[\s\S]*?\*\//g, '');
+      expect(rule).not.toContain('background');
+      expect(rule).not.toContain('gradient');
+    });
     // Owner-requested asymmetry, and the whole point of .loudCtaDot
     // existing beside .badgeDot: the CTA's outline breathes, its dot
     // does not. Merging the two classes would silently restore the pulse.
@@ -341,76 +338,48 @@ describe('HeroSection (PF-80)', () => {
   });
 
   // ── parallax ───────────────────────────────────────────────────────
+  //
+  // The hero's data-para="0.12" grid layer and its scroll listener were
+  // removed 2026-08-18 (owner-requested — see HeroSection.jsx). Four
+  // tests covering the 0.12 factor, the mount write, the reduced-motion
+  // gate and rAF coalescing went with them.
+  //
+  // Not simply deleted: asserted as absent below, because the prototype
+  // still has the element at line 84 and a later fidelity pass would
+  // otherwise read this as an un-transcribed layer and add it back.
+  // computeParallaxTransform() keeps its own tests in
+  // utils/__tests__/parallax.test.js, and AboutSection still exercises
+  // the scroll-listener shape at 0.05.
 
-  it('does not touch the parallax grid transform under reduced motion', () => {
-    mockMatchMedia(true);
-    const { container } = render(withMotion(<HeroSection />));
-
-    act(() => {
-      window.scrollY = 500;
-      window.dispatchEvent(new Event('scroll'));
-    });
-    flushRaf();
-
-    expect(pick(container, 'parallaxGrid').style.transform).toBe('');
-  });
-
-  // Matches the prototype's trailing this.onScroll(). Without it, a
-  // reload that restores mid-page scroll leaves the grid unshifted.
-  it('writes the parallax transform once at mount, before any scroll', () => {
+  it('renders no parallax grid layer', () => {
     mockMatchMedia(false);
     const { container } = render(withMotion(<HeroSection />));
-    flushRaf();
 
-    // jsdom rects are all-zero: mid = 0 + 0 - 450 = -450 → 450 * .12 = 54
-    expect(pick(container, 'parallaxGrid').style.transform)
-      .toBe('translate3d(0,54.0px,0)');
+    expect(pick(container, 'parallaxGrid')).toBeNull();
+    // The element carried the grid; the stylesheet must not keep it
+    // alive for something else to pick up.
+    expect(css).not.toContain('background-size: 74px 74px');
   });
 
-  it('updates the parallax grid on scroll, at the 0.12 factor', () => {
+  it('registers no scroll listener now the grid is gone', () => {
     mockMatchMedia(false);
-    const { container } = render(withMotion(<HeroSection />));
-    flushRaf();
+    const addSpy = vi.spyOn(window, 'addEventListener');
 
-    const grid = pick(container, 'parallaxGrid');
-    mockRect(grid, { top: 200, height: 500 });
+    render(withMotion(<HeroSection />));
 
-    act(() => {
-      window.scrollY = 500;
-      window.dispatchEvent(new Event('scroll'));
-    });
-    flushRaf();
-
-    // mid = 200 + 250 - 450 = 0 → no shift at viewport centre
-    expect(grid.style.transform).toBe('translate3d(0,0.0px,0)');
-
-    mockRect(grid, { top: -300, height: 500 });
-    act(() => { window.dispatchEvent(new Event('scroll')); });
-    flushRaf();
-
-    // mid = -300 + 250 - 450 = -500 → 500 * .12 = 60
-    expect(grid.style.transform).toBe('translate3d(0,60.0px,0)');
-  });
-
-  it('coalesces multiple scroll events into a single frame', () => {
-    mockMatchMedia(false);
-    const { container } = render(withMotion(<HeroSection />));
-    flushRaf();                                  // drain the mount frame
-
-    act(() => {
-      window.dispatchEvent(new Event('scroll'));
-      window.dispatchEvent(new Event('scroll'));
-      window.dispatchEvent(new Event('scroll'));
-    });
-
-    expect(rafQueue).toHaveLength(1);
-    flushRaf();
-    expect(pick(container, 'parallaxGrid').style.transform).toContain('translate3d');
+    const events = addSpy.mock.calls.map(([e]) => e);
+    expect(events).not.toContain('scroll');
+    // The portrait tilt is a different listener and stays.
+    expect(events).toContain('pointermove');
   });
 
   // ── teardown ───────────────────────────────────────────────────────
 
-  it('removes the pointermove and scroll listeners on unmount', () => {
+  // Only pointermove now. The scroll half went with the parallax grid
+  // (2026-08-18) — its absence is asserted in the parallax block above,
+  // so this covers teardown of what remains rather than silently
+  // dropping the assertion.
+  it('removes the pointermove listener on unmount', () => {
     mockMatchMedia(false);
     const removeSpy = vi.spyOn(window, 'removeEventListener');
 
@@ -418,6 +387,5 @@ describe('HeroSection (PF-80)', () => {
     unmount();
 
     expect(removeSpy).toHaveBeenCalledWith('pointermove', expect.any(Function));
-    expect(removeSpy).toHaveBeenCalledWith('scroll', expect.any(Function));
   });
 });

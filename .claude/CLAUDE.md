@@ -165,6 +165,7 @@ document; do not link to one.
 | PF-79 | Navbar, scroll progress, mobile nav | ✅ |
 | PF-80 | Hero + marquee strip | ✅ |
 | PF-81 | About — parallax, stats, outline type | ✅ |
+| PF-82 | Skills — wired to the API | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -193,7 +194,7 @@ competing for attention with straightforward section transcription.
 | 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | ✅ |
 | 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | ✅ |
 | 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | ✅ |
-| 8 | PF-82 | Skills | 3 | PF-81 | — |
+| 8 | PF-82 | Skills | 3 | PF-81 | ✅ |
 | 9 | PF-83 | Reduced-motion + a11y pass | 3 | all | — |
 | 10 | PF-84 | Sprint gate, PR, close | 2 | all | — |
 
@@ -211,8 +212,13 @@ Full markup transcription plus timer choreography plus that provider change put
 it closer to 7 points than 4. The table above still reads 4, which is what Jira
 has; re-point it there if you want the two to agree.
 
-**Sprint 11 is in progress** — PF-75 through PF-81 done and on the branch
-(38 of 46 points), PF-82 next.
+**Sprint 11 is in progress** — PF-75 through PF-82 done and on the branch
+(41 of 46 points), PF-83 next.
+
+PF-82 ran close to its 3 points on the frontend and then grew a backend
+half the ticket did not anticipate: correcting `seed.js` does nothing for
+an existing database, because `seed.js` deletes five collections before
+it writes. Migration `004-skill-order.js` covers that. Call it 5.
 
 PF-79 also carried three things beyond its own scope, all recorded below:
 `ThemeToggle`'s visual transcription (PF-72 deferred it here in its own module
@@ -510,6 +516,130 @@ prototype rather than the ticket:
   (Blame reads line 150 for a commit whose stat shows 115 insertions, which
   looks contradictory and is not: PF-67 created the file at 115 lines with this
   rule at line 99, and PF-68 and PF-79 grew it to 203, pushing the rule down.)
+
+**Built by PF-82 — Skills is Phase 2, and it is the first section wired to
+the API rather than transcribed off it:**
+
+```
+frontend/src/
+  components/sections/
+    SkillsSection.jsx  + .module.css   REPLACES the Phase 1 Skills, same path
+    __tests__/SkillsSection.test.jsx   27 tests
+  styles/
+    patterns.module.css                − margin-bottom (see below)
+backend/src/
+  seed.js                              order corrected for 3 of 5 categories
+  migrations/004-skill-order.js        NEW — the same fix for a live database
+  __tests__/004-skill-order.test.js    8 tests, pins seed.js to the migration
+```
+
+**This section reverses the About precedent deliberately.** PF-81 took About
+off the API because the prototype hardcodes its copy. Skills does the
+opposite, because the `Skill` schema already matched: the same 26 names, the
+same 5 categories, and an existing `order` field. Hardcoding here would have
+created a third section the admin CMS cannot drive, for nothing. Checked, not
+assumed — `seed.js`'s `SKILLS` was compared name by name against the
+prototype's lines 253-307.
+
+**⚠️ The 26 names always matched. Only the `order` did not**, which is exactly
+what a count-based check misses — and the count is what DESIGN.md line 136
+asserts ("26 chips matching the repo seed exactly"). Three groups were out of
+step, all three confirmed against the prototype rather than taken from the
+ticket:
+
+| Category | Was | Now (prototype's order) |
+| --- | --- | --- |
+| `language` | Java 3rd | Java **last** |
+| `frontend` | Next.js 2nd, Vite 3rd | Vite **2nd**, Next.js **last** |
+| `database` | SQLAlchemy 4th | Mongoose **4th**, SQLAlchemy **last** |
+
+`backend` and `devops` already matched and were left alone.
+
+**⚠️ `seed.js` alone does not fix the live site, and this is the part the
+ticket missed.** `seed.js` calls `deleteMany({})` on Project, Skill, Blog,
+About **and User** before it writes, so it cannot be re-run against a live
+database to pick up an ordering change — it would take the real contacts,
+blog views and admin user with it. Hence
+`backend/src/migrations/004-skill-order.js`, following the convention in that
+directory's README: idempotent, non-destructive, `--dry-run` first, sets
+`order` by exact name and touches nothing else.
+
+**As of 2026-08-18 the migration has NOT been run.** A `--dry-run` against
+the live database reported `Updated: 9  Already correct: 17  Missing: 0
+Extra: 0` — so the live data is still in the old order and the deployed site
+still renders Java third. Running it is a production write and was left to
+the owner.
+
+The order is now written down twice — `seed.js` for a fresh database,
+`TARGET_ORDER` for an existing one — which is real duplication and drifts
+silently, since each file reads fine alone and the only symptom is a fresh
+environment disagreeing with production. `__tests__/004-skill-order.test.js`
+pins them together by parsing `seed.js` as text (it calls `seed()` at module
+scope, so it cannot be `require`d). Confirmed by mutation in both directions.
+
+Five things worth knowing before touching the section:
+
+- **`patterns.module.css`'s `.section-eyebrow` lost its `margin-bottom`, and
+  About had to get 38px back locally.** PF-81 extracted the eyebrow after
+  confirming the structure repeats 5×, but baked in About's 38px as if it
+  were shared. It is not: the prototype's Skills eyebrow is 14px (line 246)
+  against About's 38px (line 194). So the property was generalised from a
+  single observation — the extraction's *first* real test, and it found one
+  of three values wrong. **It could not be fixed with a local override**: a
+  composed class and the class composing it both land on the element at
+  (0,1,0), so the winner falls out of bundle emission order rather than
+  intent. Removing the varying declaration is the only version that does not
+  depend on which is emitted second. Guarded in three places —
+  `patterns.test.js` asserts it is absent, and both section tests assert
+  their own value. All four mutations caught.
+- **The card hover transition is a sanctioned deviation, not a
+  transcription** — see Locked decisions. The prototype declares none.
+- **The pill's transition IS the prototype's, declared bare.** Unlike the
+  card, the pill is not a `Reveal` — the prototype wraps only the card (line
+  253) and the pills arrive with it — so nothing competes for the property
+  and it needs no `[data-reveal='in']` gate. Wrapping pills individually
+  would stagger 26 entrances where the design has five; guarded.
+- **First section of the sprint with no `@keyframes` at all.** Every effect
+  is a hover `transition`, so `animations.css` gained nothing and there is no
+  `composes: kf-*` anywhere in the module. A test asserts that stays true —
+  a carrier appearing here would mean something was transcribed that the
+  prototype does not have. Note the test reads the stylesheet with comments
+  **stripped**, because the file documents `kf-*` in prose and a raw
+  `not.toContain` matches the comment describing the thing.
+- **The loading placeholder's height is measured, not derived.** An empty
+  card collapses to its 48px of padding and the section grows ~157px per grid
+  row when content lands. 205px is the filled card's real rendered height in
+  Chromium, identical across cards (grid rows stretch) at
+  1600/1440/1280/1024/900/600px. The two-column band at 768px and below
+  settles at 162px instead, so the placeholder runs ~43px tall there; no
+  single static value covers both. The first guess of 120px, reasoned from
+  padding plus one pill row, was wrong by 85px — measured, then corrected.
+
+**Loading and error states have zero prototype precedent** — it never fetches
+anything — so both were decided here and both are owner-approved (2026-08-18):
+
+- **Loading**: five empty placeholder cards, no skeleton content, no shimmer.
+  With a 5-minute `staleTime` this is only ever on screen during a cold load.
+  `aria-hidden`, and bare `<div>`s rather than `Reveal`s — a placeholder that
+  animates in and is then replaced animates the same grid slot twice.
+- **Error**: the section, its heading and its `#skills` anchor **stay**; only
+  the card grid goes. The ticket specified `return null`, which was raised and
+  rejected: `Navbar.jsx:10` links to `#skills`, so removing the section turns
+  that link into a dead anchor with no feedback at all. The cause still
+  reaches `console.error` — **from an effect keyed on the error, not from the
+  render body**, so an unrelated re-render (a theme toggle) does not refill
+  the console with duplicates.
+
+**`SkillsSection` is a named export**, like every other section, and is
+already wrapped in `<ErrorBoundary>` in `HomePage.jsx` — that was PF-80's
+doing and needed no change here. **`ContactSection` remains the only bare
+one.**
+
+**PF-82 created no new orphans**, unlike PF-80 and PF-81. Checked rather than
+assumed: `useInView` keeps three consumers (Projects, Blog, Contact) and every
+Phase 1 class the old Skills used — `tech-tag`, `skeleton`, `section-label`,
+`section-title`, `section-divider`, `glass` — is still used by other Phase 1
+sections or admin panels.
 
 **`HeroSection` is now wrapped in `<ErrorBoundary>` in `HomePage.jsx`**
 (owner-approved during PF-80). Worth knowing why it matters more than it
@@ -822,6 +952,111 @@ error message:
   reading it. (Distinct from the `tokens.css`-after-`global.css` ordering rule
   in Locked decisions — that one is global-vs-global cascade order, no modules
   involved.)
+- **⚠️ A bare `transition:` on a `Reveal`-wrapped element silently eats the
+  entrance easing.** Found independently **twice** — `.rolePill` (PF-80) and
+  `.statCard` (PF-81) — before anyone wrote it down, which is why it is a
+  standing rule here rather than a note inside one section's entry.
+
+  `Reveal` puts its own class on the element it renders and drives the
+  entrance with `transition`. A section class on that same element declares
+  a hover `transition`. **One element, one `transition` property — they
+  cannot merge, so one wins outright.**
+
+  **The wrong pattern**, which looks completely ordinary:
+
+  ```css
+  /* AboutSection.module.css */
+  .statCard { padding: 22px 18px; transition: border-color .25s, transform .25s; }
+  .statCard:hover { border-color: var(--acc); transform: translateY(-4px); }
+  ```
+
+  **What it silently produces.** `.statCard` is (0,1,0). `Reveal.module.css`'s
+  `.reveal` is also **(0,1,0)** — an exact tie, broken by stylesheet order,
+  and a section module is emitted after `Reveal`'s. So the section wins and
+  the element's transition becomes `border-color .25s, transform .25s`.
+  `Reveal`'s `opacity .85s / transform 1.05s cubic-bezier(.16,1,.3,1)`
+  entrance is **gone** — the card still appears, because `opacity` and
+  `transform` still change, but it snaps in over 0.25s on the wrong curve
+  instead of easing over 1.05s. Nothing errors. Nothing fails a test. It
+  reads as "the reveal animation looks a bit off", which is exactly how
+  both prior occurrences were found: in a browser, by eye.
+
+  **The fix — gate the hover transition behind the finished entrance:**
+
+  ```css
+  .statCard[data-reveal='in'] {          /* (0,2,0) — beats .reveal outright */
+    transition: border-color .25s, transform .25s;
+  }
+  ```
+
+  `Reveal` sets `data-reveal="in"` at the moment the entrance completes, so
+  the element carries no hover transition until there is nothing left to
+  animate in, and the two never contend.
+
+  **Two things about the fix that are easy to get wrong:**
+  - **The `:hover` rule itself stays bare.** `.statCard:hover` is (0,2,0)
+    and ties with `.reveal[data-reveal='in'] { transform: none }`; it wins
+    on emission order, which holds because section modules come after
+    `Reveal`'s. Verified in a **production** build, not assumed.
+  - **`type="pop"` needs one more attribute.** `.reveal[data-type='pop']`
+    declares its own transition at (0,2,0), so a `[data-reveal='in']` gate
+    only ties with it. `.rolePill` uses
+    `.rolePill[data-reveal='in'][data-type='pop']` — (0,3,0) — for exactly
+    this reason. Types `up`/`rise`/`left` take their transition from the
+    base `.reveal` and need only the one attribute.
+
+  **Detection.** `getComputedStyle(el).transitionDuration` during the
+  entrance reads the hover value (`0.25s`) instead of `1.05s`. Under Vitest
+  this is invisible — CSS Modules are compiled but no stylesheet is applied
+  (`document.styleSheets.length === 0`), so assert the stylesheet as text:
+  the bare `.cls` rule must contain no `transition`, and a
+  `.cls[data-reveal='in']` rule must exist. `SkillsSection.test.jsx` and
+  `AboutSection.test.jsx` both do this.
+
+  **Swept 2026-08-18** across Hero, About and Skills — 20 `Reveal`-wrapped
+  classes, 4 declare a transition (`.rolePill`, `.loudCta`, `.statCard`,
+  `.card`), all 4 gated, 0 ungated. The sweep also checked `composes:`
+  inheritance, not just directly-declared transitions, and confirmed no
+  `<Reveal>` uses a `className` the sweep could miss.
+
+  **`patterns.module.css`'s `.pill` was the one latent trap, and it has
+  been fixed pre-emptively rather than left as a warning** (2026-08-18).
+  It carried a bare `transition: color .2s, border-color .2s, background
+  .2s, transform .2s` with no consumer outside `.pill-accent` in that same
+  file — nothing broken, but a pill is precisely what gets wrapped in a
+  `Reveal` (Hero's `.rolePill` and `.loudCta` both are), so a single
+  `composes: pill from '../../styles/patterns.module.css'` would have been
+  occurrence three, arriving through a file nobody edited.
+
+  **The gate needed three selectors, not one**, because a shared pattern
+  cannot know how a consumer wraps it — worth reading before gating any
+  other shared class:
+
+  ```css
+  .pill:not([data-reveal]),                      /* (0,2,0) no Reveal at all */
+  .pill[data-reveal='in'],                       /* (0,2,0) up / rise / left  */
+  .pill[data-reveal='in'][data-type='pop'] {     /* (0,3,0) pop — see below   */
+    transition: color .2s, border-color .2s, background .2s, transform .2s;
+  }
+  ```
+
+  - **`:not([data-reveal])` is load-bearing.** A plain `.pill[data-reveal='in']`
+    gate matches only elements a `Reveal` rendered. A pill used as an
+    ordinary button has no such attribute, so the gate would silently take
+    its hover transition away entirely — trading one silent failure for
+    another.
+  - **`pop` needs the third selector.** `.reveal[data-type='pop']` declares
+    its own transition at (0,2,0), so the two-part gate merely *ties* with
+    it and the winner falls out of bundle emission order. The three-part
+    selector settles it. Same reasoning as `.rolePill`'s.
+  - Mid-entrance the element is `data-reveal="out"`, so none of the three
+    match and `Reveal`'s easing owns the property — which is the point.
+
+  Guarded by three tests in `styles/__tests__/patterns.test.js`; all three
+  mutations caught. Two of them were **blind on the first attempt** and
+  passed against the explanatory comment rather than the rule — see the
+  Silent-failures entry on raw-text CSS assertions matching comments, which
+  has the full inventory.
 - **`rgba(#hex, .5)`** → invalid, produces nothing. The five channel triplets
   (`--gnd --srf --ln --ftr --shd`) must stay as bare `R,G,B`
 - **Redefined `@keyframes` of the same name** → later definition wins by
@@ -890,6 +1125,112 @@ error message:
   resting `opacity: 0`) passes or fails for the wrong reason. Assert the
   stylesheet as text, as `styles/__tests__/tokens.test.js` does, and assert the
   DOM only for what JS actually writes inline.
+- **⚠️ A raw-text CSS assertion can match a COMMENT instead of the rule.**
+  This is the direct cost of the entry above: it tells you to assert the
+  stylesheet as text, and text includes the prose. This codebase documents
+  its CSS heavily — removed prototype values are preserved in comments, and
+  gates explain their own specificity — so the exact string a test searches
+  for is very often sitting in the comment *explaining* the rule.
+
+  **What it produces is the worst possible failure shape: a test that
+  reports PASS while asserting nothing.** Not a false negative that nags —
+  a false *positive* that reassures. It survives review, it survives
+  re-reading the test, and it is invisible to coverage, because the
+  assertion genuinely ran and genuinely passed.
+
+  **The wrong pattern**, both directions:
+
+  ```js
+  // negative — the comment says the thing is absent, so the check "passes"
+  expect(css).not.toContain('composes: kf-');   // matched  "⚠️ No `composes: kf-*` in this file"
+  expect(rule).not.toContain('gradient');       // matched  "the prototype paints radial-gradient(…)"
+  expect(bridge).not.toMatch(/#[0-9a-f]{6}/i);  // matched  "Phase 1's indigo #818cf8 measures 2.44:1"
+
+  // positive — indexOf lands in the comment, and the slice from there
+  // contains every selector the comment lists, so all three toContain pass
+  const i = css.indexOf(".pill:not([data-reveal])");
+  const rule = css.slice(i, css.indexOf('}', i));
+  ```
+
+  **Fix A — strip comments before searching.** Cheap, and what this repo
+  uses:
+
+  ```js
+  const cssRules = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  ```
+
+  **Fix B — parse instead of searching.** Immune rather than defended,
+  because comments are a distinct node type a declaration walk never
+  visits. `postcss` is already present (8.5.26, a Vite dependency) so this
+  costs no new install:
+
+  ```js
+  import postcss from 'postcss';
+  const root = postcss.parse(css);
+  root.walkRules((rule) => rule.walkDecls((d) => /* d.prop, d.value */));
+  ```
+
+  Verified on `patterns.module.css`: the walk skips **13** comment nodes
+  and returns the gated selector list exactly, while the equivalent regex
+  over raw text is the thing that misfires.
+
+  **⚠️ "Use the CSSOM" does not mean `document.styleSheets` here.** Under
+  Vitest that array is **empty** — `document.styleSheets.length === 0`,
+  measured, because no stylesheet is ever applied (see the entry above).
+  Reaching for the browser CSSOM yields an assertion over nothing at all,
+  which is the same failure again by a different route. Parse the file.
+
+  **Occurrences.** Far more than the "third time" an earlier note in
+  `patterns.test.js` claimed — that count was wrong and is corrected here.
+  **Eight test files carry a comment-stripping workaround**, the earliest
+  predating this sprint entirely:
+
+  | Test file | Introduced by |
+  | --- | --- |
+  | `styles/__tests__/keyframes.test.js` | `5be0e66` PF-69 |
+  | `components/ambient/__tests__/CursorGlow.test.jsx` | `9ad74c0` PF-77 |
+  | `styles/__tests__/motion.test.js` | `060244a` PF-79 |
+  | `styles/__tests__/animations.test.js` | `e087712` (keyframe-reference fix) |
+  | `components/sections/__tests__/SkillsSection.test.jsx` | PF-82 — **two** sites |
+  | `components/sections/__tests__/HeroSection.test.jsx` | PF-82 follow-up |
+  | `styles/__tests__/tokens.test.js` | PF-82 follow-up |
+  | `styles/__tests__/patterns.test.js` | PF-82 follow-up |
+
+  The first four already had the strip when written, so it is not knowable
+  from the code whether those authors hit the trap or anticipated it. The
+  last four are **confirmed blind guards** — five of them, every one caught
+  by mutation testing rather than by reading, and two in `patterns.test.js`
+  alone on a single rule. That is the real lesson: **this trap is not
+  detectable by inspection.** A guard written against raw text must be
+  mutated before it is trusted, or written with Fix B so there is nothing
+  to trust.
+- **A `[class*="name"]` test selector silently matches longer class names.**
+  Distinct from the entry above about stylesheets, and easy to conflate with
+  it. That one still holds exactly — verified again in PF-82,
+  `document.styleSheets.length` is **0** under Vitest and a module's rules
+  are never applied. But the *class names* are real: Vitest scopes them to
+  `_<local>_<hash>` (e.g. `_pill_f5cf21`), so `querySelector` works, and the
+  substring form every section test uses is only safe while no local name is
+  a prefix of another. PF-82 has two that are — `pill`/`pillRow` and
+  `card`/`cardPlaceholder` — and `[class*="pill"]` counted 31 pills where
+  there were 26, while `[class*="card"]` counted loading placeholders as
+  real cards. Both read as component bugs. `[class~="pill"]` does not fix
+  it either: the token is `_pill_f5cf21`, not `pill`. `SkillsSection.test.jsx`
+  unwraps the local name and compares it exactly, handling both Vitest's
+  template and `vite.config.js`'s own `[name]__[local]`.
+- **A shared mutable test fixture disarms the guard that watches it.**
+  `SkillsSection.test.jsx` had a module-level `SKILLS` array and a test
+  asserting the component does not sort its input in place. Mutation testing
+  showed the pair was **blind**: the mutant sorted `SKILLS` during the first
+  test in the file, so by the time the dedicated check ran, its input was
+  already sorted and nothing was left to detect — a clean PASS on a real
+  defect. Running that one test alone caught it; running the file did not,
+  which is the worst shape for this to take. Fixed by `Object.freeze`-ing
+  the fixture, which turns every render in the file into a guard: the same
+  mutant now fails 13 tests instead of 0. Worth generalising — any test
+  fixture shared across cases should be frozen, and any "does not mutate"
+  assertion should be mutation-tested with the **whole file**, not with
+  `-t`.
 - **⚠️ A green test suite actively hides dead code — it does not merely fail to
   catch it.** This is the sharper version of the usual "tests don't prove much"
   caveat, and it is worth reading twice: a module's own test file keeps
@@ -1100,6 +1441,146 @@ Where a mistake would be silent, add a test that would catch it.
     Note `getBoundingClientRect().height` reads ~82px here and is not the
     band: the wrapper is rotated -1.1deg, and a 1440px-wide element rotated
     that far adds ~28px to its axis-aligned box. Measure `offsetHeight`.
+- **Transparent section backgrounds, site-wide (2026-08-18,
+  owner-requested).** Every section wash is removed so the
+  `StarfieldCanvas` reads continuously behind the whole page. The owner's
+  reasoning: the banded look read as a grid of stacked panels, and the
+  galaxy is more visible and cleaner without it. Four sections carried one;
+  About and Projects already had none, which is what made the banding
+  obvious.
+
+  | Section | Prototype background, now removed |
+  | --- | --- |
+  | Hero | `radial-gradient(120% 90% at 78% 18%, rgba(--srf,.62) 0%, rgba(--gnd,.55) 62%)` |
+  | Hero | **plus a separate 74px grid LAYER — see below** |
+  | Skills | `linear-gradient(180deg, rgba(--gnd,.35), rgba(--ftr,.72) 50%, rgba(--gnd,.35))` |
+  | Blog *(Phase 1)* | `linear-gradient(180deg, var(--bg), var(--bg-surface) 50%, var(--bg))` |
+  | Contact *(Phase 1)* | `linear-gradient(180deg, var(--bg), var(--bg-surface))` |
+
+  **⚠️ The hero needed TWO removals, and the second was missed on the first
+  pass.** Clearing `section.hero`'s wash left the grid still on screen,
+  because the lattice is not a section background at all — it is its own
+  absolutely-positioned layer, `.parallaxGrid`, on the prototype's
+  `data-para="0.12"` element (line 84): two 1px `rgba(252,163,17,.05)`
+  gradients at `background-size: 74px 74px`, radially masked.
+
+  Worth naming why it was missed, since the same trap is still live for
+  Projects/Blog/Contact in Sprint 12. This file already described that
+  element — "Line 84 is the hero's grid at `0.12`" — in the PF-80 parallax
+  entry, where "grid" reads naturally as the *layout* grid, and the hero
+  does have one of those two lines below (`display: grid` on `.inner`).
+  Grepping section rules for `background` therefore found the wash and not
+  the lattice. **Grep for `background-size` and `background-image`
+  separately**; a tiled decorative layer has neither the word `background:`
+  nor a section selector.
+
+  **The whole component went, not just the `background-image`.** The grid
+  was that element's only visual content, so keeping it would have left an
+  invisible div running a scroll listener and a `requestAnimationFrame`
+  write per frame for something nobody can see — the splash scan-line
+  lesson again. Removed with it: `HeroParallaxGrid`, its render site, the
+  `.parallaxGrid` rule, the now-unused `useReducedMotion` and
+  `computeParallaxTransform` imports in that file, four parallax tests, and
+  the test file's rAF harness, which existed only to drive them.
+
+  **`computeParallaxTransform()` itself stays** — `AboutSection`'s portrait
+  still uses it at `0.05`, and `utils/__tests__/parallax.test.js` still
+  covers it. **The hero now registers no scroll listener at all**; the
+  portrait tilt's `pointermove` is a different listener and is untouched.
+  Both facts are asserted in `HeroSection.test.jsx` rather than left
+  implied.
+
+  Phase 1's `global.css` has a second, unrelated grid — `.grid-bg`, 60px
+  indigo — which is **not** this one and is still in use by
+  `NotFoundPage.jsx`. Do not delete it while cleaning up.
+
+  **Card and panel surfaces are untouched** — `rgba(var(--srf), .52)` on
+  Skills' cards, About's stat cards and the rest. Those carry the text and
+  are what keeps it legible over a star field; only the SECTION went
+  transparent. Guarded: `SkillsSection.test.jsx` asserts both halves — no
+  section background, and the card surface still present.
+
+  Guarded in `HeroSection.test.jsx` and `SkillsSection.test.jsx` as an
+  **absence**, deliberately, because the prototype still has these
+  gradients. A later fidelity pass diffing the two reads a missing
+  background as an un-transcribed value and paints it back; the test says
+  it is intentional. Note both guards must strip CSS comments before
+  asserting — the rules document the removed gradient in place, so a raw
+  `not.toContain('gradient')` matches the note explaining the absence.
+  That tripped twice while writing them — see the Silent-failures entry on
+  raw-text CSS assertions matching comments.
+
+- **The About portrait's caption is removed (2026-08-18,
+  owner-requested).** The prototype's `GALLE, SRI LANKA — SEEING THE STACK`
+  (line 205) is gone from `AboutSection`. Three things to keep straight,
+  the same shape as the splash scan lines:
+  - The **element** is gone, not just its text. An empty `position:
+    absolute` div would still sit in the frame's bottom-left.
+  - **`.portraitFade` stays.** It is a different element — the gradient
+    that softens the photo's bottom edge into the frame — and it is not
+    what was complained about. `.portraitCaption`'s rule was deleted from
+    the module rather than left unused, with its values preserved in a
+    comment there if it is ever wanted back.
+  - The Contact section's own `GALLE, SRI LANKA · UTC+5:30` (prototype
+    line 511) is **a different string in a different section** and is
+    Sprint 12's. This removal does not touch it, and the location is still
+    stated on the page once Contact is rebuilt.
+  `AboutSection.test.jsx` asserts the caption is absent rather than simply
+  dropping the old assertion — same reasoning as the backgrounds.
+
+- **Phase 1 light-theme bridge in `tokens.css` (2026-08-18) — temporary,
+  delete at cutover.** Not a design decision; a measured accessibility
+  fix, recorded here because it is a visible change to three sections.
+
+  Phase 1's `global.css` `:root` is a single **dark** palette that never
+  flips: `--text-primary` is `#f1f5f9` in both themes. Against the light
+  theme's warm paper that measures **1.11:1**. Projects had been unreadable
+  in light theme for as long as light theme has existed; Contact only
+  looked fine because its own dark wash sat behind the text, so removing
+  that wash **exposed** the bug rather than causing it. Measured before and
+  after with a real contrast calculation, not eyeballed.
+
+  ```
+                     before        after
+  Projects heading   1.11:1   →   15.34:1
+  Contact heading    1.11:1   →   15.34:1
+  Contact body       2.10:1   →   12.98:1
+  About body         6.35:1   →    6.35:1   (Phase 2, never affected)
+  ```
+
+  **⚠️ The fix is scoped to `#projects, #blog, #contact` and that scope is
+  the whole of its correctness.** The same tokens are read by every admin
+  panel, whose surfaces are the un-flipped dark `--bg-surface`. Widening it
+  to a bare `html[data-theme="light"]` block would put dark text on those
+  dark panels — the identical bug, moved to `/admin`, with nothing in the
+  stylesheet looking wrong. Custom properties inherit, so declaring them on
+  the section elements re-scopes everything inside and nothing outside.
+  Verified empirically: `/admin/login` in light theme still reports
+  `--text-primary: #f1f5f9` and `--accent: #818cf8`.
+
+  Every value maps onto a Phase 2 token rather than fresh hex, so these
+  sections track the real palette until Sprint 12 replaces them. That
+  includes `--accent`, which is a visible colour change: Phase 1's indigo
+  `#818cf8` measures 2.44:1 on paper against `--acc`'s 6.12:1 — the same
+  failure `--acc` was deepened to `#7E4800` to avoid. Guarded by five
+  tests in `styles/__tests__/tokens.test.js`, including one that fails if
+  the rule is ever widened; all three mutations caught.
+
+- **Card hover transitions (2026-08-18, owner-approved).** The prototype
+  declares **no** `transition` on either About's stat card (line 216) or
+  Skills' category card (line 253) — only the `style-hover` end state, so
+  both snap instantly. Of its 108 `style-hover` elements only about a
+  dozen declare a transition at all; the hero's role pill (line 100) is
+  one that does, and PF-80 transcribed it faithfully.
+  PF-81 gave `.statCard` a 0.25s transition anyway, without flagging it.
+  PF-82 found the mismatch, raised it, and the owner chose to keep the
+  eased version and extend it to `.card` rather than revert About — two
+  sibling sections disagreeing on hover reads as a bug. So:
+  **both cards ease at 0.25s, the prototype snaps, and that gap is
+  deliberate.** Do not "restore" either to instant.
+  Both are gated on `[data-reveal='in']` — see the Silent-failures entry on
+  a bare `transition:` eating a `Reveal`'s entrance. That gating is a
+  correctness requirement, not part of this deviation.
 - **Splash timing and the progress bar (2026-08-17, owner-requested).** Two
   more deviations from the prototype, both in `Splash.jsx`:
   - **`SPLASH_MS` is 7000, not the prototype's 4600.** The owner asked for
@@ -1220,7 +1701,19 @@ internal target stays `backend:5000`.
 
 E2E runs isolated: database `portfolio_e2e`, backend 5055, frontend 5174.
 
-Prefer `lsof -ti:PORT | xargs kill` over pattern-matched `pkill`.
+Prefer `lsof -sTCP:LISTEN -ti:PORT | xargs kill` over pattern-matched
+`pkill`. **The `-sTCP:LISTEN` is not optional.** A bare `lsof -ti:PORT`
+returns every process holding a socket on that port, clients included, not
+just the listening server — so piping it to `kill` takes down whoever is
+*connected* to your dev server along with the server. Concretely, a port
+audit on 2026-08-18 found four PIDs on 5173/5174/5055/5050 but only three
+listeners: the fourth was **Google Chrome** (PID 11172), holding
+`[::1]:58572->[::1]:5173 (ESTABLISHED)` because a tab was open on the dev
+server. `lsof -ti:5173 | xargs kill` would have killed the browser.
+Re-running with `-sTCP:LISTEN` drops it and leaves exactly the three
+servers. That same OR-vs-AND trap applies to `lsof`'s selectors generally:
+`-p PID -iTCP` unions them and prints every process's TCP sockets — use
+`-a` to intersect (`lsof -nP -a -p PID -iTCP`).
 
 Backend tests live in `backend/src/__tests__/`. Run via `npm test`, never
 `npx jest` — the wrapper rewrites the Mongo URI to `/portfolio_test`, which is
