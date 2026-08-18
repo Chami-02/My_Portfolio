@@ -71,11 +71,77 @@
   transform: translateY(-2px);
 }
 
-/* Mono eyebrow label */
+/* Mono eyebrow label.
+   ⚠️ NOT the numbered section eyebrow below. This one is PF-70's generic
+   small-label pattern — 11px, .14em, muted — and as of PF-81 nothing
+   consumes it. The `01 / ABOUT` treatment is `.section-eyebrow-label`,
+   at 12px/.24em/accent. Composing the wrong one is a silent near-miss:
+   the label renders, just grey and slightly tight. */
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--muted2);
+}
+
+/* ── numbered section eyebrow ───────────────────────────────────────────
+ * Added in PF-81, and extracted rather than left in AboutSection because
+ * it is confirmed repeating — grepped, not assumed. The prototype carries
+ * this exact structure five times, byte-identical apart from the label
+ * text: `01 / ABOUT` (line 195), `02 / SKILLS` (247), `03 / PROJECTS`
+ * (312), `04 / BLOG` (417), `05 / CONTACT` (493).
+ *
+ * PF-82 is the second consumer. If it composes these cleanly, the
+ * extraction was right; if it needs to override two of the three, move
+ * the values back down into the sections.
+ */
+
+.section-eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 38px;
+}
+
+.section-eyebrow-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .24em;
+  color: var(--acc, #FCA311);
+}
+
+.section-eyebrow-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(252, 163, 17, .5), transparent);
+}
+
+/* ── outlined heading word ──────────────────────────────────────────────
+ * Also confirmed 5× and also byte-identical each time — only the wrapped
+ * word changes: "I am" (line 210), "Toolkit" (250), "Built" (315),
+ * "Notes" (421), "something loud" (496).
+ */
+
+.outline-text {
+  -webkit-text-stroke: 1.5px var(--acc, #FCA311);
+  color: transparent;
+}
+
+/* Robustness addition (PF-81), not a prototype value. `color: transparent`
+   with no fallback means an engine that does not paint -webkit-text-stroke
+   shows literally nothing rather than something approximately right — the
+   failure is total, not degraded. Support is broad enough today that this
+   changes what nobody sees; it only covers the case that is currently
+   blank space. Solid accent fill, no stroke. */
+/* The condition is deliberately var()-free. A declaration whose value
+   contains a top-level var() is "assumed valid" by @supports rather than
+   actually tested, so putting the token in here would make the condition
+   answer true on an engine that cannot paint the property at all — the
+   one case this exists for. `1px` alone is a valid -webkit-text-stroke. */
+@supports not (-webkit-text-stroke: 1px) {
+  .outline-text {
+    -webkit-text-stroke: 0;
+    color: var(--acc, #FCA311);
+  }
 }

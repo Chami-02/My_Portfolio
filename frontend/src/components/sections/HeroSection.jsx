@@ -125,7 +125,7 @@ export function HeroSection() {
                 as="a"
                 href="#contact"
                 type="pop"
-                delay={440}
+                delay={50}
                 className={styles.loudCta}
               >
                 <span aria-hidden="true" className={styles.loudCtaDot} />

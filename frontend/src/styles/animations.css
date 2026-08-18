@@ -61,6 +61,7 @@
 .kf-pulsering  { animation-name: pulsering; }
 .kf-riseIn     { animation-name: riseIn; }
 .kf-spin       { animation-name: spin; }
+.kf-sweep      { animation-name: sweep; }
 
 /* Per-screen variants. The screen suffix is part of the keyframe's real
    name — `flt` and `drift` differ per screen, so there is no unsuffixed

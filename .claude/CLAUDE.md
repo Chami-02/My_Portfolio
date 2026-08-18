@@ -164,6 +164,7 @@ document; do not link to one.
 | PF-78 | Splash | ✅ |
 | PF-79 | Navbar, scroll progress, mobile nav | ✅ |
 | PF-80 | Hero + marquee strip | ✅ |
+| PF-81 | About — parallax, stats, outline type | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -191,7 +192,7 @@ competing for attention with straightforward section transcription.
 | 4 | PF-78 | Splash | 4 | PF-74, PF-75 | ✅ |
 | 5 | PF-79 | Navbar, scroll progress, mobile nav | 5 | PF-75 | ✅ |
 | 6 | PF-80 | Hero + marquee strip | 8 | PF-74, PF-78 | ✅ |
-| 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | — |
+| 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | ✅ |
 | 8 | PF-82 | Skills | 3 | PF-81 | — |
 | 9 | PF-83 | Reduced-motion + a11y pass | 3 | all | — |
 | 10 | PF-84 | Sprint gate, PR, close | 2 | all | — |
@@ -210,8 +211,8 @@ Full markup transcription plus timer choreography plus that provider change put
 it closer to 7 points than 4. The table above still reads 4, which is what Jira
 has; re-point it there if you want the two to agree.
 
-**Sprint 11 is in progress** — PF-75 through PF-80 done and on the branch
-(33 of 46 points), PF-81 next.
+**Sprint 11 is in progress** — PF-75 through PF-81 done and on the branch
+(38 of 46 points), PF-82 next.
 
 PF-79 also carried three things beyond its own scope, all recorded below:
 `ThemeToggle`'s visual transcription (PF-72 deferred it here in its own module
@@ -542,6 +543,126 @@ tests cover it. The hero itself ended up not needing it: per-chip float timing
 lives in the eight position modifier classes instead, which is closer to
 "paste the prototype's value into CSS" anyway.
 
+**Built by PF-81 — About is Phase 2, and `patterns.module.css` finally has a
+consumer:**
+
+```
+frontend/src/
+  components/sections/
+    AboutSection.jsx  + .module.css   REPLACES the Phase 1 About, same path
+    __tests__/AboutSection.test.jsx   19 tests
+  styles/
+    patterns.module.css               + section-eyebrow{,-label,-line}, outline-text
+    __tests__/patterns.test.js        new — guards both extractions
+    animations.css                    + kf-sweep carrier
+  assets/about-portrait.png           copied from docs/design/assets/
+```
+
+**`patterns.module.css` had zero consumers before this ticket.** PF-70 created
+it and nothing had ever imported it, so `composes: … from
+'../../styles/patterns.module.css'` was unexercised in this build until now. It
+works — verified in the built bundle, both classes land on the element
+(`_3E2sqJ _66wQRQ`) and the stroke computes to 1.5px accent. Worth knowing
+before assuming any *other* untouched part of that file is proven.
+
+Note the file already had an `.eyebrow`, and it is **not** the numbered section
+eyebrow — 11px/.14em/`--muted2` against the section one's 12px/.24em/accent.
+Composing the wrong one renders a label that is grey and slightly tight rather
+than absent, which is the kind of near-miss that survives review. Both are
+commented in place and `patterns.test.js` pins them apart.
+
+Six things worth knowing, all found by checking the prototype or a browser
+rather than the ticket:
+
+- **The asset is `about-portrait.png`, hyphen intact.** The ticket asserted
+  `aboutportrait.png` and justified it with a "same hyphen-dropped naming as
+  `hero-ai.png` → `heroai.png` in PF-80" precedent that does not exist —
+  PF-80's file is `hero-ai.png`. The prototype's own `src` is
+  `assets/about-portrait.png`. There is no hyphen-dropping convention here.
+- **The two body paragraphs have different bottom margins — 18px and 20px.**
+  Prototype lines 211 and 212. The ticket collapsed both into one `.body` at
+  18px. Transcribed as found via `.bodySecond { composes: body;
+  margin-bottom: 20px }`; verified 18px/20px in the built page. Reads like a
+  slip in a design export, and rounding it is exactly the wrong-by-2px change
+  this file keeps warning about.
+- **`section.about`, not `.about`** — the ticket wrote the bare class, which
+  loses `scroll-margin-top` to `global.css:338`'s `[id]` rule on a specificity
+  tie and computes 80px for a 71px header. Same trap PF-80 documented, in the
+  ticket that cites PF-80's check in its own checklist. Verified 71px in
+  Chromium; guarded, and confirmed by mutation.
+- **The stat card's hover transition is gated on `[data-reveal='in']`.** The
+  card is itself a `Reveal`, so its hover transition and Reveal's entrance
+  transition compete for one element and cannot merge. Declared bare — as the
+  ticket had it — `.statCard` ties with `.reveal` at (0,1,0) and wins on
+  stylesheet order, replacing the 1.05s entrance ease with a 0.25s hover
+  transition. `.statCard[data-reveal='in']` is (0,2,0) and takes over only once
+  the entrance has finished. Same fix as `.rolePill`, one attribute shorter:
+  type `up` takes its transition from the base `.reveal` rather than from a
+  `[data-type]` override, so there is nothing extra to clear.
+  The hover *lift* is a genuine order-dependent tie —
+  `.statCard:hover` against `.reveal[data-reveal='in']{transform:none}`, both
+  (0,2,0) — and it resolves correctly because the section module is emitted
+  after Reveal's. Measured rather than assumed, in the **production** build:
+  the card reaches exactly `translateY(-4px)` and the border goes accent.
+  `.rolePill` has the identical shape and also works.
+- **`@supports not (-webkit-text-stroke: 1px)` must stay var()-free.** A
+  declaration whose value contains a top-level `var()` is *assumed valid* by
+  `@supports` rather than actually tested, so writing the accent token into the
+  condition makes it answer true on the one engine the fallback exists for. The
+  condition tests `1px`; the token stays in the rule body. Confirmed in
+  Chromium that the fallback does **not** engage (fill computes
+  `rgba(0,0,0,0)`, i.e. the stroked version is what shows).
+- **`sweep` is first used here.** It was already in `base.css`'s shared 22 —
+  only the `kf-sweep` carrier in `animations.css` is new. Verified in the built
+  bundle: every `animation-name:` resolves to a real keyframe, and the element
+  reports `getAnimations().length === 1` with name `sweep` at 8000ms.
+
+**The prototype's static `scale(1.02)` on the portrait is overwritten by the
+parallax effect's own `scale(1.1)`, and that is correct.**
+`computeParallaxTransform()` writes the entire `transform` property and does
+not merge; the prototype's `bindScroll()` does the identical unconditional
+overwrite. So `1.02` is what the markup says and `1.1` is what has always
+displayed, from the first frame. Under reduced motion the effect never runs and
+`1.02` is the resting value — verified both ways in a browser. Do not try to
+preserve `1.02` cleverly.
+
+**⚠️ About no longer reads from the API, and that is a content-source
+regression this ticket knowingly ships.** Phase 1's `AboutSection` pulled its
+bio, stats, availability note and résumé link from `useAbout()`; the prototype
+hardcodes all of it, so the Phase 2 transcription does too. The admin CMS's
+About panel therefore no longer drives the public page — `AdminAboutPanel`
+still reads and writes the same data, it just has no public reader any more.
+**⚠️ Two claims that were here and were wrong — corrected 2026-08-17 after
+actually reading the schema and the seed.** They are left visible rather than
+silently swapped because both were written confidently and neither was checked:
+
+- ~~"the prototype's copy and the API's shape do not line up field for field"~~
+  They line up almost exactly. `seed.js`'s `ABOUT_DATA` carries the two body
+  paragraphs verbatim, `availabilityNote` verbatim, and a `stats[]` of exactly
+  the four cards including `{ label: 'Learning', value: 'Continuous' }`. The
+  only real friction is that `value` is a **String** (`'5+'`), so `CountUp`'s
+  numeric `to` + `suffix` has to be parsed out of it.
+- ~~"PF-80 did the same thing to the hero"~~ It did not. Phase 1's `HeroSection`
+  had **zero** API calls — verified at `fa25cfe~1`: its only hook was
+  `useTypewriter` (a local hook with a hardcoded `ROLES` array) and its social
+  links were hardcoded JSX. There was nothing to disconnect, and there is no
+  Hero model, route, hook or admin panel anywhere in the repo.
+
+About is therefore the **first and only** section a Phase 2 rebuild has taken
+off the API. Re-wiring it still needs its own ticket, but the reason is
+narrower than what was claimed here.
+
+That replacement also orphaned **`apiUrl`** (`services/api.js`): `AboutSection`
+was its only consumer, and it now has none. Same shape as the PF-80 orphans
+below — left in place, since `services/api.js` is Phase 1 infrastructure that
+gets revisited at cutover, and it is the natural way to build the résumé link
+when Contact lands. `useInView` and `useAbout` are **not** orphaned: four Phase
+1 sections still use the first, `AdminAboutPanel` still uses the second.
+
+The résumé download is not lost with it. The prototype's hero CTA points at
+`#contact` (line 119) and the real download lives in the contact section
+(line 505) — both Sprint 12's.
+
 ## Stack
 
 React 19 · Vite · Tailwind v4 · CSS Modules · React Router v7 · TanStack Query v5
@@ -706,7 +827,17 @@ error message:
 - **Redefined `@keyframes` of the same name** → later definition wins by
   document order
 - **Connection string with no database path** → driver silently defaults to a
-  database named `test`
+  database named `test`. **This already happened here, and the resolution is
+  counter-intuitive — read before "fixing" it.** `backend/.env`'s `MONGO_URI`
+  ends in `/test`, and that database is the **live, correct one**: 7
+  collections, newest docs 2026-08-09. A `portfolio` database also sits on the
+  same cluster and is an abandoned copy from 2026-07-18 with only 5
+  collections — no `vocabularies` (32 docs), no `contacts`. Repointing the URI
+  at `/portfolio` to make the name look right therefore rolls the site back
+  three weeks and drops two collections, and the app reports nothing either
+  way. The owner decided on 2026-08-18 to leave the name alone rather than
+  migrate a live cluster. Verified by document count, not by name;
+  `backend/.env.example` carries the same warning.
 - **Inline custom property on `<html>`** → beats the `html[data-theme]` block in
   the cascade, so every subsequent edit to `tokens.css` becomes dead code. The
   page renders a stale value and nothing you change has any effect. Never write
@@ -811,6 +942,19 @@ error message:
   animation and transition are only ever declared on descendants — but any
   future property that lives on the root does. Guarded by
   `styles/__tests__/motion.test.js`, added in PF-79.
+- **A `var()` inside an `@supports` condition makes the condition answer
+  `true` without testing anything.** Per CSS Conditional Rules, a declaration
+  whose value contains a top-level `var()` reference is *assumed valid* — the
+  browser cannot resolve custom properties at parse time, so it does not try.
+  `@supports not (-webkit-text-stroke: 1px var(--acc))` therefore evaluates the
+  inner test as true and the `not` as false **even on an engine that cannot
+  paint the property at all**, which is the exact and only case the fallback
+  exists for. The rule is syntactically perfect and silently never applies.
+  Worse than most entries here: you cannot observe it on any engine you have,
+  because on a supporting engine the correct answer is also "don't apply".
+  Keep `@supports` conditions var()-free and put the token in the rule body.
+  Found while writing PF-81's outline-type fallback; guarded by
+  `styles/__tests__/patterns.test.js`.
 - **A bare `.section` class loses `scroll-margin-top` to Phase 1's `[id]`
   rule.** `global.css:338` carries `[id] { scroll-margin-top: 5rem }` —
   specificity (0,1,0), *identical* to a single class, so the tie breaks on
