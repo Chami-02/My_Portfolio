@@ -42,7 +42,10 @@
   border-radius: 14px;
 }
 
-/* Pill button, ghost variant */
+/* Pill button, ghost variant.
+
+   ⚠️ The `transition` is NOT declared here — see the gated rule below.
+   Read that before adding one back. */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -54,6 +57,39 @@
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: .1em;
+}
+
+/* Hover transition, gated so it cannot eat a Reveal's entrance easing.
+   Pre-emptive: this pattern has no consumer today, but a pill is exactly
+   the kind of element that gets wrapped in a <Reveal> — Hero's .rolePill
+   and .loudCta both are — and a bare `transition:` here would have been
+   the third occurrence of that bug, arriving through a file nobody
+   edited. See CLAUDE.md's Silent-failures entry.
+
+   Three selectors, because a shared pattern cannot know how its consumer
+   wraps it:
+
+     .pill:not([data-reveal])              (0,2,0)  plain pill, no Reveal —
+                                                    keeps the transition it
+                                                    would otherwise lose
+     .pill[data-reveal='in']               (0,2,0)  Reveal of type up/rise/
+                                                    left, entrance finished
+     .pill[data-reveal='in'][data-type='pop']
+                                           (0,3,0)  type="pop" declares its
+                                                    own transition on
+                                                    .reveal[data-type='pop']
+                                                    at (0,2,0); the plain
+                                                    two-part selector only
+                                                    TIES with it and would be
+                                                    settled by bundle
+                                                    emission order. This wins
+                                                    outright.
+
+   Mid-entrance the element is data-reveal="out", so none of the three
+   match and Reveal's own easing owns the property — which is the point. */
+.pill:not([data-reveal]),
+.pill[data-reveal='in'],
+.pill[data-reveal='in'][data-type='pop'] {
   transition: color .2s, border-color .2s, background .2s, transform .2s;
 }
 
@@ -71,11 +107,88 @@
   transform: translateY(-2px);
 }
 
-/* Mono eyebrow label */
+/* Mono eyebrow label.
+   ⚠️ NOT the numbered section eyebrow below. This one is PF-70's generic
+   small-label pattern — 11px, .14em, muted — and as of PF-81 nothing
+   consumes it. The `01 / ABOUT` treatment is `.section-eyebrow-label`,
+   at 12px/.24em/accent. Composing the wrong one is a silent near-miss:
+   the label renders, just grey and slightly tight. */
 .eyebrow {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--muted2);
+}
+
+/* ── numbered section eyebrow ───────────────────────────────────────────
+ * Added in PF-81, and extracted rather than left in AboutSection because
+ * it is confirmed repeating — grepped, not assumed. The prototype carries
+ * this exact structure five times, byte-identical apart from the label
+ * text: `01 / ABOUT` (line 195), `02 / SKILLS` (247), `03 / PROJECTS`
+ * (312), `04 / BLOG` (417), `05 / CONTACT` (493).
+ *
+ * PF-82 is the second consumer. It composes all three cleanly, so the
+ * extraction was right — with one correction, below.
+ *
+ * ⚠️ `margin-bottom` is deliberately NOT here. PF-81 baked in 38px, which
+ * was About's value read from a single observation; the prototype's five
+ * eyebrows do not agree on it — About (line 195) is 38px, Skills (247) is
+ * 14px. So it was never a shared property, and each section declares its
+ * own beside the `composes:`.
+ *
+ * It could not have been left here and overridden locally, either: a
+ * composed class and the composing class both land on the element at
+ * (0,1,0), so the winner is decided by their order in the compiled
+ * bundle — which follows import order, not authoring intent. Removing
+ * the varying declaration is the only version that does not depend on
+ * which of the two happens to be emitted second.
+ */
+
+.section-eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.section-eyebrow-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .24em;
+  color: var(--acc, #FCA311);
+}
+
+.section-eyebrow-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(252, 163, 17, .5), transparent);
+}
+
+/* ── outlined heading word ──────────────────────────────────────────────
+ * Also confirmed 5× and also byte-identical each time — only the wrapped
+ * word changes: "I am" (line 210), "Toolkit" (250), "Built" (315),
+ * "Notes" (421), "something loud" (496).
+ */
+
+.outline-text {
+  -webkit-text-stroke: 1.5px var(--acc, #FCA311);
+  color: transparent;
+}
+
+/* Robustness addition (PF-81), not a prototype value. `color: transparent`
+   with no fallback means an engine that does not paint -webkit-text-stroke
+   shows literally nothing rather than something approximately right — the
+   failure is total, not degraded. Support is broad enough today that this
+   changes what nobody sees; it only covers the case that is currently
+   blank space. Solid accent fill, no stroke. */
+/* The condition is deliberately var()-free. A declaration whose value
+   contains a top-level var() is "assumed valid" by @supports rather than
+   actually tested, so putting the token in here would make the condition
+   answer true on an engine that cannot paint the property at all — the
+   one case this exists for. `1px` alone is a valid -webkit-text-stroke. */
+@supports not (-webkit-text-stroke: 1px) {
+  .outline-text {
+    -webkit-text-stroke: 0;
+    color: var(--acc, #FCA311);
+  }
 }

@@ -88,6 +88,41 @@ describe('Reveal (PF-74)', () => {
     expect(screen.getByTestId('r').style.transitionDelay).toBe('300ms');
   });
 
+  // A caller's style used to arrive via {...rest} and spread OVER the
+  // internal style attribute, taking transitionDelay with it. The
+  // element still rendered and still revealed — just with the whole
+  // group's stagger collapsed to zero, and nothing to catch it. PF-80
+  // was the first ticket to pass a style prop at all.
+  it('merges a caller style instead of dropping the stagger delay', () => {
+    mockMatchMedia(false);
+    mockIO();
+
+    withMotion(
+      <Reveal data-testid="r" delay={300} style={{ animationDuration: '5.5s' }}>
+        content
+      </Reveal>,
+    );
+
+    const el = screen.getByTestId('r');
+    expect(el.style.transitionDelay).toBe('300ms');
+    expect(el.style.animationDuration).toBe('5.5s');
+  });
+
+  it('passes a caller style through under reduced motion', () => {
+    mockMatchMedia(true);
+    mockIO();
+
+    withMotion(
+      <Reveal data-testid="r" delay={300} style={{ animationDuration: '5.5s' }}>
+        content
+      </Reveal>,
+    );
+
+    const el = screen.getByTestId('r');
+    expect(el.style.animationDuration).toBe('5.5s');
+    expect(el.style.transitionDelay).toBe('');
+  });
+
   // Matches the prototype's shared reveal/count-up observer exactly
   // (Portfolio Revolution.dc.html startReveals()) — a -8% rootMargin
   // or a 0.3 threshold would silently change when content appears.

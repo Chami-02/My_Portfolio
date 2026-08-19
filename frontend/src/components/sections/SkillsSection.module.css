@@ -1,0 +1,178 @@
+/* frontend/src/components/sections/SkillsSection.module.css
+ *
+ * Transcribed from `docs/design/Portfolio Revolution.dc.html` lines
+ * 244-308. Every value here is the prototype's, verbatim — no rounding.
+ *
+ * Font stacks go through the tokens (`var(--font-mono)`,
+ * `var(--font-display)`) rather than the prototype's literal
+ * `'JetBrains Mono', monospace` / `'Anton', sans-serif`. Not cosmetic:
+ * `--font-display` includes the metric-matched `'Anton Fallback'` face
+ * declared in tokens.css, so the literal stack would drop the
+ * size-adjusted fallback and put the font-swap reflow back. Same choice
+ * HeroSection.module.css and AboutSection.module.css made.
+ *
+ * ⚠️ No `composes: kf-*` anywhere in this file, and that is correct, not
+ * an omission. Every effect in this section is a `transition:` on hover —
+ * it is the first section of the sprint with no @keyframes at all, so
+ * there is no global carrier for it to reach through. See
+ * styles/animations.css for when one IS needed.
+ */
+
+/* `section.skills`, not `.skills`. Phase 1's global.css:338 carries
+   `[id] { scroll-margin-top: 5rem }` at specificity (0,1,0) — identical
+   to a bare class, so the tie breaks on stylesheet order and the global
+   rule wins, computing 80px for a 71px header and landing the eyebrow
+   9px low. The element qualifier makes it (0,1,1) and settles it.
+   Same fix as section.hero and section.about; required for every section
+   until global.css is trimmed at cutover.
+
+   patterns.module.css's `.section` holds these exact padding values and
+   is deliberately not composed: `composes` is only legal on a single
+   local class selector, so it cannot go on `section.skills`. */
+section.skills {
+  position: relative;
+  padding: clamp(80px, 12vh, 140px) clamp(16px, 4vw, 40px);
+  /* ⚠️ Deliberately NO background — owner-requested, 2026-08-18.
+     The prototype paints
+       linear-gradient(180deg, rgba(var(--gnd),.35) 0%,
+                       rgba(var(--ftr),.72) 50%, rgba(var(--gnd),.35) 100%)
+     here (line 244). Removed with every other section wash so the
+     starfield reads continuously down the page. The cards keep their own
+     rgba(var(--srf),.52) surface — that is what carries the text, and it
+     is untouched. See Locked decisions. */
+  /* Not the prototype's — it has no fixed header to clear. */
+  scroll-margin-top: var(--header-h);
+}
+
+.inner {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+/* ── shared patterns ──────────────────────────────────────────────────
+   Second consumer of patterns.module.css, after AboutSection.
+
+   `margin-bottom` is local rather than composed: the prototype's Skills
+   eyebrow is 14px (line 246) against About's 38px (line 194), so the two
+   never agreed and PF-81's shared 38px was generalised from a single
+   observation. PF-82 removed it from the shared class — an override here
+   would have tied at (0,1,0) with the composed class and been decided by
+   bundle emission order rather than by intent. */
+.eyebrow {
+  composes: section-eyebrow from '../../styles/patterns.module.css';
+  margin-bottom: 14px;
+}
+.eyebrowLabel { composes: section-eyebrow-label from '../../styles/patterns.module.css'; }
+.eyebrowLine  { composes: section-eyebrow-line from '../../styles/patterns.module.css'; }
+.outlined     { composes: outline-text from '../../styles/patterns.module.css'; }
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5.4vw, 72px);
+  line-height: .95;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 44px;
+}
+
+/* Same auto-fit/minmax mechanism as the hero and About, at this
+   section's own 240px threshold — five cards reflow to fewer columns on
+   their own, with no breakpoint. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+}
+
+.card {
+  padding: 24px 22px;
+  border-radius: 18px;
+  background: rgba(var(--srf), .52);
+  border: 1px solid rgba(var(--ln), .09);
+}
+
+/* The card is itself a Reveal, so two `transition` declarations compete
+   for one element: Reveal's entrance and this hover. They cannot merge —
+   one wins outright. Declared bare, `.card` (0,1,0) would tie with
+   `.reveal` (0,1,0) and win on stylesheet order, replacing the 1.05s
+   entrance ease with a 0.25s hover transition. Gating on
+   [data-reveal='in'] — set by Reveal at the moment the entrance
+   finishes — makes this (0,2,0) and hands the element over only once
+   there is nothing left to animate in. Same fix as .statCard in
+   AboutSection.module.css.
+
+   ⚠️ The transition itself is a sanctioned deviation, owner-approved
+   2026-08-18: the prototype declares none on this card, so its hover
+   snaps. About's stat card (PF-81) already eased, and two sibling
+   sections disagreeing reads as a bug. Do not "restore" it to instant. */
+.card[data-reveal='in'] {
+  transition: border-color .25s, transform .25s, box-shadow .25s;
+}
+
+/* `.card:hover` (0,2,0) ties with `.reveal[data-reveal='in'] {
+   transform: none }` and wins only because this module is emitted after
+   Reveal's. Measured in a production build for .statCard, which has the
+   identical shape. */
+.card:hover {
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-6px);
+  box-shadow: 0 24px 50px rgba(var(--shd), .5);
+}
+
+/* Loading placeholder — an empty `.card`, so it inherits the real card's
+   surface, border and radius and only has to supply a height.
+
+   The height is NOT decorative, and it is measured, not derived. Left to
+   itself an empty card collapses to its 48px of vertical padding, and
+   the section grows ~157px per grid row the instant content lands.
+   205px is the filled card's actual rendered height in Chromium with the
+   26 seeded skills — identical across cards because grid rows stretch,
+   and identical at 1600/1440/1280/1024/900/600px wide. The two-column
+   band (768px and below) settles at 162px instead, where a pill row
+   drops out, so the placeholder runs ~43px tall there; no single static
+   value covers both, and matching the wider case matters more.
+
+   No skeleton content or shimmer, deliberately: with a 5-minute
+   staleTime this is only ever on screen during a true cold load. */
+.cardPlaceholder {
+  composes: card;
+  min-height: 205px;
+}
+
+.categoryLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .2em;
+  color: var(--acc, #FCA311);
+  margin: 0 0 16px;
+}
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Unlike the card, the pill is NOT a Reveal — the prototype wraps only
+   the card (line 253), and the pills arrive as one unit with it. So
+   nothing competes for this transition and it is declared bare. The
+   prototype declares this one itself, verbatim. */
+.pill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(252, 163, 17, .08);
+  border: 1px solid rgba(252, 163, 17, .22);
+  color: var(--text);
+  cursor: default;
+  transition: background .25s, color .25s, border-color .25s, transform .25s;
+}
+
+.pill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-3px) scale(1.05);
+}

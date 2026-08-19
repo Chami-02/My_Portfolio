@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   normalise, readTheme, writeTheme, readAppliedTheme,
-  applyTheme, toggleLabel, THEME_KEY, DEFAULT_THEME,
+  applyTheme, toggleLabel, themeModeLabel, THEME_KEY, DEFAULT_THEME,
 } from '../theme';
 
 describe('theme utilities (PF-72)', () => {
@@ -100,6 +100,13 @@ describe('theme utilities (PF-72)', () => {
     it('names the mode you would switch to', () => {
       expect(toggleLabel('dark')).toBe('Light');
       expect(toggleLabel('light')).toBe('Dark');
+    });
+  });
+
+  describe('themeModeLabel', () => {
+    it('matches the prototype themeLabel verbatim (line 1113)', () => {
+      expect(themeModeLabel('light')).toBe('DARK MODE');
+      expect(themeModeLabel('dark')).toBe('LIGHT MODE');
     });
   });
 

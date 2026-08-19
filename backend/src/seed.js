@@ -60,35 +60,43 @@ const PROJECTS = [
 ];
 
 const SKILLS = [
-  // Languages
+  // ── PF-82 ────────────────────────────────────────────────────────────────
+  // `order` is what the public Skills section renders by, so these values
+  // are the prototype's pill sequence (Portfolio Revolution.dc.html lines
+  // 253-307), not an arbitrary numbering. Three groups were out of step
+  // and are corrected below; `backend` and `devops` already matched and
+  // are untouched. The 26 NAMES always matched — only the order did not,
+  // which is exactly the kind of difference a count-based check misses.
+
+  // Languages — Java moved from 3rd to last (prototype line 258)
   { name: 'JavaScript', category: 'language', level: 'intermediate', order: 1 },
   { name: 'Python', category: 'language', level: 'intermediate', order: 2 },
-  { name: 'Java', category: 'language', level: 'intermediate', order: 3 },
-  { name: 'HTML5', category: 'language', level: 'intermediate', order: 4 },
-  { name: 'CSS3', category: 'language', level: 'intermediate', order: 5 },
+  { name: 'HTML5', category: 'language', level: 'intermediate', order: 3 },
+  { name: 'CSS3', category: 'language', level: 'intermediate', order: 4 },
+  { name: 'Java', category: 'language', level: 'intermediate', order: 5 },
 
-  // Frontend
+  // Frontend — Vite up to 2nd, Next.js down to last (prototype lines 263-267)
   { name: 'React', category: 'frontend', level: 'intermediate', order: 6 },
-  { name: 'Next.js', category: 'frontend', level: 'beginner', order: 7 },
-  { name: 'Vite', category: 'frontend', level: 'intermediate', order: 8 },
-  { name: 'Tailwind CSS', category: 'frontend', level: 'intermediate', order: 9 },
-  { name: 'React Router', category: 'frontend', level: 'intermediate', order: 10 },
+  { name: 'Vite', category: 'frontend', level: 'intermediate', order: 7 },
+  { name: 'Tailwind CSS', category: 'frontend', level: 'intermediate', order: 8 },
+  { name: 'React Router', category: 'frontend', level: 'intermediate', order: 9 },
+  { name: 'Next.js', category: 'frontend', level: 'beginner', order: 10 },
 
-  // Backend
+  // Backend — already matched the prototype (lines 272-276), untouched
   { name: 'FastAPI', category: 'backend', level: 'intermediate', order: 11 },
   { name: 'Node.js', category: 'backend', level: 'beginner', order: 12 },
   { name: 'Express.js', category: 'backend', level: 'beginner', order: 13 },
   { name: 'REST APIs', category: 'backend', level: 'intermediate', order: 14 },
   { name: 'JWT Authentication', category: 'backend', level: 'beginner', order: 15 },
 
-  // Database
+  // Database — Mongoose and SQLAlchemy swapped (prototype lines 285-286)
   { name: 'PostgreSQL', category: 'database', level: 'beginner', order: 16 },
   { name: 'MongoDB', category: 'database', level: 'beginner', order: 17 },
   { name: 'Redis', category: 'database', level: 'beginner', order: 18 },
-  { name: 'SQLAlchemy', category: 'database', level: 'beginner', order: 19 },
-  { name: 'Mongoose', category: 'database', level: 'beginner', order: 20 },
+  { name: 'Mongoose', category: 'database', level: 'beginner', order: 19 },
+  { name: 'SQLAlchemy', category: 'database', level: 'beginner', order: 20 },
 
-  // DevOps
+  // DevOps — already matched the prototype (lines 293-299), untouched
   { name: 'Docker', category: 'devops', level: 'intermediate', order: 21 },
   { name: 'Git', category: 'devops', level: 'intermediate', order: 22 },
   { name: 'GitHub', category: 'devops', level: 'intermediate', order: 23 },

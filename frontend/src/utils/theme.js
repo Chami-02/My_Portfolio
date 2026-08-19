@@ -68,3 +68,16 @@ export function applyTheme(theme) {
 export function toggleLabel(theme) {
   return theme === 'light' ? 'Dark' : 'Light';
 }
+
+/**
+ * The toggle's own visible caption, verbatim from the prototype's
+ * themeLabel (line 1113): `theme === 'light' ? 'DARK MODE' : 'LIGHT MODE'`.
+ *
+ * Separate from toggleLabel() because the two feed different places.
+ * This one is rendered text and must match the design exactly;
+ * toggleLabel() composes into the aria-label ("Switch to Light
+ * theme"), where shouting reads badly and "MODE" is redundant.
+ */
+export function themeModeLabel(theme) {
+  return `${toggleLabel(theme).toUpperCase()} MODE`;
+}

@@ -9,6 +9,7 @@ import App from './App.jsx';
 import './styles/global.css';
 import './styles/tokens.css';
 import './styles/keyframes/index.css';
+import './styles/animations.css';       // must follow keyframes/
 import './styles/motion.css';           // must be LAST
 
 const queryClient = new QueryClient({

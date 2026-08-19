@@ -7,9 +7,13 @@
 }
 
 .track {
+  /* animation-name arrives via this global class, not directly: CSS
+     Modules would scope an in-module `animation-name: marq` to an
+     identifier no @keyframes defines, and the marquee would silently
+     sit still. See styles/animations.css. */
+  composes: kf-marq from global;
   display: flex;
   width: max-content;
-  animation-name: marq;              /* from keyframes/base.css */
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }

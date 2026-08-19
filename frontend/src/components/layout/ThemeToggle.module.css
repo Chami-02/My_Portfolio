@@ -1,52 +1,88 @@
 /* frontend/src/components/layout/ThemeToggle.module.css
  *
- * Structural implementation. The prototype's exact visual treatment
- * lands with the navbar rebuild in Sprint 11 — check
- * docs/design/Portfolio Revolution.dc.html for the final styling.
+ * Visual treatment transcribed from the prototype's theme-toggle
+ * button, lines 69-72 of docs/design/Portfolio Revolution.dc.html.
+ *
+ * PF-72 shipped this file as a structural placeholder and left a note
+ * saying the exact styling "lands with the navbar rebuild in Sprint
+ * 11". PF-79 is that rebuild — this is the deferred work, not a
+ * re-styling of something already correct.
+ *
+ * This is the only component using --acc2 / --acc2rgb, the steel-blue
+ * pair, deliberately distinct from --acc's orange.
  */
 
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px 6px 6px;
+  gap: 10px;
+  margin-left: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  padding: 8px 13px 8px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(var(--ln), .18);
   background: rgba(var(--srf), .5);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: .1em;
+  border: 1px solid var(--acc2);
+  color: var(--acc2);
   cursor: pointer;
-  transition: border-color .2s, background .2s;
+  transition: color .25s, border-color .25s, background .25s, box-shadow .25s;
 }
 
 .toggle:hover {
-  border-color: rgba(var(--acc2rgb), .5);
+  color: var(--strong);
+  background: rgba(var(--acc2rgb), .16);
+  box-shadow: 0 0 20px rgba(var(--acc2rgb), .35);
 }
 
+/* Not in the prototype — it has no focus styling at all. Kept from
+   PF-72 because motion.css's policy table lists focus indicators as
+   ALWAYS kept, and removing a focus ring to match a design tool's
+   export would be a real accessibility regression rather than
+   fidelity. */
 .toggle:focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: 2px;
 }
 
-.knob {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--acc2);
-  transition: transform .28s cubic-bezier(.16, 1, .3, 1), background .28s;
+.track {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 30px;
+  height: 15px;
+  border-radius: 999px;
+  background: rgba(var(--acc2rgb), .16);
+  border: 1px solid var(--acc2);
 }
 
-/* The knob slides when the light theme is active. Scoped to the
-   document attribute rather than a prop, so it follows whatever
-   applyTheme() set — including a cross-tab change. */
+.knob {
+  position: absolute;
+  top: 1.5px;
+  left: 1.5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--acc2);
+  box-shadow: 0 0 10px rgba(var(--acc2rgb), .9);
+  transition: transform .4s cubic-bezier(.34, 1.56, .4, 1);
+}
+
+/* Prototype line 866: translateX(13px) when light, none when dark.
+   Scoped to the document attribute rather than a prop, so it follows
+   whatever applyTheme() set — including a cross-tab change.
+
+   The knob keeps var(--acc2) in both themes; --acc2 itself flips
+   (#7AA6D6 dark / #2F5D8C light), so the colour change is the token's
+   job, not this rule's. */
 :global(html[data-theme='light']) .knob {
-  transform: translateX(4px);
-  background: var(--acc);
+  transform: translateX(13px);
 }
 
 .label {
-  min-width: 34px;   /* stops the pill resizing between "Dark" and "Light" */
+  /* "LIGHT MODE" and "DARK MODE" differ in width, and the pill is in
+     a flex row that would visibly jump on every toggle. Sized to the
+     wider of the two rather than a guess. */
+  min-width: 76px;
   text-align: left;
 }

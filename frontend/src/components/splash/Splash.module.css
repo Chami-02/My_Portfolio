@@ -1,0 +1,402 @@
+/* frontend/src/components/splash/Splash.module.css
+ *
+ * Transcribed from the splash block of the prototype
+ * (docs/design/Portfolio Revolution.dc.html, lines 607-657), which
+ * styles every element inline. Values are verbatim — no rounding.
+ *
+ * Two deliberate substitutions, both repo convention over prototype
+ * literal:
+ *   'Anton',sans-serif          → var(--font-display)
+ *   'JetBrains Mono',monospace  → var(--font-mono)
+ * The prototype hardcodes stacks because it has no token layer. Ours
+ * resolves --font-display to 'Anton', 'Anton Fallback', 'Arial Narrow',
+ * sans-serif, and that middle entry is PF-68's metric-matched @font-face
+ * (size-adjust 88%, ascent-override 90%, descent-override 22%) built to
+ * stop the swap reflowing. Hardcoding the prototype's stack would skip
+ * it and reintroduce the reflow on the one screen that is guaranteed to
+ * be painting while webfonts are still in flight.
+ *
+ * Every colour here is a custom property, so both themes come free —
+ * no JS, unlike StarfieldCanvas (canvas cannot read CSS vars) or
+ * GrainOverlay (per-theme inline opacity).
+ *
+ * The six keyframes used below — pulsering, spin, orbdot, breathe,
+ * riseIn, flicker — all live in styles/keyframes/base.css from PF-69,
+ * each defined exactly once. None is a per-screen flt/drift/sheen
+ * variant, so there is no -portfolio suffix to remember here.
+ * (`scanline` was a seventh until the travelling lines were removed —
+ * see the note further down. The keyframe itself is still in base.css.)
+ *
+ * Keyframe names cannot be written directly in a CSS Module — they get
+ * scoped to an identifier no @keyframes defines and the element then
+ * silently does not animate. Every rule below pulls its name in with
+ * `composes: kf-… from global` and keeps the timing as longhands. See
+ * styles/animations.css.
+ */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  transition: transform 1s cubic-bezier(.76, 0, .24, 1), opacity .6s ease .3s;
+  overflow: hidden;
+}
+
+/* The exit. Prototype finishSplash() writes these two as inline styles;
+   an attribute + this rule is the same paint, and keeps the values in
+   the stylesheet with the transition that drives them. Specificity
+   (0,2,0) clears .splash's (0,1,0), so no !important is needed.
+
+   The component removes itself 1150ms after this lands — past both the
+   1s transform and the opacity fade, which starts at .3s and so ends at
+   .9s. That buffer is the prototype's, not a guess. */
+.splash[data-exiting] {
+  transform: translateY(-101%);
+  opacity: 0;
+}
+
+.bgGlow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    58% 48% at 50% 44%,
+    rgba(252, 163, 17, .14) 0%,
+    rgba(var(--srf), .42) 38%,
+    rgba(var(--gnd), 1) 76%
+  );
+}
+
+.ringOuter {
+  composes: kf-pulsering from global;
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: min(150vw, 1100px);
+  aspect-ratio: 1;
+  margin: -0.5px 0 0 min(-75vw, -550px);
+  transform: translateY(-50%);
+  border-radius: 50%;
+  border: 1px solid rgba(252, 163, 17, .07);
+  animation-duration: 6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.ringMid {
+  composes: kf-spin from global;
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: min(96vw, 660px);
+  aspect-ratio: 1;
+  margin-left: min(-48vw, -330px);
+  transform: translateY(-50%);
+  border-radius: 50%;
+  border: 1px dashed rgba(var(--ln), .10);
+  animation-duration: 34s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.ringInner {
+  composes: kf-spin from global;
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: min(70vw, 420px);
+  aspect-ratio: 1;
+  margin-left: min(-35vw, -210px);
+  transform: translateY(-50%);
+  border-radius: 50%;
+  border: 1px solid rgba(252, 163, 17, .16);
+  animation-duration: 20s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: reverse;
+}
+
+.scanlineLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ⚠️ SANCTIONED DEVIATION — the two travelling scan lines are removed.
+ *
+ * The prototype has two here, both running the `scanline` keyframe
+ * (translateY -100% → 100vh) down the full height of the splash:
+ *
+ *   .scanline1  2px, rgba(252,163,17,.55) gradient, 4.2s linear
+ *   .scanline2  1px, rgba(226,235,255,.35) gradient, 6.4s linear, 1.2s delay
+ *
+ * Removed on 2026-08-17 at the site owner's request — they read as two
+ * horizontal lines scrolling down the screen. Both were confirmed
+ * animating correctly in a browser first; this is a design decision,
+ * not a fix for something broken. Do not "restore" them from the
+ * prototype: a fidelity check will flag their absence, and the absence
+ * is deliberate.
+ *
+ * The ELEMENTS are gone, not just their animation. Removing only the
+ * animation would leave two static gradient lines pinned at top:0,
+ * which is a worse artefact than the motion being complained about.
+ *
+ * .scanTexture below is NOT one of them and stays: it is the static
+ * CRT-style hatch over the whole splash, it has never moved, and the
+ * `scanline` keyframe in keyframes/base.css is untouched. */
+
+.scanTexture {
+  position: absolute;
+  inset: 0;
+  opacity: .10;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(226, 235, 255, .5) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+.logoCluster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+.orbitStage {
+  position: relative;
+  width: clamp(104px, 17vw, 168px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+}
+
+.orbitOuter {
+  composes: kf-orbdot from global;
+  position: absolute;
+  inset: -46px;
+  border-radius: 50%;
+  animation-duration: 7s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.orbitOuterDotA {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+  box-shadow: 0 0 14px rgba(252, 163, 17, .9);
+}
+
+.orbitOuterDotB {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: rgba(226, 235, 255, .85);
+  box-shadow: 0 0 10px rgba(226, 235, 255, .7);
+}
+
+.orbitInner {
+  composes: kf-orbdot from global;
+  position: absolute;
+  inset: -30px;
+  border-radius: 50%;
+  animation-duration: 4.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: reverse;
+}
+
+.orbitInnerDot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, .8);
+}
+
+.spinRingA {
+  composes: kf-spin from global;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(252, 163, 17, .22);
+  border-top-color: var(--acc, #FCA311);
+  animation-duration: 1.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.spinRingB {
+  composes: kf-spin from global;
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--ln), .12);
+  border-bottom-color: rgba(var(--ln), .45);
+  animation-duration: 2.6s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-direction: reverse;
+}
+
+.pulseGlow {
+  composes: kf-pulsering from global;
+  position: absolute;
+  inset: -18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(252, 163, 17, .22), transparent 68%);
+  animation-duration: 2.8s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.logoImg {
+  composes: kf-breathe from global;
+  position: relative;
+  width: 74%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(252, 163, 17, .4);
+  box-shadow: 0 0 40px rgba(252, 163, 17, .25);
+  animation-duration: 3.6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.nameBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.name {
+  composes: kf-riseIn from global;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 5vw, 54px);
+  line-height: 1;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  color: var(--strong);
+  animation-duration: .9s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-fill-mode: both;
+}
+
+.nameAccent {
+  composes: kf-flicker from global;
+  color: var(--acc, #FCA311);
+  animation-duration: 3.4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.role {
+  composes: kf-riseIn from global;
+  font-family: var(--font-mono);
+  font-size: clamp(9.5px, 1.2vw, 11.5px);
+  letter-spacing: .42em;
+  color: var(--muted2);
+  text-transform: uppercase;
+  animation-duration: 1s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-delay: .25s;
+  animation-fill-mode: both;
+}
+
+.boot {
+  position: relative;
+  margin-top: 30px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 2.1;
+  color: var(--muted);
+  min-height: 100px;
+  text-align: left;
+}
+
+/* The reveal is a JS write of opacity/transform against this transition,
+   not a keyframe — the four lines fire at 560/1380/2200/3020ms and the
+   sequence has to be interruptible by SKIP. */
+.bootLine {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .35s, transform .35s;
+}
+
+.bootLineGreen {
+  composes: bootLine;
+  color: #34d399;
+}
+
+.bootLineAccent {
+  composes: bootLine;
+  color: var(--acc, #FCA311);
+}
+
+.progressWrap {
+  position: relative;
+  width: min(74vw, 360px);
+  margin-top: 26px;
+}
+
+.progressTrack {
+  height: 3px;
+  background: rgba(var(--ln), .12);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--acc, #FCA311), var(--strong));
+  transition: width .25s linear;
+}
+
+.progressLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  color: var(--faint);
+}
+
+.skip {
+  position: absolute;
+  bottom: 28px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .2em;
+  color: var(--faint);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.skip:hover {
+  color: var(--acc, #FCA311);
+}

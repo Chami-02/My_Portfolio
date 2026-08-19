@@ -54,7 +54,9 @@ export function BlogSection() {
 
   return (
     <section id="blog" style={{ padding: 'var(--section-y) var(--content-px)',
-      background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-surface) 50%, var(--bg) 100%)' }}>
+      /* Section wash removed 2026-08-18, owner-requested — the starfield
+         reads through every section now. Phase 1 component; this whole
+         file is replaced in Sprint 12. */ }}>
       <div ref={ref} className={`reveal ${inView ? 'revealed' : ''}`}
         style={{ maxWidth: 'var(--content-max)', margin: '0 auto' }}>
         <span className="section-label">04 / Blog</span>

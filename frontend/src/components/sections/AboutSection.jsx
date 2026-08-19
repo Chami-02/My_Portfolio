@@ -1,83 +1,193 @@
-import { useInView } from '../../hooks/useInView';
-import { useAbout }  from '../../hooks/useAbout';
-import { apiUrl }    from '../../services/api';
+// frontend/src/components/sections/AboutSection.jsx
+import { useEffect, useRef } from 'react';
+import { Reveal, CountUp } from '../motion';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { computeParallaxTransform } from '../../utils/parallax';
+import aboutPortrait from '../../assets/about-portrait.png';
+import styles from './AboutSection.module.css';
 
+/**
+ * The three counting stat cards — prototype lines 216-227. The fourth
+ * card in that grid is not here on purpose: "Continuous / LEARNING" has
+ * no data-count and is plain static text, so it is rendered explicitly
+ * below rather than forced through CountUp with a sentinel value.
+ *
+ * Note two cards both count to 5. That is the prototype's, not a
+ * copy-paste slip on the way over.
+ */
+const STATS = [
+  { count: 5,  suffix: '+', label: 'PROJECTS BUILT', delay: 50 },
+  { count: 10, suffix: '+', label: 'TECHNOLOGIES',   delay: 50 },
+  { count: 5,  suffix: '+', label: 'GITHUB REPOS',   delay: 50 },
+];
+
+/**
+ * About section — PF-81. Transcribed from
+ * `docs/design/Portfolio Revolution.dc.html` lines 192-241.
+ *
+ * Replaces the Phase 1 AboutSection at this same path. The Phase 1
+ * version read its bio, stats and résumé link from the API via
+ * useAbout(); the prototype hardcodes all of that, so this does too and
+ * the CMS's About panel no longer drives the public page. That is a
+ * content-source regression, not a design one — flagged in the hand-off,
+ * and it needs its own ticket rather than a quiet re-wire here, because
+ * the prototype's copy and the API's shape do not line up field for field.
+ *
+ * First real use of CountUp anywhere on the page. No splash wiring is
+ * needed for it or for Reveal: both call useSplashReady() internally
+ * (PF-75/78), so every entrance and every count below is already held
+ * behind the splash.
+ */
 export function AboutSection() {
-  const [ref, inView]                  = useInView();
-  const { data: about, isLoading }     = useAbout();
-
-  const stats = about?.stats || [];
-  const bio   = about?.bio   || [];
-
   return (
-    <section id="about" style={{ padding: 'var(--section-y) var(--content-px)' }}>
-      <div ref={ref} className={`reveal ${inView ? 'revealed' : ''}`}
-        style={{ maxWidth: 'var(--content-max)', margin: '0 auto' }}>
-        <span className="section-label">01 / About</span>
-        <h2 className="section-title">Who I Am</h2>
-        <div className="section-divider" />
+    <section id="about" className={styles.about}>
+      <div className={styles.inner}>
+        <Reveal type="up" className={styles.eyebrow}>
+          <span className={styles.eyebrowLabel}>01 / ABOUT</span>
+          <span aria-hidden="true" className={styles.eyebrowLine} />
+        </Reveal>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '4rem', alignItems: 'center' }} className="about-grid">
+        <div className={styles.grid}>
+          <Reveal type="left" className={styles.portraitCard}>
+            <AboutPortrait />
+          </Reveal>
 
-          {/* Bio */}
-          <div style={{ maxWidth: '520px' }}>
-            {isLoading ? (
-              <>
-                <div className="skeleton" style={{ height: '1rem', marginBottom: '1rem', borderRadius: '0.375rem' }} />
-                <div className="skeleton" style={{ height: '1rem', width: '80%', marginBottom: '1.25rem', borderRadius: '0.375rem' }} />
-                <div className="skeleton" style={{ height: '1rem', marginBottom: '1rem', borderRadius: '0.375rem' }} />
-              </>
-            ) : (
-              bio.map((paragraph, i) => (
-                <p key={i} style={{ color: 'var(--text-body)', lineHeight: 1.85, marginBottom: '1.25rem', fontSize: '1rem' }}>
-                  {paragraph}
-                </p>
-              ))
-            )}
+          <div>
+            <Reveal as="h2" type="up" className={styles.heading}>
+              Who <span className={styles.outlined}>I am</span>
+            </Reveal>
 
-            {about?.availableForWork && (
-              <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', marginBottom: '2rem' }}>
-                {about.availabilityNote}
-              </p>
-            )}
+            <Reveal as="p" type="up" delay={80} className={styles.body}>
+              I&apos;m a Computer Science undergraduate at the University of
+              Westminster, passionate about building scalable web applications
+              and continuously improving my backend and full-stack development
+              skills. I enjoy turning ideas into real-world software using
+              modern technologies and engineering best practices.
+            </Reveal>
 
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-              <a href="#projects" className="btn-primary" style={{ fontSize: '0.875rem', padding: '0.625rem 1.375rem' }}>
-                See My Work
-              </a>
-              {/* PF-60: points at the public /api/resume redirect, not the raw
-                  Cloudinary URL — the redirect adds fl_attachment so the file
-                  downloads with its real name instead of opening in a tab, and
-                  the link keeps working after every replacement.
-                  Built via apiUrl() because the backend is on a different
-                  origin in production. */}
-              {about?.hasResume && (
-                <a href={apiUrl('/resume')} rel="noreferrer" className="btn-outline"
-                  style={{ fontSize: '0.875rem', padding: '0.625rem 1.375rem' }}>
-                  Download CV
-                </a>
-              )}
+            <Reveal as="p" type="up" delay={140} className={styles.bodySecond}>
+              I&apos;ve contributed to projects ranging from full-stack web
+              applications to REST APIs and enterprise-style systems such as
+              ClearDrive.lk. My experience includes Python, Java, Node.js, FastAPI,
+              JavaScript, React, Next.js, PostgreSQL, MongoDB,  Docker, GitHub Actions,
+              and Agile development using Jira.
+            </Reveal>
+
+            <Reveal as="p" type="up" delay={180} className={styles.seeking}>
+              Interested in Software Engineering Job opportunities and Open to Work ✔
+            </Reveal>
+
+            <div className={styles.statGrid}>
+              {STATS.map((stat) => (
+                <Reveal
+                  key={stat.label}
+                  type="up"
+                  delay={stat.delay}
+                  className={styles.statCard}
+                >
+                  <p className={styles.statNumber}>
+                    <CountUp to={stat.count} suffix={stat.suffix} />
+                  </p>
+                  <p className={styles.statLabel}>{stat.label}</p>
+                </Reveal>
+              ))}
+
+              <Reveal type="up" delay={350} className={styles.statCard}>
+                <p className={styles.statNumberStatic}>Continuous</p>
+                <p className={styles.statLabel}>LEARNING</p>
+              </Reveal>
             </div>
-          </div>
 
-          {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-            {isLoading
-              ? [1,2,3,4].map((n) => <div key={n} className="skeleton" style={{ height: '100px', borderRadius: '0.875rem' }} />)
-              : stats.map(({ value, label }) => (
-                  <div key={label} className="glass" style={{ padding: '1.75rem 1.25rem', borderRadius: '0.875rem', textAlign: 'center',
-                    transition: 'transform 0.2s, border-color 0.2s' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.borderColor = 'var(--border-bright)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '2.5rem', color: 'var(--accent)', lineHeight: 1, marginBottom: '0.5rem' }}>{value}</p>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{label}</p>
-                  </div>
-                ))
-            }
+            <Reveal type="up" delay={380} className={styles.ctaRow}>
+              <a href="#projects" className={styles.ctaPrimary}>
+                SEE MY WORK →
+              </a>
+              {/* The real address, transcribed from the prototype and
+                  matching this repo's own commit author — not a
+                  placeholder to swap out. */}
+              <a
+                href="mailto:parindrachameekara@gmail.com"
+                className={styles.ctaSecondary}
+              >
+                EMAIL ME
+              </a>
+            </Reveal>
           </div>
         </div>
       </div>
-      <style>{`@media (min-width: 768px) { .about-grid { grid-template-columns: 1fr 1fr !important; } }`}</style>
     </section>
   );
 }
+
+/**
+ * The portrait card and its parallax — prototype line 202,
+ * `data-para="0.05"`.
+ *
+ * Its own scroll listener rather than a shared one, matching the hero's
+ * precedent (PF-80): the arithmetic is worth sharing, the subscription is
+ * not. Two elements on the whole page carry data-para.
+ *
+ * Gates on reduced motion, where the portrait tilt in the hero does not.
+ * That is a category difference, not an inconsistency: parallax exists to
+ * move an element at a rate deliberately mismatched from the scroll
+ * driving it, and the mismatch is the named vestibular trigger. A 1:1
+ * pointer follow is not.
+ */
+function AboutPortrait() {
+  const imgRef = useRef(null);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (reduced) return undefined;
+
+    const el = imgRef.current;
+    if (!el) return undefined;
+
+    let raf = null;
+    const onScroll = () => {
+      if (raf) return;                       // coalesce into one frame
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        el.style.transform = computeParallaxTransform(el, 0.05);
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // Matching the prototype's trailing this.onScroll(). Without it a
+    // reload that restores mid-page scroll leaves the portrait unshifted
+    // until the reader moves.
+    onScroll();
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [reduced]);
+
+  return (
+    <div className={styles.portraitFrame}>
+      {/* scale(1.02) inline, not in the module — see .portraitImg's
+          comment. Overwritten by the parallax transform on the first
+          frame under full motion; the resting value under reduced
+          motion. */}
+      <img
+        ref={imgRef}
+        src={aboutPortrait}
+        alt="Parindra Gallage in the visor"
+        className={styles.portraitImg}
+        style={{ transform: 'scale(1.02)' }}
+      />
+      <div aria-hidden="true" className={styles.portraitFade} />
+      <div aria-hidden="true" className={styles.portraitSweep} />
+      {/* The prototype's "GALLE, SRI LANKA — SEEING THE STACK" caption
+          (line 205) was removed 2026-08-18 at the owner's request. The
+          ELEMENT is gone, not just its text — an empty positioned div
+          would leave a stray box in the frame's bottom-left. `.portraitFade`
+          stays: it is a separate element that softens the photo's bottom
+          edge into the frame, and it predates the caption rather than
+          existing to serve it. */}
+    </div>
+  );
+}
+
+export default AboutSection;

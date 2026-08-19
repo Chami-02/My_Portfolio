@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import { authService }         from '../services/authService';
+import { loginErrorMessage }   from '../utils/loginError';
 
 export function AdminLoginPage() {
   const [form,    setForm]    = useState({ email: '', password: '' });
@@ -25,9 +26,7 @@ export function AdminLoginPage() {
       await authService.login(form.email, form.password);
       navigate('/admin', { replace: true });
     } catch (err) {
-      setError(
-        err.response?.data?.message || 'Invalid email or password. Please try again.'
-      );
+      setError(loginErrorMessage(err));
     } finally {
       setLoading(false);
     }

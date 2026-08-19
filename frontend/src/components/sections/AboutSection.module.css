@@ -1,0 +1,322 @@
+/* frontend/src/components/sections/AboutSection.module.css
+ *
+ * Transcribed from `docs/design/Portfolio Revolution.dc.html` lines
+ * 192-241. Every value here is the prototype's, verbatim — no rounding.
+ *
+ * Font stacks go through the tokens (`var(--font-mono)`,
+ * `var(--font-display)`) rather than the prototype's literal
+ * `'JetBrains Mono', monospace` / `'Anton', sans-serif`. Not cosmetic:
+ * `--font-display` includes the metric-matched `'Anton Fallback'` face
+ * declared in tokens.css, so the literal stack would drop the
+ * size-adjusted fallback and put the font-swap reflow back. Same choice
+ * HeroSection.module.css made.
+ *
+ * The one `animation` here arrives through `composes: kf-sweep from
+ * global`, with the timing spelled out as LONGHANDS underneath. Writing
+ * `animation-name: sweep` directly in a module gets the name scoped to an
+ * identifier no @keyframes defines, and the element then silently does
+ * not animate. See styles/animations.css.
+ */
+
+/* `section.about`, not `.about`. Phase 1's global.css:338 carries
+   `[id] { scroll-margin-top: 5rem }` at specificity (0,1,0) — identical
+   to a bare class, so the tie breaks on stylesheet order and the global
+   rule wins, computing 80px for a 71px header and landing the eyebrow
+   9px low. The element qualifier makes it (0,1,1) and settles it.
+   Same fix as section.hero; required for every section until global.css
+   is trimmed at cutover.
+
+   patterns.module.css's `.section` holds these exact padding values, and
+   is deliberately not composed here: `composes` is only legal on a
+   single local class selector, so it cannot go on `section.about`.
+   Splitting into two rules to get both would trade a real cascade
+   guarantee for reuse of two values. section.hero made the same call. */
+section.about {
+  position: relative;
+  padding: clamp(80px, 12vh, 140px) clamp(16px, 4vw, 40px);
+  /* Not the prototype's — it has no fixed header to clear. */
+  scroll-margin-top: var(--header-h);
+}
+
+.inner {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+/* ── shared patterns ──────────────────────────────────────────────────
+   First consumer of patterns.module.css anywhere in the app — PF-70
+   created it and nothing had imported it until now. */
+
+/* `margin-bottom` is local, not composed. PF-81 put 38px into the shared
+   `.section-eyebrow`; PF-82 found the prototype's Skills eyebrow at 14px
+   (line 247) against this one's 38px (line 195), so the two sections
+   never agreed and the property was generalised from one observation.
+   Pulled out of the shared class rather than overridden here, because a
+   composed class and its composer tie at (0,1,0) and the winner falls out
+   of bundle emission order. */
+.eyebrow {
+  composes: section-eyebrow from '../../styles/patterns.module.css';
+  margin-bottom: 38px;
+}
+.eyebrowLabel { composes: section-eyebrow-label from '../../styles/patterns.module.css'; }
+.eyebrowLine  { composes: section-eyebrow-line from '../../styles/patterns.module.css'; }
+.outlined     { composes: outline-text from '../../styles/patterns.module.css'; }
+
+.grid {
+  display: grid;
+  /* Same auto-fit/minmax mechanism as the hero — the portrait drops below
+     the text column on its own once 400px stops fitting twice. The hero's
+     threshold is 430px; this one is the prototype's 400px. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+  gap: clamp(28px, 5vw, 60px);
+  align-items: center;
+}
+
+/* ── portrait ─────────────────────────────────────────────────────────── */
+
+.portraitCard {
+  position: relative;
+}
+
+.portraitFrame {
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(252, 163, 17, .35);
+  box-shadow:
+    0 0 0 1px rgba(var(--gnd), .9),
+    0 0 46px rgba(252, 163, 17, .10),
+    0 40px 80px rgba(var(--shd), .55);
+}
+
+/* No `transform` here. The resting scale(1.02) is written inline in the
+   JSX because the parallax effect assigns the whole `transform` property
+   and would have to fight a rule of its own module otherwise. Under full
+   motion that inline value survives for one commit and is then replaced
+   by the effect's own scale(1.1) — which is the prototype's behaviour
+   too, not a bug worked around: its bindScroll() overwrites transform
+   unconditionally, so 1.02 is what the markup says and 1.1 is what has
+   always displayed. Under reduced motion the effect never runs and 1.02
+   is the value on screen. */
+.portraitImg {
+  width: 100%;
+  display: block;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  object-position: 50% 32%;
+}
+
+.portraitFade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(var(--gnd), 0) 68%, rgba(var(--gnd), .6) 100%);
+}
+
+/* First use of the `sweep` keyframe anywhere in the port. It was already
+   in base.css's shared 22 — only the carrier in animations.css is new. */
+.portraitSweep {
+  composes: kf-sweep from global;
+  position: absolute;
+  inset: 0;
+  opacity: .4;
+  mix-blend-mode: screen;
+  background: linear-gradient(180deg, transparent 44%, rgba(252, 163, 17, .16) 50%, transparent 56%);
+  background-size: 100% 300%;
+  animation-duration: 8s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* `.portraitCaption` was here and is gone (owner-requested, 2026-08-18).
+   Removed rather than left unused: a rule whose element no longer exists
+   reads as live code to the next person and is exactly the dead-code
+   shape CLAUDE.md warns about. The prototype's values, if it is ever
+   wanted back: position absolute, left 20px, bottom 18px, mono 11px,
+   letter-spacing .16em, color var(--text). */
+
+/* ── content column ───────────────────────────────────────────────────── */
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5vw, 64px);
+  line-height: .95;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 22px;
+  white-space: nowrap;
+}
+
+.body {
+  color: var(--muted);
+  font-size: clamp(14.5px, 1.5vw, 17px);
+  line-height: 1.8;
+  margin: 0 0 18px;
+}
+
+/* The second paragraph's bottom margin is 20px, not 18px — prototype
+   line 212 against 211. Reads like a slip in a design export and is
+   transcribed as found; rounding the pair to one value is exactly the
+   wrong-by-2px change this project keeps warning about. */
+.bodySecond {
+  composes: body;
+  margin-bottom: 20px;
+}
+
+.seeking {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  letter-spacing: .04em;
+  color: var(--acc, #FCA311);
+  margin: 0 0 30px;
+}
+
+/* ── stat grid ────────────────────────────────────────────────────────── */
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.statCard {
+  padding: 22px 18px;
+  border-radius: 16px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .09);
+  text-align: center;
+}
+
+/* The card is itself a Reveal, so two `transition` declarations compete
+   for one element: Reveal's entrance and this hover. They cannot merge —
+   one wins outright. Declared bare, `.statCard` (0,1,0) would tie with
+   `.reveal` (0,1,0) and win on stylesheet order, replacing the 1.05s
+   entrance ease with a 0.25s hover transition. Gating on
+   [data-reveal='in'] — set by Reveal at the moment the entrance
+   finishes — makes this (0,2,0) and hands the element over only once
+   there is nothing left to animate in. Same fix as .rolePill in
+   HeroSection.module.css, one attribute shorter because type 'up' takes
+   its transition from the base `.reveal` rather than from a
+   [data-type] override. */
+.statCard[data-reveal='in'] {
+  transition: border-color .25s, transform .25s;
+}
+
+.statCard:hover {
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-4px);
+}
+
+.statNumber,
+.statNumberStatic {
+  font-family: var(--font-display);
+  font-size: 38px;
+  line-height: 1;
+  color: var(--acc, #FCA311);
+  margin: 0 0 8px;
+}
+
+/* The fourth card is not a counter — "Continuous" is a word, so it gets
+   its own size and leading. Uppercased in CSS, not in content. */
+.statNumberStatic {
+  font-size: 26px;
+  line-height: 1.42;
+  text-transform: uppercase;
+}
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  /* The prototype's own value (line 218), and still correct in light
+     theme, where it measures 5.95:1 — comfortably over AA. Left alone;
+     only the dark theme is overridden below. */
+  color: var(--muted2);
+  margin: 0;
+}
+
+/* ── Dark-theme contrast fix — PF-83, owner-approved ──────────────────
+ * --muted2 (#6b7891) at 10.5px on the stat card's rgba(var(--srf),.5)
+ * over the --gnd ground composites to rgb(13,20,35) and measures
+ * 4.15:1. WCAG AA wants 4.5:1 for small text. --muted (#93a0b8) is one
+ * step lighter, already the token About's body copy uses, and clears it.
+ *
+ * ⚠️ Scoped to the dark theme deliberately. A change to the base rule
+ * would move light theme too, which was never failing.
+ *
+ * ⚠️ And it wins on SPECIFICITY, not on being declared second.
+ * :global(html[data-theme='dark']) .statLabel is (0,2,1) against the
+ * base rule's (0,1,0), so the cascade settles this outright. Two rules
+ * tying at the same specificity and resolving on source order is the
+ * bug that has bitten this project repeatedly — .rolePill, .statCard,
+ * .card, .pill and the section-eyebrow extraction, five times now — so
+ * this fix does not add a sixth instance of it.
+ *
+ * :global() around the attribute selector follows ThemeToggle.module.css
+ * line 78, the one existing precedent in this build. CSS Modules would
+ * leave a bare html[data-theme] alone anyway, since it scopes only
+ * classes and ids, but matching the proven form costs nothing.
+ *
+ * Both themes set data-theme explicitly — the FOUC guard writes 'dark'
+ * at index.html:31 — so this is not relying on dark being the absent
+ * default, which would never match.
+ */
+:global(html[data-theme='dark']) .statLabel {
+  color: var(--muted);
+}
+
+/* ── CTAs ─────────────────────────────────────────────────────────────
+   Visually close to the hero's pair and deliberately NOT composed from
+   them: the prototype's values differ — 14px/24px padding against the
+   hero's 16px/26px, 12px type against 12.5px, and no resting box-shadow
+   on the primary where the hero has one. Sharing a base class would make
+   a future tweak to either pair silently move the other. */
+
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.ctaPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--acc, #FCA311);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .1em;
+  padding: 14px 24px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: transform .25s, box-shadow .25s;
+}
+
+.ctaPrimary:hover {
+  color: var(--accInk);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(252, 163, 17, .4);
+}
+
+.ctaSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .1em;
+  padding: 14px 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .22);
+  text-decoration: none;
+  transition: color .25s, border-color .25s, background .25s;
+}
+
+.ctaSecondary:hover {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .08);
+}

@@ -1,0 +1,71 @@
+/* frontend/src/styles/animations.css
+ *
+ * Global `animation-name` carriers — one per keyframe a CSS Module
+ * actually needs, not one per keyframe in the library. Add a line when
+ * a module needs a name that is not here yet; the library itself
+ * (styles/keyframes/) stays complete regardless of what is used.
+ *
+ * ── Why this file has to exist ────────────────────────────────────
+ *
+ * CSS Modules scopes `@keyframes` names, and it rewrites the NAME in
+ * an `animation` / `animation-name` declaration to match. Our keyframes
+ * are not in a module — they live in styles/keyframes/*.css and stay
+ * global — so a module writing
+ *
+ *     animation: pulsering 6s ease-in-out infinite;
+ *
+ * compiles to `animation-name: Splash-module__pulsering`, a name no
+ * @keyframes rule defines. The result is the silent failure this repo
+ * already knows about: the element simply does not animate. No error,
+ * no warning, `getComputedStyle` still reports the animation as
+ * "running", and only `element.getAnimations().length === 0` gives it
+ * away. It cost the whole splash, the navbar's CONTACT pill and the
+ * Marquee before anyone noticed.
+ *
+ * There is no per-declaration escape hatch: `:global(name)` in a value
+ * fails to parse, and `:global .foo { }` works only by making the class
+ * global too. `composes: … from global` is the one route that keeps the
+ * consuming class scoped.
+ *
+ * ── How to use it ─────────────────────────────────────────────────
+ *
+ *     .ringOuter {
+ *       composes: kf-pulsering from global;
+ *       animation-duration: 6s;
+ *       animation-timing-function: ease-in-out;
+ *       animation-iteration-count: infinite;
+ *     }
+ *
+ * Two rules, both load-bearing:
+ *
+ *   1. `composes` must be the first declaration in the rule.
+ *   2. **Use the animation LONGHANDS, never the shorthand.** The
+ *      shorthand resets every longhand it omits, so `animation: 6s
+ *      ease-in-out infinite` with the name left out sets
+ *      animation-name back to `none` and undoes the composed class.
+ *
+ * Timing, easing, delay, direction and fill stay in the component's own
+ * module — those are the transcribed design values, and they belong
+ * next to the rest of the element's styles. This file carries nothing
+ * but the name.
+ */
+
+.kf-breathe    { animation-name: breathe; }
+.kf-dot        { animation-name: dot; }
+.kf-flicker    { animation-name: flicker; }
+.kf-glowdot    { animation-name: glowdot; }
+.kf-glowpulse  { animation-name: glowpulse; }
+.kf-marq       { animation-name: marq; }
+.kf-nudge      { animation-name: nudge; }
+.kf-orbdot     { animation-name: orbdot; }
+.kf-pulsering  { animation-name: pulsering; }
+.kf-riseIn     { animation-name: riseIn; }
+.kf-spin       { animation-name: spin; }
+.kf-sweep      { animation-name: sweep; }
+
+/* Per-screen variants. The screen suffix is part of the keyframe's real
+   name — `flt` and `drift` differ per screen, so there is no unsuffixed
+   carrier to fall back on. Portfolio's are the only ones a module needs
+   so far; blog/admin get their own lines when a screen uses them. */
+.kf-drift-portfolio { animation-name: drift-portfolio; }
+.kf-flt-portfolio   { animation-name: flt-portfolio; }

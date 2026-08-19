@@ -1,0 +1,302 @@
+/* frontend/src/components/layout/Navbar.module.css
+ *
+ * PF-79. Transcribed from the prototype's <header>, lines 56-82 of
+ * docs/design/Portfolio Revolution.dc.html.
+ *
+ * Every value down to the hamburger block is verbatim from the
+ * prototype's inline styles — including the hardcoded
+ * rgba(252,163,17,…) oranges, which the prototype uses even in the
+ * light theme where --acc resolves to #7E4800. That is its choice,
+ * not a slip; do not "fix" them into var(--acc).
+ *
+ * The prototype relies on a global `a { text-decoration: none }`
+ * (line 22) that this repo has no equivalent for, so every anchor
+ * class below declares it explicitly. Without that the navbar
+ * renders underlined — a visible mismatch with no error.
+ */
+
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: rgba(var(--ftr), .86);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(var(--ln), .08);
+}
+
+.inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 12px clamp(16px, 4vw, 40px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--strong);
+  text-decoration: none;
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--acc, #FCA311);
+  box-shadow: 0 0 18px rgba(252, 163, 17, .35);
+}
+
+.brandText {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: .02em;
+  color: var(--strong);
+}
+
+.brandDot {
+  color: var(--acc, #FCA311);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.navLink {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  padding: 9px 13px;
+  border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color .2s, background .2s;
+}
+
+.navLink:hover {
+  color: var(--strong);
+  background: rgba(252, 163, 17, .10);
+}
+
+.contactPill {
+  /* The keyframe NAME must come from a global class — CSS Modules
+     rewrites an in-module animation-name to a scoped identifier that
+     no @keyframes defines, and the element then silently never
+     animates. See styles/animations.css. Longhands, not the
+     shorthand: the shorthand would reset the composed name to none. */
+  composes: kf-glowpulse from global;
+  margin-left: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  padding: 10px 16px;
+  border-radius: 999px;
+  color: var(--acc, #FCA311);
+  border: 1px solid rgba(252, 163, 17, .45);
+  background: rgba(252, 163, 17, .08);
+  text-shadow: 0 0 14px rgba(252, 163, 17, .55);
+  box-shadow: 0 0 18px rgba(252, 163, 17, .18);
+  text-decoration: none;
+  animation-duration: 3s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  transition: color .25s, background .25s, border-color .25s, text-shadow .25s;
+}
+
+.contactPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  text-shadow: none;
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: rgba(var(--ln), .16);
+}
+
+.adminLink {
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  padding: 10px 16px;
+  border-radius: 999px;
+  color: var(--acc, #FCA311);
+  border: 1px solid rgba(252, 163, 17, .45);
+  background: rgba(252, 163, 17, .08);
+  text-shadow: 0 0 14px rgba(252, 163, 17, .55);
+  text-decoration: none;
+  transition: color .25s, background .25s;
+}
+
+.adminLink:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  text-shadow: none;
+}
+
+.adminDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+  box-shadow: 0 0 9px rgba(252, 163, 17, .9);
+}
+
+.progressTrack {
+  height: 2px;
+  background: rgba(var(--ln), .06);
+}
+
+.progressFill {
+  height: 2px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--acc, #FCA311), var(--strong));
+}
+
+/* ── Hamburger — no prototype precedent ──────────────────────────────
+ *
+ * The prototype has no mobile nav at any breakpoint (confirmed: no
+ * media queries anywhere near the header). Everything from here down
+ * is this ticket's own work, per CLAUDE.md's locked decision on the
+ * overlay's visual treatment. 768px matches this stack's Tailwind
+ * `md:` default rather than anything prototype-derived.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* 2px bar + 5px gap + 2px + 5px + 2px = 16px tall. The top bar's
+   centre sits 1px down, the middle's at 8px — hence translateY(7px)
+   to converge them, and -7px for the bottom. */
+.hamburger span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--strong);
+  transition: transform .25s ease, opacity .25s ease;
+}
+
+.hamburger[data-open] span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.hamburger[data-open] span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger[data-open] span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+@media (max-width: 768px) {
+  .nav {
+    display: none;
+  }
+
+  .hamburger {
+    display: flex;
+  }
+}
+
+/* ── Mobile overlay ──────────────────────────────────────────────────
+ *
+ * Locked in CLAUDE.md: the ambient layer shows through — canvas and
+ * grain stay visible under the menu. The translucent surface tone is
+ * the header's own rgba(var(--ftr),.86) + blur(16px), never a solid
+ * background. z-index 80 clears grain's 70 and stays under splash's
+ * 100.
+ *
+ * One element, not a backdrop layer plus a panel on top of it. Two
+ * stacked full-size layers means the upper one swallows every click,
+ * so a backdrop underneath can never receive the dismiss it exists
+ * for — verified in a browser, where a separate backdrop div took
+ * zero clicks. The surface and the click target have to be the same
+ * box.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: rgba(var(--ftr), .86);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.overlayClose {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--strong);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.overlayNav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.overlayLink {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  letter-spacing: .1em;
+  color: var(--strong);
+  text-decoration: none;
+}
+
+/* composes: the element carries both classes, and these rules win on
+   source order (equal specificity, defined later). */
+.overlayContactPill {
+  composes: contactPill;
+  font-size: 14px;
+  padding: 14px 28px;
+}
+
+.overlayAdminLink {
+  composes: adminLink;
+  font-size: 14px;
+  padding: 14px 28px;
+}

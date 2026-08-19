@@ -52,7 +52,11 @@ export function ContactSection() {
       id="contact"
       style={{
         padding: 'var(--section-y) var(--content-px)',
-        background: 'linear-gradient(180deg, var(--bg) 0%, var(--bg-surface) 100%)',
+        // Section wash removed 2026-08-18, owner-requested. Worth noting
+        // this one was also a light-theme bug: var(--bg-surface) is a
+        // Phase 1 token that does not follow html[data-theme], so it
+        // painted a dark navy block across the bottom of the page in
+        // light mode. Phase 1 component; replaced in Sprint 12.
       }}
     >
       <div
