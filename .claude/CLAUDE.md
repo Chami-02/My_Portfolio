@@ -239,6 +239,7 @@ individual ticket reports, per the ticket's own instruction:
 | Backend suite (`npm test`) | **211 passed / 211**, 21 suites |
 | Lint (`eslint src --max-warnings=0`) | **exit 0**, zero errors, zero warnings |
 | Production build (`vite build`) | **succeeds**, 214 modules, 47.13 kB CSS / 412.99 kB JS |
+| E2E (`npm run test:e2e`) | **22 passed / 22** — after the fix below; it was **4 failed / 20** |
 | Commits on the branch | **25** ahead of `origin/master` |
 | Diff vs `origin/master` | 67 files, +9821 / −873 |
 | Working tree | clean |
@@ -246,6 +247,67 @@ individual ticket reports, per the ticket's own instruction:
 The one non-clean line in any of that is Jest's post-teardown
 `ReferenceError` from `health.test.js`. It prints *after* "21 passed" and
 is the known open-handle artifact, not a failure — the suite exits 0.
+
+**⚠️ The gate as the PF-84 ticket specifies it MISSES the E2E suite, and CI
+runs it.** The ticket's Step 1 lists four commands — frontend `vitest`,
+lint, `vite build`, backend `npm test`. None of them is `npm run test:e2e`,
+and `npm test` does not chain to it (`frontend/package.json` has `test:e2e`
+as its own script). So the first PF-84 gate came back fully green and CI
+then failed with **4 E2E failures**. Run all five, not the ticket's four.
+
+**What the four were: Phase 1 assertions against the Phase 2 page**, not a
+regression. PF-80 replaced the hero six days earlier and nothing updated
+`e2e/`:
+
+| Spec | Asserted | Reality after PF-80 |
+| --- | --- | --- |
+| `homepage.spec.js:13` | heading `/Parindra\s+Chameekara/i` | the Phase 2 H1 is **Parindra Gallage** |
+| `homepage.spec.js:24` | `.animate-blink` | the typewriter is **gone** — `useTypewriter` is orphaned |
+| `homepage.spec.js:28` | `$ docker compose up --build` | `TerminalWindow` is **gone**, also orphaned |
+| `navigation.spec.js:40` | heading `/Parindra\s+Chameekara/i` | same H1 change |
+
+**This is the dead-code entry below, seen from the other side, and it is
+worth reading as a pair.** That entry says a green unit suite hides dead
+code because the test imports the module directly. `useTypewriter`'s four
+unit tests are still green *today*, for exactly that reason. The E2E specs
+are the tests that could not be fooled — they drive the real page, so they
+went red the moment the feature left. **Unit-green + E2E-red is the
+signature of a removed feature whose tests were not cleaned up**, and it is
+the opposite diagnosis from unit-red, which means broken code.
+
+The fix, in `e2e/homepage.spec.js` and `e2e/navigation.spec.js`:
+
+- **Both heading regexes → `/Parindra\s+Gallage/i`.** The `\s+` is
+  load-bearing and not merely inherited from the old assertion: the H1 is
+  two block-level spans, so `textContent` reads `"ParindraGallage"` with no
+  space at all, while the **accessible name** — which is what
+  `getByRole(…, { name })` matches — has one. A test written against
+  `textContent` would need `/ParindraGallage/`; one written against the role
+  needs `\s+`. Verified both ways in a browser.
+- **The two removed-feature tests are REPLACED, not deleted** — role pills
+  plus the LOUD CTA, and the marquee strip. Deleting them would have quietly
+  dropped the hero's E2E coverage to a single heading assertion.
+- **Two new tests cover the splash, which had none** — that it mounts on a
+  plain `/` and lifts on its own, and that `?nosplash` skips it. Both were
+  mutation-tested (point the first at `?nosplash`, the second at `/`); both
+  fail as they should.
+  ⚠️ `/Booting portfolio/i` is the only safe splash locator. The splash's
+  last boot line is "● Welcome — let's build something loud!" and the hero's
+  own CTA reads "Let's build something LOUD!", so `/build something loud/i`
+  matches **two** elements mid-splash and a strict locator throws.
+- **`homepage.spec.js`'s `beforeEach` now loads `/?nosplash`.** Without it
+  every test in the file waits out the full ~5.65s splash before it can
+  click anything — Playwright's actionability check will not click through
+  a z-index-100 overlay, so it retries until the splash unmounts. That alone
+  took the whole suite from **2.1m to 1.2m** while adding two tests.
+  `navigation`, `contact` and `admin` still load a plain `/`; they were
+  green and were left alone.
+
+Note `toBeVisible()` does **not** check occlusion — an element fully covered
+by the splash still reports visible, since Playwright tests bounding box and
+`visibility`, not what is painted on top. That is why the heading assertions
+failed with "element(s) not found" rather than a timeout, and it is the same
+blind spot the splash-readiness gate exists for.
 
 **Live spot-checks, measured in Chromium against the production build**, not
 read off the stylesheets. Served from `dist/` behind a same-origin proxy to
@@ -1711,6 +1773,41 @@ error message:
   means the one in the browser is probably not the one on 5173. Widening the
   allowlist to a dev port range removes the trap but is a security-posture
   change; it is on the Outstanding work list as a decision, not a fix.
+- **`npm test` does not run the E2E suite, so a "full" local gate can be
+  green while CI is red.** `frontend/package.json` keeps `test` (Vitest) and
+  `test:e2e` (Playwright) as separate scripts, and nothing chains them. Any
+  checklist that says "run the tests" therefore covers unit only unless it
+  names `test:e2e` explicitly — the PF-84 ticket's own gate lists four
+  commands and omits it, which is how Sprint 11 reached a green local gate
+  and a red CI on the same commit.
+
+  The failure mode is specific and worth recognising on sight: **unit green
+  + E2E red almost always means a feature was REMOVED and its tests were
+  not**, because unit tests import the module directly and keep passing
+  after the last consumer disappears, while an E2E test drives the real page
+  and cannot be fooled. Unit *red* means the opposite — code that is broken
+  rather than gone. Sprint 11 hit the first: `useTypewriter`'s four unit
+  tests are green today with zero consumers, and the E2E specs asserting the
+  Phase 1 hero went red the moment PF-80 replaced it.
+
+  Run five commands, not four: `vitest --run`, `eslint --max-warnings=0`,
+  `vite build`, backend `npm test`, **and `npm run test:e2e`**.
+- **Playwright's `toBeVisible()` ignores occlusion, so a full-screen overlay
+  does not hide anything from it.** Visibility is a non-empty bounding box
+  plus a non-`hidden` `visibility` — not "a user could see this". An element
+  completely covered by the splash (z-index 100) still passes
+  `toBeVisible()`, and an element at `opacity: 0` mid-`Reveal` does too.
+
+  Two consequences, both live in this repo:
+  - **A stale content assertion fails with "element(s) not found", not a
+    timeout** — which is the useful tell that the text genuinely changed
+    rather than merely arrived late.
+  - **`click()` is the opposite**: actionability *does* hit-test, so a click
+    under the splash retries until it unmounts, silently adding ~5.65s to
+    every test rather than failing. That is a slow suite, not a red one, so
+    nothing draws attention to it. `e2e/homepage.spec.js` loads
+    `/?nosplash` in `beforeEach` for this reason; the splash gets its own
+    two tests on a plain `/`.
 
 Where a mistake would be silent, add a test that would catch it.
 

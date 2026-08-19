@@ -37,6 +37,7 @@ test.describe('Navbar Navigation', () => {
     await page.goto('/this-page-does-not-exist');
     await page.getByRole('link', { name: /back to home/i }).click();
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: /Parindra\s+Chameekara/i })).toBeVisible();
+    // Phase 2 H1 (PF-80) — see the note in homepage.spec.js on why `\s+`.
+    await expect(page.getByRole('heading', { name: /Parindra\s+Gallage/i })).toBeVisible();
   });
 });

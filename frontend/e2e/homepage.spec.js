@@ -1,31 +1,66 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Homepage', () => {
+  // `?nosplash` is the prototype's own mechanism, ported in PF-78. Without
+  // it every test here waits out the full ~5.65s splash before it can click
+  // anything, because the splash sits at z-index 100 over the whole page and
+  // Playwright's actionability check refuses to click through it. The splash
+  // itself is covered by its own test below, on a plain `/`.
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?nosplash');
   });
 
   test('loads and displays hero section', async ({ page }) => {
-    // Page title
+    // Page title — still the Phase 1 string; the cutover ticket owns it.
     await expect(page).toHaveTitle(/Parindra Chameekara/i);
 
-    // Hero heading
-    await expect(page.getByRole('heading', { name: /Parindra\s+Chameekara/i })).toBeVisible();
+    // Hero heading. PF-80 replaced the Phase 1 hero, and the Phase 2 H1 is
+    // "Parindra Gallage" — two block-level spans, so `textContent` reads
+    // "ParindraGallage" with no space while the ACCESSIBLE NAME has one.
+    // `getByRole(...{ name })` matches the accessible name, hence `\s+`.
+    await expect(page.getByRole('heading', { name: /Parindra\s+Gallage/i })).toBeVisible();
 
-    // Availability badge
+    // Availability badge. The content is uppercase ("OPEN TO OPPORTUNITIES");
+    // `getByText` with a string is case-insensitive, so this still matches.
     await expect(page.getByText('Open to opportunities')).toBeVisible();
+    await expect(page.getByText('HEY — I AM')).toBeVisible();
   });
 
-  test('typewriter animation starts and displays text', async ({ page }) => {
-    // Wait for the typewriter to type at least something
-    await page.waitForTimeout(500);
-    const typewriterEl = page.locator('.animate-blink').first();
-    // The cursor should be visible (blinking cursor shows typewriter is running)
-    await expect(typewriterEl).toBeVisible();
+  // Replaces two Phase 1 tests that asserted features PF-80 deliberately
+  // removed: the typewriter's `.animate-blink` cursor and TerminalWindow's
+  // "$ docker compose up --build". Both components are now orphaned (zero
+  // consumers) and the Phase 2 hero has no typewriter at all, so those
+  // assertions could only ever fail. These cover what replaced them.
+  test('hero renders its Phase 2 role pills and the LOUD CTA', async ({ page }) => {
+    await expect(page.getByText('Full-Stack Web Developer')).toBeVisible();
+    await expect(page.getByText('Cloud & DevOps Enthusiast')).toBeVisible();
+    await expect(page.getByRole('link', { name: /build something LOUD/i })).toBeVisible();
   });
 
-  test('terminal window displays output lines', async ({ page }) => {
-    await expect(page.getByText('$ docker compose up --build')).toBeVisible({ timeout: 5000 });
+  test('marquee strip renders after the hero', async ({ page }) => {
+    // The marquee duplicates its content to loop seamlessly, so this text
+    // legitimately appears twice — `.first()` rather than a strict locator.
+    await expect(page.getByText(/MERN Stack/i).first()).toBeVisible();
+  });
+
+  test('splash covers a normal load, then lifts on its own', async ({ page }) => {
+    await page.goto('/');
+
+    // "Booting portfolio…" is unique to the splash. The hero's own LOUD CTA
+    // also contains "build something loud", so the splash's last boot line
+    // is NOT a safe locator here — it matches two elements mid-splash.
+    const booting = page.getByText(/Booting portfolio/i);
+    await expect(booting).toBeVisible();
+
+    // SPLASH_MS 4500 + the exit slide ≈ 5.65s to unmount. The timeout is
+    // generous because CI runners are slower than a laptop.
+    await expect(booting).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: /Parindra\s+Gallage/i })).toBeVisible();
+  });
+
+  test('?nosplash skips the splash entirely', async ({ page }) => {
+    await expect(page.getByText(/Booting portfolio/i)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /Parindra\s+Gallage/i })).toBeVisible();
   });
 
   test('"View My Work" CTA scrolls to projects section', async ({ page }) => {
