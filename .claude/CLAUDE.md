@@ -167,16 +167,18 @@ document; do not link to one.
 | PF-81 | About — parallax, stats, outline type | ✅ |
 | PF-82 | Skills — wired to the API | ✅ |
 | PF-83 | Reduced-motion + a11y pass | ✅ |
-| PF-84 | Sprint 11 gate, PR, close | ◑ |
+| PF-84 | Sprint 11 gate, PR, close | ✅ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
 
-**⚠️ Before cutting `sprint-11-main-page`:** confirm PR #4 from
-`sprint-10-design-system` has actually merged into `master`
-(`gh pr view 4 --json state,mergedAt`). If Sprint 11 branches before that
-lands, none of PF-66–74's primitives exist on the new branch and the first
-import in PF-75 fails. Check, don't assume.
+**⚠️ Before cutting any sprint branch, confirm the previous sprint's PR
+actually merged** — `gh pr view <N> --json state,mergedAt`. Branch too
+early and none of the previous sprint's primitives exist on the new
+branch, and the first import fails. This was written for Sprint 11
+against PR #4, and it still applies: **Sprint 12 branches from `master`
+at `b8cef24`**, the PR #5 merge, which is verified below. Check, don't
+assume.
 
 ### Sprint 11 — Epic E7, Main Page Rebuild (`PF-55`)
 
@@ -198,12 +200,7 @@ competing for attention with straightforward section transcription.
 | 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | ✅ |
 | 8 | PF-82 | Skills | 3 | PF-81 | ✅ |
 | 9 | PF-83 | Reduced-motion + a11y pass | 3 | all | ✅ |
-| 10 | PF-84 | Sprint gate, PR, close | 2 | all | ◑ |
-
-`◑` = the work is done and on the branch; the **commit, PR and merge are
-the user's** and had not happened when this was written. Change it to `✅`
-and fill in the PR number and merge date in the status paragraph below
-once the merge lands — do not pre-write either.
+| 10 | PF-84 | Sprint gate, PR, close | 2 | all | ✅ |
 
 46 points. PF-75 carries 5, not 3 — it now includes the splash-readiness gate
 (see the silent-failure entry below), pulled forward from PF-78 so the primitive
@@ -219,16 +216,22 @@ Full markup transcription plus timer choreography plus that provider change put
 it closer to 7 points than 4. The table above still reads 4, which is what Jira
 has; re-point it there if you want the two to agree.
 
-**Sprint 11's build work is COMPLETE** — PF-75 through PF-83 all landed on
-`sprint-11-main-page`, and PF-84 (this closeout) is the last entry. The site
-visibly is the Phase 2 design from the header through Skills.
+**Sprint 11 — Epic E7 Main Page Rebuild (PF-75 → PF-84) is COMPLETE and
+MERGED.** PR **#5**, merged into `master` on **2026-08-19**, merge commit
+**`b8cef24`**. The site visibly is the Phase 2 design from the header
+through Skills.
 
-⚠️ **Not yet merged as of 2026-08-19.** The closeout edits are on the branch
-uncommitted; the commit, the PR and the merge are the user's. Do not read
-this section as "Sprint 11 shipped" until the table above reads `✅` and the
-line below carries a real PR number:
+`sprint-11-main-page` has been **deleted on the remote**, matching Sprint
+10's pattern — `origin` now carries `master` plus the archived
+`sprint-2` … `sprint-8` branches and nothing else. Local copies of
+`sprint-9`, `sprint-10` and `sprint-11` still exist with `[gone]`
+upstreams; deleting them is housekeeping, not state anyone depends on.
 
-> Sprint 11 merged via PR #\<N\> into `master` on \<date\>.
+**Sprint 12 branches from `master` at `b8cef24` or later.** Everything in
+this file's "ready to build with" lists is on `master` now, so a Sprint 12
+branch cut from it inherits all of PF-66 → PF-84. There is no equivalent
+of Sprint 10's "confirm PR #4 merged first" warning to repeat here — PR #5
+is merged and verified above.
 
 **The PF-84 gate, run fresh on 2026-08-19** — not aggregated from the
 individual ticket reports, per the ticket's own instruction:
@@ -240,6 +243,7 @@ individual ticket reports, per the ticket's own instruction:
 | Lint (`eslint src --max-warnings=0`) | **exit 0**, zero errors, zero warnings |
 | Production build (`vite build`) | **succeeds**, 214 modules, 47.13 kB CSS / 412.99 kB JS |
 | E2E (`npm run test:e2e`) | **22 passed / 22** — after the fix below; it was **4 failed / 20** |
+| Re-run on `master` post-merge (b8cef24) | 403 · 211 · lint 0 · build ok · E2E **21 passed + 1 flaky** ⚠️ |
 | Commits on the branch | **25** ahead of `origin/master` |
 | Diff vs `origin/master` | 67 files, +9821 / −873 |
 | Working tree | clean |
@@ -308,6 +312,53 @@ by the splash still reports visible, since Playwright tests bounding box and
 `visibility`, not what is painted on top. That is why the heading assertions
 failed with "element(s) not found" rather than a timeout, and it is the same
 blind spot the splash-readiness gate exists for.
+
+**⚠️ There was a FIFTH stale Phase 1 E2E test, and it is still in the tree.**
+It did not appear in the four CI failures because it does not fail — it
+passes while asserting nothing. Found on 2026-08-19 by re-running the suite
+on `master` after the merge, where it surfaced as `1 flaky`:
+
+```js
+test('"Get In Touch" CTA scrolls to contact section', async ({ page }) => {
+  await page.click('text=Get In Touch');
+  await page.waitForTimeout(800);
+  await expect(page.locator('#contact')).toBeInViewport();
+});
+```
+
+Phase 1's hero had `<a href="#contact">Get In Touch</a>`. **PF-80 deleted
+it**, so `text=Get In Touch` now resolves to the Contact section's own
+`<h2>`. Measured, not reasoned:
+
+| Probe | Result |
+| --- | --- |
+| matches for `text=Get In Touch` | 1 — an **`<h2>`**, `href=null`, not inside an `<a>` |
+| `location.hash` after the "click" | **`""`** — the app never navigated |
+| `scrollY` 0 → | **4786**, entirely from Playwright's actionability auto-scroll |
+| same assertion with **no click at all** | **passes** |
+
+So the test asserts that *Playwright scrolls an element into view before
+clicking it*, which is Playwright's own documented behaviour and true of
+every element on every page. **It cannot fail for a product reason**, and it
+would keep passing if `#contact` were deleted from the hero's CTAs entirely
+— which is exactly what happened.
+
+**Why it only became flaky now.** Before PF-84, the splash blocked the click
+for ~5.65s, and that incidental delay was long enough for the two large hero
+images (1.4MB + 2.3MB) to finish loading and the layout to settle. `?nosplash`
+removed the delay, so the auto-scroll now races image-driven layout shift and
+`#contact` sometimes lands just outside the viewport. **The flake is the
+symptom; the vacuous assertion is the defect**, and it predates this sprint.
+
+Note `"View My Work"` in the test above it is **not** the same problem — the
+Phase 2 hero really does render `VIEW MY WORK →` as `<a href="#projects">`,
+so that one exercises a real CTA. Only the Contact one fell through.
+
+**Not fixed here.** The fix belongs in a Sprint 12 ticket alongside the
+Contact rebuild, because the honest replacement is to click a real Phase 2
+CTA — `DOWNLOAD CV` or `Let's build something LOUD!`, both `href="#contact"`
+— and Contact is Sprint 12's section. Left in place deliberately rather than
+patched blind; it is on the Outstanding work list.
 
 **Live spot-checks, measured in Chromium against the production build**, not
 read off the stylesheets. Served from `dist/` behind a same-origin proxy to
@@ -383,6 +434,15 @@ There is **no separate Sprint 11 retrospective document**, matching Sprint
 None of this is in Sprint 11's PR. Each was checked on 2026-08-19 rather
 than copied forward:
 
+- **One vacuous E2E test — `"Get In Touch" CTA scrolls to contact section`**
+  (`e2e/homepage.spec.js`). Asserts Playwright's own auto-scroll, not the
+  app; reports `flaky` rather than failing. Full measurement in Silent
+  failures. Fix it with Sprint 12's Contact rebuild, pointing it at a real
+  Phase 2 CTA.
+- **`frontend/test-results/.last-run.json` is tracked** even though
+  `/test-results/` is in `frontend/.gitignore` — it was committed before the
+  rule existed, and gitignore does not apply to already-tracked files, so it
+  dirties the tree after every Playwright run. `git rm --cached` it.
 - **`migrations/004-skill-order.js` has still NOT been run.** Confirmed
   live, not inferred: `GET /api/skills` returns LANGUAGES as
   `JavaScript → Python → Java → HTML5 → CSS3`, so **Java is still third**
@@ -478,8 +538,8 @@ through a ref updated by its own small effect, rather than putting `isLight`
 in the draw loop's dependency array — which would have torn the loop down and
 regenerated every star's position on each toggle.
 
-What's ready to build with — **all of this exists on the branch today**. Exact
-paths, because they are not guessable from the ticket names:
+What's ready to build with — **all of this is on `master` as of PR #5**.
+Exact paths, because they are not guessable from the ticket names:
 
 ```
 frontend/
@@ -556,7 +616,7 @@ writing any `animation` declaration in a `*.module.css`.
   simple layout, `patterns.module.css` for structural patterns used more than
   once.
 
-**Built by PF-75 — all of this exists on the branch today:**
+**Built by PF-75 — all of this is on `master`:**
 
 ```
 frontend/src/
