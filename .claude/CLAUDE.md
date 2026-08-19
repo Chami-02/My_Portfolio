@@ -167,6 +167,7 @@ document; do not link to one.
 | PF-81 | About — parallax, stats, outline type | ✅ |
 | PF-82 | Skills — wired to the API | ✅ |
 | PF-83 | Reduced-motion + a11y pass | ✅ |
+| PF-84 | Sprint 11 gate, PR, close | ◑ |
 
 Numbering note: six Jira epics were created after PF-52, consuming keys
 PF-53–PF-58. The jump from PF-52 to PF-59 is intentional.
@@ -197,7 +198,12 @@ competing for attention with straightforward section transcription.
 | 7 | PF-81 | About — parallax, stats, outline type | 5 | PF-74, PF-80 | ✅ |
 | 8 | PF-82 | Skills | 3 | PF-81 | ✅ |
 | 9 | PF-83 | Reduced-motion + a11y pass | 3 | all | ✅ |
-| 10 | PF-84 | Sprint gate, PR, close | 2 | all | — |
+| 10 | PF-84 | Sprint gate, PR, close | 2 | all | ◑ |
+
+`◑` = the work is done and on the branch; the **commit, PR and merge are
+the user's** and had not happened when this was written. Change it to `✅`
+and fill in the PR number and merge date in the status paragraph below
+once the merge lands — do not pre-write either.
 
 46 points. PF-75 carries 5, not 3 — it now includes the splash-readiness gate
 (see the silent-failure entry below), pulled forward from PF-78 so the primitive
@@ -213,8 +219,149 @@ Full markup transcription plus timer choreography plus that provider change put
 it closer to 7 points than 4. The table above still reads 4, which is what Jira
 has; re-point it there if you want the two to agree.
 
-**Sprint 11 is in progress** — PF-75 through PF-83 done and on the branch
-(44 of 46 points), PF-84 next.
+**Sprint 11's build work is COMPLETE** — PF-75 through PF-83 all landed on
+`sprint-11-main-page`, and PF-84 (this closeout) is the last entry. The site
+visibly is the Phase 2 design from the header through Skills.
+
+⚠️ **Not yet merged as of 2026-08-19.** The closeout edits are on the branch
+uncommitted; the commit, the PR and the merge are the user's. Do not read
+this section as "Sprint 11 shipped" until the table above reads `✅` and the
+line below carries a real PR number:
+
+> Sprint 11 merged via PR #\<N\> into `master` on \<date\>.
+
+**The PF-84 gate, run fresh on 2026-08-19** — not aggregated from the
+individual ticket reports, per the ticket's own instruction:
+
+| Check | Result |
+| --- | --- |
+| Frontend suite (`vitest --run`) | **403 passed / 403**, 35 files |
+| Backend suite (`npm test`) | **211 passed / 211**, 21 suites |
+| Lint (`eslint src --max-warnings=0`) | **exit 0**, zero errors, zero warnings |
+| Production build (`vite build`) | **succeeds**, 214 modules, 47.13 kB CSS / 412.99 kB JS |
+| Commits on the branch | **25** ahead of `origin/master` |
+| Diff vs `origin/master` | 67 files, +9821 / −873 |
+| Working tree | clean |
+
+The one non-clean line in any of that is Jest's post-teardown
+`ReferenceError` from `health.test.js`. It prints *after* "21 passed" and
+is the known open-handle artifact, not a failure — the suite exits 0.
+
+**Live spot-checks, measured in Chromium against the production build**, not
+read off the stylesheets. Served from `dist/` behind a same-origin proxy to
+the real backend, because `.env.production`'s API host is still the Railway
+placeholder (see Outstanding work) and a plain `vite preview` would have had
+every fetch fail:
+
+| Check | Result |
+| --- | --- |
+| `--header-h` vs rendered header | token `71px` · measured **71px** |
+| `scroll-margin-top`, all 3 sections | **71px** each — the `[id]` cascade trap has not crept back |
+| EX1 cursor web | `WEB_LINK_PX` **105**, `WEB_ALPHA` **0.065** (see the ⚠️ below) |
+| EX2 splash scan lines | **12** CSSAnimations in the splash, **0** named `scanline` |
+| EX3 splash timing | first tick **3%** unpadded · exactly **29** ticks · bar full **~4523ms** · exit 4500ms · unmount **~5690ms** |
+| EX4 smooth scroll | root `scroll-behavior: smooth` with motion allowed |
+| EX5 section washes | Hero + Skills both `background-image: none`, `rgba(0,0,0,0)` |
+| EX5 card surfaces survive | Skills card still `rgba(20,33,61,.52)` |
+| EX6 hero parallax grid | 0 `.parallaxGrid`, 0 elements tiled at 74px, 0 `[data-para]` in the hero |
+| EX7 About caption | absent; the gradient `.portraitFade` still present |
+| EX8 light bridge scope | `#projects` → `--text-primary: #0b1220`, `--accent: #7e4800`; `:root` still `#f1f5f9` |
+| EX8 `/admin` + `/admin/login` | both still `#f1f5f9` / `#818cf8` — **the exclusion holds** |
+| EX9 stat labels | dark `rgb(147,160,184)` (`--muted`) · light **unchanged** at `rgb(79,93,118)` |
+| Skills from the API | 5 category cards, **26** pills |
+| Hero chips | **10**, all ten float durations distinct, **0** overlapping pairs at 1440px |
+| Marquee band | `offsetHeight` **52px** (rect 82px — rotated, expected), full-bleed, no max-width |
+| Ambient z-order | canvas 0 · glow 1 · header 60 · grain 70 (opacity 0.42) · splash 100 · skip link 200 |
+| Splash gate | mid-splash **0/38** reveals fired; **20/38** after it lifts |
+| Reduced motion | `data-motion=reduced` · root `scroll-behavior: auto` · no splash · **0** rAF in an idle second · **0** `getAnimations()` · no parallax |
+| Keyboard order | skip → logo → ABOUT/SKILLS/PROJECTS/BLOG → CONTACT → toggle → ADMIN — exactly as specified |
+| Focus rings | present on all 10 stops; pill radii still **999px** while focused |
+| Mouse click | `:focus-visible` false, no ring |
+| Skip link | parked `top: -900px` → focused `top: 16px`, `fixed`, z-200, topmost **over the splash**, `--accInk` ring, no viewport yank from mid-page |
+| Mobile overlay | 8 focusables, Tab never leaks, focus blurred to `<body>` is pulled back, Escape returns focus to the hamburger |
+| Headings / images | 1×H1, 5×H2, 8×H3, **0** level skips · **0** `<img>` without `alt` |
+| Built bundle | 36 `@keyframes` defined, 19 referenced, **0 unresolved**; **0** `*.module.css` names a keyframe |
+
+**⚠️ The PF-84 ticket's own inventory is stale in three places.** Recorded
+because the ticket says to verify its list rather than trust it, and doing
+so found these:
+
+1. **Cursor web is 105 / 0.065, not the ticket's "130 (not 150), 0.14".**
+   The ticket lists the *first* reduction; there were two, and Locked
+   decisions has carried the table since 2026-08-17.
+2. **"Splash duration extended to 4.5s" is backwards.** `SPLASH_MS` is
+   4500 against the prototype's 4600 — very slightly **shorter**. The
+   ticket's Step 0 states it correctly and its PR template does not.
+3. **Its silent-failure list names two things CLAUDE.md never recorded** —
+   see the two new entries at the end of Silent failures. That is exactly
+   the "a fifteenth one was never written down" case the ticket warned
+   about, and it turned out to be real.
+
+### Sprint 12 — not yet cut, scope already fixed
+
+Branch not created. Scope was settled by Sprint 11's own scoping decision:
+**Projects, Blog, Contact, Footer, and the full responsive audit.** Two
+things to do *before* writing its first ticket:
+
+- **Triage the Outstanding work list below.** Two of its entries — the
+  résumé subsystem's fate and the CORS allowlist — are genuine product and
+  security calls, not implementation details, and new tickets will compound
+  on top of whichever way they go.
+- **Re-read the section-wash removal entry in Locked decisions.** Three of
+  the four sections Sprint 12 builds (Projects, Blog, Contact) still carry
+  Phase 1 washes, and the hero showed that grepping for `background` alone
+  misses a tiled decorative layer. Grep `background-size` and
+  `background-image` separately.
+
+There is **no separate Sprint 11 retrospective document**, matching Sprint
+10's rule. This section is the record; do not link to one.
+
+### Outstanding work — deferred deliberately, not lost
+
+None of this is in Sprint 11's PR. Each was checked on 2026-08-19 rather
+than copied forward:
+
+- **`migrations/004-skill-order.js` has still NOT been run.** Confirmed
+  live, not inferred: `GET /api/skills` returns LANGUAGES as
+  `JavaScript → Python → Java → HTML5 → CSS3`, so **Java is still third**
+  and the deployed order is the pre-migration one. Running it is a
+  production write and remains the owner's call.
+- **About/Hero API re-wiring.** Schema decision made (`numericValue` +
+  `suffix`), ticket not written. Touches the Mongoose schema,
+  `AdminAboutPanel`, and the availability gate's public reader.
+- **Résumé subsystem — a whole backend with no frontend at all.** Verified:
+  7 backend files (`routes/resumeRoutes.js`, `services/storage.js`,
+  `controllers/aboutController.js`, `models/About.js`, `app.js`, `seed.js`,
+  `routes/aboutRoutes.js`) and **zero** frontend callers. The only two
+  frontend matches for "resume" are a doc comment in `services/api.js` and
+  the word "resumes" in a `StarfieldCanvas` test name. Needs a decision:
+  build the admin UI and restore the public link in Sprint 12's Contact, or
+  formally drop it and delete the backend.
+- **Three orphaned Phase 1 modules, 0 real consumers each** — `useTypewriter`
+  (still 4 passing tests, which is why a dead-code sweep walks past it),
+  `TerminalWindow`, and `apiUrl` in `services/api.js`. Left for cutover.
+- **`.env.production`'s API host is the placeholder**
+  `https://your-railway-backend.up.railway.app/api`. Every fetch in a real
+  production build fails. This is why PF-84's live checks were served
+  through a proxy rather than `vite preview`.
+- **CORS allowlist is narrow by design** — `5173`, `5174`, the Vercel URL,
+  nothing else (`backend/src/config/corsOptions.js`). Any stale dev server
+  pushing Vite to another port silently breaks every admin API call.
+  Widening it is a security-posture change, so it is a decision, not a fix.
+- **Two unoptimized assets** — `about-portrait.png` 2.3MB, `hero-ai.png`
+  1.4MB. Prototype-sourced, so not a fidelity question; worth a WebP/AVIF
+  pass before launch.
+- **CI is on Node 20** with `actions/checkout@v4`, `setup-node@v4`,
+  `upload-artifact@v4` (`.github/workflows/ci.yml`, three jobs).
+  Non-blocking until GitHub pulls it from the runners.
+- **`frontend/.eslintignore` still exists** and is deprecated under ESLint
+  9's flat config — it prints `ESLintIgnoreWarning` on every run, including
+  in the PF-84 gate above. Its 8 patterns need moving into
+  `eslint.config.js`'s `ignores`.
+- **`fbc983e` carries three unrelated things under one message** — PF-81's
+  About section, a one-line `HeroSection` delay tweak, and the entire
+  `utils/loginError.js` module plus its 66-line test file. Splitting it
+  means force-pushing a shared branch, so it stays the owner's call.
 
 PF-83 is 3 points in Jira and its own ticket recommends 6–7. That looks
 right: no single piece is hard, but it audits eight tickets' worth of built
@@ -232,6 +379,33 @@ comment, so this was the deferral landing, not a re-style), the `motion.css`
 root-selector fix, and `--header-h`. It is 5 points in Jira; its ticket
 recommends 8, and that looks right — re-point it there if you want the two to
 agree.
+
+### Re-pointing, settled in one pass (PF-84)
+
+Three tickets flagged themselves as under-pointed and never got a final
+number, which left this file reading "recommend re-pointing" with no
+resolution. Collected here so the question is answered once. **These are
+recommendations against Jira, not repo state — nothing in the code depends
+on them, and the board is the user's to change.**
+
+| Ticket | Jira | Recommended | Why |
+| --- | --- | --- | --- |
+| PF-75 | 5 | 5 | already re-pointed from 3; the splash gate moved here |
+| PF-76 | 8 | 8 | matched |
+| PF-77 | 3 | 3 | matched |
+| PF-78 | 4 | **7** | full markup + timer choreography + `initialReady` |
+| PF-79 | 5 | **8** | carried `ThemeToggle`, the `motion.css` root fix, `--header-h` |
+| PF-80 | 8 | **10** | 5 prototype corrections, the `Reveal` `style` merge, 5 carriers |
+| PF-81 | 5 | **7** | first `patterns.module.css` consumer, plus the API regression call |
+| PF-82 | 3 | **5** | grew a backend half — migration `004-skill-order.js` |
+| PF-83 | 3 | **7** | audits eight tickets' surface, designs two things from nothing |
+| PF-84 | 2 | **5** | least code of the sprint, most verification surface |
+
+That totals **65** against Jira's 46. The gap is not estimation drift in
+the usual sense — seven of the ten overruns are work the *ticket did not
+know about*, found by checking the prototype or a browser rather than by
+building what was described. Worth knowing when pointing Sprint 12: the
+transcription is the small half.
 
 Mobile nav treatment and the cursor-web budget lever are decided — see
 Locked decisions. The canvas-palette question that was on this list earlier
@@ -1485,6 +1659,58 @@ error message:
   the dismiss simply never fires. PF-79's overlay was built this way, and only
   a browser check caught it. See the mobile-nav locked decision for the shape
   that works.
+- **⚠️ A single fallback error string collapsed "wrong password" and "no
+  server" into one message — and the module that fixed it shipped
+  undocumented.** Two separate problems, recorded together because the
+  second is why the first was still missing from this file on 2026-08-19.
+
+  `AdminLoginPage` used to build its message inline:
+
+  ```js
+  err.response?.data?.message || 'Invalid email or password. Please try again.'
+  ```
+
+  A backend that is simply **not running** produces no `err.response` at
+  all, so the `||` fell through to the credential sentence. Connection
+  refused, DNS failure, CORS rejection and timeout all rendered as *"Invalid
+  email or password."* The only tell was the trailing "Please try again.",
+  which the API never sends — `authController.js` replies with a bare
+  `Invalid email or password` — so the **fallback string itself was the
+  signal**, and it read exactly like a credential rejection. That cost a
+  real debugging session on 2026-08-18: nothing was listening on 5050 and
+  the form blamed the password.
+
+  Fixed by `frontend/src/utils/loginError.js` — `loginErrorMessage(err)`,
+  React-free like the rest of `utils/`, branching on *no response* (with
+  `ECONNABORTED` split out), *401*, and *any other status*, so the three get
+  three different sentences. Consumed at `pages/AdminLoginPage.jsx:29`, 6
+  tests in `utils/__tests__/loginError.test.js`.
+
+  **The documentation half.** That module landed inside `fbc983e`, the PF-81
+  *About section* commit, under a message naming none of it — so nothing in
+  this file mentioned it until PF-84 went looking. It is live, tested code
+  that no session would have found by reading here. Note the failure shape
+  is the mirror image of the dead-code entry above: there, a green test
+  makes unused code look alive; here, a green test on **used** code still
+  left it invisible, because discoverability runs through this file, not
+  through the suite. When a fix rides along in someone else's commit, it
+  gets documented or it effectively does not exist.
+- **The CORS allowlist is exact-match, so a stale dev server silently breaks
+  every admin API call.** `backend/src/config/corsOptions.js` allows exactly
+  `http://localhost:5173`, `http://localhost:5174` and the Vercel URL. Vite
+  does **not** fail when 5173 is taken — it increments to 5175, 5176, … and
+  prints the new port in a line that is easy to skim past. The site then
+  loads perfectly, because the static assets come from Vite itself; only the
+  cross-origin API calls are rejected, and the rejection surfaces as a
+  network error rather than as anything mentioning CORS. Combined with the
+  entry above, that produced the 2026-08-18 session where a login failure
+  was blamed on the password.
+
+  Check before debugging anything API-shaped:
+  `lsof -sTCP:LISTEN -nP -i:5173 -i:5174` — more than one Vite listening
+  means the one in the browser is probably not the one on 5173. Widening the
+  allowlist to a dev port range removes the trap but is a security-posture
+  change; it is on the Outstanding work list as a decision, not a fix.
 
 Where a mistake would be silent, add a test that would catch it.
 
