@@ -33,6 +33,44 @@ const WEB_LINK_PX = 105; // prototype: 150 · was 130
 const WEB_ALPHA = 0.065; // prototype: 0.14 · was 0.1
 
 /**
+ * Star drift speed — the SECOND deliberate visual departure in this
+ * file, requested directly by the user (2026-08-21): the field read as
+ * so slow the motion was not visible at all.
+ *
+ * It was not: `vx`/`vy` are seeded as `(Math.random() - 0.5) * SPREAD`,
+ * so the mean absolute speed is SPREAD/4 px per frame. At the
+ * Portfolio prototype's 0.09 that is 1.35 px/s at 60fps — a star needs
+ * ~17.8 minutes to cross a 1440px viewport. Measured, not estimated.
+ *
+ *   Portfolio Revolution.dc.html   0.09   1.35 px/s   ~17.8 min
+ *   Blog.dc.html                   0.08   1.20 px/s   ~20.0 min
+ *   Admin.dc.html                  0.16   2.40 px/s   ~10.0 min
+ *   ── current ────────────────────0.35   5.25 px/s   ~4.6 min
+ *
+ * Tuned by eye in one session: 0.09 → 0.16 → 0.35. 0.16 was tried
+ * first because Admin.dc.html runs this same field at exactly that,
+ * making it the one faster value with a design source. On screen it
+ * still read too slow, and the owner set 0.35.
+ *
+ * ⚠️ 0.35 therefore has NO design source — it is 3.89× the Portfolio
+ * prototype and 2.19× the fastest the design goes anywhere. That is a
+ * legitimate owner call, not a transcription, and it is recorded as
+ * such in CLAUDE.md. Do not defend it as "what Admin does"; it isn't.
+ *
+ * Applies site-wide — StarfieldCanvas is the shared ambient layer, so
+ * every page built from here on inherits it. That was the intent.
+ *
+ * Twinkle (`s.t += 0.02 * s.ts`) is a SEPARATE parameter and was
+ * deliberately left at the prototype's value: only travel was asked
+ * for, and moving one lever at a time keeps the result attributable.
+ * If the field still reads too static, that 0.02 is the next lever.
+ *
+ * Do NOT "restore" this to 0.09 to match the Portfolio prototype — the
+ * mismatch is intentional, not a transcription slip.
+ */
+const STAR_DRIFT = 0.35; // Portfolio prototype: 0.09 · Admin prototype: 0.16
+
+/**
  * Star field + cursor web — PF-76.
  *
  * Transcribed from initGalaxy() in the prototype (lines 733-840), with
@@ -138,8 +176,10 @@ export default function StarfieldCanvas({ ref: externalRef }) {
         // Pixels per frame, not per second — the prototype does not
         // delta-time-normalise this, and behaviour transcribes as
         // faithfully as values do.
-        vx: (Math.random() - 0.5) * 0.09,
-        vy: (Math.random() - 0.5) * 0.09,
+        // Spread is STAR_DRIFT (owner-requested, see the constant) —
+        // was the Portfolio prototype's 0.09 inline until 2026-08-21.
+        vx: (Math.random() - 0.5) * STAR_DRIFT,
+        vy: (Math.random() - 0.5) * STAR_DRIFT,
         warm: Math.random() < 0.16,
       }));
     };
