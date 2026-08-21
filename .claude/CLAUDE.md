@@ -240,7 +240,7 @@ individual ticket reports, per the ticket's own instruction:
 | --- | --- |
 | Frontend suite (`vitest --run`) | **403 passed / 403**, 35 files |
 | Backend suite (`npm test`) | **211 passed / 211**, 21 suites |
-| Lint (`eslint src --max-warnings=0`) | **exit 0**, zero errors, zero warnings |
+| Lint (`eslint src --max-warnings=0`) | **exit 0**, zero errors, zero warnings ⚠️ |
 | Production build (`vite build`) | **succeeds**, 214 modules, 47.13 kB CSS / 412.99 kB JS |
 | E2E (`npm run test:e2e`) | **22 passed / 22** — after the fix below; it was **4 failed / 20** |
 | Re-run on `master` post-merge (b8cef24) | 403 · 211 · lint 0 · build ok · E2E **21 passed + 1 flaky** ⚠️ |
@@ -251,6 +251,15 @@ individual ticket reports, per the ticket's own instruction:
 The one non-clean line in any of that is Jest's post-teardown
 `ReferenceError` from `health.test.js`. It prints *after* "21 passed" and
 is the known open-handle artifact, not a failure — the suite exits 0.
+
+⚠️ **The lint row is accurate about what was run and misleading about what
+it proved.** `eslint src` never touched the frontend's root config files,
+and `vite.config.js` carried a live `no-undef` throughout — found
+2026-08-21. Nothing above is wrong; the scope was just narrower than "exit
+0, zero errors" reads. **CI was equally blind** — it runs `npm run lint`,
+which was that same command — so this did not show up as a CI failure and
+could not have. Fixed in PF-93; full account in Silent failures, including
+why the gate should name the script rather than a path from now on.
 
 **⚠️ The gate as the PF-84 ticket specifies it MISSES the E2E suite, and CI
 runs it.** The ticket's Step 1 lists four commands — frontend `vitest`,
@@ -410,24 +419,61 @@ so found these:
    the "a fifteenth one was never written down" case the ticket warned
    about, and it turned out to be real.
 
-### Sprint 12 — not yet cut, scope already fixed
+### Sprint 12 — Main Page Completion, IN PROGRESS
 
-Branch not created. Scope was settled by Sprint 11's own scoping decision:
-**Projects, Blog, Contact, Footer, and the full responsive audit.** Two
-things to do *before* writing its first ticket:
+Branch `sprint-12-main-page-complete`, cut from **local** `master` at
+`c5669e5`, upstream `origin/sprint-12-main-page-complete` (verified — not
+`refs/heads/master`, so the PF-75 trap is not in play). Scope: **Projects,
+Blog teaser, Contact, Footer, then the Phase 1 homepage cutover and a full
+responsive + a11y audit.** PF-85 → PF-92.
 
-- **Triage the Outstanding work list below.** Two of its entries — the
-  résumé subsystem's fate and the CORS allowlist — are genuine product and
-  security calls, not implementation details, and new tickets will compound
-  on top of whichever way they go.
-- **Re-read the section-wash removal entry in Locked decisions.** Three of
-  the four sections Sprint 12 builds (Projects, Blog, Contact) still carry
-  Phase 1 washes, and the hero showed that grepping for `background` alone
-  misses a tiled decorative layer. Grep `background-size` and
-  `background-image` separately.
+| Ticket | Work | Status |
+| --- | --- | --- |
+| PF-85 | Projects section, API-wired | ✅ |
+| PF-93 | Reveal entrance regression — withdraw the hover deviation | ✅ |
+| PF-86 → PF-92 | Blog teaser, Contact, Footer, cutover, audit | not started |
+
+**PF-93 was inserted ahead of PF-86 deliberately.** It blocks PF-86/87/88:
+all three are `Reveal`-heavy, and every one of them would have asked "how
+do I give this card a hover transition?" and got the wrong answer straight
+out of this file. Five edits, all deletions, plus the standing rule that
+replaces the gate. Full record in Silent failures and Locked decisions.
+
+**⚠️ The pre-flight for this sprint found the note that used to be here was
+wrong in BOTH directions**, so it is corrected rather than deleted — the
+claim was that "three of the four sections Sprint 12 builds (Projects,
+Blog, Contact) still carry Phase 1 washes":
+
+- **Projects never had one**, in either phase. The prototype's
+  `<section id="projects">` (line 309) declares only `position` and
+  `padding`, and Phase 1's declared only `padding`.
+- **Blog's and Contact's were already removed** by the 2026-08-18 wash
+  removal — which the Locked-decisions table in this same file records.
+  Measured: `grep -n 'linear-gradient\|radial-gradient'` over
+  `ProjectsSection.jsx BlogSection.jsx ContactSection.jsx` returns **zero**.
+
+What IS true is that **the Phase 2 prototype gives Blog, Contact and the
+footer a section background** — so PF-86/87/88 each have one to transcribe,
+and then to leave out under the wash-removal decision. Grepped separately,
+as that entry insists:
+
+| prototype | line | background |
+| --- | --- | --- |
+| `#projects` | 309 | **none** |
+| `#blog` | 414 | `linear-gradient(180deg,rgba(var(--gnd),.3),rgba(var(--ftr),.68) 50%,rgba(var(--gnd),.3))` |
+| `#contact` | 489 | `radial-gradient(100% 80% at 50% 0%,rgba(var(--srf),.8),rgba(var(--gnd),.6) 70%)` |
+| `<footer>` | 543 | `linear-gradient(180deg,rgba(var(--gnd),.4),rgba(var(--ftr),.86))` |
+
+The separate-grep discipline still earned its keep: `background-size`
+whole-file returns **7** matches, and four of them are the project cards'
+`data-cardbg` layers, which a `background:` grep misses entirely. See the
+PF-85 entry.
+
+Still to triage before PF-86: the résumé subsystem's fate. The CORS
+allowlist question was **decided and shipped in PF-85** (see below).
 
 There is **no separate Sprint 11 retrospective document**, matching Sprint
-10's rule. This section is the record; do not link to one.
+10's rule. That section is the record; do not link to one.
 
 ### Outstanding work — deferred deliberately, not lost
 
@@ -441,8 +487,76 @@ than copied forward:
   Phase 2 CTA.
 - **`frontend/test-results/.last-run.json` is tracked** even though
   `/test-results/` is in `frontend/.gitignore` — it was committed before the
-  rule existed, and gitignore does not apply to already-tracked files, so it
-  dirties the tree after every Playwright run. `git rm --cached` it.
+  rule existed, and gitignore does not apply to already-tracked files.
+  ⚠️ The claim that it "dirties the tree after every Playwright run" is
+  overstated: it holds `{"status": …, "failedTests": []}`, so it only shows
+  as modified when the OUTCOME changes. A full green run after a green run
+  leaves the tree clean — verified in PF-85. Still worth `git rm --cached`.
+- ~~**About's and Skills' card entrances are BROKEN**~~ — **FIXED in
+  PF-93 (2026-08-21).** Four elements carried the `[data-reveal='in']`
+  gate, not the two listed here — Hero's `.rolePill` and `.loudCta` too —
+  and all four are fixed by deleting the declaration rather than gating
+  it better. The remedy this entry called for ("dropping the hover easing
+  back to the prototype's snap") turned out to be a third wrong answer:
+  the prototype does not snap those cards either. Measurements and the
+  standing rule are in Silent failures.
+
+  ⚠️ **One reduced-motion behaviour surfaced while verifying this** — no
+  `Reveal`-wrapped element lifted on hover at all under
+  `prefers-reduced-motion`, while Projects' `.bigCard` (not wrapped) did.
+  Cause proven by deleting rules from the live CSSOM in Chromium rather
+  than reasoned from specificity: `Reveal.module.css`'s
+  `html[data-motion='reduced'] .reveal { transform: none }` is (0,2,1) and
+  beats `.statCard:hover` (0,2,0); deleting that one rule returned the lift
+  to exactly `-4px`. PF-74's, and not introduced by PF-93.
+  **Decided and fixed the same day** — see the Locked decision on ungated
+  hover lifts, which has the split rule and the re-measured audit contract.
+- **⚠️ Terminal ink fails AA in light theme.** The panel is a fixed dark
+  image (`#0d1117`) but two of its ink colours are theme tokens, so they
+  darken while the panel does not. Measured against the panel:
+
+  | line | dark | light |
+  | --- | --- | --- |
+  | ~~caret `▌` — `var(--acc)`~~ | ~~9.36~~ | ~~**2.54** ✗~~ **FIXED** |
+  | `➜ http://localhost:5173` — `var(--faint)` | **3.33** ✗ | **3.12** ✗ |
+  | `terminal — portfolio` — literal `#5c677d` | **3.04** ✗ | **3.04** ✗ |
+  | the other 7 lines — literal hexes | 7.17–18.92 ✅ | identical ✅ |
+
+  **The caret is fixed** (2026-08-21, owner-approved) — a literal
+  `#FCA311` like its seven siblings, so dark is byte-identical and light
+  goes 2.54 → **9.36**. See Locked decisions.
+
+  **The other two are still open and batch into PF-91** as one pass over
+  terminal ink, per the same decision — both are colour calls rather than
+  a token-vs-literal swap, and `#5c677d` fails in *both* themes, so it is
+  not a light-theme bug at all.
+  Separately, the card numerals are `rgba(252,163,17,.28)` → **1.75** dark
+  / **1.19** light against a 3:1 requirement for large text. Prototype's
+  exact value; decorative, but screen readers still announce them.
+- **`.cardPlaceholder`'s 479px height is a compromise, not a
+  measurement.** No single value fits — filled project cards run 391–619px
+  depending on width, description length and pill wrapping. Table in the
+  PF-85 entry. Options: breakpoint it, drop the min-height, or leave it.
+- **The root `.gitignore` has no `node_modules` entry.** Running vitest
+  from the repo root instead of `frontend/` leaves an untracked cache file
+  that `git add -A` would stage. One line to fix.
+- ~~**Hover easing is now inconsistent three ways**~~ — **RESOLVED in
+  PF-93 (2026-08-21).** It read: About and Skills ease at 0.25s
+  (owner-approved 2026-08-18), PF-85's big card snaps, PF-85's small
+  cards ease at 1.05s. Withdrawing the 2026-08-18 deviation collapses the
+  three into the prototype's own two. Measured after the fix:
+
+  | | hover lift | duration |
+  | --- | --- | --- |
+  | About `.statCard` | `-4px` | 1.05s |
+  | Skills `.card` | `-6px` | 1.05s |
+  | Projects `.card` | `-8px` | 1.05s |
+  | Hero `.rolePill`, `.loudCta` | `-2px` | 0.9s, bouncy (`pop`) |
+  | Projects `.bigCard` | `-8px` | **0s — snaps** |
+
+  The two remaining differences are both the design's: `pop` reveals get a
+  different curve from `up` ones, and `.bigCard` carries no `data-reveal`
+  at all so nothing eases it. Nothing left undecided here.
 - **`migrations/004-skill-order.js` has still NOT been run.** Confirmed
   live, not inferred: `GET /api/skills` returns LANGUAGES as
   `JavaScript → Python → Java → HTML5 → CSS3`, so **Java is still third**
@@ -466,20 +580,33 @@ than copied forward:
   `https://your-railway-backend.up.railway.app/api`. Every fetch in a real
   production build fails. This is why PF-84's live checks were served
   through a proxy rather than `vite preview`.
-- **CORS allowlist is narrow by design** — `5173`, `5174`, the Vercel URL,
-  nothing else (`backend/src/config/corsOptions.js`). Any stale dev server
-  pushing Vite to another port silently breaks every admin API call.
-  Widening it is a security-posture change, so it is a decision, not a fix.
+- ~~**CORS allowlist is narrow by design**~~ — **RESOLVED in PF-85**
+  (2026-08-19). A localhost dev-port range is now allowed in
+  non-production only; production stays exact-match. See Locked decisions.
+  Note this does **not** help the stale-server-on-5174 E2E trap, which is
+  a different failure — see Silent failures.
 - **Two unoptimized assets** — `about-portrait.png` 2.3MB, `hero-ai.png`
   1.4MB. Prototype-sourced, so not a fidelity question; worth a WebP/AVIF
   pass before launch.
 - **CI is on Node 20** with `actions/checkout@v4`, `setup-node@v4`,
   `upload-artifact@v4` (`.github/workflows/ci.yml`, three jobs).
   Non-blocking until GitHub pulls it from the runners.
-- **`frontend/.eslintignore` still exists** and is deprecated under ESLint
-  9's flat config — it prints `ESLintIgnoreWarning` on every run, including
-  in the PF-84 gate above. Its 8 patterns need moving into
-  `eslint.config.js`'s `ignores`.
+- ~~**`frontend/.eslintignore` still exists**~~ — **RESOLVED 2026-08-21,
+  during PF-93.** Its 8 patterns are now `globalIgnores([…])` in
+  `eslint.config.js`, plus `dist-*/`, and the file is deleted. Closed here
+  because it was blocking a real fix, not as a drive-by — see the
+  lint-scope entry in Silent failures.
+
+  Both halves measured rather than assumed:
+  - **`ESLintIgnoreWarning` is gone**, and the probe is proven live by the
+    control: **0** occurrences now → **1** with the file restored → **0**
+    again after deleting it.
+  - **The patterns are genuinely redundant**, confirmed per path with
+    `new ESLint().isPathIgnored()`. All 8 honoured, `dist-verify/` too,
+    while `src/`, `e2e/` and the three root configs still lint.
+  - ⚠️ And the file was already ignoring **nothing** — 7 of its 8 patterns
+    were dead at HEAD, since ESLint 9 does not read it and only `dist` was
+    named in `globalIgnores`. Table in the Silent-failures entry.
 - **`fbc983e` carries three unrelated things under one message** — PF-81's
   About section, a one-line `HeroSection` delay tweak, and the entire
   `utils/loginError.js` module plus its 66-line test file. Splitting it
@@ -551,7 +678,8 @@ frontend/
       tokens.css                 Phase 2 tokens, dual theme, Anton fallback @font-face
       keyframes/
         index.css                single import point — import this, not the parts
-        base.css                 the 22 shared by every screen
+        base.css                 the 22 non-variant keyframes (NOT "shared by
+                                 every screen" — only 4 are; see below)
         portfolio.css            flt-portfolio  drift-portfolio  sheen-portfolio
         blog.css                 flt-blog  sheen-blog          (no drift — correct)
         admin.css                flt-admin  drift-admin  sheen-admin  auroraA  auroraB
@@ -600,11 +728,34 @@ writing any `animation` declaration in a `*.module.css`.
   (`size-adjust: 88%`, `ascent-override: 90%`, `descent-override: 22%`) so the
   swap doesn't reflow. Note `--font-mono` is declared in *both* `global.css`
   and `tokens.css`; tokens.css wins purely because it imports second.
-- **32 keyframes** (`frontend/src/styles/keyframes/`) — `base.css` holds the 22
-  shared by every screen. `flt`/`drift`/`sheen` are per-screen variants, and
-  there are **8 of them, not 9**: the Blog prototype has no `drift` animation
-  at all, so `drift-blog` does not exist and never should. `auroraA`/`auroraB`
-  are Admin-only and live in `admin.css`. 22 + 8 + 2 = 32.
+- **32 keyframes** (`frontend/src/styles/keyframes/`) — `base.css` holds 22,
+  `flt`/`drift`/`sheen` are per-screen variants, and there are **8 of them,
+  not 9**: the Blog prototype has no `drift` animation at all, so
+  `drift-blog` does not exist and never should. `auroraA`/`auroraB` are
+  Admin-only and live in `admin.css`. 22 + 8 + 2 = 32.
+
+  **⚠️ `base.css` is NOT "the 22 shared by every screen", which is what this
+  entry used to say.** Counted against the three prototypes, only **4 of the
+  22** appear in all of them — `riseIn`, `glowdot`, `glowpulse`, `spin`.
+  Nine are portfolio-only (`dot`, `pulsering`, `boltp`, `breathe`, `orbdot`,
+  `shimmerline`, `shimmer`, `flicker`, `blink`), five are admin-only
+  (`fadeIn`, `typeIn`, `barGrow`, `ringPulse`, `floatY`), and four are shared
+  by two screens but not three (`nudge`, `sweep`, `marq` in portfolio+blog;
+  `scanline` in portfolio+admin). 4 + 9 + 5 + 4 = 22. The real rule is **"everything that is not a per-screen
+  `flt`/`drift`/`sheen` variant or an Admin aurora"**, and by that rule every
+  file is correctly placed. Do not "fix" the layout to match the old
+  sentence — it would churn nine keyframes and break the 32-count test for
+  nothing. Verified in PF-85's pre-flight by grepping each name across all
+  three `.dc.html` files.
+
+  `blink`'s definition was corrected in PF-85 to the prototype's own form,
+  `0%,49%{opacity:1} 50%,100%{opacity:0}` (line 29). It had been normalised
+  to `0%,100%{1} 50%{0}`. Under `step-end` — the only way the prototype and
+  the terminal caret use it — the two are identical; under any interpolating
+  timing function they are not, and `blink` is a shared library keyframe, so
+  the next consumer may not pass `step-end`. `global.css:189` carries a third
+  copy that already had the correct form, so the duplicates now agree; it
+  goes at cutover. Guarded by a test that pins the FORM, not the equivalence.
 - **Theming**: `useTheme()`, `<ThemeToggle />`
   (`components/layout/ThemeToggle.jsx`).
 - **Motion**: `useReducedMotion()` for anything JS-driven; `motion.css`
@@ -894,13 +1045,19 @@ Five things worth knowing before touching the section:
   depend on which is emitted second. Guarded in three places —
   `patterns.test.js` asserts it is absent, and both section tests assert
   their own value. All four mutations caught.
-- **The card hover transition is a sanctioned deviation, not a
-  transcription** — see Locked decisions. The prototype declares none.
-- **The pill's transition IS the prototype's, declared bare.** Unlike the
-  card, the pill is not a `Reveal` — the prototype wraps only the card (line
-  253) and the pills arrive with it — so nothing competes for the property
-  and it needs no `[data-reveal='in']` gate. Wrapping pills individually
-  would stagger 26 entrances where the design has five; guarded.
+- ~~**The card hover transition is a sanctioned deviation**~~ —
+  **withdrawn in PF-93 (2026-08-21).** `.card` now declares no
+  `transition` at all and takes `Reveal`'s, which is what the prototype
+  renders too. See Locked decisions.
+- **The pill's transition IS the prototype's, declared bare, and it is
+  still bare after PF-93.** Unlike the card, the pill is not a `Reveal` —
+  the prototype wraps only the card (line 253) and the pills arrive with
+  it — so nothing supplies it a transition and it must keep its own.
+  **This is the case the PF-93 rule does NOT cover**, and the distinction
+  is the whole of it: never declare a transition on a Reveal-wrapped
+  element, always declare one on a hoverable element that isn't.
+  Wrapping pills individually would also stagger 26 entrances where the
+  design has five; guarded.
 - **First section of the sprint with no `@keyframes` at all.** Every effect
   is a hover `transition`, so `animations.css` gained nothing and there is no
   `composes: kf-*` anywhere in the module. A test asserts that stays true —
@@ -1166,21 +1323,21 @@ rather than the ticket:
   tie and computes 80px for a 71px header. Same trap PF-80 documented, in the
   ticket that cites PF-80's check in its own checklist. Verified 71px in
   Chromium; guarded, and confirmed by mutation.
-- **The stat card's hover transition is gated on `[data-reveal='in']`.** The
-  card is itself a `Reveal`, so its hover transition and Reveal's entrance
-  transition compete for one element and cannot merge. Declared bare — as the
-  ticket had it — `.statCard` ties with `.reveal` at (0,1,0) and wins on
-  stylesheet order, replacing the 1.05s entrance ease with a 0.25s hover
-  transition. `.statCard[data-reveal='in']` is (0,2,0) and takes over only once
-  the entrance has finished. Same fix as `.rolePill`, one attribute shorter:
-  type `up` takes its transition from the base `.reveal` rather than from a
-  `[data-type]` override, so there is nothing extra to clear.
-  The hover *lift* is a genuine order-dependent tie —
-  `.statCard:hover` against `.reveal[data-reveal='in']{transform:none}`, both
-  (0,2,0) — and it resolves correctly because the section module is emitted
-  after Reveal's. Measured rather than assumed, in the **production** build:
-  the card reaches exactly `translateY(-4px)` and the border goes accent.
-  `.rolePill` has the identical shape and also works.
+- ~~**The stat card's hover transition is gated on `[data-reveal='in']`**~~
+  — **deleted outright in PF-93 (2026-08-21).** `.statCard` declares no
+  `transition` at any selector now. The diagnosis this entry carried was
+  right (a bare `transition` here ties with `.reveal` at (0,1,0) and wins
+  on emission order, eating the entrance); the remedy was not, because
+  `[data-reveal='in']` lands at the entrance's START. Standing rule and
+  measurements in Silent failures.
+  The hover *lift* is still a genuine order-dependent tie —
+  `.statCard:hover` against `.reveal[data-reveal='in']{transform:none}`,
+  both (0,2,0) — and still resolves correctly because the section module
+  is emitted after Reveal's. Unaffected by the deletion and **re-measured
+  in the production build afterwards** rather than assumed: the card
+  reaches exactly `translateY(-4px)` and the border goes accent, now over
+  1.05s instead of 0.25s. `.rolePill` has the identical shape and reaches
+  exactly `-2px` on the `pop` curve.
 - **`@supports not (-webkit-text-stroke: 1px)` must stay var()-free.** A
   declaration whose value contains a top-level `var()` is *assumed valid* by
   `@supports` rather than actually tested, so writing the accent token into the
@@ -1238,6 +1395,247 @@ when Contact lands. `useInView` and `useAbout` are **not** orphaned: four Phase
 The résumé download is not lost with it. The prototype's hero CTA points at
 `#contact` (line 119) and the real download lives in the contact section
 (line 505) — both Sprint 12's.
+
+**Built by PF-85 — Projects is Phase 2, and the first section to render a
+schema field PF-52 built two sprints before anything could use it:**
+
+```
+frontend/src/
+  components/sections/
+    ProjectsSection.jsx  + .module.css   REPLACES the Phase 1 Projects, same path
+    __tests__/ProjectsSection.test.jsx   34 tests, all 14 guards mutation-tested
+  styles/
+    keyframes/base.css                   blink corrected to the prototype's form
+    animations.css                       + kf-blink carrier
+    __tests__/keyframes.test.js          + a guard pinning blink's FORM
+backend/src/
+  config/corsOptions.js                  + dev-port range, non-production only
+  __tests__/corsOptions.test.js          NEW — 31 tests, both environments
+```
+
+Reuses `useProjects()` unchanged — no second query. The API already sorts
+`{ order: 1, createdAt: -1 }` (`projectController.js:8`), so **display order
+is an admin field, not a code constant.**
+
+**Layout rules, all owner decisions from 2026-08-19:**
+
+- **The big card is `projects[0]` — the first by `order`, regardless of its
+  `featured` flag.** Two projects are genuinely featured, but the prototype's
+  numeral series starts at **02** precisely because the big card does not
+  participate in it: the FEATURED badge occupies the slot the numeral would
+  fill. So `featured` controls the BADGE and `order` controls the SLOT.
+  Reordering is therefore an admin-panel edit, not a code change — the panel
+  already exposes `order` ("Display order (0, 1, 2...)") and `featured`.
+- **⚠️ When `projects[0].featured` is false, that slot renders NOTHING — not
+  a "01".** The prototype has no `01` anywhere. Inventing one means inventing
+  type styling with no design source: the small-card numeral is Anton 44px
+  above a 21px heading, while the big card's heading is `clamp(26px,3.4vw,42px)`.
+  The card is a flex column, so an absent child collapses its own gap. The
+  state is reachable by one untick in the admin panel. Guarded.
+- **Numerals are derived, `String(i + 2).padStart(2, '0')`.** Four projects
+  give `02 03 04`, byte-identical to the prototype; a fifth added in the admin
+  panel gives `05`. Delays likewise: `80 + i*70` → 80/150/220, continuing at
+  290 rather than hardcoding three and special-casing the rest.
+
+**The owner's data decision: ClearDrive keeps 10 tech pills.** The prototype
+renders **9** for that card — it omits `Tailwind CSS` — while `seed.js` and
+the live API carry 10. The other three cards match the seed exactly, name for
+name and in order, so this is one stale entry in a design export rather than a
+systematic difference. **The API wins here and that is deliberate**; a fidelity
+pass must not cut the pill back. Same shape as PF-82's skill-order finding,
+resolved the other way because there the prototype was right.
+
+**The card background bridge — PF-52's schema field finally has a reader.**
+The prototype's `applyProjectBgs()` (line 684) reads
+`localStorage['pg-project-bgs']` keyed by project title; every card carries
+`data-cardbg="<title>"` plus a `data-cardscrim` sibling. That localStorage
+hop is a design-tool affordance, but the visual contract maps one-to-one onto
+`Project.backgroundImage { src, opacity }`:
+
+```js
+bg.opacity     = vis                              // schema default 0.75
+scrim.opacity  = Math.min(1, 0.45 + vis * 0.6)    // prototype line 704
+// no src → both layers absent (the prototype sets both to opacity 0)
+```
+
+- **⚠️ `backgroundImage` is an OBJECT, not a string.** Guarding on the object
+  itself is always truthy and emits `url("[object Object]")` on every card.
+  Guard on `.src`. Guarded by a test asserting that string never appears.
+- **⚠️ At the default 0.75 the scrim is `0.8999999999999999`, NOT `0.9`, and
+  that is correct.** `0.45 + 0.75 * 0.6` is not exactly representable in IEEE
+  754, and the prototype's own `String(Math.min(1, 0.45 + vis*0.6))` produces
+  the identical string — verified in node. A test asserting `'0.9'` fails
+  against correct code, which is how this was found. Rounding it would be a
+  deviation from the design dressed up as tidiness.
+- Every project's `src` is `''` today (`seed.js` sets it explicitly), so both
+  layers are absent and the cards match the prototype exactly. Verified with
+  a src hand-set: bg `0.75` / `cover` / `50% 50%` / z-index 0, scrim `0.9` /
+  z-index 1, content `position: relative` / z-index 2.
+- **Content clears both layers via one declarative rule**, not the prototype's
+  per-child DOM sweep: `.card > *:not(.cardBg):not(.cardScrim)`. Both classes
+  must stay in the `:not()` list — dropping either lifts a layer above the
+  text, which nothing errors on and no element-counting test notices, because
+  the text is still in the DOM and merely painted over. Guarded.
+
+**The terminal panel is NOT `components/common/TerminalWindow.jsx`.** They
+share a concept and almost nothing else — the Phase 1 component TYPES its
+lines in over ~4.3s and drops the caret when it finishes, where the prototype
+is a static snapshot with a permanent caret. Also radius 22px vs 0.875rem,
+8 lines vs 9, 12.5px/2 vs 0.8rem/1.8, literal hexes vs Phase 1 tokens.
+`TerminalWindow` stays orphaned for the cutover ticket.
+
+It renders **unconditionally, including while projects are loading** — it is
+hardcoded content with no API dependency, so gating it behind the query would
+blank it for nothing. That has a useful side effect: the big-card placeholder
+shares an `align-items: stretch` row with it, so it is stretched to the
+terminal's height for free (see the placeholder note below).
+
+**`data-terminal` IS attached (owner-approved, 2026-08-19), and the rule it
+activates had never matched anything in this project's history.** `tokens.css`
+carries `html[data-theme="light"] [data-terminal] { box-shadow: … }`, wholesale
+from PF-67, and the prototype never puts the attribute on an element — one
+occurrence in `Portfolio Revolution.dc.html`, one in `Blog.dc.html`, both the
+rule itself. Attribute selectors are not scoped by CSS Modules, so the global
+rule reaches the element as-is (same mechanism as `data-lightplate`). Measured
+in Chromium on the same element, toggling the attribute live:
+
+| | box-shadow |
+| --- | --- |
+| DARK, present | `rgba(0, 0, 0, 0.5) 0 30px 60px` |
+| LIGHT, present | `rgba(20, 33, 61, 0.22) 0 30px 60px` |
+| LIGHT, **removed** | `rgba(20, 33, 61, 0.5) 0 30px 60px` |
+| LIGHT, restored | `rgba(20, 33, 61, 0.22)` |
+
+Alpha only, light theme only — dark is byte-identical because the rule is
+scoped to `html[data-theme="light"]`. Guarded, because a silently dropped
+attribute is exactly the `data-lightplate` failure mode.
+
+**The tech pill is declared LOCALLY, like Skills'.** Do not compose
+`patterns.module.css`'s `.pill` — it is a third shape matching neither
+prototype pill (`inline-flex`, `10px 18px`, plus a `gap` and `letter-spacing`
+neither has), and it still has zero external consumers. The Projects and
+Skills pills differ on five properties:
+
+| | Skills (l.256) | Projects (l.325) |
+| --- | --- | --- |
+| `font-size` | 12px | **11px** |
+| `padding` | 7px 12px | **6px 11px** |
+| `background` | `rgba(252,163,17,.08)` | **none (transparent)** |
+| `border` | `rgba(252,163,17,.22)` | **`rgba(var(--ln),.16)`** |
+| `color` | `var(--text)` | **`var(--muted)`** |
+
+They match on hover, transition, radius, cursor, display and family. Blog has
+a **fourth** variant (10.5px, `.06em`, `5px 10px`) — PF-86 must not assume it
+can reuse this one.
+
+Declared **bare**, and that is correct: the pill is not `Reveal`-wrapped —
+the prototype wraps the CARD (line 357) — so nothing supplies it a
+transition and it must keep its own. Same case as
+`patterns.module.css`'s `.pill:not([data-reveal])`. (This entry used to
+say "with no `[data-reveal='in']` gate"; that gate no longer exists
+anywhere — PF-93.)
+
+**Two links on the big card, a case the prototype never shows.** Its big card
+holds a single bare `<a>` with `margin-top:auto; align-self:flex-start`,
+because the project in that slot had no `liveUrl`. ClearDrive has one, so
+`.featuredLinkRow` composes the small card's row (`display:flex; flex-wrap:wrap;
+gap:12px`, line 374) with the big card's `margin-top:auto` (line 333). Both
+values are the prototype's. **No `align-self: flex-start`** — a full-width row
+is what makes `flex-wrap` work; shrinking it to content breaks wrapping on a
+narrow card. Measured: the row sits 37px above the card's bottom edge, i.e.
+its 36px padding plus the border, exactly as the single link did.
+
+**Placeholder heights are measured, and one of them has no correct value.**
+
+- `.bigCardPlaceholder` is **289px**, the TERMINAL's own natural height. At
+  ≥900px it is inert — the stretch row is already 289px because the terminal
+  is real content — and it only bites at ≤768px where the row wraps and the
+  placeholder would otherwise collapse to **2px** (its borders). Measured both
+  ways with the API stalled.
+- `.cardPlaceholder` is **479px**, and **no single value is right.** Unlike
+  Skills, where every filled card is identical because the rows stretch over
+  uniform content, a project card's height follows its description length and
+  pill wrapping. Filled heights, measured:
+  `1600 479 · 1440 479 · 1280 479 · 1024 619 · 900 479 · 768 594 · 600 391 · 375 594`.
+  479 is exact at four of eight widths and off by +140 / +115 / −88 at the
+  others. On the Outstanding work list.
+
+**Live verification, measured in Chromium against the production build**,
+served from a separate `dist-verify/` behind a same-origin proxy to the real
+backend — `.env.production`'s API host is still the Railway placeholder, so a
+plain `vite preview` would have had every fetch fail. Build with
+`VITE_API_URL= npx vite build --outDir dist-verify`; the empty override makes
+`services/api.js` fall through to its relative `/api` default.
+
+| Check | Result |
+| --- | --- |
+| `scroll-margin-top` | **71px**, not 80 — the `[id]` tie avoided |
+| section background | `none` / `rgba(0,0,0,0)` / `auto`, both themes |
+| card order · numerals · badges | live order · `02 03 04` · **1** badge |
+| tech pills total | **23** (7 + 10 + 2 + 4) |
+| terminal | 8 static lines; height **404px** == big card, stretch works |
+| caret | `getAnimations().length === 1`, name `blink`, 1000ms, `steps(1)` |
+| big card hover | `transition-duration: 0s`, jumps to `translateY(-8px)` |
+| small card hover | eases over 1.05s — **the prototype's behaviour, see below** |
+| pill hover | accent fill, `accInk`, `translateY(-3px) scale(1.05)` |
+| splash gate | **0 / 6** reveals mid-splash, **6 / 6** after it lifts |
+| reduced motion | `data-motion=reduced`, caret **0** animations, caret opacity **1**, 0 in subtree |
+| reordered (ClearDrive first) | big card = ClearDrive, both links, 10 pills, `02 03 04` |
+| bundle keyframes | 36 defined, 19 referenced, **0 unresolved** |
+
+**PF-85 created no new orphans**, and it removed none either: `TerminalWindow`,
+`useTypewriter` and `apiUrl` are all still orphaned, still deliberate, still
+cutover work.
+
+**Built by PF-93 — the `Reveal` entrance regression, and the first ticket
+in this project whose entire diff is deletions:**
+
+```
+frontend/src/
+  components/sections/
+    AboutSection.module.css       − .statCard[data-reveal='in']
+    SkillsSection.module.css      − .card[data-reveal='in']
+    HeroSection.module.css        − .rolePill[…] and .loudCta[…]
+    ProjectsSection.module.css    comments only — two taught the dead gate
+  styles/
+    patterns.module.css           3 selectors → 1, keeping :not([data-reveal])
+    __tests__/revealTransition.test.js   NEW — the structural guard
+  components/sections/__tests__/  AboutSection · SkillsSection · HeroSection
+  styles/__tests__/patterns.test.js     four gate assertions inverted
+```
+
+Five rules deleted, zero properties added. **Nothing else was touched** —
+no JSX, no `Reveal.jsx`, no `Reveal.module.css`. That matters because the
+whole fix depends on `.reveal`'s transition being correct already, and it
+was: PF-74's `up`/`pop` branches were re-checked against prototype lines
+954 and 962 **before** deleting anything, since the deletion stops
+overriding them and a PF-74 error would have surfaced looking like PF-93's.
+
+**The control row is the evidence, not the four fixes.** Projects' `.card`
+was never gated, so its entrance should be byte-identical before and after.
+Measured on the production build, same script both times:
+
+```
+  ms       BEFORE                    AFTER
+   0       0.000 / 38px              0.000 / 38px
+ 100       0.024 / 37.27px           0.024 / 37.26px
+ 183       0.502 / 21.76px           0.502 / 21.75px
+ 367       0.891 / 6.30px            0.891 / 6.31px
+ 550       0.978 / 1.81px            0.978 / 1.81px
+ opacity→1 766ms                     766ms
+```
+
+Sub-frame identical. A "fix" that also moved the control would mean the
+deletion had reached something it shouldn't.
+
+**⚠️ Withdrawing an approved deviation needed sign-off even though it
+moves TOWARD the prototype**, and the PF-93 ticket granted it in advance
+conditional on re-verifying the claim it rests on. That verification is
+Step 1 of the ticket and it passed — `hideReveals()` writes the transition
+inline, four `style.transition` writes exist in the whole prototype, and
+nothing clears them on the normal path. Recorded because "it's closer to
+the design" is not on its own a licence to change something the owner
+signed off on.
 
 ## Stack
 
@@ -1427,7 +1825,14 @@ error message:
   reads as "the reveal animation looks a bit off", which is exactly how
   both prior occurrences were found: in a browser, by eye.
 
-  **The fix — gate the hover transition behind the finished entrance:**
+  **THE RULE — never declare a `transition` on a `Reveal`-wrapped element.
+  Not gated. Not at all.** Settled in PF-93 (2026-08-21) after the previous
+  remedy shipped broken on four elements. Delete the declaration; `Reveal`
+  already owns the property and keeps owning it after the entrance, so a
+  hover lift eases for free.
+
+  **⚠️ THE GATE THIS FILE TAUGHT FROM 2026-08-17 TO 2026-08-21 DOES NOT
+  WORK.** It was:
 
   ```css
   .statCard[data-reveal='in'] {          /* (0,2,0) — beats .reveal outright */
@@ -1435,74 +1840,135 @@ error message:
   }
   ```
 
-  `Reveal` sets `data-reveal="in"` at the moment the entrance completes, so
-  the element carries no hover transition until there is nothing left to
-  animate in, and the two never contend.
+  The specificity arithmetic is right and the premise underneath it was
+  wrong. This file claimed `Reveal` sets `data-reveal="in"` "at the moment
+  the entrance completes". It does not: `setRevealed(true)` fires from the
+  IntersectionObserver callback the moment the element **intersects** —
+  `Reveal.jsx:57`, the *start* of the entrance. It has to, because
+  `.reveal[data-reveal='in']` is `opacity: 1; transform: none`, i.e. the
+  state being transitioned **to**; an attribute set at completion could not
+  drive the entrance at all.
 
-  **Two things about the fix that are easy to get wrong:**
-  - **The `:hover` rule itself stays bare.** `.statCard:hover` is (0,2,0)
-    and ties with `.reveal[data-reveal='in'] { transform: none }`; it wins
-    on emission order, which holds because section modules come after
-    `Reveal`'s. Verified in a **production** build, not assumed.
-  - **`type="pop"` needs one more attribute.** `.reveal[data-type='pop']`
-    declares its own transition at (0,2,0), so a `[data-reveal='in']` gate
-    only ties with it. `.rolePill` uses
-    `.rolePill[data-reveal='in'][data-type='pop']` — (0,3,0) — for exactly
-    this reason. Types `up`/`rise`/`left` take their transition from the
-    base `.reveal` and need only the one attribute.
+  So the gate matched immediately and each element animated its ENTRANCE on
+  the hover values. Measured in Chromium on the production build, sampled
+  from the frame `data-reveal` flipped to `in`:
 
-  **Detection.** `getComputedStyle(el).transitionDuration` during the
-  entrance reads the hover value (`0.25s`) instead of `1.05s`. Under Vitest
-  this is invisible — CSS Modules are compiled but no stylesheet is applied
-  (`document.styleSheets.length === 0`), so assert the stylesheet as text:
-  the bare `.cls` rule must contain no `transition`, and a
-  `.cls[data-reveal='in']` rule must exist. `SkillsSection.test.jsx` and
-  `AboutSection.test.jsx` both do this.
+  | element | opacity reaches 1 | transform settles | should be |
+  | --- | --- | --- | --- |
+  | About `.statCard` | **0ms** | **283ms** | ~733ms / ~700ms |
+  | Skills `.card` | **0ms** | **300ms** | ~750ms / ~700ms |
+  | Hero `.rolePill` | **0ms** | **448ms** | ~700ms / ~1017ms |
+  | Hero `.loudCta` | **0ms** | **301ms** | ~550ms / ~867ms |
+  | Projects `.card` *(never gated)* | 766ms | 732ms | — control |
 
-  **Swept 2026-08-18** across Hero, About and Skills — 20 `Reveal`-wrapped
-  classes, 4 declare a transition (`.rolePill`, `.loudCta`, `.statCard`,
-  `.card`), all 4 gated, 0 ungated. The sweep also checked `composes:`
-  inheritance, not just directly-declared transitions, and confirmed no
-  `<Reveal>` uses a `className` the sweep could miss.
+  **`opacity` reaching 1 at 0ms means those elements did not fade in at
+  all** — `opacity` was in none of the hover lists, so it had no transition
+  whatsoever and jumped. The right-hand column is the same measurement
+  after PF-93 deleted all four gates; the control row is byte-identical
+  before and after, which is what proves the deletion touched nothing else.
 
-  **`patterns.module.css`'s `.pill` was the one latent trap, and it has
-  been fixed pre-emptively rather than left as a warning** (2026-08-18).
-  It carried a bare `transition: color .2s, border-color .2s, background
-  .2s, transform .2s` with no consumer outside `.pill-accent` in that same
-  file — nothing broken, but a pill is precisely what gets wrapped in a
-  `Reveal` (Hero's `.rolePill` and `.loudCta` both are), so a single
-  `composes: pill from '../../styles/patterns.module.css'` would have been
-  occurrence three, arriving through a file nobody edited.
+  **Why deletion is the right remedy and not merely the easy one — the
+  prototype does exactly this.** `hideReveals()` (line 950) writes
 
-  **The gate needed three selectors, not one**, because a shared pattern
-  cannot know how a consumer wraps it — worth reading before gating any
-  other shared class:
+  ```js
+  el.style.transition = 'opacity .85s cubic-bezier(.16,1,.3,1), transform 1.05s cubic-bezier(.16,1,.3,1)';
+  if (t === 'pop') el.style.transition = 'opacity .5s ease, transform .9s cubic-bezier(.34,1.56,.4,1)';
+  ```
+
+  as an **inline** style on every `[data-reveal]` element, and `showEl()`
+  (line 966) changes only `opacity` and `transform` — it never clears it.
+  Grepped: exactly **four** `style.transition` writes in the whole script,
+  three of them in `hideReveals()` and the fourth in a safety net that
+  fires at `1700ms + delay` and only when the element is still under 0.9
+  opacity, i.e. only when transitions were blocked outright. So one
+  declaration covers the entrance and every later property change on that
+  element for the life of the page. Declaring none in CSS reproduces that,
+  because `.reveal` never leaves the element either.
+
+  **Consequence to record rather than "fix": hover `border-color`,
+  `background` and `box-shadow` all SNAP,** because only `opacity` and
+  `transform` are in `Reveal`'s list. That is the design's behaviour, not a
+  shortfall. Measured after the fix — `border-color` changes at 6-31ms on
+  all four while the lift is still easing.
+
+  **The values differ by `data-type`, and that is correct**, not drift:
+
+  | type | inherits | used by |
+  | --- | --- | --- |
+  | `up` / `rise` / `left` | `opacity .85s`, `transform 1.05s cubic-bezier(.16,1,.3,1)` | `.statCard`, Skills `.card`, Projects `.card` |
+  | `pop` | `opacity .5s ease`, `transform .9s cubic-bezier(.34,1.56,.4,1)` | `.rolePill`, `.loudCta` |
+
+  Both sets are the prototype's own, from lines 954 and 962, and
+  `Reveal.module.css` transcribes both correctly — verified in PF-93
+  before deleting anything, since the deletion stops overriding whatever
+  PF-74 wrote and would have made a PF-74 error look like PF-93's.
+
+  **Not every element with a `transition` is wrong — only Reveal-wrapped
+  ones.** A class that is never passed to a `<Reveal>` has nothing
+  supplying it a transition and must keep its own. Both cases are live:
+
+  | | Reveal-wrapped? | declares a transition? |
+  | --- | --- | --- |
+  | Skills `.card`, About `.statCard` | yes | **no** — Reveal owns it |
+  | Skills `.pill`, Projects `.techPill` | no | **yes** — prototype lines 256/325 |
+  | `patterns.module.css` `.pill` | either | `:not([data-reveal])` only |
+  | Projects `.bigCard` | **no** (its parent grid is) | no — so its hover **snaps** |
+
+  That last row is the prototype's own asymmetry, not an oversight: its big
+  card (line 318) carries no `data-reveal`, so `hideReveals()` never
+  reached it and its hover snaps, while the small cards (line 357) are
+  wrapped and ease over 1.05s. Measured after PF-93: big card
+  `transition: all 0s`, jumps to `-8px` at 7ms; small card eases to `-8px`
+  over the 1.05s curve.
+
+  **`patterns.module.css`'s `.pill` keeps exactly one selector**, and the
+  `:not()` is the whole of it:
 
   ```css
-  .pill:not([data-reveal]),                      /* (0,2,0) no Reveal at all */
-  .pill[data-reveal='in'],                       /* (0,2,0) up / rise / left  */
-  .pill[data-reveal='in'][data-type='pop'] {     /* (0,3,0) pop — see below   */
+  .pill:not([data-reveal]) {   /* (0,2,0) — a pill used as an ordinary button */
     transition: color .2s, border-color .2s, background .2s, transform .2s;
   }
   ```
 
-  - **`:not([data-reveal])` is load-bearing.** A plain `.pill[data-reveal='in']`
-    gate matches only elements a `Reveal` rendered. A pill used as an
-    ordinary button has no such attribute, so the gate would silently take
-    its hover transition away entirely — trading one silent failure for
-    another.
-  - **`pop` needs the third selector.** `.reveal[data-type='pop']` declares
-    its own transition at (0,2,0), so the two-part gate merely *ties* with
-    it and the winner falls out of bundle emission order. The three-part
-    selector settles it. Same reasoning as `.rolePill`'s.
-  - Mid-entrance the element is `data-reveal="out"`, so none of the three
-    match and `Reveal`'s easing owns the property — which is the point.
+  Deleting all three selectors would have traded one silent failure for
+  another: a plain pill has no `data-reveal` attribute and nothing else
+  animating it, so it would lose its hover transition entirely. The two
+  `[data-reveal='in']` selectors that used to sit beside it were the
+  pre-emptive version of the broken gate; they never had a consumer, so
+  nothing was visibly wrong — but a shared file teaching the wrong pattern
+  is how it would have spread.
 
-  Guarded by three tests in `styles/__tests__/patterns.test.js`; all three
-  mutations caught. Two of them were **blind on the first attempt** and
-  passed against the explanatory comment rather than the rule — see the
-  Silent-failures entry on raw-text CSS assertions matching comments, which
-  has the full inventory.
+  **Detection.** `getComputedStyle(el).transitionDuration` during the
+  entrance reads the hover value instead of `1.05s`. Under Vitest this is
+  invisible — CSS Modules are compiled but no stylesheet is applied
+  (`document.styleSheets.length === 0`) — so assert the stylesheet as text,
+  and **parse it with `postcss` rather than searching raw text**: every
+  assertion here searches for a string that also appears in the comment
+  explaining the deletion. See the raw-text-matching-a-comment entry.
+
+  **Guarded five ways since PF-93, all mutation-tested in both directions:**
+
+  | guard | file |
+  | --- | --- |
+  | `.statCard` declares no `transition`, at any selector | `AboutSection.test.jsx` |
+  | `.card` declares no `transition`, at any selector | `SkillsSection.test.jsx` |
+  | `.rolePill` / `.loudCta` declare no `transition` | `HeroSection.test.jsx` |
+  | `.pill` has exactly one transition rule, and it is the `:not()` | `patterns.test.js` |
+  | **no Reveal-wrapped class anywhere declares one** | `styles/__tests__/revealTransition.test.js` |
+
+  The last is the one that matters long-term, and it is structural rather
+  than a list: it reads every `components/**/*.jsx`, extracts the local
+  class names actually passed to a `<Reveal>`, and walks the sibling
+  module for a `transition*` declaration on any of them — so a NEW element
+  in a NEW section fails it without anyone remembering to add a guard. It
+  also asserts it found >20 pairs, because a broken scanner reports "no
+  offenders" exactly like a clean tree does. A sixth guard in the same file
+  pins `[data-reveal='in']` to the single legitimate rule that defines it,
+  `Reveal.module.css`'s own end state.
+
+  Each `:hover` **end state** is separately guarded too, so the deletion
+  cannot be over-applied into removing the hover treatment itself:
+  `-4px` / `-6px` / `-2px`, re-read from prototype lines 216, 253 and 102.
 - **`rgba(#hex, .5)`** → invalid, produces nothing. The five channel triplets
   (`--gnd --srf --ln --ftr --shd`) must stay as bare `R,G,B`
 - **Redefined `@keyframes` of the same name** → later definition wins by
@@ -1850,8 +2316,115 @@ error message:
   tests are green today with zero consumers, and the E2E specs asserting the
   Phase 1 hero went red the moment PF-80 replaced it.
 
-  Run five commands, not four: `vitest --run`, `eslint --max-warnings=0`,
-  `vite build`, backend `npm test`, **and `npm run test:e2e`**.
+  Run five commands, not four — and name the SCRIPTS, not paths, so the
+  gate cannot drift from CI (see the next entry):
+
+  ```bash
+  cd frontend && npx vitest --run
+  cd frontend && npm run lint -- --max-warnings=0     # ci.yml line 88, verbatim
+  cd frontend && npm run build
+  cd backend  && npm test
+  cd frontend && npm run test:e2e
+  ```
+- **⚠️ `npm run lint` used to cover `src/` ONLY, so config files at the
+  frontend root were never linted — by the gate, by CI, or by anything.**
+  Same shape as the entry above and worth reading beside it: there a
+  green gate hid a removed feature, here a green gate hid a live syntax
+  error, and both come from a command whose scope is narrower than the
+  word "the tests" or "lint" implies.
+
+  `package.json`'s script was `eslint src --ext .js,.jsx,.ts,.tsx` and
+  CI runs `npm run lint -- --max-warnings=0`, so `playwright.config.js`,
+  `vite.config.js`, `eslint.config.js` and all five `e2e/*.spec.js` were
+  outside the path argument. Eight files, zero coverage.
+
+  **⚠️ CI and the tickets AGREED — that is the part worth getting right,
+  because the natural guess is the opposite.** `ci.yml` contains exactly
+  **one** lint step (line 88) and the literal string `eslint` appears
+  **nowhere** in it: CI runs the npm *script*, whatever the script says.
+  So this was NOT the Sprint 11 shape where CI ran something the local
+  gate didn't. CI ran `eslint src` too. The gate matched CI perfectly and
+  they were both blind together, which is strictly harder to notice —
+  a mismatch eventually shows up as a red CI on a green local run, and
+  this never could.
+
+  **It BECAME the Sprint 11 shape the moment the script changed.** With
+  `"lint": "eslint ."`, CI is now wider than every ticket that says to run
+  `eslint src`. The fix is not to re-narrow the script — it is to stop
+  documenting a path at all:
+
+  > **The gate's lint command is `npm run lint -- --max-warnings=0`**,
+  > which is CI's line 88 verbatim. Name the script, never a path. A
+  > documented path is a second source of truth that drifts silently the
+  > next time the script changes; naming the script cannot drift, because
+  > it *is* what CI runs.
+
+  Every "run `eslint src`" in an older ticket is stale by exactly this
+  much. Prefer the script.
+
+  What it hid: `eslint.config.js` applied `globals.browser` to
+  `**/*.{js,jsx}` with no Node block, so **every `process.env` read in a
+  build config is a `no-undef` error**. `vite.config.js:19` has carried
+  one since PF-70 (`29567ec`) and nobody saw it for ten days;
+  PF-93 added two more in `playwright.config.js` and the full five-command
+  gate still came back green. The only thing that surfaced any of it was
+  the **IDE extension linting an open file**, which does not care what
+  the npm script's path argument says.
+
+  Fixed 2026-08-21, in three parts, because any one alone is a half-fix:
+
+  | | |
+  | --- | --- |
+  | a Node-globals block for `*.config.js` and `e2e/**` | clears all 3 errors |
+  | `.eslintignore` → `globalIgnores([…])` | its 8 patterns; the file was inert under ESLint 9 and `coverage/` would otherwise fail `--max-warnings=0` |
+  | `"lint": "eslint ."` | the gate can finally reach them |
+
+  Plus a fourth found by the widened scope itself: **`dist-*/` is
+  ignored**, because this file's own live-verification recipe builds to
+  `dist-verify/`. Without it, `eslint .` lints a 410 kB minified bundle
+  and fails on `process is not defined` in rolled-up dependency code —
+  i.e. following the documented verification steps would have broken CI
+  for the next person. Verified to exit 0 **with `dist-verify/` present**,
+  not merely after deleting it.
+
+  Measured after: `npm run lint -- --max-warnings=0` exits **0** over
+  **115** files, up from src-only, and the `ESLintIgnoreWarning` that
+  printed on every run since ESLint 9 is gone. Mutation-tested — an
+  undefined identifier added to `playwright.config.js` now exits 1; before
+  the change the identical mutant passed.
+
+  **⚠️ `.eslintignore` was DOUBLY inert, and the second half is the
+  surprise.** Everyone knew ESLint 9 stopped reading it. What that means
+  concretely is that **seven of its eight patterns were ignoring nothing
+  at all** — only `dist` was live, and only because `globalIgnores(['dist'])`
+  named it separately. Measured by restoring the HEAD configuration and
+  asking ESLint directly, via `new ESLint().isPathIgnored()`:
+
+  | path | at HEAD | now |
+  | --- | --- | --- |
+  | `dist/x.js` | IGNORED | IGNORED |
+  | `coverage/block-navigation.js` | **LINTED** | IGNORED |
+  | `build/main.js` | **LINTED** | IGNORED |
+  | `public/vendor.min.js` | **LINTED** | IGNORED |
+  | `dist-verify/assets/index-abc.js` | **LINTED** | IGNORED |
+
+  It never showed because the script only looked at `src/`. The two
+  defects were hiding each other: the dead ignore file had no consequence
+  while the scope was narrow, and the narrow scope looked harmless while
+  nothing needed ignoring. Widening the scope alone would have failed CI
+  on `coverage/`; deleting the ignore file alone would have changed
+  nothing. That is why the fix is four parts, not one.
+
+  `isPathIgnored()` is the right instrument for any question of this
+  shape — it answers per path, with no files created and no output to
+  parse, where "did it appear in the report?" cannot distinguish *ignored*
+  from *clean* from *never looked at*.
+
+  **The general lesson is about path arguments, not ESLint.** A tool
+  invoked with an explicit path lints exactly that path, and a file's
+  absence from the report is indistinguishable from a clean file. Check
+  what a gate command actually covers before trusting "lint: exit 0" —
+  `npx eslint . --format json` and count the files.
 - **Playwright's `toBeVisible()` ignores occlusion, so a full-screen overlay
   does not hide anything from it.** Visibility is a non-empty bounding box
   plus a non-`hidden` `visibility` — not "a user could see this". An element
@@ -1869,9 +2442,241 @@ error message:
     `/?nosplash` in `beforeEach` for this reason; the splash gets its own
     two tests on a plain `/`.
 
+- **⚠️ The prototype's reveal transition is INLINE and PERMANENT, so
+  "the stylesheet declares no transition" does not mean "it snaps".**
+  Found in PF-85 while implementing a ticket instruction to "implement
+  the snap", which would not have produced one.
+
+  `hideReveals()` (line 950) writes
+  `el.style.transition = 'opacity .85s …, transform 1.05s …'` onto **every**
+  `[data-reveal]` element, and `showEl()` (line 966) only changes `opacity`
+  and `transform` — it never clears the transition. The sole place it is
+  cleared is a safety net that fires at `1700ms + delay` and only if the
+  element is still under 0.9 opacity, i.e. only when transitions were
+  blocked outright.
+
+  So a revealed element keeps that transition for the life of the page, and
+  **any later property change on it eases rather than snaps** — including a
+  `:hover` transform. The consequence for project cards, measured on the
+  production build:
+
+  | | `data-reveal`? | hover lift |
+  | --- | --- | --- |
+  | big card | no — its parent GRID carries it (line 317) | **snaps**, `transition-duration: 0s` |
+  | small cards | yes (line 357) | **eases over 1.05s** |
+
+  Measured: the small card reads `-0.157px` at 80ms after hover and `-8px`
+  at 1480ms. That asymmetry is the design's, not a porting bug, and PF-85
+  reproduces it by declaring no `transition` on either card.
+
+  **The general rule: to know whether a prototype element animates, check
+  its JS as well as its inline `style`.** A `style-hover` attribute with no
+  `transition:` in the markup still eases if the element is a reveal target.
+- **⚠️ Playwright's `reuseExistingServer: true` will adopt a STALE dev
+  server, and the suite then tests the wrong database.** Cost two E2E
+  failures in PF-85's gate that looked exactly like a regression.
+
+  `playwright.config.js` starts two servers, the E2E backend on 5055
+  (`portfolio_e2e`) and a frontend on 5174, both with
+  `reuseExistingServer: true`. If anything is already listening on 5174 it
+  is used **as-is, with whatever environment it was launched with**. A
+  stray `npm run dev` lands there automatically, because Vite increments
+  past a taken 5173 — the same port-hopping behaviour the CORS entry above
+  describes.
+
+  What that produces: the adopted server serves
+  `VITE_API_URL: "http://localhost:5050/api"` from `.env.development`
+  instead of the injected `:5055`, so the suite drives the real page
+  against the **development** backend. Everything renders, every homepage
+  test passes, and only the tests that depend on E2E-specific data fail —
+  in this case both admin logins, with a **401**, because the dev
+  database's admin password is not the E2E fixture's.
+
+  **This is nastier than the CORS variant.** There, the API calls fail
+  loudly. Here the site works perfectly and only the *data* is wrong, so
+  the failure presents as "did my change break auth?".
+
+  Diagnosis, in order — each step ruled out a cause:
+
+  ```bash
+  # 1. what did the page actually say?  (the 401 branch of loginError.js)
+  cat frontend/test-results/<failed-test>/error-context.md
+  # 2. is the E2E database intact?  (it was: 1 user, correct email)
+  node -e "require('dotenv').config({path:'.env.e2e'}); …countDocuments()"
+  # 3. what is on 5174, and what API does it serve?   ← the answer
+  lsof -sTCP:LISTEN -nP -i:5174
+  curl -s http://localhost:5174/src/services/api.js | head -3
+  ```
+
+  Step 3 is the one that finds it. `ps eww -p <pid>` showing no
+  `VITE_API_URL` is corroboration, not proof — the served bundle is.
+
+  Fix: `lsof -sTCP:LISTEN -ti:5174 | xargs kill`, re-run. 5/5, then 22/22.
+  **Check 5174 before believing any E2E auth failure.**
+- **A root `node_modules/` is NOT gitignored.** The repo's root
+  `.gitignore` has no `node_modules` entry — only `frontend/` and
+  `backend/` cover their own. Running `npx vitest` from the REPO ROOT
+  rather than from `frontend/` creates
+  `node_modules/.vite/vitest/<hash>/results.json`, which then shows up as
+  untracked and would be swept in by a `git add -A`. Another reason the
+  working agreement says to stage explicit paths. Harmless to delete; worth
+  closing in `.gitignore`.
+- **The backend rate-limits at 100 requests / 15 min / IP**
+  (`middleware/rateLimiter.js`; auth is stricter at 10). Automated browser
+  verification hits this easily — PF-85's measurement loop across eight
+  viewport widths exhausted it and the API started returning **429** with
+  `{"status":"fail","message":"Too many requests…"}`. It surfaces as a
+  section that renders its error state for no apparent reason. Prefer
+  Playwright `route.fulfill()` with a fixture over hammering the real API;
+  it is deterministic as well as polite.
+
 Where a mistake would be silent, add a test that would catch it.
 
 ## Locked decisions — do not reopen
+
+- **The terminal caret is a literal `#FCA311`, not `var(--acc)`
+  (2026-08-21, owner-approved).** The prototype uses the token, which in
+  light theme is `#7E4800` — dark brown on the panel's fixed `#0d1117`,
+  measuring 2.54:1. The panel is a picture of a terminal and does not
+  theme; its other seven body lines are already literal hexes. The literal
+  is dark theme's own `--acc`, so dark is byte-identical and light goes
+  from 2.54:1 to 9.36:1. Visible in light theme (brown → amber). Same
+  shape as About's stat labels: an inherited contrast failure, raised
+  rather than quietly transcribed.
+
+  The `➜` line (`var(--faint)`, 3.33/3.12) and the chrome label
+  (`#5c677d`, 3.04 both themes) are **NOT** fixed here — they are colour
+  decisions and batch into PF-91 as one pass over terminal ink.
+
+  Shipped in PF-85's follow-up; guarded in `ProjectsSection.test.jsx`
+  against reversion to the token, with the `blink` animation re-confirmed
+  still resolving afterwards.
+
+- **Hover lifts are ungated under `prefers-reduced-motion`
+  (2026-08-21, owner-delegated to Claude, decided and recorded here).**
+  PF-74's `html[data-motion='reduced'] .reveal { transform: none }`
+  (0,2,1) beat every section's `:hover` rule (0,2,0), so Reveal-wrapped
+  cards did not respond to the pointer under reduce while `.bigCard` did.
+
+  `motion.css` already collapses transitions under reduce, so an ungated
+  lift is an instant resting-state change, not motion — the same category
+  as the `border-color` shift beside it, and the same principle that
+  leaves `CursorGlow` and the portrait tilt ungated. The prior state was
+  incoherent rather than cautious.
+
+  PF-83's audit contract is unweakened: 0 `getAnimations()`, 0 rAF,
+  parallax still none, splash still absent — all re-measured against a
+  motion-allowed control.
+
+  **Implementation** — `Reveal.module.css`, one rule split into two:
+
+  ```css
+  html[data-motion='reduced'] .reveal            { opacity: 1; }
+  html[data-motion='reduced'] .reveal:not(:hover) { transform: none; }
+  ```
+
+  `opacity` stays unconditional deliberately: hovering must never be able
+  to make an element transparent, whatever its `data-reveal` state. The
+  transform half is (0,3,1) — `:not(:hover)` contributes its argument's
+  (0,1,0) — so it still beats `.reveal[data-type='pop']`'s
+  `scale(.25) rotate(-28deg)` (0,2,0) at rest, which is what stops a pop
+  element resting shrunk. While hovered it simply does not match, and the
+  section's `:hover` inherits the same tie against `.reveal[data-reveal=
+  'in']` that already governs it with motion allowed. **One mechanism in
+  both modes** is the point, not two.
+
+  **Measured in Chromium on the production build**, hover end states,
+  reduce vs motion-allowed:
+
+  | element | reduce | motion allowed |
+  | --- | --- | --- |
+  | Hero `.rolePill` | `-2px` at 63ms | `-2px` over 0.9s bouncy |
+  | Hero `.loudCta` | `-2px` at 37ms | `-2px` over 0.9s bouncy |
+  | About `.statCard` | `-4px` at 32ms | `-4px` over 1.05s |
+  | Skills `.card` | `-6px` at 36ms | `-6px` over 1.05s |
+  | Projects `.card` | `-8px` at 34ms | `-8px` over 1.05s |
+  | Projects `.bigCard` | `-8px` at 39ms | `-8px`, **snaps** |
+
+  Under reduce `transition-duration` reads `1e-05s`, so those tens of ms
+  are sampling latency, not easing. Motion-allowed timings are unchanged
+  from before the split (±6ms of the pre-change run).
+
+  **The audit contract, re-measured, with the control beside it:**
+
+  | check | reduced | motion allowed |
+  | --- | --- | --- |
+  | `data-motion` | `reduced` | `null` |
+  | root `scroll-behavior` | `auto` | `smooth` |
+  | splash mounted | false | false |
+  | rAF in 1 idle second | **0** | **69** |
+  | `getAnimations()` **running** | **0** | **28** |
+  | About portrait transform | `scale(1.02)` resting | `scale(1.1)` + 92.6px parallax |
+  | 44 `[data-reveal]`, not at rest | **0** | 10 (below the fold) |
+
+  ⚠️ **`getAnimations()` TOTAL is 1 under reduce, and that is not a
+  violation** — it reads 1 in *both* modes, which is what proves it.
+  Phase 1's `ScrollToTop.jsx:34` writes `animation: fadeInUp .3s ease
+  both` inline; `fill-mode: both` keeps a **finished** animation in the
+  list forever. Under reduce it reports `playState: "finished"` at
+  `duration: 0.01ms`, i.e. `motion.css` collapsed it correctly. PF-83
+  recorded 0 because its probe never scrolled far enough to mount that
+  button. **"Is anything moving" is the RUNNING count, not the total** —
+  filter on `playState === 'running'`.
+
+  Note `motion.css:70` has carried "Hover transitions KEPT —
+  user-initiated and brief" as stated policy since PF-73. This change
+  makes the code match the policy; the `.reveal` rule had been silently
+  contradicting it for `transform` only. Guarded by four tests in
+  `components/motion/__tests__/Reveal.test.jsx`, all mutation-tested —
+  merging the rules back, dropping the `:not()`, and hover-scoping the
+  opacity half each fail.
+
+- **CORS allows a localhost dev-port range in NON-PRODUCTION only
+  (2026-08-19, owner decision, shipped in PF-85).** This closes the
+  long-standing Outstanding-work item.
+
+  ```js
+  const DEV_ORIGIN = /^http:\/\/localhost:(51[7-9][0-9]|5200)$/;
+  if (ALLOWED_ORIGINS.includes(incomingOrigin)) return callback(null, true);
+  if (process.env.NODE_ENV !== 'production' && DEV_ORIGIN.test(incomingOrigin))
+    return callback(null, true);
+  return callback(new Error(`CORS: Origin "${incomingOrigin}" is not allowed`));
+  ```
+
+  **The exact-match array is unchanged and production behaviour is
+  provably identical** — `corsOptions.test.js` asserts every case in both
+  environments, including that each dev port is REJECTED under
+  `NODE_ENV=production`, and that suffix/prefix attacks
+  (`localhost:5176.evil.com`, `notlocalhost:5176`), `https`, `127.0.0.1`
+  and out-of-range ports are rejected even in development. The guard is
+  `!== 'production'` rather than `=== 'development'` so a bare
+  `node server.js` with no NODE_ENV still gets dev behaviour.
+  Note `.env.e2e` sets `NODE_ENV=test`, so the branch is live under E2E —
+  harmless, since 5174 is exact-matched anyway.
+
+- **Projects: the big card is chosen by `order`, the badge by `featured`
+  (2026-08-19, owner decision).** Full reasoning in the PF-85 entry above.
+  The short version, because it looks like a bug from either end: two
+  projects are `featured: true`, only one card shows a FEATURED badge, and
+  the badge sits where the numeral would be. Do not "fix" either half.
+  An unfeatured first project renders **nothing** in that slot — never a
+  `01`.
+
+- **ClearDrive.lk keeps 10 tech pills; the prototype's 9 is stale
+  (2026-08-19, owner decision).** The prototype omits `Tailwind CSS` for
+  that one card. The API is the source of truth for project content, so a
+  fidelity pass must not cut the pill back to match the export. The other
+  three cards match `seed.js` exactly. Opposite resolution to PF-82's
+  skill-order finding, and deliberately so — there the prototype was right.
+
+- **`data-terminal` is attached to the terminal panel (2026-08-19, owner
+  approved).** Activates `tokens.css`'s light-theme shadow rule, which had
+  never matched an element in this repo OR in the prototype. Light theme
+  only, alpha `.5 → .22`; dark byte-identical. Measurements in the PF-85
+  entry. Do not remove the attribute to "match the prototype" — the
+  prototype's omission is a wiring gap, not a design choice, and this was
+  raised and approved before shipping.
+
 
 - Design fidelity is absolute. Nothing visible is removed or simplified for
   performance.
@@ -2166,21 +2971,50 @@ Where a mistake would be silent, add a test that would catch it.
   mutations, all caught; `:global()` follows `ThemeToggle.module.css:78`,
   the one existing precedent in this build.
 
-- **Card hover transitions (2026-08-18, owner-approved).** The prototype
-  declares **no** `transition` on either About's stat card (line 216) or
-  Skills' category card (line 253) — only the `style-hover` end state, so
-  both snap instantly. Of its 108 `style-hover` elements only about a
-  dozen declare a transition at all; the hero's role pill (line 100) is
-  one that does, and PF-80 transcribed it faithfully.
-  PF-81 gave `.statCard` a 0.25s transition anyway, without flagging it.
-  PF-82 found the mismatch, raised it, and the owner chose to keep the
-  eased version and extend it to `.card` rather than revert About — two
-  sibling sections disagreeing on hover reads as a bug. So:
-  **both cards ease at 0.25s, the prototype snaps, and that gap is
-  deliberate.** Do not "restore" either to instant.
-  Both are gated on `[data-reveal='in']` — see the Silent-failures entry on
-  a bare `transition:` eating a `Reveal`'s entrance. That gating is a
-  correctness requirement, not part of this deviation.
+- ~~**Card hover transitions (2026-08-18, owner-approved)**~~ —
+  **WITHDRAWN in PF-93, 2026-08-21, owner sign-off granted in advance.**
+  Kept visible rather than deleted, because the reasoning is the useful
+  part and the same mistake is easy to make again.
+
+  The deviation said: the prototype declares **no** `transition` on
+  About's stat card (line 216) or Skills' category card (line 253) — only
+  a `style-hover` end state — so both snap instantly, while PF-81 had
+  given `.statCard` a 0.25s ease. Rather than revert About, the owner
+  chose to keep the eased version and extend it to Skills, since two
+  sibling sections disagreeing on hover reads as a bug.
+
+  **The first half is true of the markup and false of the rendered page,
+  which is where the whole thing came apart.** Both cards are
+  `data-reveal="up"`, and `hideReveals()` writes
+  `transition: opacity .85s, transform 1.05s cubic-bezier(.16,1,.3,1)`
+  onto every `[data-reveal]` element as an inline style that nothing
+  clears. An inline declaration beats the same element's `style`-attribute
+  transition — it is written into the same block. So in the prototype both
+  cards **hover-ease at 1.05s**, and the About/Skills inconsistency the
+  deviation existed to resolve never existed on screen.
+
+  **Where it came from: the prototype was READ, not RUN.** `support.js` is
+  deliberately absent from this repo, so it cannot be executed, and the
+  claim "both snap instantly" came from its stylesheet. That is a sound
+  way to read a static value and a bad way to read behaviour that a script
+  block installs at runtime. **To know whether a prototype element
+  animates, check its JS as well as its inline `style`** — the same lesson
+  as the entry on the persistent inline reveal transition, arrived at from
+  the other direction.
+
+  **What is true now**: all four gated elements let `Reveal` own
+  `transition`, which matches the prototype for the three that have a
+  counterpart. The hero's role pill (line 102 — **not** line 100, as this
+  entry used to say) is the sharpest case: it genuinely does declare
+  `transition:border-color .25s,background .25s,transform .25s` in its
+  markup and PF-80 transcribed it faithfully, but `hideReveals()`
+  overwrites it before it can apply, so the repo was rendering a value the
+  design never renders. `.loudCta` has no counterpart at all — it is an
+  owner-requested addition (2026-08-17) — so its deletion is a consistency
+  call with its three siblings, not a transcription fix.
+
+  Full measurements in the Silent-failures entry on `transition` and
+  `Reveal`. Do not re-add a hover transition to either card.
 - **Splash timing and the progress bar (2026-08-17, owner-requested;
   timing corrected 2026-08-19).** Deviations from the prototype, all in
   `Splash.jsx`:
@@ -2360,6 +3194,14 @@ Frontend tests use **per-module `__tests__` directories** — `src/utils/`,
 `src/components/ambient/`, `src/components/splash/`,
 `src/components/layout/` and `src/components/sections/` each have their own.
 Not a top-level `src/__tests__/`.
+
+**One file deliberately breaks that convention**:
+`styles/__tests__/revealTransition.test.js` (PF-93) reads every
+`components/**/*.jsx` and every `*.module.css` under `src/`, because it is
+a repo-wide structural guard rather than a module's own test — there is no
+single module it belongs to. The PF-93 ticket placed it there. If a second
+cross-cutting guard appears, this is the precedent to follow rather than
+inventing a `src/__tests__/`.
 
 **The first push of a new branch is always `git push -u origin <branch-name>`,
 never a bare `git push`.** This is not style — PF-75 was pushed straight to
