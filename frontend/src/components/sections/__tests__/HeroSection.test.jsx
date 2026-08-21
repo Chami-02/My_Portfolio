@@ -4,6 +4,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import postcss from 'postcss';
 import { HeroSection } from '../HeroSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
@@ -240,6 +241,52 @@ describe('HeroSection (PF-80)', () => {
     it('keeps the loud CTA outline breathing, like the badge', () => {
       expect(ruleBody('.loudCta')).toContain('composes: kf-glowpulse from global');
       expect(ruleBody('.loudCta')).toContain('animation-duration: 3s');
+    });
+
+    /**
+     * PF-93, 2026-08-21. Both of these were `[data-reveal='in']
+     * [data-type='pop']` gates until this ticket; both are now deleted
+     * outright, because the gate matches at the entrance's START
+     * (Reveal.jsx:57) and therefore animated the entrance on the 0.25s
+     * hover values. Measured on the production build — opacity reached 1
+     * at 0ms for both, and the pop settled at 448ms (.rolePill) and
+     * 301ms (.loudCta) instead of ~900ms.
+     *
+     * `.rolePill` is the sharper case. The prototype's line 102 really
+     * does declare `transition:border-color .25s,background .25s,
+     * transform .25s` in its style attribute, and PF-80 transcribed it
+     * faithfully — but hideReveals() writes el.style.transition into the
+     * SAME declaration block, so the design never renders that value.
+     * This guard is what stops a future fidelity pass reading line 102
+     * and putting it back.
+     *
+     * `animation` longhands are untouched by this: both elements keep
+     * their `composes: kf-glowpulse` and its timing, asserted above.
+     * Only `transition*` is forbidden.
+     */
+    it('declares no transition on .rolePill or .loudCta, at any selector', () => {
+      const offenders = [];
+      postcss.parse(css).walkRules((rule) => {
+        if (!/\.(rolePill|loudCta)(?![\w-])/.test(rule.selector)) return;
+        rule.walkDecls(/^transition/, (d) => {
+          offenders.push(`${rule.selector} { ${d.prop}: ${d.value} }`);
+        });
+      });
+      expect(offenders).toEqual([]);
+    });
+
+    // The hover END STATES stay — .rolePill's are the prototype's
+    // (line 102's style-hover). Asserted so the deletion above cannot be
+    // over-applied into removing the hover treatment itself.
+    it('keeps the hover end states the transitions used to animate', () => {
+      const pill = ruleBody('.rolePill:hover');
+      expect(pill).toContain('border-color: var(--acc');
+      expect(pill).toContain('background: rgba(252, 163, 17, .12)');
+      expect(pill).toContain('transform: translateY(-2px)');
+
+      const cta = ruleBody('.loudCta:hover');
+      expect(cta).toContain('border-color: var(--acc');
+      expect(cta).toContain('transform: translateY(-2px)');
     });
 
     it('floats every chip out of phase with the others', () => {

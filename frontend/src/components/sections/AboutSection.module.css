@@ -187,21 +187,25 @@ section.about {
   text-align: center;
 }
 
-/* The card is itself a Reveal, so two `transition` declarations compete
-   for one element: Reveal's entrance and this hover. They cannot merge —
-   one wins outright. Declared bare, `.statCard` (0,1,0) would tie with
-   `.reveal` (0,1,0) and win on stylesheet order, replacing the 1.05s
-   entrance ease with a 0.25s hover transition. Gating on
-   [data-reveal='in'] — set by Reveal at the moment the entrance
-   finishes — makes this (0,2,0) and hands the element over only once
-   there is nothing left to animate in. Same fix as .rolePill in
-   HeroSection.module.css, one attribute shorter because type 'up' takes
-   its transition from the base `.reveal` rather than from a
-   [data-type] override. */
-.statCard[data-reveal='in'] {
-  transition: border-color .25s, transform .25s;
-}
+/* ⚠️ NO `transition` HERE — not gated, not at all. PF-93, 2026-08-21.
 
+   The card is a Reveal, and `.reveal` owns `transition` for the life of
+   the element: opacity .85s / transform 1.05s cubic-bezier(.16,1,.3,1).
+   One declaration covers the entrance AND the hover lift, which is what
+   the prototype does — hideReveals() (line 954) writes those exact values
+   as an INLINE style on every [data-reveal] element, and only showEl()'s
+   blocked-transition safety net ever clears them.
+
+   This was `.statCard[data-reveal='in']`, on the premise that Reveal sets
+   data-reveal="in" when the entrance FINISHES. It does not: the attribute
+   is set from the IntersectionObserver callback at the entrance's START
+   (Reveal.jsx:57), so the gate handed the card its 0.25s hover transition
+   for the whole entrance. Measured on the production build — opacity
+   reached 1 at 0ms (no fade at all, since opacity was not in the hover
+   list) and the slide finished at 283ms instead of ~1050ms.
+
+   `border-color` therefore SNAPS on hover. That is correct and is the
+   prototype's own behaviour; do not add a transition back to smooth it. */
 .statCard:hover {
   border-color: var(--acc, #FCA311);
   transform: translateY(-4px);

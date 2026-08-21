@@ -59,37 +59,37 @@
   letter-spacing: .1em;
 }
 
-/* Hover transition, gated so it cannot eat a Reveal's entrance easing.
-   Pre-emptive: this pattern has no consumer today, but a pill is exactly
-   the kind of element that gets wrapped in a <Reveal> — Hero's .rolePill
-   and .loudCta both are — and a bare `transition:` here would have been
-   the third occurrence of that bug, arriving through a file nobody
-   edited. See CLAUDE.md's Silent-failures entry.
+/* Hover transition for a pill that is NOT Reveal-wrapped. One selector,
+   and the `:not()` is the whole of it.
 
-   Three selectors, because a shared pattern cannot know how its consumer
-   wraps it:
+   ⚠️ This used to be three selectors. PF-93 (2026-08-21) deleted the two
+   `[data-reveal='in']` ones, which were the pre-emptive version of a gate
+   that does not work: data-reveal="in" is set at the entrance's START,
+   not its end (Reveal.jsx:57), so gating on it hands a Reveal-wrapped
+   element its hover transition for the whole entrance. Four elements
+   shipped with that gate and all four are fixed in PF-93. The standing
+   rule is now absolute — never declare a `transition` on a Reveal-wrapped
+   element, not even gated.
 
-     .pill:not([data-reveal])              (0,2,0)  plain pill, no Reveal —
-                                                    keeps the transition it
-                                                    would otherwise lose
-     .pill[data-reveal='in']               (0,2,0)  Reveal of type up/rise/
-                                                    left, entrance finished
-     .pill[data-reveal='in'][data-type='pop']
-                                           (0,3,0)  type="pop" declares its
-                                                    own transition on
-                                                    .reveal[data-type='pop']
-                                                    at (0,2,0); the plain
-                                                    two-part selector only
-                                                    TIES with it and would be
-                                                    settled by bundle
-                                                    emission order. This wins
-                                                    outright.
+     .pill:not([data-reveal])   (0,2,0)  KEPT. A pill used as an ordinary
+                                         button has no Reveal supplying a
+                                         transition, so it needs its own.
+                                         A bare `.pill` rule would instead
+                                         tie with `.reveal` at (0,1,0) and
+                                         win on emission order, which is
+                                         the bug this file is avoiding.
 
-   Mid-entrance the element is data-reveal="out", so none of the three
-   match and Reveal's own easing owns the property — which is the point. */
-.pill:not([data-reveal]),
-.pill[data-reveal='in'],
-.pill[data-reveal='in'][data-type='pop'] {
+   A pill that IS Reveal-wrapped now takes `transition` from `.reveal`
+   (or `.reveal[data-type='pop']`), which owns it for the life of the
+   element — entrance and hover alike, exactly as the prototype's inline
+   write from hideReveals() does. `color`, `border-color` and `background`
+   snap on those; only `transform` eases. That is the prototype's
+   behaviour, not a shortfall.
+
+   The prototype's own precedent for keeping the `:not()` half: Skills'
+   pills (line 256) declare a transition and are NOT reveal-wrapped — the
+   prototype wraps the card (line 253) — so theirs applies. */
+.pill:not([data-reveal]) {
   transition: color .2s, border-color .2s, background .2s, transform .2s;
 }
 

@@ -91,28 +91,34 @@ section.skills {
   border: 1px solid rgba(var(--ln), .09);
 }
 
-/* The card is itself a Reveal, so two `transition` declarations compete
-   for one element: Reveal's entrance and this hover. They cannot merge —
-   one wins outright. Declared bare, `.card` (0,1,0) would tie with
-   `.reveal` (0,1,0) and win on stylesheet order, replacing the 1.05s
-   entrance ease with a 0.25s hover transition. Gating on
-   [data-reveal='in'] — set by Reveal at the moment the entrance
-   finishes — makes this (0,2,0) and hands the element over only once
-   there is nothing left to animate in. Same fix as .statCard in
-   AboutSection.module.css.
+/* ⚠️ NO `transition` HERE — not gated, not at all. PF-93, 2026-08-21.
 
-   ⚠️ The transition itself is a sanctioned deviation, owner-approved
-   2026-08-18: the prototype declares none on this card, so its hover
-   snaps. About's stat card (PF-81) already eased, and two sibling
-   sections disagreeing reads as a bug. Do not "restore" it to instant. */
-.card[data-reveal='in'] {
-  transition: border-color .25s, transform .25s, box-shadow .25s;
-}
+   The card is a Reveal, and `.reveal` owns `transition` for the life of
+   the element: opacity .85s / transform 1.05s cubic-bezier(.16,1,.3,1).
+   One declaration covers the entrance AND the hover lift. Same shape as
+   .statCard in AboutSection.module.css — read the longer note there.
 
-/* `.card:hover` (0,2,0) ties with `.reveal[data-reveal='in'] {
-   transform: none }` and wins only because this module is emitted after
-   Reveal's. Measured in a production build for .statCard, which has the
-   identical shape. */
+   ⚠️ THE 2026-08-18 DEVIATION IS WITHDRAWN (owner sign-off 2026-08-21).
+   That decision added a 0.25s hover ease here on the reading that the
+   prototype's markup declares none on this card, so its hover snapped,
+   while About's already eased. The first half is true of the markup and
+   false of the rendered page: hideReveals() writes the reveal transition
+   inline on every [data-reveal] element and never clears it, so this card
+   hover-eases at 1.05s in the prototype too. The inconsistency the
+   deviation resolved never existed on screen.
+
+   The gate also broke the entrance, because data-reveal="in" is set at
+   the entrance's START, not its end (Reveal.jsx:57). Measured on the
+   production build — opacity reached 1 at 0ms and the slide finished at
+   300ms instead of ~1050ms.
+
+   `border-color` and `box-shadow` therefore SNAP on hover. That is
+   correct; do not add a transition back to smooth either one.
+
+   `.card:hover` (0,2,0) still ties with `.reveal[data-reveal='in']
+   { transform: none }` and still wins only because this module is emitted
+   after Reveal's. Unaffected by the deletion, re-measured rather than
+   assumed. */
 .card:hover {
   border-color: var(--acc, #FCA311);
   transform: translateY(-6px);

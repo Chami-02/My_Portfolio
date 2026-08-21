@@ -4,6 +4,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import postcss from 'postcss';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
 // vi.mock, not vi.spyOn on the module namespace. Vite's SSR transform
@@ -360,16 +361,53 @@ describe('SkillsSection (PF-82)', () => {
       expect(ruleBody('.eyebrow')).toContain('margin-bottom: 14px');
     });
 
-    // The card is a Reveal. Bare, `.card` (0,1,0) ties with `.reveal` and
-    // wins on stylesheet order, replacing the 1.05s entrance ease with
-    // this 0.25s hover transition — the entrance then looks broken.
     it('keeps the card\'s own surface, which the wash removal must not touch', () => {
       expect(ruleBody('.card')).toContain('background: rgba(var(--srf), .52)');
     });
 
-    it('gates the card hover transition behind the finished entrance', () => {
-      expect(css).toContain("\n.card[data-reveal='in'] {");
-      expect(ruleBody('.card')).not.toContain('transition');
+    /**
+     * PF-93, 2026-08-21 — the inverse of the guard that stood here, and
+     * the point at which the 2026-08-18 hover deviation is withdrawn
+     * (owner sign-off 2026-08-21).
+     *
+     * It used to assert that `.card[data-reveal='in']` EXISTS. Two
+     * things were wrong with that:
+     *
+     *   1. The gate does not work. Reveal sets data-reveal="in" from the
+     *      IntersectionObserver callback at the entrance's START
+     *      (Reveal.jsx:57), so it matched immediately and the card
+     *      animated its entrance on the 0.25s hover transition —
+     *      measured, opacity 1 at 0ms and the slide done at 300ms
+     *      instead of ~1050ms.
+     *   2. The deviation it protected was based on a misreading. The
+     *      prototype's markup declares no transition on this card, but
+     *      hideReveals() writes one inline on every [data-reveal]
+     *      element and never clears it, so the card hover-eases at 1.05s
+     *      on the rendered page. The About/Skills inconsistency the
+     *      deviation existed to resolve never existed on screen.
+     *
+     * postcss, not ruleBody(): the replacement comment in the module
+     * names "transition" and ".card[data-reveal='in']" while explaining
+     * the deletion, so raw text matches the prose and asserts nothing.
+     */
+    it('declares no transition on .card, at any selector', () => {
+      const offenders = [];
+      postcss.parse(css).walkRules((rule) => {
+        if (!/\.card(?![\w-])/.test(rule.selector)) return;
+        rule.walkDecls(/^transition/, (d) => {
+          offenders.push(`${rule.selector} { ${d.prop}: ${d.value} }`);
+        });
+      });
+      expect(offenders).toEqual([]);
+    });
+
+    // The hover END STATE stays — the prototype's line 253. Asserted so
+    // the deletion above cannot be over-applied into removing the lift.
+    it('keeps the hover end state the transition used to animate', () => {
+      const hover = ruleBody('.card:hover');
+      expect(hover).toContain('border-color: var(--acc');
+      expect(hover).toContain('transform: translateY(-6px)');
+      expect(hover).toContain('box-shadow: 0 24px 50px rgba(var(--shd), .5)');
     });
 
     // The pill is NOT a Reveal, so nothing competes and the prototype's

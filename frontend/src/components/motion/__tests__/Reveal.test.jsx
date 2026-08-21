@@ -1,5 +1,9 @@
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import postcss from 'postcss';
 import Reveal from '../Reveal';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { SplashProvider } from '../../../providers/SplashProvider';
@@ -271,4 +275,58 @@ describe('Reveal — splash gate (PF-75)', () => {
     expect(screen.getByTestId('r')).toHaveAttribute('data-reveal', 'in');
   });
 
+});
+
+// ── the reduced-motion resting reset (owner decision, 2026-08-21) ──────
+//
+// Asserted against the stylesheet as text, because vite.config.js sets no
+// `test.css` — CSS Modules are stubbed under Vitest and no rule is ever
+// applied, so `getComputedStyle` here would report initial values and pass
+// or fail for the wrong reason. Parsed with postcss rather than searched:
+// the rule carries a long comment naming `transform`, `:not(:hover)` and
+// both specificities while explaining itself, and a raw-text search would
+// match the prose and pass while asserting nothing.
+describe('Reveal.module.css — reduced-motion reset', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const css = readFileSync(resolve(here, '../Reveal.module.css'), 'utf8');
+
+  const rules = [];
+  postcss.parse(css).walkRules((rule) => {
+    const decls = {};
+    rule.walkDecls((d) => { decls[d.prop] = d.value; });
+    rules.push({ selector: rule.selector, decls });
+  });
+  const bySelector = (s) => rules.find((r) => r.selector === s);
+
+  const RESET = "html[data-motion='reduced'] .reveal";
+  const HOVER_SCOPED = "html[data-motion='reduced'] .reveal:not(:hover)";
+
+  it('keeps opacity unconditional, so content is never invisible', () => {
+    // This half must NOT be hover-scoped. Hovering an element must never
+    // be able to make it transparent, whatever its data-reveal state.
+    expect(bySelector(RESET).decls.opacity).toBe('1');
+  });
+
+  it('does not reset transform on the unconditional rule', () => {
+    // The bug: as one rule this is (0,2,1) and beats every section's
+    // `:hover` at (0,2,0), so no Reveal-wrapped card responded to the
+    // pointer under reduced motion — while Projects' .bigCard, which is
+    // not Reveal-wrapped, lifted normally.
+    expect(bySelector(RESET).decls.transform).toBeUndefined();
+  });
+
+  it('resets transform only while not hovered', () => {
+    const scoped = bySelector(HOVER_SCOPED);
+    expect(scoped).toBeDefined();
+    expect(scoped.decls.transform).toBe('none');
+  });
+
+  it('scopes the transform reset with :not(:hover) and nothing else', () => {
+    // Guards against the two ways this gets "simplified" back into the
+    // bug: merging the rules, or dropping the :not() to tidy up.
+    const withTransform = rules.filter(
+      (r) => r.selector.includes("data-motion='reduced'") && 'transform' in r.decls,
+    );
+    expect(withTransform.map((r) => r.selector)).toEqual([HOVER_SCOPED]);
+  });
 });

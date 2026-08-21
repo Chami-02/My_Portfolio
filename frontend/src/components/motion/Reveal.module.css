@@ -49,5 +49,39 @@
    transition — it would leave content invisible. Reset it here. */
 html[data-motion='reduced'] .reveal {
   opacity: 1;
+}
+
+/* ⚠️ The resting transform is reset only while NOT hovered, and the
+   `:not(:hover)` is the entire point of this rule existing separately
+   from the one above. Owner decision, 2026-08-21.
+
+   Written as one rule, `html[data-motion='reduced'] .reveal` is (0,2,1)
+   and beat EVERY section's `:hover` (0,2,0) outright — so under reduced
+   motion a Reveal-wrapped card did not respond to the pointer at all,
+   while Projects' `.bigCard` (not Reveal-wrapped, so never matched) lifted
+   normally. Two cards side by side behaving differently, from a rule in a
+   file neither of them mentions.
+
+   Keeping the lift is not a relaxation of the reduced-motion contract.
+   motion.css collapses `transition-duration` to 0.01ms globally, so what
+   remains is an INSTANT resting-state change on pointer-over — the same
+   category as the `border-color` shift declared beside it in every one of
+   those hover rules, and the same principle that leaves CursorGlow and the
+   portrait tilt ungated: a 1:1 response to the user's own pointer is not
+   autoplaying motion. motion.css:70 has said "Hover transitions KEPT —
+   user-initiated and brief" since PF-73; this rule was quietly
+   contradicting it for `transform` only.
+
+   Specificity, since it is doing real work: (0,3,1) — `:not(:hover)`
+   contributes its argument's (0,1,0). It therefore still beats
+   `.reveal[data-type='pop']`'s `scale(.25) rotate(-28deg)` (0,2,0) when
+   not hovered, which is what keeps a pop element from resting shrunk.
+   While hovered it simply does not match, and the section's `:hover`
+   inherits the same tie against `.reveal[data-reveal='in']` that already
+   governs it with motion allowed — identical mechanism in both modes,
+   which is the other half of the point.
+
+   Do NOT merge these two rules back together. */
+html[data-motion='reduced'] .reveal:not(:hover) {
   transform: none;
 }

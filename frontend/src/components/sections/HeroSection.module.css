@@ -153,19 +153,28 @@ section.hero {
   color: var(--text);
 }
 
-/* The pill is itself a Reveal, so two `transition` declarations compete
-   on one element: Reveal's entrance and the pill's own hover. They
-   cannot merge — one wins outright — so this hands the element over
-   deliberately once the entrance has finished.
-   [data-reveal='in'] is set by Reveal at that exact moment, and the
-   doubled attribute selector clears .reveal[data-type='pop']'s
-   specificity (0,2,0) rather than tying with it and depending on
-   stylesheet order. During the entrance the pop transition still owns
-   the element; afterwards the hover values do. */
-.rolePill[data-reveal='in'][data-type='pop'] {
-  transition: border-color .25s, background .25s, transform .25s;
-}
+/* ⚠️ NO `transition` HERE — not gated, not at all. PF-93, 2026-08-21.
 
+   This pill is `type="pop"`, so `.reveal[data-type='pop']` owns the
+   property for the life of the element: opacity .5s ease / transform .9s
+   cubic-bezier(.34,1.56,.4,1). Different values from the `up` cards in
+   About and Skills, and deliberately so — those inherit the base
+   `.reveal`. Both sets are the prototype's, from hideReveals() lines 954
+   and 962.
+
+   ⚠️ THE PROTOTYPE'S OWN `.25s` DECLARATION IS DEAD CODE, and PF-80
+   transcribed it faithfully. Line 102 really does carry
+   `transition:border-color .25s,background .25s,transform .25s` in its
+   style attribute — but the element is also `data-reveal="pop"`, and
+   hideReveals() writes `el.style.transition` into the SAME declaration
+   block, overwriting it before it can ever apply. So the design never
+   renders that value, and it eases `border-color` and `background`,
+   which the design snaps. Do not put it back by reading line 102.
+
+   The gate that used to be here also broke the entrance: data-reveal="in"
+   is set at the entrance's START, not its end (Reveal.jsx:57). Measured
+   on the production build — opacity reached 1 at 0ms and the pop settled
+   at 448ms instead of ~900ms. */
 .rolePill:hover {
   border-color: var(--acc, #FCA311);
   background: rgba(252, 163, 17, .12);
@@ -207,14 +216,16 @@ section.hero {
   animation-iteration-count: infinite;
 }
 
-/* Same specificity trick as .rolePill: this element is a Reveal, so
-   Reveal's pop transition owns it during the entrance and hands over
-   afterwards. Without the doubled attribute selector the two `transition`
-   declarations tie at (0,2,0) and stylesheet order decides. */
-.loudCta[data-reveal='in'][data-type='pop'] {
-  transition: border-color .25s, background .25s, box-shadow .25s, transform .25s;
-}
+/* ⚠️ NO `transition` HERE — not gated, not at all. PF-93, 2026-08-21.
+   `.reveal[data-type='pop']` owns the property, same as .rolePill above.
 
+   This element is the one of the four with NO prototype counterpart — it
+   is an owner-requested addition (2026-08-17), so there is nothing to be
+   faithful to and the deletion is a consistency call, not a transcription
+   fix. Its three siblings now let Reveal own the hover ease; a CTA sitting
+   in the same pill row and easing on a different curve would read as a
+   bug. `border-color`, `background` and `box-shadow` snap, as they do on
+   .rolePill. */
 .loudCta:hover {
   border-color: var(--acc, #FCA311);
   background: rgba(252, 163, 17, .18);
