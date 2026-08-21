@@ -431,7 +431,8 @@ responsive + a11y audit.** PF-85 → PF-92.
 | --- | --- | --- |
 | PF-85 | Projects section, API-wired | ✅ |
 | PF-93 | Reveal entrance regression — withdraw the hover deviation | ✅ |
-| PF-86 → PF-92 | Blog teaser, Contact, Footer, cutover, audit | not started |
+| PF-86 | Blog teaser (Field Notes), API-wired | ✅ |
+| PF-87 → PF-92 | Contact, Footer, cutover, audit | not started |
 
 **PF-93 was inserted ahead of PF-86 deliberately.** It blocks PF-86/87/88:
 all three are `Reveal`-heavy, and every one of them would have asked "how
@@ -469,7 +470,7 @@ whole-file returns **7** matches, and four of them are the project cards'
 `data-cardbg` layers, which a `background:` grep misses entirely. See the
 PF-85 entry.
 
-Still to triage before PF-86: the résumé subsystem's fate. The CORS
+Still to triage before PF-87: the résumé subsystem's fate. The CORS
 allowlist question was **decided and shipped in PF-85** (see below).
 
 There is **no separate Sprint 11 retrospective document**, matching Sprint
@@ -557,6 +558,43 @@ than copied forward:
   The two remaining differences are both the design's: `pop` reveals get a
   different curve from `up` ones, and `.bigCard` carries no `data-reveal`
   at all so nothing eases it. Nothing left undecided here.
+- **⚠️ The seeded blog posts have ONE `createdAt` and all read "1 MIN
+  READ".** `seed.js` writes them with a single `insertMany`, so
+  `timestamps: true` stamps all four identically
+  (`2026-08-09T05:56:05.288Z`, read off the live API), and they are short
+  enough that `readingTimeMinutes` rounds to 1 on every one. The design
+  wants JUL/JUN/MAY/APR 2026 and 6/7/4/5 MIN. PF-86 renders both fields
+  honestly, so the teaser currently reads `AUG 2026 · 1 MIN READ` four
+  times, and the post ORDER is a four-way tie that PF-86 breaks on `_id`
+  ascending purely to keep it deterministic. Fixing it is a seed change
+  plus, against the live cluster, a production write like migration 004 —
+  the owner's call. Details in the PF-86 entry.
+- **⚠️ Two inherited contrast failures in the Blog teaser, reported and
+  NOT fixed** (PF-86, 2026-08-21) — both are the prototype's own values,
+  so they follow the PF-83 stat-label precedent of raise-then-change:
+
+  | node | dark | light |
+  | --- | --- | --- |
+  | compact-row meta (`--muted2`, 10px) | **4.30** ✗ | 5.79 ✅ |
+  | featured meta separator `·` | 5.20 ✅ | **1.44** ✗ |
+
+  The first is PF-83's About finding again, same token at a small size on
+  a translucent surface, dark-only; `--muted` is what fixed it there. The
+  second is a token-vs-literal split *inside one section* — the featured
+  separator is a literal `rgba(252,163,17,.7)` (prototype line 435) while
+  the compact rows' is `var(--acc)` at `opacity:.65` (line 446), so only
+  the featured one keeps dark theme's amber on light paper. Same shape as
+  the terminal caret. Both batch naturally into PF-91.
+- **⚠️ `mix-blend-mode: screen` is invisible in light theme.** The
+  featured card's sweep layer computes to a +1/+1/+0 per-channel change
+  over the light card's paper — pixel-differenced, not reasoned. It works
+  in dark. The design's own value, so reported rather than adjusted; the
+  failure mode is that the effect simply does not exist in one theme.
+- **`frontend/src/assets/about-portrait.heic` is untracked and has ZERO
+  consumers.** 1.2MB, file date May 2025, dropped into `src/assets/`
+  outside any ticket — grepping `heic` across `src/` and `e2e/` returns
+  nothing. Not PF-86's; noticed while checking the tree before hand-off.
+  Delete it or track it deliberately.
 - **`migrations/004-skill-order.js` has still NOT been run.** Confirmed
   live, not inferred: `GET /api/skills` returns LANGUAGES as
   `JavaScript → Python → Java → HTML5 → CSS3`, so **Java is still third**
@@ -1637,6 +1675,263 @@ nothing clears them on the normal path. Recorded because "it's closer to
 the design" is not on its own a licence to change something the owner
 signed off on.
 
+**Built by PF-86 — the Blog teaser is Phase 2, and the first section whose
+links had to be decided rather than transcribed:**
+
+```
+frontend/src/
+  components/sections/
+    BlogSection.jsx  + .module.css   REPLACES the Phase 1 Blog, same path
+    __tests__/BlogSection.test.jsx   46 tests, every guard mutation-tested
+```
+
+**No other file changed.** `sweep` was already in `base.css` and `kf-sweep`
+already in `animations.css` (PF-81's About portrait), so this is the
+carrier's second consumer and neither file needed touching. Confirmed in
+the built bundle: 36 keyframes defined, **0 unresolved**, and the sweep
+layer reports `getAnimations()` → one running `sweep` at 9000ms.
+
+Wired to `useBlogPosts()` — third API-driven section after Skills and
+Projects. Already inside an `<ErrorBoundary>` in `HomePage.jsx`; checked,
+not assumed. `ContactSection` is still the only bare one.
+
+**⚠️ All five links point at `/blog`, and NEITHER `/blog` nor
+`/blog/:slug` exists.** The prototype gives all four post links
+`href="#blog"` — the section's own id, so a click scrolls to the section
+you are already in. That is a design-tool artefact: Claude Design has no
+post-detail screen to target, which is exactly why its fifth link goes to
+`Blog.dc.html`, the one place it had somewhere real to point. Owner's
+call, 2026-08-21: all five go to `/blog`, Sprint 13 narrows the post cards
+to `/blog/${slug}`.
+
+Three things worth knowing about that:
+
+- **They render `NotFoundPage` today.** `App.jsx` has `/`, `/admin/login`,
+  `/admin`, `/admin/*` and `*` — nothing else. This is not a regression:
+  Phase 1's `BlogSection` linked to `/blog/${post.slug}` with a plain
+  `<a href>` and has been hitting the 404 for as long as it has existed.
+- **React Router `<Link>`, via `Reveal`'s `as` prop** (`as={Link} to=…`).
+  `Reveal` renders `<Tag ref={ref} …>` and React Router v7 forwards `ref`,
+  so this needed no change to `Reveal`. A plain `<a href="/blog">` would
+  full-page reload, discarding the TanStack Query cache and replaying the
+  splash.
+- **The route target is one constant, `BLOG_ROUTE`.** Sprint 13 narrows
+  the post cards by changing where three `to=` props read from, not by
+  hunting five string literals.
+
+**⚠️ The live seed makes the design's own ordering unreproducible, and
+this is data rather than code.** `seed.js` writes all four posts with one
+`insertMany`, so `timestamps: true` stamps them with an IDENTICAL
+`createdAt` — `2026-08-09T05:56:05.288Z`, read off the live API, not
+inferred. Two consequences:
+
+| | prototype | live data |
+| --- | --- | --- |
+| dates | JUL · JUN · MAY · APR 2026 | **AUG 2026** ×4 |
+| read times | 6 · 7 · 4 · 5 MIN | **1 MIN** ×4 |
+| order | MERN, ClearDrive, Docker, JAX-RS | **undefined** — a four-way tie |
+
+`readingTimeMinutes` is a real schema field, derived by `Blog.js`'s
+pre-validate hook from a word count across `sections[]`; the seeded posts
+are simply short enough to round to 1. Nothing is computed in the
+component.
+
+The tie is the part that bites: `sort({ createdAt: -1 })` over four equal
+values is free to return any order, and the live API currently hands back
+**JAX-RS first**, which would put it in the LATEST POST slot. So
+`byRecency()` tiebreaks on **`_id` ascending**, which recovers insertion
+order because an ObjectId's trailing counter increments within a single
+`insertMany` — and insertion order is the prototype's own 01·02·03·04.
+Verified against the production build: MERN featured, then ClearDrive,
+Docker Compose, JAX-RS.
+
+It is a degenerate-case fallback and nothing more — the moment two posts
+have different `createdAt` values the date comparison decides and the
+`_id` branch never runs. **Giving the seed real dates and read times is
+the actual fix**, and it is on the Outstanding work list rather than done
+here: it is a backend change outside this ticket and, against the live
+cluster, a production write like migration 004.
+
+Five things worth knowing before touching the section:
+
+- **The section wash comes OUT, and unlike Projects this is a real
+  removal.** The prototype's line 414 carries
+  `linear-gradient(180deg, rgba(var(--gnd),.3) 0%, rgba(var(--ftr),.68)
+  50%, rgba(var(--gnd),.3) 100%)`. Omitted under the 2026-08-18 site-wide
+  decision and guarded as an **absence**, so a fidelity pass diffing
+  against the prototype does not read it as un-transcribed. Faithful
+  transcription is the trap here — the instinct that got PF-85 right gets
+  this wrong.
+- **The featured card's `background-size: 100% 320%` is card content, not
+  a wash**, and a separate test asserts it survives. This is the
+  `background-size`-grepped-separately lesson landing for real: a
+  `background:` grep over the section finds the wash and misses the sweep
+  layer entirely.
+- **`align-items: start` on the outer grid, not `stretch`.** Projects'
+  featured row uses `stretch` and this one must not — the right column is
+  three short rows plus a link, and stretching it to the featured card's
+  height spreads its 12px gaps out to fill the difference. Measured:
+  featured 394px against a column of 629px, not stretched.
+- **`min-width: 0` on the compact row's body is load-bearing, and the
+  control proves it.** ⚠️ It takes a genuinely unbreakable token to see:
+  a long title of ordinary words wraps, and a hyphenated slug breaks at
+  its hyphens, so both show **zero difference** with the declaration
+  removed — measured, after a first control that proved nothing. With a
+  60-character unbroken token at 375px: `min-width: 0` holds the row at
+  341px, and removing it grows the row to **787px**, past the card and
+  the viewport. (The text still spills *inside* the card in that case;
+  the prototype declares no `overflow-wrap` either, so that is left as
+  found.) Realistic titles do not overflow at any width down to 320px.
+- **The browse-all link renders while loading.** It is a fixed link with
+  no dependency on the query, so gating it would blank it for nothing —
+  same reasoning as PF-85's terminal panel.
+
+**The tag pill is a FOURTH variant and composes nothing:**
+
+| | patterns `.pill` | Skills | Projects | **Blog** |
+| --- | --- | --- | --- | --- |
+| `font-size` | 11px | 12px | 11px | **10.5px** |
+| `padding` | 10px 18px | 7px 12px | 6px 11px | **5px 10px** |
+| `letter-spacing` | .1em | — | — | **.06em** |
+| `background` | none | `rgba(252,163,17,.08)` | none | as Skills |
+| `border` | `rgba(var(--ln),.18)` | `rgba(252,163,17,.22)` | `rgba(var(--ln),.16)` | as Skills |
+
+Closest to Skills' but scaled down on three properties, so composing it
+would be a near-miss that renders slightly too large rather than visibly
+wrong. `patterns.module.css`'s `.pill` still has no external consumer.
+
+**⚠️ The pill is the case PF-93's rule does NOT cover, and this section is
+where the distinction earns its keep.** Six elements here are
+Reveal-wrapped — `.eyebrow`, `.heading`, `.count`, `.featuredCard`,
+`.row`, `.browseAll` — and **none declares a `transition`**. The pill sits
+*inside* the reveal target rather than being it, so the prototype's
+`hideReveals()` never writes an inline transition over it and its own
+declaration is what applies, in the export as much as here. Measured on
+the production build:
+
+| element | `transition-property` / duration | hover result |
+| --- | --- | --- |
+| `.featuredCard` | `opacity, transform` / `.85s, 1.05s` | eases to `translateY(-6px)`; border **snaps** at 30ms |
+| `.row` | `opacity, transform` / `.85s, 1.05s` | eases to `translateX(8px)`; bg + border **snap** |
+| `.browseAll` | `opacity, transform` / `.85s, 1.05s` | bg + border snap, no transform (the prototype's hover has none) |
+| `.tagPill` | its own, `.25s` ×4 | `translateY(-3px) scale(1.05)`, accent fill |
+
+All four values come from `.reveal` except the pill's. PF-93's repo-wide
+scanner picks up all six new classes automatically — confirmed by
+mutation, a `transition` added to `.featuredCard` fails it.
+
+**Loading and error states follow Skills and Projects.** Error keeps the
+section, the `<h2>` and the `#blog` anchor — `Navbar.jsx:12` links to it —
+and drops only the grid, logging from an effect keyed on the error rather
+than the render body. **The empty state also keeps the section**, where
+Phase 1 returned `null`; that was the dead-anchor bug.
+
+The post count is derived — `${posts.length} POSTS · NOTES FROM THE
+BUILD`, of every published post rather than of the four on screen, so it
+diverges the moment a fifth is published. **Rendered only when there is a
+real number**: during a cold load or after a failed fetch it would
+otherwise read "0 POSTS", which is wrong rather than merely absent.
+
+**Placeholder heights are measured and, as in PF-85, neither has a single
+correct value** — a card's height follows its excerpt length and how its
+tags wrap. `offsetHeight` of the live elements:
+
+| width | `.featuredCard` | the three `.row`s |
+| --- | --- | --- |
+| 1600 | 394 | 177 · 177 · 177 |
+| 1440 | 394 | 177 · 177 · 177 |
+| 1280 | 420 | 177 · 177 · 177 |
+| 1024 | 395 | 255 · 197 · 198 |
+| 900 | 404 | 271 · 214 · 214 |
+| 768 | 422 | 292 · 235 · 214 |
+| 600 | 332 | 172 · 172 · 172 |
+| 375 | 421 | 270 · 235 · 214 |
+
+394 and 177 are exact at the two widths the two-column design is drawn
+for, and 177 at 1280 as well. Both are `min-height`, so an under-estimate
+grows the section rather than clipping.
+
+**Live verification, measured in Chromium against the production build**,
+served from `dist-verify/` behind a same-origin proxy — `.env.production`
+is still the Railway placeholder:
+
+| Check | Result |
+| --- | --- |
+| `scroll-margin-top` | **71px**, not 80 — the `[id]` tie avoided |
+| section background | `none` / `rgba(0,0,0,0)` / `auto` |
+| outer grid | `align-items: start`; featured 394px vs column 629px, **not stretched** |
+| sweep layer | `getAnimations()` → **1 running**, name `sweep`, **9000ms** |
+| bundle keyframes | 36 defined, **0 unresolved** |
+| the five links | all `/blog`, all `<a>`, **0** resolving to `#blog` |
+| numerals | `01 02 03 04`, all four `aria-hidden` |
+| badge | exactly **1** `LATEST POST` |
+| post count | `4 POSTS · NOTES FROM THE BUILD` |
+| order | MERN featured, then ClearDrive · Docker · JAX-RS |
+| splash gate | **0/8** reveals mid-splash, **8/8** after it lifts |
+| reduced motion | sweep **0 running / 0 total**; all four hovers still apply at ~1e-05s |
+| long titles | no overflow at 1440 → 320px; chevron inside, no page h-scroll |
+
+**⚠️ `mix-blend-mode: screen` in light theme reads as NOTHING, not as a
+bright band** — the ticket asked which, and it is neither the sheen nor
+the artefact. `screen` can only lighten, and amber `rgba(252,163,17,.14)`
+at layer opacity `.5` gives an effective alpha of **0.07** over the light
+card's near-white paper, which computes to a **+1/+1/+0** per-channel
+change. Pixel-differenced against the same card with the layer hidden:
+the flat padding margin shows **no lightening at all**, only ≤6/255 of
+negative compositing noise. Dark theme is where it works — surface
+`[8,10,17]` → `[17,19,25]`, a faint warm lift. **Reported, not adjusted**:
+it is the design's own value, and the failure mode is invisibility rather
+than a wrong-looking band.
+
+**⚠️ Two inherited contrast failures, reported rather than fixed** — both
+are the prototype's own values, so they follow the PF-83 stat-label
+precedent: raise, get sign-off, then change. Measured against each node's
+composited background:
+
+| node | dark | light |
+| --- | --- | --- |
+| compact-row meta (`--muted2`, 10px) | **4.30** ✗ | 5.79 ✅ |
+| featured meta separator `·` | 5.20 ✅ | **1.44** ✗ |
+
+The first is *exactly* PF-83's About finding again — `--muted2` at a small
+size on a translucent surface, failing dark-only, and `--muted` is the
+one-step-lighter token that fixed it there. The second is a token-vs-
+literal split inside one section: the featured separator is a literal
+`rgba(252,163,17,.7)` (prototype line 435) while the compact rows' is
+`var(--acc)` at `opacity:.65` (line 446), so the featured one keeps dark
+theme's amber on light paper and the row one flips to `#7E4800`. Same
+shape as the terminal caret fixed in PF-85's follow-up.
+
+Everything else passes AA in both themes. The three decorative values —
+the `.09` ghost numeral (1.11 / 1.05) and the `.3` row numerals (1.83 /
+1.20) — are measured and reported per the ticket, not fixed; all are
+`aria-hidden`, as Projects' `.28` numerals are.
+
+**⚠️ The rate limiter cost a verification round, exactly as documented.**
+Repeated production-build page loads exhausted the backend's 100
+requests / 15 min / IP and `GET /api/blog` started returning **429**. It
+presents as the section rendering its error state for no reason — which
+did at least prove the error state works in a real browser. The
+measurement scripts moved to Playwright `route.fulfill()` with a fixture,
+which is what the Silent-failures entry already recommends.
+
+**⚠️ And a new Playwright trap, worth adding to that habit: `page.route()`
+matches handlers in REVERSE registration order.** A narrow
+`**/api/blog` stub registered *before* a `**/api/**` catch-all is silently
+overridden by the catch-all, which served `data: []` — so the section
+rendered its loading placeholder and every probe read `undefined` off a
+card that was not there. Register the catch-all first.
+
+**PF-86 created no new orphans and removed none.** `TerminalWindow`,
+`useTypewriter` and `apiUrl` are all still orphaned, still deliberate,
+still cutover work.
+
+`useInView` drops to **exactly one** consumer — `ContactSection`, PF-88's.
+Counted, not inferred: PF-82 recorded three (Projects, Blog, Contact),
+PF-85 took Projects and this ticket takes Blog. So the moment Contact is
+rebuilt, `useInView` and its test become the fourth orphan on the cutover
+list, and it is worth expecting rather than rediscovering.
+
 ## Stack
 
 React 19 · Vite · Tailwind v4 · CSS Modules · React Router v7 · TanStack Query v5
@@ -2513,6 +2808,27 @@ error message:
 
   Fix: `lsof -sTCP:LISTEN -ti:5174 | xargs kill`, re-run. 5/5, then 22/22.
   **Check 5174 before believing any E2E auth failure.**
+- **⚠️ `page.route()` matches handlers in REVERSE registration order, so
+  a catch-all registered LAST silently swallows every narrow stub before
+  it.** Cost a verification round in PF-86. The natural way to write it
+  reads correctly and does the opposite:
+
+  ```js
+  await page.route('**/api/blog', fulfillWithFixture);   // registered 1st
+  await page.route('**/api/**',   fulfillWithEmptyArray); // registered 2nd — WINS
+  ```
+
+  Playwright tries the most-recently-registered handler first, so
+  `/api/blog` got `{ data: [] }`. The section then rendered its **loading
+  placeholder**, and every probe read `undefined` off a card that was
+  never there — the failure presents as "my structural selectors are
+  wrong", not as "my mock is wrong", because the page looks fine and the
+  network tab shows a clean `200`. Register the catch-all FIRST.
+
+  Worth pairing with the rate-limiter entry below: they push in opposite
+  directions. Hammering the real API exhausts the limiter, so the fix is
+  to stub — and then the stub has its own way of silently serving the
+  wrong thing.
 - **A root `node_modules/` is NOT gitignored.** The repo's root
   `.gitignore` has no `node_modules` entry — only `frontend/` and
   `backend/` cover their own. Running `npx vitest` from the REPO ROOT

@@ -1,0 +1,465 @@
+/* frontend/src/components/sections/BlogSection.module.css
+ *
+ * Transcribed from `docs/design/Portfolio Revolution.dc.html` lines
+ * 414-488 — the home page's Field Notes TEASER. The Field Notes page
+ * itself is `Blog.dc.html` and is Sprint 13's.
+ *
+ * Every value here is the prototype's, verbatim — no rounding.
+ *
+ * Font stacks go through the tokens (`var(--font-mono)`,
+ * `var(--font-display)`, `var(--font-body)`) rather than the
+ * prototype's literal `'JetBrains Mono', monospace` / `'Anton',
+ * sans-serif` / `'Space Grotesk', sans-serif`. Not cosmetic:
+ * `--font-display` includes the metric-matched `'Anton Fallback'` face
+ * declared in tokens.css, so the literal stack would drop the
+ * size-adjusted fallback and put the font-swap reflow back. Same choice
+ * Hero, About, Skills and Projects made.
+ *
+ * ⚠️ PF-93 governs this file. Five elements here are Reveal-wrapped —
+ * `.eyebrow`, `.heading`, `.count`, `.featuredCard`, `.row`,
+ * `.browseAll` — and NONE declares a `transition`. `Reveal` owns that
+ * property on the element it renders and keeps owning it after the
+ * entrance, so a hover transition declared here would replace the
+ * entrance easing outright. The single `transition` in this file is on
+ * `.tagPill`, which is not a Reveal target — see the note above it.
+ */
+
+/* `section.blog`, not `.blog`. Phase 1's global.css:338 carries
+   `[id] { scroll-margin-top: 5rem }` at specificity (0,1,0) — identical
+   to a bare class, so the tie breaks on stylesheet order and the global
+   rule wins, computing 80px for a 71px header and landing the eyebrow
+   9px low. The element qualifier makes it (0,1,1) and settles it. */
+section.blog {
+  position: relative;
+  padding: clamp(80px, 12vh, 140px) clamp(16px, 4vw, 40px);
+  /* ⚠️ Deliberately NO background. The prototype's line 414 declares
+       background: linear-gradient(180deg,
+         rgba(var(--gnd),.3) 0%, rgba(var(--ftr),.68) 50%,
+         rgba(var(--gnd),.3) 100%)
+     and it is omitted under the site-wide wash removal (2026-08-18,
+     owner-requested) so the StarfieldCanvas reads continuously behind
+     the whole page. Unlike Projects — which never had one in either
+     phase — this is a real removal, so it is asserted as an ABSENCE in
+     the test file: a later fidelity pass diffing against the prototype
+     would otherwise read it as un-transcribed and paint it back.
+
+     The featured card's `background-size: 100% 320%` sweep layer is
+     CARD content, not a section wash, and stays. */
+  /* Not the prototype's — it has no fixed header to clear. */
+  scroll-margin-top: var(--header-h);
+}
+
+.inner {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+/* ── shared patterns ──────────────────────────────────────────────────
+   Fourth consumer of patterns.module.css.
+
+   `margin-bottom` is local rather than composed: the prototype's five
+   eyebrows do not agree on it — About 38px (line 194), Skills 14px
+   (246), Projects 14px (311), Blog 14px here (416). An override on the
+   composed class would tie at (0,1,0) and be decided by bundle emission
+   order rather than by intent. */
+.eyebrow {
+  composes: section-eyebrow from '../../styles/patterns.module.css';
+  margin-bottom: 14px;
+}
+.eyebrowLabel { composes: section-eyebrow-label from '../../styles/patterns.module.css'; }
+.eyebrowLine  { composes: section-eyebrow-line from '../../styles/patterns.module.css'; }
+.outlined     { composes: outline-text from '../../styles/patterns.module.css'; }
+
+/* The 44px lives on the row, not on the heading — unlike Projects,
+   where the heading is the last header element. Here the heading and
+   the post count share a baseline-aligned row (prototype line 420). */
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 44px;
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5.4vw, 72px);
+  line-height: .95;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0;
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .14em;
+  color: var(--muted2);
+  margin: 0;
+}
+
+/* ── outer grid ───────────────────────────────────────────────────────
+   ⚠️ `align-items: start`, NOT the `stretch` Projects' featured row
+   uses. The right column is a short stack of rows plus a link; letting
+   it stretch to the featured card's height would spread its 12px gaps
+   out to fill the difference. Prototype line 425. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: clamp(20px, 3vw, 34px);
+  align-items: start;
+}
+
+/* ── featured card ────────────────────────────────────────────────────
+   Reveal-wrapped (prototype line 427, data-reveal="up" data-delay="80"),
+   so it declares NO transition — see the file header. The hover lift
+   therefore eases on Reveal's own `transform 1.05s cubic-bezier(
+   .16,1,.3,1)` while `border-color` and `box-shadow` snap, which is
+   what the prototype renders too: hideReveals() writes that transition
+   inline and nothing clears it, and only opacity/transform are in it. */
+.featuredCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: clamp(24px, 3.2vw, 38px);
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(155deg,
+    rgba(252, 163, 17, .12),
+    rgba(var(--srf), .72) 42%,
+    rgba(var(--gnd), .9));
+  border: 1px solid rgba(252, 163, 17, .3);
+  color: inherit;
+  box-shadow: 0 30px 70px rgba(var(--shd), .5);
+}
+
+/* `color: inherit` is repeated in the hover deliberately — tokens.css:127
+   carries `a:hover { color: var(--strong) }`, and although (0,2,0) beats
+   its (0,1,1) here, the prototype declares it too and it is what keeps
+   the card's inherited text colour from flipping. Same on the two
+   link classes below. */
+.featuredCard:hover {
+  color: inherit;
+  transform: translateY(-6px);
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 40px 90px rgba(var(--shd), .62);
+}
+
+/* Clipped top-right by the card's overflow: hidden — that is the
+   design, not an accident of the negative offsets. */
+.ghostNumeral {
+  position: absolute;
+  top: -30px;
+  right: -10px;
+  font-family: var(--font-display);
+  font-size: clamp(120px, 17vw, 190px);
+  line-height: 1;
+  color: rgba(252, 163, 17, .09);
+}
+
+/* ⚠️ `composes` must be the FIRST declaration, and the animation is
+   spelled out as longhands. A keyframe named inside a *.module.css gets
+   scoped and resolves to nothing — the declaration stays valid, the
+   element simply never animates, and getComputedStyle still reports it
+   as running. `element.getAnimations().length` is the only tell.
+
+   `sweep` is in styles/keyframes/base.css and `kf-sweep` has been in
+   styles/animations.css since PF-81 (About's portrait); this is its
+   second consumer, so neither file needed a change. */
+.sweep {
+  composes: kf-sweep from global;
+  position: absolute;
+  inset: 0;
+  opacity: .5;
+  mix-blend-mode: screen;
+  background: linear-gradient(180deg,
+    transparent 44%,
+    rgba(252, 163, 17, .14) 50%,
+    transparent 56%);
+  background-size: 100% 320%;
+  animation-duration: 9s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* The six content children each carry `position: relative` to clear the
+   two absolute layers above. The prototype declares it per element
+   rather than establishing a stacking context, and PF-85's
+   `.card > *:not(…)` blanket rule is deliberately NOT ported here — it
+   would also hit `.ghostNumeral` and `.sweep`, which must stay behind. */
+.badge {
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  padding: 5px 10px;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+
+.featuredMeta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.featuredSep { color: rgba(252, 163, 17, .7); }
+
+.featuredTitle {
+  position: relative;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.4vw, 42px);
+  line-height: 1.04;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0;
+}
+
+.featuredExcerpt {
+  position: relative;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.75;
+  margin: 0;
+}
+
+.featuredTagRow {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.featuredCta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  color: var(--acc, #FCA311);
+}
+
+/* ── right column ─────────────────────────────────────────────────────
+   Four children in one 12px grid: three compact rows and the
+   browse-all link. The link is INSIDE this column, not a sibling of
+   `.grid` (prototype line 481). */
+.column {
+  display: grid;
+  gap: 12px;
+}
+
+/* Reveal-wrapped (line 441 et al.) — no transition, same as the
+   featured card. The hover here slides horizontally rather than
+   lifting. */
+.row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(14px, 2.5vw, 26px);
+  padding: 20px 22px;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--ln), .08);
+  background: rgba(var(--srf), .34);
+  color: inherit;
+}
+
+.row:hover {
+  color: inherit;
+  background: rgba(var(--srf), .7);
+  border-color: rgba(252, 163, 17, .45);
+  transform: translateX(8px);
+}
+
+/* .3, not Projects' .28. Two different values in the design; they are
+   deliberately not unified. */
+.rowNumeral {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1;
+  color: rgba(252, 163, 17, .3);
+}
+
+/* ⚠️ `min-width: 0` is load-bearing. A grid item's default
+   `min-width: auto` refuses to shrink below its content's intrinsic
+   width, so a long unbroken title pushes the `1fr` column wider than
+   its share and blows the row out past the card — the chevron column
+   gets shoved off the edge. Prototype line 443. */
+.rowBody {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.rowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--muted2);
+}
+
+.rowSep {
+  color: var(--acc, #FCA311);
+  opacity: .65;
+}
+
+.rowTitle {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: clamp(15px, 1.7vw, 18.5px);
+  line-height: 1.3;
+  color: var(--strong);
+}
+
+.rowExcerpt {
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.rowTagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.rowChevron {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--acc, #FCA311);
+}
+
+/* ── browse-all link ──────────────────────────────────────────────────
+   Dashed, not solid. Reveal-wrapped (line 481) — no transition. */
+.browseAll {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 22px;
+  border-radius: 16px;
+  border: 1px dashed rgba(252, 163, 17, .35);
+  background: rgba(252, 163, 17, .05);
+  color: inherit;
+}
+
+.browseAll:hover {
+  color: inherit;
+  background: rgba(252, 163, 17, .12);
+  border-color: var(--acc, #FCA311);
+}
+
+.browseLabel {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .14em;
+  color: var(--acc, #FCA311);
+}
+
+.browseChevron {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--acc, #FCA311);
+}
+
+/* ── tag pill — the FOURTH variant, composed from nothing ─────────────
+   Against the three that already exist:
+
+                 Skills      Projects    Blog (here)
+     font-size   12px        11px        10.5px
+     padding     7px 12px    6px 11px    5px 10px
+     tracking    —           —           .06em
+     background  .08 accent  none        .08 accent
+     border      .22 accent  --ln .16    .22 accent
+
+   Closest to Skills' but scaled down on three properties, so composing
+   it would be a near-miss that renders slightly too large rather than
+   visibly wrong. `patterns.module.css`'s `.pill` is a fifth shape again
+   (inline-flex, 10px 18px, plus a gap and letter-spacing neither
+   prototype pill has) and still has no external consumer.
+
+   ⚠️ This pill DOES declare a transition, and that is correct rather
+   than an exemption from PF-93. The rule governs elements `Reveal`
+   RENDERS; this one sits inside the reveal target, so the prototype's
+   hideReveals() never writes an inline transition to it and its own
+   declaration is what applies — in the export as much as here. Same
+   case as Skills' `.pill` and Projects' `.techPill`, and as
+   `patterns.module.css`'s `.pill:not([data-reveal])`.
+
+   Verified in Step 1: no `[data-reveal]` appears on any pill in the
+   prototype's blog section — the attribute is on the five links only. */
+.tagPill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(252, 163, 17, .08);
+  border: 1px solid rgba(252, 163, 17, .22);
+  color: var(--text);
+  cursor: default;
+  transition: background .25s, color .25s, border-color .25s, transform .25s;
+}
+
+.tagPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-3px) scale(1.05);
+}
+
+/* ── loading placeholders ─────────────────────────────────────────────
+   Bare divs rather than Reveals, and aria-hidden: a placeholder that
+   animates in and is then replaced animates the same grid slot twice.
+   No skeleton content, no shimmer — following Skills and Projects.
+
+   ⚠️ Both heights are MEASURED in Chromium against the real filled
+   elements, and — as in PF-85 — NEITHER has a single correct value,
+   because a card's height follows its excerpt length and how its tags
+   wrap. offsetHeight of the live section, eight widths:
+
+     width   .featuredCard   the three .row elements
+      1600        394        177 · 177 · 177
+      1440        394        177 · 177 · 177
+      1280        420        177 · 177 · 177
+      1024        395        255 · 197 · 198
+       900        404        271 · 214 · 214
+       768        422        292 · 235 · 214
+       600        332        172 · 172 · 172
+       375        421        270 · 235 · 214
+
+   394 and 177 are exact at 1440 and 1600 — the widths the two-column
+   design is drawn for — and 177 is exact at 1280 as well. They are
+   `min-height`, so an under-estimate grows the section when data lands
+   rather than clipping anything, and with a 5-minute staleTime this is
+   only ever on screen during a cold load. */
+.featuredPlaceholder {
+  min-height: 394px;
+  border-radius: 24px;
+  border: 1px solid rgba(252, 163, 17, .3);
+  background: rgba(var(--srf), .34);
+}
+
+.rowPlaceholder {
+  min-height: 177px;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--ln), .08);
+  background: rgba(var(--srf), .34);
+}
