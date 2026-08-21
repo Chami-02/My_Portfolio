@@ -92,4 +92,35 @@ describe('Keyframe library (PF-69)', () => {
     expect(block.slice(0, 300)).toMatch(/rotate\(-360deg\)/);
   });
 
+  /**
+   * PF-85 corrected this to the prototype's own form (line 29).
+   *
+   * It used to read `0%,100%{opacity:1} 50%{opacity:0}`. Under
+   * `step-end` — the only way the prototype and PF-85's terminal caret
+   * use it — the two are identical: step-end holds each keyframe's value
+   * across the interval starting at it, so both give opacity 1 across
+   * [0,50) and 0 across [50,100).
+   *
+   * They diverge under any INTERPOLATING timing function. With `linear`
+   * the prototype's form holds 1 until 49% then snaps across one
+   * percent, while the old one cross-faded over both halves. `blink` is
+   * a shared library keyframe, so the next consumer may not pass
+   * step-end — this pins the form rather than the equivalence.
+   */
+  it('defines blink in the prototype form, not the normalised one', () => {
+    const block = base.slice(base.indexOf('@keyframes blink'));
+    // Take whole lines up to the rule's own closing brace at column 0.
+    // `indexOf('}')` would stop at the first INNER block's brace and
+    // silently assert against only the first keyframe step.
+    const lines = block.split('\n');
+    const body  = lines.slice(0, lines.indexOf('}') + 1).join('\n');
+    expect(body).toMatch(/0%,\s*49%\s*\{\s*opacity:\s*1/);
+    expect(body).toMatch(/50%,\s*100%\s*\{\s*opacity:\s*0/);
+    // The normalised shape must not come back. Line-anchored: an
+    // unanchored /0%,\s*100%/ matches the "0%, 100%" sitting INSIDE
+    // "50%, 100%" and fails against the correct file — the same
+    // anchoring lesson as FIX 2 at the top of this file.
+    expect(body).not.toMatch(/^\s*0%,\s*100%/m);
+  });
+
 });

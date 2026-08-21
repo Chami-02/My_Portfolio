@@ -32,25 +32,41 @@ export default defineConfig({
     },
   ],
 
-  // ── PF-66 ──────────────────────────────────────────────────
+  // ── PF-66, corrected in PF-85 ──────────────────────────────
   // Playwright starts and owns both processes locally, so the E2E backend
   // can only ever be the one on its own database. In CI, the `e2e` job in
   // ci.yml starts both servers itself (for health-check polling and log
-  // capture) on these same ports — reuseExistingServer is therefore always
-  // true, not just outside CI: CI's servers ARE the servers Playwright would
-  // otherwise start, on the same ports with the same env, so attaching to
-  // them is correct rather than a CI-only relaxation of a safety check.
+  // capture) on these same ports, and Playwright must attach to them.
+  //
+  // ⚠️ `reuseExistingServer` is therefore `!!process.env.CI` — the INVERSE
+  // of Playwright's usual `!process.env.CI` idiom, and deliberately so.
+  //
+  // It used to be an unconditional `true`, which is a real trap locally: a
+  // stray `npm run dev` lands on 5174 automatically, because Vite silently
+  // increments past a busy 5173. Playwright then adopted that server AS-IS,
+  // with the environment it was launched with — serving
+  // `VITE_API_URL=http://localhost:5050/api`, the DEVELOPMENT backend. The
+  // suite drove the real page against the dev database: every page rendered
+  // perfectly and only the admin logins failed, with a 401, because the dev
+  // admin password is not the E2E fixture's. That cost two failures in
+  // PF-85's gate and read exactly like an auth regression.
+  //
+  // Worse than the CORS variant CLAUDE.md documents: there the API calls
+  // fail loudly, here only the DATA is wrong. So locally a busy port must
+  // fail loudly rather than be silently adopted. In CI there is no stray
+  // server — the workflow starts them on these ports with this env — so
+  // attaching is correct there and only there.
   webServer: [
     {
       command: 'npm run dev:e2e --prefix ../backend',
       port: E2E_API_PORT,
-      reuseExistingServer: true,
+      reuseExistingServer: !!process.env.CI,
       timeout: 60_000,
     },
     {
       command: `npm run dev -- --port ${E2E_WEB_PORT}`,
       port: E2E_WEB_PORT,
-      reuseExistingServer: true,
+      reuseExistingServer: !!process.env.CI,
       timeout: 60_000,
       env: {
         VITE_API_URL: `http://localhost:${E2E_API_PORT}/api`,

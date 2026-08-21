@@ -50,6 +50,7 @@
  * but the name.
  */
 
+.kf-blink      { animation-name: blink; }
 .kf-breathe    { animation-name: breathe; }
 .kf-dot        { animation-name: dot; }
 .kf-flicker    { animation-name: flicker; }

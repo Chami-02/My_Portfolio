@@ -1,0 +1,469 @@
+/* frontend/src/components/sections/ProjectsSection.module.css
+ *
+ * Transcribed from `docs/design/Portfolio Revolution.dc.html` lines
+ * 309-413. Every value here is the prototype's, verbatim — no rounding.
+ *
+ * Font stacks go through the tokens (`var(--font-mono)`,
+ * `var(--font-display)`) rather than the prototype's literal
+ * `'JetBrains Mono', monospace` / `'Anton', sans-serif`. Not cosmetic:
+ * `--font-display` includes the metric-matched `'Anton Fallback'` face
+ * declared in tokens.css, so the literal stack would drop the
+ * size-adjusted fallback and put the font-swap reflow back. Same choice
+ * Hero, About and Skills made.
+ *
+ * ⚠️ The terminal panel's hexes are the ONE exception and stay literal —
+ * see the note above `.terminal`.
+ */
+
+/* `section.projects`, not `.projects`. Phase 1's global.css:338 carries
+   `[id] { scroll-margin-top: 5rem }` at specificity (0,1,0) — identical
+   to a bare class, so the tie breaks on stylesheet order and the global
+   rule wins, computing 80px for a 71px header and landing the eyebrow
+   9px low. The element qualifier makes it (0,1,1) and settles it.
+   Phase 1's ProjectsSection had no scroll-margin-top at all, so it was
+   getting the 80px until now. */
+section.projects {
+  position: relative;
+  padding: clamp(80px, 12vh, 140px) clamp(16px, 4vw, 40px);
+  /* ⚠️ Deliberately NO background, and unlike Hero and Skills this is
+     not a removal — the prototype's Projects section has none either
+     (line 309), and neither did Phase 1's. Asserted as an absence in
+     the test file so a later fidelity pass does not "restore" one that
+     never existed. See Locked decisions on the site-wide wash removal. */
+  /* Not the prototype's — it has no fixed header to clear. */
+  scroll-margin-top: var(--header-h);
+}
+
+.inner {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+/* ── shared patterns ──────────────────────────────────────────────────
+   Third consumer of patterns.module.css, after About and Skills.
+
+   `margin-bottom` is local rather than composed: the prototype's three
+   eyebrows are 38px (About, line 194), 14px (Skills, 246) and 14px here
+   (line 311). PF-82 removed the varying property from the shared class
+   after PF-81 generalised About's 38px from a single observation — an
+   override here would tie at (0,1,0) with the composed class and be
+   decided by bundle emission order rather than by intent. */
+.eyebrow {
+  composes: section-eyebrow from '../../styles/patterns.module.css';
+  margin-bottom: 14px;
+}
+.eyebrowLabel { composes: section-eyebrow-label from '../../styles/patterns.module.css'; }
+.eyebrowLine  { composes: section-eyebrow-line from '../../styles/patterns.module.css'; }
+.outlined     { composes: outline-text from '../../styles/patterns.module.css'; }
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5.4vw, 72px);
+  line-height: .95;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 44px;
+}
+
+/* ── row 1: featured card + terminal ──────────────────────────────────
+   ONE Reveal wraps the grid, not each child (prototype line 317), so the
+   card and the terminal enter together as a single unit. */
+.featuredRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 20px;
+}
+
+/* `isolation: isolate` is load-bearing, not decoration. It makes the card
+   its own stacking context so the z-index 0/1/2 layering below cannot
+   interact with the ambient layer (canvas 0, glow 1, grain 70). Without
+   it a card background layer at z-index 0 competes site-wide. */
+.bigCard {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: clamp(22px, 3vw, 36px);
+  border-radius: 22px;
+  background: linear-gradient(150deg, rgba(var(--srf), .9), rgba(var(--gnd), .9));
+  border: 1px solid rgba(252, 163, 17, .28);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ⚠️ NO `transition` here, deliberately — and the two cards end up
+   behaving DIFFERENTLY because of it, which is the prototype's own
+   asymmetry rather than an oversight:
+
+     .bigCard   prototype line 318 — NO data-reveal. Nothing supplies a
+                transition, so the hover lift SNAPS. Its parent grid
+                carries the reveal (line 317), not the card.
+     .card      prototype line 357 — data-reveal="up". hideReveals()
+                writes `opacity .85s, transform 1.05s` onto it inline and
+                never clears it, so the hover lift EASES over 1.05s.
+
+   Neither card declares a transition in its own markup; the difference
+   comes entirely from whether hideReveals() reached it. Declaring none
+   here reproduces both.
+
+   ⚠️ This comment previously said both cards snap, and that the eased
+   .statCard / Skills .card were an un-extended 2026-08-18 deviation.
+   Both halves were wrong, and PF-93 (2026-08-21) settled it: the
+   deviation is withdrawn, all four gated elements now let Reveal own the
+   property, and the standing rule is that a Reveal-wrapped element never
+   declares a `transition` at all — not even gated on [data-reveal='in'],
+   which is set at the entrance's START and therefore eats it. */
+.bigCard:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 34px 70px rgba(var(--shd), .6);
+  border-color: var(--acc, #FCA311);
+}
+
+.featuredBadge {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  padding: 5px 10px;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+
+.bigTitle {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3.4vw, 42px);
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0;
+  line-height: 1;
+}
+
+.bigDesc {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.75;
+  margin: 0;
+}
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+/* Composition of two prototype patterns, not a new one. The prototype's
+   big card holds a single bare <a> with `margin-top:auto;
+   align-self:flex-start` (line 333), because the project in that slot had
+   no liveUrl. The owner reordered so ClearDrive — which has one — takes
+   the slot, so the big card now needs two links, a case the prototype
+   never shows.
+   `gap: 12px` + `flex-wrap` come from the small card's link row (line
+   374); `margin-top: auto` comes from the big card's single link. The
+   auto margin absorbs the column's free space and pins the row to the
+   card's bottom exactly as it did for one link, and resolves to 0 when
+   content fills the card, leaving the column's own `gap: 18px`.
+   ⚠️ Deliberately NO `align-self: flex-start`. A full-width row is what
+   makes `flex-wrap` work; shrinking it to its content would stop the
+   links wrapping on a narrow card. */
+.featuredLinkRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.githubLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  color: var(--acc, #FCA311);
+  border: 1px solid rgba(252, 163, 17, .35);
+  border-radius: 999px;
+  padding: 10px 16px;
+}
+.githubLink:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+.liveLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  color: var(--text);
+  border: 1px solid rgba(var(--ln), .2);
+  border-radius: 999px;
+  padding: 10px 16px;
+}
+.liveLink:hover {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .1);
+}
+
+/* ── terminal panel ───────────────────────────────────────────────────
+   ⚠️ The literal hexes below are the prototype's and stay literal. This
+   element is a PICTURE of a terminal, not themed UI — #0d1117 and
+   #161b22 are GitHub's editor chrome, and the log colours are a
+   terminal's, not the site's palette. Tokenising them would make the
+   mockup shift with the theme, which is exactly what a screenshot of a
+   dark terminal should not do. `var(--shd)` and `var(--faint)` ARE
+   tokens in the prototype and stay tokens here.
+
+   `:5000` in the body is text inside the mockup. It is NOT this repo's
+   backend port (5050 on macOS, see CLAUDE.md) and must not be
+   "corrected" — it is a picture of a generic compose run. */
+.terminal {
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--ln), .12);
+  background: #0d1117;
+  box-shadow: 0 30px 60px rgba(var(--shd), .5);
+}
+
+.terminalChrome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 18px;
+  background: #161b22;
+  border-bottom: 1px solid rgba(229, 229, 229, .08);
+}
+
+.trafficDot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+.dotRed   { background: #ff5f57; }
+.dotAmber { background: #febc2e; }
+.dotGreen { background: #28c840; }
+
+.terminalLabel {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #5c677d;
+}
+
+.terminalBody {
+  padding: 20px 22px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 2;
+}
+
+.lineCommand { color: #ffffff; }
+.lineInfo    { color: #93a0b8; }
+.lineSuccess { color: #34d399; }
+.lineAccent  { color: #FCA311; }
+.lineMuted   { color: var(--faint); }
+
+/* The caret CANNOT name its keyframe here. CSS Modules scopes
+   @keyframes names AND rewrites the name inside an animation
+   declaration, while the library in styles/keyframes/ is global — so a
+   direct `animation: blink 1s step-end infinite` compiles to a scoped
+   name nothing defines and silently does not animate. `composes` adds a
+   second, global class instead; the name lives in animations.css.
+   Longhands only — the shorthand would reset animation-name to `none`
+   and undo the composed class. See CLAUDE.md's Silent failures. */
+.caret {
+  composes: kf-blink from global;
+  animation-duration: 1s;
+  animation-timing-function: step-end;
+  animation-iteration-count: infinite;
+  /* ⚠️ A LITERAL, not var(--acc) as the prototype has it (line 351) —
+     owner-approved 2026-08-20.
+     The panel above is a fixed dark image (#0d1117) that never themes,
+     but --acc does: it is #FCA311 in dark and #7E4800 in light. So the
+     prototype's caret measures 9.36:1 in dark and drops to 2.54:1 in
+     light — dark brown on near-black. The seven sibling log lines are
+     already literal hexes for exactly this reason; the caret was the odd
+     one out. This value IS dark's --acc, so dark theme is byte-identical
+     and only light changes. */
+  color: #FCA311;
+}
+
+/* ── row 2: the remaining cards ───────────────────────────────────────
+   No Reveal on the grid itself (prototype line 356) — each card reveals
+   on its own with a staggered delay. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 20px;
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 26px 24px;
+  border-radius: 20px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .09);
+}
+
+/* NO `transition` — see the note on `.bigCard:hover`. */
+.card:hover {
+  transform: translateY(-8px);
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 28px 60px rgba(var(--shd), .55);
+}
+
+.numeral {
+  font-family: var(--font-display);
+  font-size: 44px;
+  color: rgba(252, 163, 17, .28);
+  margin: 0 0 6px;
+  line-height: 1;
+}
+
+/* Space Grotesk 700 sentence-case here against the big card's Anton
+   uppercase. The two headings differ by design (prototype lines 322 and
+   361) — not an inconsistency to smooth over. */
+.cardTitle {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 21px;
+  color: var(--strong);
+  margin: 0 0 10px;
+}
+
+.cardDesc {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+  margin: 0 0 16px;
+}
+
+/* ── tech pill — the PROJECTS variant, declared locally ───────────────
+   ⚠️ Deliberately NOT `composes: pill from patterns.module.css`. That
+   shared class is a third shape matching neither prototype pill —
+   inline-flex, 10px 18px padding, plus a `gap` and `letter-spacing`
+   neither has. And this pill differs from the Skills pill on five
+   properties: font-size (11 vs 12), padding (6/11 vs 7/12), background
+   (none vs rgba(252,163,17,.08)), border colour and text colour. They
+   match only on hover, transition, radius, cursor, display and family.
+   SkillsSection declares its own locally for the same reason.
+
+   Declared BARE, and that is correct: the pill is not Reveal-wrapped —
+   the prototype wraps the CARD (line 357) and the pills arrive with it —
+   so nothing competes for the `transition` property and the pill keeps
+   its own. Same case as `.pill:not([data-reveal])` in
+   patterns.module.css. Wrapping pills individually would also stagger
+   N entrances where the design has one per card. */
+.techPill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .16);
+  color: var(--muted);
+  transition: background .25s, color .25s, border-color .25s, transform .25s;
+  cursor: default;
+}
+.techPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-3px) scale(1.05);
+}
+
+/* ── card background layers ───────────────────────────────────────────
+   Ports the prototype's applyProjectBgs() (line 684) onto PF-52's
+   `backgroundImage { src, opacity }` schema field. Both layers render
+   only when a src exists; the opacity values are written inline by the
+   component, matching the prototype's JS. */
+.cardBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  transition: opacity .6s ease, transform .8s cubic-bezier(.16, 1, .3, 1);
+}
+
+.cardScrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transition: opacity .6s ease;
+  background: linear-gradient(180deg,
+    rgba(var(--gnd), .30) 0%,
+    rgba(var(--gnd), .62) 45%,
+    rgba(var(--gnd), .88) 100%);
+}
+
+/* The prototype walks each card's children in JS setting
+   `position:relative; z-index:2` so content clears both layers. One
+   declarative rule does the same thing without a DOM sweep.
+   ⚠️ Both layer classes MUST stay in the :not() list. Dropping either
+   puts z-index 2 on the layer itself, which lifts the background image
+   above the text — the text does not disappear from the DOM, it is
+   simply painted over, so nothing errors and no test that counts
+   elements would notice. Guarded. */
+.bigCard > *:not(.cardBg):not(.cardScrim),
+.card > *:not(.cardBg):not(.cardScrim) {
+  position: relative;
+  z-index: 2;
+}
+
+/* ── loading ──────────────────────────────────────────────────────────
+   Empty cards, no skeleton content, no shimmer. With main.jsx's global
+   5-minute staleTime this is only on screen during a cold load.
+   Heights are MEASURED in Chromium, not derived — see the test file and
+   the PF-85 hand-off for the widths they were taken at. */
+/* 289px is the TERMINAL's own natural height, measured in Chromium —
+   not a guess and not the filled card's height.
+   At >=900px this min-height is inert: the placeholder shares a
+   `align-items: stretch` row with the real terminal, which is always
+   rendered, so the row is already 289px and the placeholder fills it.
+   It only bites at <=768px, where the row wraps and the two stack —
+   there the placeholder would otherwise collapse to 2px (its borders).
+   Measured at 2px before this value was added. */
+.bigCardPlaceholder {
+  border-radius: 22px;
+  border: 1px solid rgba(252, 163, 17, .28);
+  background: linear-gradient(150deg, rgba(var(--srf), .9), rgba(var(--gnd), .9));
+  min-height: 289px;
+}
+
+/* ⚠️ NO single value is correct here, and this one is a compromise the
+   owner should see rather than a measurement.
+   Unlike Skills — where every filled card is the same height because the
+   grid rows stretch and the content is uniform — a project card's height
+   is driven by its description length and how its tech pills wrap, so it
+   differs per project AND per width. Filled heights measured in Chromium:
+
+     1600 479 · 1440 479 · 1280 479 · 1024 619
+      900 479 ·  768 594 ·  600 391 ·  375 594
+
+   479px is exact at four of the eight widths measured (1600/1440/1280/
+   900) and is the value used here. It is off by +140 at 1024, +115 at
+   768 and 375, and -88 at 600, so the section still shifts when content
+   lands at those widths. Without a min-height the card collapses to 2px
+   and the shift is far larger. Flagged in the PF-85 hand-off. */
+.cardPlaceholder {
+  border-radius: 20px;
+  border: 1px solid rgba(var(--ln), .09);
+  background: rgba(var(--srf), .5);
+  min-height: 479px;
+}
