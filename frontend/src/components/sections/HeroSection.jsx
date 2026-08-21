@@ -241,7 +241,7 @@ function HeroPortrait() {
               information. Described instead, for two reasons: the
               portrait is this section's primary visual content rather
               than an ornament, and AboutSection's portrait has read
-              "Parindra Gallage in the visor" since PF-81, so describing
+              as a description since PF-81, so describing
               is already this repo's answer for a portrait. Worth a pass
               with a real screen reader at some point; it is a judgment
               call, not a settled fact. */}

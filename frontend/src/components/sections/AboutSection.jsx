@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Reveal, CountUp } from '../motion';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { computeParallaxTransform } from '../../utils/parallax';
-import aboutPortrait from '../../assets/about-portrait.png';
+import aboutPortrait from '../../assets/about-portrait.jpg';
 import styles from './AboutSection.module.css';
 
 /**
@@ -173,7 +173,7 @@ function AboutPortrait() {
       <img
         ref={imgRef}
         src={aboutPortrait}
-        alt="Parindra Gallage in the visor"
+        alt="Parindra Gallage leaning against a classic green Mini"
         className={styles.portraitImg}
         style={{ transform: 'scale(1.02)' }}
       />

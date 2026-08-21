@@ -59,7 +59,13 @@ function mockRect(el, rect) {
 const withMotion = (ui) => <MotionProvider>{ui}</MotionProvider>;
 const pick = (container, name) => container.querySelector(`[class*="${name}"]`);
 const pickAll = (container, name) => container.querySelectorAll(`[class*="${name}"]`);
-const portrait = (container) => container.querySelector('img[alt*="visor"]');
+// Selected by class, not by alt text. The four parallax tests below only
+// need "the portrait <img>", and coupling them to the alt copy meant a
+// change to that copy failed them for a reason unrelated to what they
+// assert. The `img` qualifier disambiguates from .portraitFrame/.portraitFade/
+// .portraitSweep, which the [class*=] substring form would otherwise match
+// (see CLAUDE.md on [class*="name"] matching longer class names).
+const portrait = (container) => container.querySelector('img[class*="portraitImg"]');
 
 describe('AboutSection (PF-81)', () => {
   beforeEach(() => {
@@ -143,7 +149,9 @@ describe('AboutSection (PF-81)', () => {
     mockMatchMedia(false);
     const { container } = render(withMotion(<AboutSection />));
 
-    expect(screen.getByAltText('Parindra Gallage in the visor')).toBeInTheDocument();
+    expect(
+      screen.getByAltText('Parindra Gallage leaning against a classic green Mini')
+    ).toBeInTheDocument();
     // The sweep and the fade are decoration, not content.
     expect(pick(container, 'portraitSweep')).toHaveAttribute('aria-hidden', 'true');
   });
