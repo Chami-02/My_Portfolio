@@ -433,6 +433,57 @@ responsive + a11y audit.** PF-85 → PF-92.
 | PF-93 | Reveal entrance regression — withdraw the hover deviation | ✅ |
 | PF-86 | Blog teaser (Field Notes), API-wired | ✅ |
 | PF-87 → PF-92 | Contact, Footer, cutover, audit | not started |
+| — | **Sprint 13 prep — navbar rework + 2 removals** (2026-08-22) | ✅ |
+
+**Sprint 13 prep landed on this branch, unticketed and owner-directed
+(2026-08-22).** It is recorded here because it is real shipped work that
+no ticket number will lead anyone to. Full reasoning lives in Locked
+decisions — the five entries under the frozen-design banner — and this is
+only the file map.
+
+```
+frontend/src/
+  utils/nav.js                          NEW  navModel(), isBlogPath(), HOME
+  utils/__tests__/nav.test.js           NEW  6 tests
+  utils/theme.js                        − themeModeLabel()
+  utils/__tests__/theme.test.js         − its 2 tests
+  components/layout/
+    ScrollToHash.jsx                    NEW  react-router has no hash scroll
+    Navbar.jsx  + .module.css           route-aware; ADMIN as quiet chrome
+    ThemeToggle.jsx + .module.css       44×44 sun/moon icon button
+    __tests__/ScrollToHash.test.jsx     NEW  9 tests
+    __tests__/Navbar.test.jsx           + 12 tests
+    __tests__/ThemeToggle.test.jsx      rewritten, 16 tests
+  pages/HomePage.jsx                    mounts <ScrollToHash /> INSIDE SplashProvider
+  pages/__tests__/HomePage.test.jsx     + MemoryRouter (see below)
+  components/sections/
+    BlogSection.jsx + .module.css       − the ghost numeral
+    __tests__/BlogSection.test.jsx      3 absence guards replace 1 presence guard
+frontend/e2e/navigation.spec.js         + 4 tests
+```
+
+**⚠️ `HomePage` now requires a Router context.** It mounts
+`<ScrollToHash />`, which calls `useLocation()`. In the app it has always
+been inside `App.jsx`'s `<BrowserRouter>`, so nothing changed there — but
+`HomePage.test.jsx` stubs every section and therefore never needed a
+router before. It now wraps in `MemoryRouter`. A test rendering `HomePage`
+bare fails with "useLocation() may be used only in the context of a
+<Router> component", which reads like a routing bug and is not one.
+
+**Two passes, same day.** The owner reviewed the first live and asked
+for three changes: header full-bleed (logo further left, ADMIN further
+right), the divider right of the toggle removed, and the toggle to glow
+like a sun in dark theme while darkening on hover in light. All three are
+folded into the Locked-decisions entries above, including the two places
+where the second pass **reversed** the first — the header max-width and
+`.adminDivider`. Both are recorded as reversals rather than silently
+swapped, because each was built for a stated reason that no longer holds.
+
+**The gate, run fresh after the second pass:** 539 frontend / 242 backend
+/ lint exit 0 / build 218 modules / **26 E2E**. Header re-measured at
+**71px** after each pass. Nineteen mutations across the new guards, all
+caught.
+
 
 **PF-93 was inserted ahead of PF-86 deliberately.** It blocks PF-86/87/88:
 all three are `Reveal`-heavy, and every one of them would have asked "how
@@ -477,6 +528,64 @@ There is **no separate Sprint 11 retrospective document**, matching Sprint
 10's rule. That section is the record; do not link to one.
 
 ### Outstanding work — deferred deliberately, not lost
+
+- **⚠️ `blogViews.test.js` flakes on Jest's 5s default timeout against
+  Atlas — it is a NETWORK timeout, not an assertion failure.** Seen
+  2026-08-22: three full-suite runs gave **242/242**, **239/242** and
+  **241/242**, with a different count each time and always the same
+  shape:
+
+  ```
+  ● Blog view counter (PF-64) › increments views by one
+    thrown: "Exceeded timeout of 5000 ms for a test."
+  ```
+
+  The same file run alone is **7/7**. The tests talk to a real MongoDB
+  Atlas cluster, so under full-suite load a round trip can exceed 5s and
+  Jest kills the test before any assertion runs.
+
+  **Why it matters beyond the noise: it presents as a red suite on a diff
+  that never touched the backend**, which invites a hunt for a regression
+  that is not there. Distinguish it by the message — a timeout with no
+  `expect` diff — and confirm with `npm test -- blogViews`. Fixing it
+  properly is a `jest.setTimeout()` bump or a local/in-memory Mongo for
+  the suite; neither is in any current ticket.
+
+- **⚠️ `#contact`'s `scroll-margin-top` is 80px, not 71px — every navbar
+  CONTACT click lands 9px low.** Found 2026-08-22 while verifying the
+  route-aware navbar; **pre-existing, not introduced by it.** Measured on
+  the production build:
+
+  | section | `scroll-margin-top` |
+  | --- | --- |
+  | hero · about · skills · projects · blog | **71px** ✅ |
+  | **contact** | **80px** ✗ |
+
+  This is exactly the `[id]` cascade trap this file documents:
+  `global.css:338`'s `[id] { scroll-margin-top: 5rem }` is (0,1,0), and
+  `ContactSection` is still the Phase 1 component, so nothing overrides
+  it. Every other section has been rebuilt since PF-80 and carries
+  `section.<class> { scroll-margin-top: var(--header-h) }` at (0,1,1).
+
+  **Not fixed here, deliberately.** PF-88 replaces that section whole, and
+  the fix belongs in the rebuild rather than as a one-line patch to code
+  about to be deleted. It is a 9px offset, not a broken anchor. Note this
+  is the *third* consequence of Contact still being Phase 1, alongside the
+  vacuous `Get In Touch` E2E test and `useInView`'s last consumer.
+
+- **`?nosplash=1` persists in the address bar after an off-home nav
+  click.** The prototype's own mechanism (see Locked decisions), so it
+  ships as-is. Stripping it after mount — a `history.replaceState` once
+  `ScrollToHash` has fired — is a small follow-up if it ever bothers
+  anyone. It is cosmetic; nothing reads the param after the first render,
+  because `HomePage` freezes `shouldShowSplash()` in a lazy initialiser.
+
+- **`--acc2` / `--acc2rgb` now have ZERO component consumers.** The
+  sun/moon toggle replaced the switch that was their only one. They stay
+  declared in `tokens.css` because the prototype still uses them and the
+  Blog and Admin screens are unbuilt — but they are orphaned tokens
+  today, and a token sweep should not read them as live.
+
 
 None of this is in Sprint 11's PR. Each was checked on 2026-08-19 rather
 than copied forward:
@@ -2849,6 +2958,492 @@ error message:
 Where a mistake would be silent, add a test that would catch it.
 
 ## Locked decisions — do not reopen
+
+### ⚠️ `docs/design/` is FROZEN as of 2026-08-22 (owner decision)
+
+Mocking the navbar changes below in Claude Design and re-exporting was
+considered and **rejected, deliberately and finally**. A re-export
+regenerates the entire file, eight sections are already transcribed
+against the current one, and an unrequested token or timing change would
+arrive **carrying design authority while every test stayed green** —
+which is precisely the failure this file exists to prevent.
+
+`docs/design/` is therefore read-only from here on. Nothing is written
+there. The five entries that follow are SANCTIONED DEVIATIONS with the
+same standing as the cursor-web reduction, the splash scan lines, the
+section washes and the extra hero chips.
+
+**Consequence, accepted rather than corrected: the prototype no longer
+shows the site's real header.** Anyone diffing live against
+`Portfolio Revolution.dc.html` or `Blog.dc.html` WILL see header
+differences, and these entries are the only record that they are
+intentional. That is what makes them load-bearing rather than
+documentation — a fidelity pass that cannot find them here will "restore"
+the prototype's switch, its loud ADMIN pill and its inboard logo.
+
+- **⚠️ The header is FULL-BLEED, and this REVERSED an earlier decision
+  the same day. Read both halves before changing it again (2026-08-22,
+  owner-requested, two passes).**
+
+  **First pass.** `.inner` was given
+  `max-width: calc(1240px + 2 * clamp(16px, 4vw, 40px))` so the header's
+  content box matched every section's 1240px column exactly. The reason
+  it was not simply `1240px`: every section puts the padding on the
+  `<section>` and `max-width: 1240px` on a **separate inner div**, so its
+  content box maxes at 1240px, whereas the header carries both on **one**
+  element — a bare `1240px` there gives 1240 − 2×inset = 1160px and parks
+  the logo one inset inboard. (`box-sizing: border-box` is global, so
+  `max-width` includes the padding.) Measured: delta 0 at nine widths.
+
+  Note the request that produced it — "set the logo inset to
+  `clamp(16px, 4vw, 40px)`" — was a **NO-OP**: `Navbar.module.css` has
+  carried exactly that value since PF-79, identical to all five sections.
+  The inset was never the problem; where the max-width sat was.
+
+  **Second pass, after seeing it live: the max-width is GONE.** The owner
+  wanted the logo further LEFT and ADMIN further RIGHT than the 1240px
+  column allows. The header now spans the viewport with the padding alone
+  holding the inset. Measured:
+
+  | viewport | logo left | ADMIN gap from right edge | section column starts |
+  | --- | --- | --- | --- |
+  | 1920 | **40** | **40** | 340 |
+  | 1600 | **40** | **40** | 180 |
+  | 1440 | **40** | **40** | 100 |
+  | 1280 | 40 | 40 | 40 |
+  | 1024 | 40 | 40 | 40 |
+  | 768 | 30.7 | *(nav hidden)* | 30.7 |
+  | 375 | 16 | *(nav hidden)* | 16 |
+
+  **⚠️ THE CONSEQUENCE, ACCEPTED: above ~1320px the header no longer
+  aligns with section content** — at 1920px the logo sits at 40px where
+  the hero's text starts at 340px, a 300px divergence **by design**. This
+  is full-bleed chrome over a centred content column, and it is the
+  OPPOSITE of what the first pass existed for. **Do not "restore" the
+  max-width to fix the alignment; that is the thing that was rejected.**
+  Below ~1320px the column is viewport-bound anyway and the two still
+  line up exactly, so the divergence only opens on wide screens.
+
+  Horizontal only in both passes — `--header-h` re-measured at **71px**
+  after each.
+
+- **ADMIN is isolated as chrome, in `--muted`, NOT `--muted2`
+  (2026-08-22, owner-requested; ink corrected here and the correction
+  accepted).** ADMIN is an owner-only entrance with no value to a
+  visitor, so it reads as chrome rather than navigation: the pill drops
+  its accent fill, accent border, glow `text-shadow` and glowing dot for
+  a quiet `rgba(var(--ln),.18)` outline on transparent, and sits **32px
+  clear** of the theme toggle at the far right of a full-bleed header.
+
+  **⚠️ `.adminDivider` was BUILT AND THEN REMOVED the same day.** A
+  second 1px rule (`rgba(var(--ln),.16)`, `margin: 0 16px`) between the
+  toggle and ADMIN was asked for, shipped, and then judged one separator
+  too many: the row read as `[nav] | [toggle] | [ADMIN]`, which **boxed
+  the toggle in** rather than setting ADMIN apart. The isolation is now
+  pure whitespace — 36px of measured clear space, MORE than the divider
+  version gave, with one less element.
+
+  **⚠️ `.divider` STAYS, and the two are easy to conflate.** That one is
+  the PROTOTYPE'S own (line 74) and sits on the **LEFT** of the toggle;
+  the removed one was on the **RIGHT**. Check which side you are looking
+  at before deleting one. Verified live: exactly **1** vertical rule in
+  the nav. Guarded as an absence plus a count, because "add a divider
+  before ADMIN" is a natural idea that was already tried.
+
+  **Hover is UNCHANGED** — it returns to the accent fill, and the dot
+  follows the label into `--accInk` so the pill reads as one object.
+
+  **⚠️ THE REQUESTED `--muted2` WAS NOT USED, AND THIS IS A DEVIATION
+  FROM THE REQUEST RATHER THAN FROM THE DESIGN.** It fails AA in dark
+  theme. Measured on this exact node against the header's own composited
+  backdrop — not inherited from PF-83's About finding, which is a
+  different surface:
+
+  | | dark, backdrop `rgb(9,15,29)` | light, backdrop `rgb(230,217,197)` |
+  | --- | --- | --- |
+  | `--muted2` #6b7891 / #4f5d76 — as requested | **4.31 ✗ FAILS** | 4.77 ✅ |
+  | `--muted` #93a0b8 / #45536d — **shipped** | **7.27** ✅ | **5.56** ✅ |
+
+  This link is 11.5px **bold**, below the 18.66px large-text threshold,
+  so AA wants 4.5:1. PF-83 closed the site at **zero** AA failures in
+  both themes; `--muted2` here would have *authored* a new one rather
+  than inherited one, which is a different and worse thing. So **the
+  isolation comes from FORM — outline instead of fill — not from darker
+  ink.** Note this is the same token failing in the same theme for the
+  third time (About's stat labels, the Blog compact-row meta, now this):
+  `--muted2` on a dark ground at a small size is a recurring trap, and
+  `--muted` is the one-step-lighter answer each time.
+
+  **⚠️ THE REQUESTED `margin-left: auto` WAS NOT USED EITHER, because it
+  is a silent no-op in this layout.** `.inner` is
+  `justify-content: space-between` with two children and `.nav` is
+  content-sized, so there is no free space *inside* `.nav` for `auto` to
+  absorb. It parses, ships, and does nothing. An inert declaration is
+  worse than no declaration: the next reader treats it as load-bearing
+  and builds around it. `.adminDivider` and its 20px of clear space are
+  what actually separate ADMIN. **Do not add it back.**
+
+  **ADMIN stays LAST in the DOM, on every route.** PF-83 specified and
+  verified skip → logo → nav links → CONTACT → toggle → ADMIN. The
+  divider moves it on screen without moving it in the sequence. Guarded
+  across `/`, `/blog` and a 404 path.
+
+- **The theme toggle is a sun/moon icon button, replacing the
+  prototype's 30px switch (2026-08-22, owner-requested).** 44×44
+  interactive area, 18px icon, `stroke-width: 1.75`, `--muted` at rest,
+  `--acc` on hover. **The icon shows the DESTINATION, not the current
+  state** — light theme shows a moon, dark shows a sun. Removed with the
+  switch: `.track`, `.knob`, the `:global(html[data-theme='light'])
+  .knob` 13px slide, and `.label`. `--acc2`/`--acc2rgb` now have **no
+  component consumer at all**; they stay in `tokens.css` because the
+  prototype still uses them and the Blog/Admin screens are unbuilt.
+
+  **⚠️ 44×44 is chosen to EQUAL the logo, not to be a generous touch
+  target.** The header's height is set by its tallest child, and
+  12 + **44** + 12 + 2 + 1 = 71 = `--header-h`, which every section's
+  `scroll-margin-top` reads. A 48px target would move `--header-h` and
+  therefore every anchor jump on the site. Measured after the change:
+  `document.querySelector('header').getBoundingClientRect().height` is
+  **71**, toggle box **44×44**, logo **44×44**. `flex: none` keeps the
+  row from compressing it below 44 silently. Re-measure before enlarging.
+
+  **⚠️ The sun GLOWS, and the glow is THEME-SCOPED (owner-requested,
+  second pass 2026-08-22).** In dark theme the sun is lit at rest and
+  flares on hover; in light theme the moon has no glow at any state and
+  **darkens** on hover instead. Measured on the production build, with
+  the pointer parked off the control for the rest reading:
+
+  | | rest | hover |
+  | --- | --- | --- |
+  | DARK (sun) | `rgb(252,163,17)` + `drop-shadow(0 0 6px ….55)` | same colour + `drop-shadow(0 0 11px ….85)`, bg `rgba(252,163,17,.12)` |
+  | LIGHT (moon) | `rgb(69,83,109)` (`--muted`), `filter: none` | `rgb(11,18,32)` (`--strong`), `filter: none`, bg `rgba(20,33,61,.08)` |
+
+  Non-text contrast against the header backdrop: **9.48 dark / 5.56
+  light**, both clear of the 3:1 a UI control needs.
+
+  Three things are load-bearing:
+
+  - **Scoping is the whole of it.** `--acc` is amber `#FCA311` in dark
+    and **brown `#7E4800`** in light, so one unscoped glow rule paints a
+    brown smudge behind the moon — valid CSS, no error, reads as a
+    rendering artefact. Exactly the trap that forced the terminal caret
+    to become a literal hex. Both themes are named explicitly, and dark
+    is a REAL attribute (`index.html:31`, `theme.js:63`), never an absent
+    default — had it been implicit, `[data-theme='dark']` would match
+    nothing and the glow would silently never appear.
+  - **`:global(html[data-theme='…'])` wins on SPECIFICITY, (0,2,0)
+    against the base rule's (0,1,0)** — not on emission order. Equal
+    specificity resolving on bundle order is the tie that has bitten this
+    project six times; this does not add a seventh.
+  - **`drop-shadow`, never `box-shadow`.** The button is a 44px round hit
+    area around an 18px icon, so `box-shadow` would halo a mostly-empty
+    disc. `drop-shadow` follows the SVG's own alpha, so the light comes
+    off the sun's rays. Guarded.
+
+  The glow is **static, not animated** — it is `filter`, transitioned at
+  .25s alongside colour and background, so it needs no reduced-motion
+  gate and `motion.css` collapses the transition for free. A pulsing
+  variant (`glowpulse` already exists, and the CONTACT pill uses it) was
+  NOT built: "glow like a sun" reads as steady radiance, and a pulse
+  would be autoplaying motion needing its own gate.
+
+  **⚠️ The icon SHAPES have no design source** — the prototype has no
+  icon here at all. Crescent moon and sun-with-rays is the conventional
+  pairing and is what shipped; it is **owner-decidable rather than
+  settled**, and swapping either shape touches nothing but two `<path>`
+  strings in `ThemeToggle.jsx`.
+
+  **⚠️ `themeModeLabel()` was DELETED, and NOT for the reason originally
+  given.** The stated concern was that a destination-showing icon would
+  contradict a state-naming label. It would not have: the function
+  already named the destination — `themeModeLabel('dark')` returned
+  `'LIGHT MODE'`, and the aria-label was already `Switch to Light
+  theme`, both matching the prototype's own `themeLabel` (line 1113).
+  Nothing disagreed. The real consequence of going icon-only is that it
+  lost its **only** consumer while its two tests in
+  `utils/__tests__/theme.test.js` would have stayed green forever,
+  because a unit test imports the module directly — the `useTypewriter`
+  shape this file documents. Deleted **with its tests** rather than left
+  as a fifth orphan for cutover. `toggleLabel()` STAYS; it still
+  composes the aria-label.
+
+  **`aria-pressed` was dropped too.** A button whose accessible name is
+  already the action ("Switch to dark theme") plus `aria-pressed`
+  announces an action AND a state pointing opposite directions.
+  Name-changes-on-activate and `aria-pressed` are alternative patterns
+  for the same thing; running both is the bug. No test asserted it.
+
+- **The navbar is route-aware (2026-08-22).** A LIVE BUG, not a
+  preference: `App.jsx` mounts `<Navbar />` on `path="*"`, so it rendered
+  on `NotFoundPage` and on `/blog` with six bare-hash links that resolve
+  to nothing off the home page. PF-86 then pointed five Blog-teaser links
+  at `/blog`, which has no route — putting the dead chrome **two clicks
+  from the home page**.
+
+  | route | brand | links |
+  | --- | --- | --- |
+  | `/` | `#hero` | `#about #skills #projects #blog` · `#contact` — **unchanged** |
+  | `/blog*` | `/?nosplash=1` | `/?nosplash=1#projects` · `/?nosplash=1#about` · `← PORTFOLIO` |
+  | anything else | `/?nosplash=1` | the portfolio set, absolute |
+
+  **On `/` the hashes are returned unchanged**, deliberately — e2e's
+  `a[href="#about"]` selectors depend on it, and there is a dedicated
+  regression test saying so.
+
+  **⚠️ `?nosplash=1` is the PROTOTYPE'S OWN mechanism**, on all five of
+  `Blog.dc.html`'s cross-screen hrefs (lines 45, 51, 52, 53, 60), and
+  `shouldShowSplash()` already reads it. Without it, returning home
+  replays the ~5.65s splash *over* the anchor jump while
+  `initialReady={false}` holds every reveal. Stripping the param from the
+  address bar after mount is an available follow-up, not a defect.
+
+  **⚠️ Do NOT replace it with a module-scoped "already shown this
+  session" flag.** StrictMode's simulated remount sets it on the first
+  mount and suppresses the splash on the second, so the splash never
+  appears in development at all — the same dev-only footgun class as the
+  `setReady(true)`-on-unmount safety net `SplashProvider` warns about.
+
+  **On `/blog*` the nav is the Blog prototype's own content**,
+  transcribed from `Blog.dc.html` lines 50-61: PROJECTS · ABOUT ·
+  `← PORTFOLIO` (glowpulse pill, replacing CONTACT) · divider · toggle ·
+  ADMIN. No BLOG link — you are on it. **This is the one part of the
+  2026-08-22 navbar rework that is transcription rather than deviation.**
+  It renders today over `NotFoundPage`, since `/blog` has no route until
+  Sprint 13; blog chrome over a 404 is strictly better than portfolio
+  chrome whose every link is dead.
+
+  **⚠️ React Router v7 does NOT scroll to a hash** — it performs the
+  navigation and ignores the fragment, so `<Link to="/#about">` changes
+  the URL and leaves the viewport at the top. Nothing else in this repo
+  handled one; `ScrollToTop.jsx` is a scroll-to-top BUTTON, not a route
+  effect. `components/layout/ScrollToHash.jsx` fills the gap. A plain
+  `<a href>` was rejected: a full document load discards the TanStack
+  Query cache and re-fetches the two unoptimised hero images
+  (1.4MB + 2.3MB).
+
+  **⚠️ `navModel()`/`isBlogPath()` live in `utils/nav.js`, NOT in
+  `Navbar.jsx`.** Same rule that puts contexts in their own module —
+  `react-refresh/only-export-components` fails CI at
+  `--max-warnings=0` when one file exports both a component and a plain
+  function. This cost a lint cycle; it is the third time that rule has
+  bitten this project.
+
+  **⚠️ PF-83's "8 focusables" in the mobile overlay is now PER-ROUTE,
+  not a constant.** Measured at 375px:
+
+  | route | focusables |
+  | --- | --- |
+  | `/` | **8** — ×, ABOUT, SKILLS, PROJECTS, BLOG, CONTACT, toggle, ADMIN |
+  | `/blog` | **6** — ×, PROJECTS, ABOUT, ← PORTFOLIO, toggle, ADMIN |
+
+  Both: Tab and Shift+Tab cycle a full lap plus three without leaking,
+  Escape closes, focus returns to the hamburger. The trap BEHAVIOUR is
+  what is guarded, since `Navbar.test.jsx` re-queries the focusable set
+  from the DOM rather than hardcoding a count.
+
+- **`ScrollToHash` is gated on splash readiness and passes NO `behavior`
+  (2026-08-22).** Two details, both load-bearing and both measured.
+
+  **The splash gate.** A cold link to `/#projects` with no `?nosplash`
+  mounts the splash AND wants to scroll. Ungated, the page scrolls behind
+  a z-index-100 overlay while every reveal is still held by
+  `initialReady={false}`. It reads `useSplashReady()`, which **fails open
+  outside a provider** — so it is mounted **inside `SplashProvider` in
+  `HomePage.jsx`, not in `App.jsx`**. An App-level mount would compile,
+  render and silently skip the gate. Every hash target on this site is a
+  section of that page anyway.
+
+  Traced on the production build, `/#projects` with the splash running:
+
+  | t | scrollY | splash up | reveals in |
+  | --- | --- | --- | --- |
+  | 44ms | 0 | yes | 0 |
+  | 4914ms | 2 | yes | 20 |
+  | 5218ms | 1933 | yes | 38 |
+  | 5680ms | 2713 | yes | 44 |
+  | 5831ms | **2723** | **no** | 44 |
+
+  Final `#projects.top` = **70.83px**. Under
+  `prefers-reduced-motion: reduce` the same URL lands at 2723 by
+  **216ms** with no splash at all.
+
+  **⚠️ The scroll runs DURING the splash's exit, not after it, and that
+  is correct rather than sloppy.** `ready` flips 320ms into the 1s exit —
+  by design, so reveals begin while the splash slides away and the page
+  is not static when uncovered. The scroll simply rides the same gate.
+  What the user sees: splash fades and slides up, the hero is briefly
+  visible through it, the page scrolls to Projects as the splash clears.
+  It lands correctly and nothing overlaps wrongly. **The debatable part,
+  recorded rather than decided: the hero's entrance reveals fire and are
+  immediately scrolled past.** If that is ever judged wrong, the fix is
+  to gate on splash *unmount* rather than on `ready` — one condition, not
+  a redesign. Do not disable the gate.
+
+  **No `behavior` argument.** Omitting it makes `scrollIntoView()`
+  inherit the root's computed `scroll-behavior` — `smooth` normally,
+  `auto` under reduced motion, via `motion.css`'s ROOT-ELEMENT override.
+  That override exists because `html[data-motion="reduced"] *` is a
+  descendant selector and cannot reach `<html>` itself; **it has
+  regressed once already**, so `ScrollToHash.test.jsx` re-asserts it
+  rather than trusting `styles/__tests__/motion.test.js` alone. Passing
+  `{ behavior: 'smooth' }` would animate the jump for exactly the users
+  who asked it not to, invisibly to anyone not testing with reduce on.
+  Guarded on the ARGUMENT, because jsdom implements no scrolling at all.
+
+- **The Blog featured card's ghost numeral is removed (2026-08-22,
+  owner-requested).** The prototype's translucent `01` — `top: -30px;
+  right: -10px`, Anton `clamp(120px,17vw,190px)`,
+  `rgba(252,163,17,.09)`, line 429 — is gone from the home teaser, and
+  the `/blog` index inherits the removal when Sprint 13 builds it.
+
+  Three things to keep straight, the same shape as the splash scan lines
+  and the About caption:
+  - The **element** is gone, not its opacity. A zero-opacity span still
+    occupies the corner and is still walked by anything reading the DOM.
+  - **`.sweep` STAYS.** It is a *different* absolute child of the same
+    card — the 9s sheen at `background-size: 100% 320%` — and is not what
+    was objected to. This is the trap that nearly took `.scanTexture`
+    with the scan lines and `.portraitFade` with the caption. Verified
+    after: the card has **1** absolute child, and it reports one running
+    `sweep` at 9000ms.
+  - **The compact-row numerals 02/03/04 STAY**, as does the reading
+    view's meta number. Only the big one was objected to. Verified live.
+
+  Guarded as an **absence** three ways — no element, no bare "01" text,
+  no `.ghostNumeral` selector — **via postcss, not a text search**, since
+  the module documents the removed declarations in prose exactly where
+  the rule used to be. All three mutations caught.
+
+- **The Blog reading view's "GOT A QUESTION ABOUT THIS BUILD? / EMAIL
+  ME →" block is removed (2026-08-22, owner-requested — DECISION ONLY,
+  NOT BUILT).** The reading view does not exist; this is Sprint 13's
+  ticket. `Blog.dc.html:103-106` is the container (`margin-top: 44px`,
+  accent-tinted gradient panel, `border: 1px solid rgba(252,163,17,.3)`)
+  holding exactly those two children, and nothing else shares it —
+  remove container and both children.
+
+  **Consequence, accepted rather than corrected:** prev/next's
+  `margin-top: 30px` then collapses against the last section's
+  `margin-bottom: 38px`, so the tail gap goes 44px → **38px**. **Do NOT
+  add a margin to hold 44px** — that invents a value to preserve a gap
+  left by a deleted element, which is the opposite of transcribing the
+  design.
+
+  The Contact section's own email route is unaffected; the site still
+  offers a way to make contact.
+
+
+- **Stars drift at `STAR_DRIFT = 0.35`, not the Portfolio prototype's
+  0.09 (2026-08-21, owner-set).** The field read as so slow the motion
+  was not visible. It was not: `vx`/`vy` seed as
+  `(Math.random() - 0.5) * SPREAD`, so mean absolute speed is SPREAD/4
+  px per frame — at 0.09 that is **1.35 px/s** at 60fps, i.e. a star
+  needs **~17.8 minutes** to cross a 1440px viewport.
+
+  | screen | spread | mean px/s | crosses 1440px |
+  | --- | --- | --- | --- |
+  | Portfolio Revolution.dc.html | 0.09 | 1.35 | ~17.8 min |
+  | Blog.dc.html | 0.08 | 1.20 | ~20.0 min |
+  | Admin.dc.html | 0.16 | 2.40 | ~10.0 min |
+  | **current** | **0.35** | **5.25** | **~4.6 min** |
+
+  **Tuned by eye in one session: 0.09 → 0.16 → 0.35.** 0.16 was
+  proposed and taken first because `Admin.dc.html` runs this same star
+  field at exactly that — the one faster value with a design source. On
+  screen it still read too slow, and the owner set 0.35 directly.
+
+  **⚠️ 0.35 has NO design source.** It is **3.89×** the Portfolio
+  prototype and **2.19×** the fastest the design goes anywhere. That is
+  a legitimate owner call — this is their site — but it is an
+  aesthetic decision rather than a transcription, and it must not be
+  defended as "what Admin does". It isn't.
+
+  **Applies site-wide.** `StarfieldCanvas` is the shared ambient layer,
+  so every page built from here on inherits it. That was the intent.
+
+  **Twinkle (`s.t += 0.02 * s.ts`) was deliberately NOT touched** — only
+  travel was asked for, and moving one lever at a time keeps the result
+  attributable. If the field still reads too static, that 0.02 is the
+  next lever, not this one.
+
+  Named `STAR_DRIFT` at the top of `StarfieldCanvas.jsx` beside
+  `WEB_LINK_PX`/`WEB_ALPHA`, following their precedent, so the next
+  adjustment stays one edit.
+
+  **Verified empirically, not just arithmetically.** A naive
+  pixel-change count over a 4s gap reads **identical** at 0.09 and 0.16
+  (8989 vs 9087) and is worthless — it **saturates**, because both
+  values move a star far past its own ~2px diameter within 4s, so it
+  fully vacates its old pixels either way. Freezing the twinkle does
+  not help; the metric was never twinkle-bound. Measured at short gaps
+  instead, with a **static field as the floor**:
+
+  | `STAR_DRIFT` | changed px @300ms | @600ms |
+  | --- | --- | --- |
+  | 0 (static control) | 246 | 501 |
+  | 0.09 | 3656 | 5026 |
+  | 0.16 | 4612 | 6425 |
+
+  The static row is the point, exactly as the 0-vs-61 rAF pair is
+  elsewhere in this file: a broken probe also reports "no difference",
+  and only the near-zero floor proves the metric responds to drift at
+  all. Note the ratio reads ~1.3×, not the arithmetic 1.78× —
+  changed-pixel count is a sub-linear proxy for displacement, already
+  partly saturated at 300ms. **The speed ratio is exact arithmetic; the
+  pixel proxy compresses it.** (Measured while the value was 0.16; 0.35
+  was set afterwards and the arithmetic carries.)
+
+  **⚠️ Guarded as "not the prototype's value", NOT as an exact number**
+  — `StarfieldCanvas.test.jsx`. These are look-and-feel dials the owner
+  re-tunes by eye, and the first version of this guard pinned `0.16`
+  exactly, so the owner's very next adjustment turned the suite red for
+  no defect. A test that fails on legitimate tuning trains people to
+  edit the test without reading it, which destroys the thing it exists
+  for. It now asserts direction — `WEB_LINK_PX < 150`, `WEB_ALPHA <
+  0.14`, `STAR_DRIFT > 0.09` — plus that `STAR_DRIFT` actually reaches
+  both axes, since a declared-but-unused constant is the same silent
+  revert by another route. Verified both ways: 0.12/0.16/0.35/0.5 all
+  pass, while reverting any constant to its prototype value fails.
+
+  Do NOT "restore" 0.09 to match the Portfolio prototype; the mismatch
+  is intentional, and it is exactly what a fidelity pass flags as a bug.
+
+- **The About portrait is a different photograph from the prototype's
+  (2026-08-21, owner-requested).** `about-portrait.jpg` (1200×1600, q90,
+  798 KB) replaces the prototype's 980×1261 close-up, converted from a
+  3024×4032 `about-portrait.heic` kept tracked as the source.
+
+  **⚠️ HEIC is not a web format — only Safari decodes it.** Vite emits
+  it without complaint and the `<img>` silently renders nothing in
+  Chrome, Firefox and Edge. **Never point an import at the `.heic`.**
+  The conversion used `sips` (no `cwebp`/`magick` on this machine, and
+  `sips` cannot write WebP here).
+
+  **No CSS changed, and the new image fits better than the old one.**
+  `.portraitImg` already forces `aspect-ratio: 3/4`; the new source is
+  natively 3:4, so `object-fit: cover` crops **nothing**, where the
+  980×1261 PNG was being cropped. **`object-position: 50% 32%` is now
+  inert** — do not "clean it up" without re-checking the intrinsic
+  ratio, since it becomes load-bearing again the moment a non-3:4
+  image is used.
+
+  **⚠️ Two files share the name and only ONE is an orphan:**
+
+  | path | status |
+  | --- | --- |
+  | `frontend/src/assets/about-portrait.png` | 0 code refs — **orphan**, left in place deliberately |
+  | `docs/design/assets/about-portrait.png` | prototype line 202 + DESIGN.md line 27 — **design source, never delete** |
+
+  `alt` was rewritten to `"Parindra Gallage leaning against a classic
+  green Mini"`; the old copy described a different photograph.
+  `AboutSection.test.jsx`'s `portrait()` helper moved off `alt` matching
+  onto the class, so alt copy no longer fails four unrelated parallax
+  tests.
+
+  **⚠️ Composition is UNRESOLVED and is the owner's call.** This is an
+  environmental shot with the subject small and upper-right, where the
+  prototype's is a close-up. Cropping to the face is a composition
+  decision and was deliberately not made here.
 
 - **The terminal caret is a literal `#FCA311`, not `var(--acc)`
   (2026-08-21, owner-approved).** The prototype uses the token, which in

@@ -184,17 +184,26 @@ export function BlogSection() {
                 delay={80}
                 className={styles.featuredCard}
               >
-                {/* Two absolute layers. The six content children below
-                    each carry `position: relative` to sit above them —
-                    the prototype declares it per element rather than
-                    via a stacking context.
+                {/* ONE absolute layer — the sweep. The six content
+                    children below each carry `position: relative` to sit
+                    above it; the prototype declares that per element
+                    rather than via a stacking context.
 
                     ⚠️ Do NOT replace that with PF-85's
                     `.card > *:not(…)` rule. That one existed to replace
                     a JS DOM walk; this is already declarative, and a
-                    blanket rule would also hit these two aria-hidden
-                    layers, which it must not. */}
-                <span className={styles.ghostNumeral} aria-hidden="true">01</span>
+                    blanket rule would also hit this aria-hidden layer,
+                    which it must not.
+
+                    ⚠️ There were TWO layers until 2026-08-22. The ghost
+                    numeral — a translucent "01" at top:-30px;right:-10px,
+                    Anton clamp(120px,17vw,190px), rgba(252,163,17,.09) —
+                    was removed by owner request. The ELEMENT is gone, not
+                    its opacity: a zero-opacity span still occupies the
+                    corner. `.sweep` is the OTHER absolute child and
+                    stays; deleting it with the numeral is the same trap
+                    that nearly took `.scanTexture` with the splash scan
+                    lines and `.portraitFade` with the About caption. */}
                 <span className={styles.sweep} aria-hidden="true" />
 
                 <span className={styles.badge}>LATEST POST</span>

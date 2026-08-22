@@ -385,13 +385,54 @@ describe('post selection and order', () => {
 
 // ══ 9 & 12. numerals and the badge ════════════════════════════════════
 describe('numerals and the badge', () => {
-  it('renders 01 · 02 · 03 · 04 and hides all four from assistive tech', () => {
+  it('renders 02 · 03 · 04 and hides them from assistive tech', () => {
     const c = draw();
-    const ghost = pick(c, 'ghostNumeral');
     const rows = pickAll(c, 'rowNumeral');
-    expect(ghost.textContent).toBe('01');
     expect(rows.map((e) => e.textContent)).toEqual(['02', '03', '04']);
-    for (const el of [ghost, ...rows]) expect(el).toHaveAttribute('aria-hidden', 'true');
+    for (const el of rows) expect(el).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  /**
+   * ⚠️ The featured card's giant ghost "01" was REMOVED on 2026-08-22 by
+   * owner request. Guarded as an ABSENCE, in three places, because the
+   * prototype still HAS it (line 429) and docs/design/ is frozen — so a
+   * later fidelity pass diffing live against the export reads the gap as
+   * an un-transcribed value and paints it back. These say it is
+   * intentional.
+   *
+   * Both halves matter and they fail differently: dropping the element
+   * but keeping the rule leaves dead CSS that the next reader restores a
+   * consumer for; dropping the rule but keeping the element renders an
+   * unstyled "01" in the card's normal flow, above the badge.
+   */
+  it('renders NO ghost numeral on the featured card', () => {
+    const c = draw();
+    expect(pick(c, 'ghostNumeral')).toBeNull();
+    // The element, not just its opacity — a zero-opacity span still
+    // occupies the corner and is still walked by anything reading the
+    // DOM. Nothing anywhere in the card should render a bare "01".
+    expect(screen.queryByText('01')).toBeNull();
+  });
+
+  it('declares no .ghostNumeral rule', () => {
+    // Via postcss, not a text search: the module documents the removed
+    // declarations IN PROSE right where the rule used to be, so a raw
+    // `not.toContain('ghostNumeral')` matches that comment and reports
+    // PASS while asserting nothing. A declaration walk never visits a
+    // comment node.
+    expect(selectors).not.toContain('.ghostNumeral');
+  });
+
+  it('KEEPS the sweep layer — the card other absolute child', () => {
+    // ⚠️ The trap this exists for: `.sweep` is a sibling of the deleted
+    // numeral, absolutely positioned on the same card, and equally
+    // aria-hidden. Deleting it alongside is the same mistake that nearly
+    // took `.scanTexture` with the splash scan lines and `.portraitFade`
+    // with the About caption. It is the 9s animated sheen, not a numeral.
+    const c = draw();
+    expect(pick(c, 'sweep')).not.toBeNull();
+    expect(selectors).toContain('.sweep');
+    expect(decls('.sweep')['background-size']).toBe('100% 320%');
   });
 
   it('continues the series rather than hardcoding three rows', () => {

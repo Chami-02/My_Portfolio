@@ -7,6 +7,7 @@ import { ProjectsSection } from '../components/sections/ProjectsSection';
 import { BlogSection }     from '../components/sections/BlogSection';
 import { ContactSection }  from '../components/sections/ContactSection';
 import { SplashProvider }  from '../providers/SplashProvider';
+import { ScrollToHash }   from '../components/layout/ScrollToHash';
 import { shouldShowSplash } from '../utils/splash';
 import { Splash } from '../components/splash';
 import {
@@ -33,6 +34,17 @@ export function HomePage() {
 
   return (
     <SplashProvider initialReady={!showSplash}>
+      {/* ⚠️ INSIDE SplashProvider, and mounted here rather than in
+          App.jsx, deliberately. It reads useSplashReady() to hold the
+          jump until the splash lifts, and SplashContext fails open —
+          outside the provider the hook returns `true` unconditionally,
+          so an App-level mount would compile, render and silently skip
+          the gate it exists for.
+
+          Every hash target on this site is a section of this page, so
+          there is nothing for it to do on any other route anyway. */}
+      <ScrollToHash />
+
       <PageShell>
         {/* Ambient layer first — DOM order matters. A section that
             establishes its own stacking context sits at the same z-tier

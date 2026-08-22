@@ -2,8 +2,17 @@
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { Navbar } from '../Navbar';
+
 import { ThemeProvider } from '../../../providers/ThemeProvider';
+
+const navCss = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), '../Navbar.module.css'),
+  'utf8',
+).replace(/\/\*[\s\S]*?\*\//g, '');
 
 const withProviders = (ui) => (
   <MemoryRouter>
@@ -410,6 +419,171 @@ describe('Navbar (PF-79)', () => {
       // string and none can drift back to the shared one unnoticed.
       const logo = screen.getByRole('img');
       expect(logo).toHaveAttribute('alt', 'Parindra Gallage — back to top');
+    });
+  });
+});
+
+/**
+ * ══ Route-awareness (2026-08-22) ══════════════════════════════════════
+ *
+ * ⚠️ THE BUG THIS COVERS. App.jsx mounts <Navbar /> on `path="*"`, and
+ * every link used to be a bare hash — so on NotFoundPage and on /blog
+ * all six resolved to nothing. PF-86 then pointed five Blog-teaser links
+ * at /blog, which has no route, putting the dead chrome two clicks from
+ * the home page.
+ *
+ * Deliberately a separate describe with its own router setup: the block
+ * above renders at MemoryRouter's default "/" and its assertions are the
+ * regression guard that the HOME page did not change. e2e's
+ * `a[href="#about"]` selectors depend on exactly that.
+ */
+describe('route-awareness (2026-08-22)', () => {
+  const at = (path) =>
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <ThemeProvider>
+          <Navbar />
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+  const hrefOf = (label) => screen.getByText(label).closest('a').getAttribute('href');
+
+  beforeEach(() => {
+    // The scroll effect runs on every render regardless of the route.
+    setScroll(0);
+  });
+
+  /* The pure model's own tests live in utils/__tests__/nav.test.js —
+     navModel() and isBlogPath() moved to utils/nav.js so this component
+     file exports only a component (react-refresh/only-export-components,
+     the same rule that puts contexts in their own module). What stays
+     here is what the COMPONENT does with the model. */
+
+  describe('rendered output', () => {
+    it('renders bare hashes on "/" — guards e2e a[href="#about"]', () => {
+      at('/');
+      expect(hrefOf('ABOUT')).toBe('#about');
+      expect(hrefOf('CONTACT')).toBe('#contact');
+    });
+
+    it('renders absolute links on a 404 route', () => {
+      at('/this-page-does-not-exist');
+      expect(hrefOf('ABOUT')).toBe('/?nosplash=1#about');
+      expect(hrefOf('PROJECTS')).toBe('/?nosplash=1#projects');
+    });
+
+    it('renders the blog chrome on /blog, with no BLOG or CONTACT link', () => {
+      at('/blog');
+      expect(screen.getByText('PROJECTS')).toBeInTheDocument();
+      expect(screen.getByText('ABOUT')).toBeInTheDocument();
+      expect(screen.getByText('← PORTFOLIO')).toBeInTheDocument();
+      expect(screen.queryByText('BLOG')).toBeNull();
+      expect(screen.queryByText('CONTACT')).toBeNull();
+      expect(screen.queryByText('SKILLS')).toBeNull();
+    });
+
+    it('uses react-router for off-home links, not a full document load', () => {
+      // A plain <a href> would reload, discarding the TanStack Query
+      // cache and re-fetching the two unoptimised hero images. The tell
+      // in jsdom is that <Link> renders a same-origin path href while
+      // still being intercepted by the router — assert the shape the
+      // component chose rather than the navigation itself.
+      const { container } = at('/blog');
+      const portfolio = screen.getByText('← PORTFOLIO').closest('a');
+      expect(portfolio).toHaveAttribute('href', '/?nosplash=1');
+      // Nothing in the blog header should still be a dead bare hash.
+      const hashes = [...container.querySelectorAll('a[href^="#"]')];
+      expect(hashes).toHaveLength(0);
+    });
+
+    it('keeps ADMIN last in the nav group on every route', () => {
+      // PF-83 specified and verified skip → logo → nav links → CONTACT
+      // → toggle → ADMIN. .adminDivider is what separates it visually;
+      // moving it in markup breaks the tested sequence.
+      //
+      // Scoped to <nav> deliberately. The hamburger follows it in the
+      // header's DOM and is therefore the last focusable in the whole
+      // container — but it is `display: none` above 768px, so it is not
+      // in the desktop tab order at all, and below 768px the nav itself
+      // is hidden instead. The two are never focusable together, which
+      // is why the contract is "last in the nav", not "last in header".
+      for (const path of ['/', '/blog', '/nope']) {
+        const { container, unmount } = at(path);
+        const focusables = [
+          ...container
+            .querySelector('nav')
+            .querySelectorAll('a[href], button:not([disabled])'),
+        ];
+        expect(focusables.at(-1)).toHaveAttribute('href', '/admin/login');
+        unmount();
+      }
+    });
+
+    it('separates ADMIN with whitespace, NOT a second divider', () => {
+      // ⚠️ Guarded as an absence. A divider here was asked for, built,
+      // then removed the same day as one separator too many — it boxed
+      // the toggle in rather than setting ADMIN apart. Without this the
+      // next reader adds it back for the same reason it was added once.
+      const { container } = at('/');
+      expect(container.querySelector('[class*="adminDivider"]')).toBeNull();
+      // The PROTOTYPE's divider, on the LEFT of the toggle, STAYS. The
+      // two are easy to conflate; this says exactly one survives.
+      expect(container.querySelectorAll('nav [class*="divider"], nav [class*="Divider"]'))
+        .toHaveLength(1);
+    });
+  });
+
+  describe('the mobile overlay follows the route', () => {
+    const openAt = (path) => {
+      at(path);
+      act(() => {
+        screen.getByLabelText('Open menu').click();
+      });
+      return screen
+        .getByRole('dialog')
+        .querySelectorAll('a[href], button:not([disabled])');
+    };
+
+    it('does not leak ADMIN desktop isolation margin into the overlay', () => {
+      // ⚠️ .overlayAdminLink composes .adminLink, whose 32px margin-left
+      // isolates ADMIN in the DESKTOP header row. Inherited here it
+      // shoves the overlay's centred [toggle, ADMIN] pair 32px
+      // off-centre — a layout bug with nothing wrong in either rule read
+      // on its own. CSS Modules are stubbed under Vitest, so this
+      // asserts the stylesheet as text.
+      expect(navCss).toMatch(/\.overlayAdminLink\s*\{[^}]*margin-left:\s*0/);
+    });
+
+    it('has 8 focusables on "/" — PF-83 count, unchanged', () => {
+      // close, 4 links, CONTACT, toggle, ADMIN.
+      expect(openAt('/')).toHaveLength(8);
+    });
+
+    it('has 6 on /blog — the count is per-route now, not a constant', () => {
+      // close, PROJECTS, ABOUT, ← PORTFOLIO, toggle, ADMIN.
+      expect(openAt('/blog')).toHaveLength(6);
+    });
+
+    it('still ends on ADMIN, so the trap wraps at the right element', () => {
+      const focusables = openAt('/blog');
+      expect(focusables[focusables.length - 1]).toHaveAttribute(
+        'href',
+        '/admin/login',
+      );
+    });
+
+    it('focuses the first link on open even when it is a router Link', () => {
+      // Off "/" the overlay links are <Link>, not <a>. NavAnchor takes
+      // `ref` as an ordinary prop and react-router v7 forwards it to the
+      // anchor it renders; if either half broke, firstLinkRef would be
+      // null and focus would stay on the hamburger with nothing erroring.
+      at('/blog');
+      act(() => {
+        screen.getByLabelText('Open menu').click();
+      });
+      const links = screen.getAllByText('PROJECTS');
+      expect(document.activeElement).toBe(links[links.length - 1].closest('a'));
     });
   });
 });

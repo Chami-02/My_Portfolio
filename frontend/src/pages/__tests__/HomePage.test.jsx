@@ -24,6 +24,7 @@ vi.mock('../../components/sections/ContactSection', () => ({
   ContactSection: () => <div data-testid="contact" />,
 }));
 
+import { MemoryRouter } from 'react-router-dom';
 import { HomePage } from '../HomePage';
 import { ThemeProvider } from '../../providers/ThemeProvider';
 import { MotionProvider } from '../../providers/MotionProvider';
@@ -53,8 +54,15 @@ describe('HomePage', () => {
    * in HomePage.jsx and it fails, because the throw escapes render.
    */
   it('keeps the rest of the page alive when Hero throws', () => {
+    // MemoryRouter as of 2026-08-22: HomePage mounts <ScrollToHash />,
+    // which calls useLocation(). Every section here is stubbed, so this
+    // file needed no router before — in the real app HomePage is always
+    // inside App.jsx's <BrowserRouter>, so this is the test catching up
+    // with the component rather than a new coupling.
     expect(() => render(
-      <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>,
+      <MemoryRouter>
+        <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>
+      </MemoryRouter>,
     )).not.toThrow();
 
     ['about', 'skills', 'projects', 'blog', 'contact'].forEach((id) =>
