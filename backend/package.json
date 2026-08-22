@@ -1,7 +1,7 @@
 {
   "name": "portfolio-backend",
   "version": "1.0.0",
-  "description": "Portfolio REST API — Express + MongoDB",
+  "description": "Portfolio REST API \u2014 Express + MongoDB",
   "main": "src/app.js",
   "type": "commonjs",
   "scripts": {
@@ -16,6 +16,7 @@
   },
   "jest": {
     "testEnvironment": "node",
+    "testTimeout": 30000,
     "testMatch": [
       "**/__tests__/**/*.test.js"
     ],

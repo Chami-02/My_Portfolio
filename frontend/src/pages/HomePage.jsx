@@ -66,7 +66,16 @@ export function HomePage() {
         <ErrorBoundary><SkillsSection /></ErrorBoundary>
         <ErrorBoundary><ProjectsSection /></ErrorBoundary>
         <ErrorBoundary><BlogSection /></ErrorBoundary>
-        <ContactSection />
+        {/* Wrapped as of PF-87. It was the LAST bare section — every
+            other one has had a boundary since PF-80/82 — and the
+            exposure is the whole root, not just this section: App.jsx
+            uses React Router's legacy component API, which has no
+            errorElement, and there is no boundary above it in main.jsx
+            either. A throw here emptied #root entirely, verified by
+            probe during PF-80. Contact now owns a form, a submit
+            handler and an API read, which is enough new surface to be
+            worth degrading to a fallback instead. */}
+        <ErrorBoundary><ContactSection /></ErrorBoundary>
 
         {/* Last, matching the prototype. z-index 70 beats page content
             regardless of DOM order, so this is fidelity, not a

@@ -1,0 +1,397 @@
+/* frontend/src/components/sections/ContactSection.module.css
+ *
+ * Transcribed from `docs/design/Portfolio Revolution.dc.html` lines
+ * 489-541 — the Contact section.
+ *
+ * Every value here is the prototype's, verbatim — no rounding. The H2's
+ * `letter-spacing: .03em` and `word-spacing: .12em` are both real and
+ * both unique to this heading; no other section heading has either.
+ *
+ * Font stacks go through the tokens (`var(--font-mono)`,
+ * `var(--font-display)`, `var(--font-body)`) rather than the prototype's
+ * literal `'JetBrains Mono', monospace` / `'Anton', sans-serif` /
+ * `'Space Grotesk', sans-serif`. Not cosmetic: `--font-display` includes
+ * the metric-matched `'Anton Fallback'` face declared in tokens.css, so
+ * the literal stack would drop the size-adjusted fallback and put the
+ * font-swap reflow back. Same choice Hero, About, Skills, Projects and
+ * Blog made.
+ *
+ * ⚠️ PF-93 governs this file, and which elements it governs is less
+ * obvious here than in any previous section. The prototype puts
+ * `data-reveal` on the ROW DIVS, not on the links inside them — so
+ * `.eyebrow`, `.heading`, `.intro`, `.ctaRow`, `.socialRow`, `.location`
+ * and `.form` are Reveal targets and declare NO `transition`, while
+ * `.emailLink`, `.cvLink`, `.socialLink`, `.input`, `.textarea` and
+ * `.submit` are children of a Reveal target rather than the target
+ * itself.
+ *
+ * The children do not get a transition either, and that is transcription
+ * rather than the PF-93 rule: the prototype declares `transition` on
+ * NOTHING in this section, and `hideReveals()` only writes its inline
+ * transition onto `[data-reveal]` elements — which these are not. So
+ * every hover here SNAPS, in the export exactly as here. This file
+ * therefore contains zero `transition` declarations, and the test file
+ * asserts that as a count rather than per-class.
+ */
+
+/* `section.contact`, not `.contact`. Phase 1's global.css:338 carries
+   `[id] { scroll-margin-top: 5rem }` at specificity (0,1,0) — identical
+   to a bare class, so the tie breaks on stylesheet order and the global
+   rule wins.
+
+   ⚠️ This section is where that trap has been LIVE. Every other section
+   was rebuilt with the element qualifier; Contact stayed Phase 1, which
+   never set the property at all, so `#contact` has computed 80px against
+   a 71px header since PF-80 and every jump has landed 9px low. Three of
+   the hero's CTAs plus the navbar's CONTACT pill point here, making it
+   the most-clicked anchor on the site. The element qualifier is (0,1,1)
+   and settles it. */
+section.contact {
+  position: relative;
+  padding: clamp(80px, 12vh, 150px) clamp(16px, 4vw, 40px) 60px;
+  /* ⚠️ Deliberately NO background. The prototype's line 489 declares
+       background: radial-gradient(100% 80% at 50% 0%,
+         rgba(var(--srf),.8) 0%, rgba(var(--gnd),.6) 70%)
+     and it is omitted under the site-wide wash removal (2026-08-18,
+     owner-requested) so the StarfieldCanvas reads continuously behind
+     the whole page. A real removal, like Blog's — so it is asserted as
+     an ABSENCE in the test file, because a later fidelity pass diffing
+     against the prototype would otherwise read it as un-transcribed and
+     paint it back.
+
+     ⚠️ The prototype's separate accent-glow layer (line 490) is ALSO
+     gone — owner-requested 2026-08-22, after seeing it live. It was
+     built and shipped first, exactly as the ticket asked, and then
+     removed on sight. See the note where its rule used to be, below. */
+  overflow: hidden;
+  /* Not the prototype's — it has no fixed header to clear. */
+  scroll-margin-top: var(--header-h);
+}
+
+/* ⚠️ THE ACCENT GLOW LAYER IS REMOVED — owner-requested, 2026-08-22.
+   The prototype's line 490 is an aria-hidden absolute child:
+
+     position: absolute; top: -60px; left: 50%;
+     transform: translateX(-50%);
+     width: min(90%, 900px); height: 300px;
+     background: radial-gradient(ellipse at center,
+                   rgba(252,163,17,.16), transparent 70%);
+
+   PF-87 built it and raised it as an open question, on the reasoning
+   that an additive bloom is not the opaque ground tint the 2026-08-18
+   wash removal was about. Seen live, the owner disagreed and the
+   screenshot shows why: `overflow: hidden` clips the 300px box, so the
+   gradient's soft edges end in HARD horizontal and vertical seams. It
+   read as a faint yellow panel over the star field — the very
+   stacked-panel look the wash removal exists to prevent — rather than
+   as ambient light. So the distinction the argument rested on did not
+   survive contact with the clipping.
+
+   The ELEMENT is gone, not just its background. A zero-opacity or
+   background-less div would still be an absolutely-positioned child in
+   the section's top-centre, walked by anything reading the DOM.
+
+   ⚠️ `overflow: hidden` on the section STAYS. It is the prototype's own
+   declaration (line 489), it is independent of this layer, and nothing
+   else in the section overflows — so removing it would be an
+   untranscribed value traded for no visible change. Do NOT delete it as
+   "the other half" of this removal; the pairing described here before
+   was about what the overflow CLIPPED, not about why it exists. */
+
+.inner {
+  position: relative;
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+/* ── shared patterns ──────────────────────────────────────────────────
+   Fifth consumer of patterns.module.css, and the fifth and last of the
+   prototype's numbered eyebrows.
+
+   `margin-bottom` is local rather than composed, and this section is the
+   reason that decision was right: the prototype's five eyebrows carry
+   THREE different values — About 38px (line 195), Skills 14px (247),
+   Projects 14px (312), Blog 14px (417), Contact 20px (493). PF-81 baked
+   About's 38px into the shared class from a single observation and PF-82
+   found it wrong. 20px here is a third value, not a fourth copy of
+   14px. */
+.eyebrow {
+  composes: section-eyebrow from '../../styles/patterns.module.css';
+  margin-bottom: 20px;
+}
+
+.eyebrowLabel {
+  composes: section-eyebrow-label from '../../styles/patterns.module.css';
+}
+
+.eyebrowLine {
+  composes: section-eyebrow-line from '../../styles/patterns.module.css';
+}
+
+/* ⚠️ The only section heading in the prototype with `letter-spacing` OR
+   `word-spacing`. Both are real, both are easy to drop as noise, and
+   neither is a slip to normalise against the other four headings. */
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 5.2vw, 78px);
+  line-height: 1.06;
+  letter-spacing: .03em;
+  word-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 22px;
+}
+
+.outlined {
+  composes: outline-text from '../../styles/patterns.module.css';
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+  margin-bottom: 44px;
+}
+
+/* ── left column ──────────────────────────────────────────────────── */
+
+.intro {
+  max-width: 460px;
+  color: var(--muted);
+  font-size: clamp(14.5px, 1.5vw, 17px);
+  line-height: 1.75;
+  margin: 0 0 26px;
+}
+
+/* The email and CV rows. Reveal targets — no transition. */
+.ctaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Identical but for the trailing margin, which the prototype's social
+   row (line 508) does not carry — the location paragraph's own
+   `margin-top: 22px` provides the gap instead. */
+.socialRow {
+  composes: ctaRow;
+  margin-bottom: 0;
+}
+
+.emailLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--acc);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .06em;
+  padding: 15px 22px;
+  border-radius: 999px;
+  box-shadow: 0 14px 40px rgba(252, 163, 17, .32);
+}
+
+.emailLink:hover {
+  color: var(--accInk);
+  transform: translateY(-3px);
+  box-shadow: 0 22px 54px rgba(252, 163, 17, .5);
+}
+
+.cvLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .06em;
+  padding: 15px 22px;
+  border-radius: 999px;
+  color: var(--acc);
+  border: 1px solid rgba(252, 163, 17, .45);
+  background: rgba(252, 163, 17, .08);
+}
+
+.cvLink:hover {
+  color: var(--accInk);
+  background: var(--acc);
+  border-color: var(--acc);
+  transform: translateY(-3px);
+}
+
+.socialLink {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .08em;
+  padding: 15px 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .22);
+  color: var(--text);
+}
+
+.socialLink:hover {
+  color: var(--strong);
+  border-color: var(--acc);
+  background: rgba(252, 163, 17, .08);
+}
+
+/* ⚠️ `--muted2` at 11.5px. Measured in PF-87 and REPORTED rather than
+   fixed — it is the prototype's own token and the same one that failed
+   AA on About's stat labels and on the navbar's ADMIN link. It batches
+   into PF-91 with the two terminal-ink findings so one considered
+   decision covers all of them.
+
+   The string is `GALLE, SRI LANKA · UTC+5:30` — a DIFFERENT string in a
+   different section from About's removed `GALLE, SRI LANKA — SEEING THE
+   STACK` caption. That removal does not touch this, and this is where
+   the location is stated on the page. */
+.location {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  color: var(--muted2);
+  margin: 22px 0 0;
+}
+
+/* ── form ─────────────────────────────────────────────────────────── */
+
+/* A Reveal target — the prototype's `data-reveal` is on the <form>
+   itself (line 514), so nothing here declares a transition. */
+.form {
+  display: grid;
+  gap: 14px;
+  padding: clamp(20px, 3vw, 28px);
+  border-radius: 20px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .1);
+  box-shadow: 0 30px 70px rgba(var(--shd), .5);
+}
+
+.nameEmailRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.fieldLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  color: var(--muted2);
+}
+
+.input {
+  background: rgba(var(--gnd), .7);
+  border: 1px solid rgba(var(--ln), .14);
+  border-radius: 11px;
+  padding: 13px 14px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+/* ⚠️ NOT the prototype's bare `outline: none`, and this is an
+   implementation choice rather than a design change — a transparent
+   outline renders as nothing in every normal mode.
+
+   The prototype suppresses the outline and indicates focus with
+   `border-color: var(--acc)` alone. That indicator is the design's and
+   it is a good one (roughly 9:1 against the field), but in Windows High
+   Contrast / forced-colors mode the browser overrides author
+   `border-color`, so a suppressed outline leaves the field with NO focus
+   indicator at all — invisible to anyone testing normally. Forced-colors
+   restores a transparent outline to a system colour, so keeping one
+   costs nothing visible and closes the hole.
+
+   PF-83 deliberately left form controls out of the global
+   `:focus-visible` ring so this ticket could transcribe the prototype's
+   own treatment. This is that treatment plus the fallback, and it is
+   this repo's first `outline` suppression of any kind. */
+.input:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-color: var(--acc);
+}
+
+.textarea {
+  composes: input;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+/* `composes:` copies the class reference, not the `:focus` rule, so the
+   textarea needs its own. */
+.textarea:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-color: var(--acc);
+}
+
+/* ⚠️ Both status colours are LITERAL hexes in the prototype, not tokens,
+   so they do not follow the theme. Measured in PF-87 against the form's
+   own surface in both themes and reported in the hand-off rather than
+   changed — the prototype's values, following the PF-83 stat-label
+   precedent of raise-then-change. */
+.errorText {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #f87171;
+  margin: 0;
+}
+
+.sentText {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #34d399;
+  margin: 0;
+}
+
+.submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--acc);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: .1em;
+  padding: 15px 22px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 12px 34px rgba(252, 163, 17, .3);
+}
+
+.submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 46px rgba(252, 163, 17, .45);
+}
+
+/* No prototype source — it never disables the button, because its
+   submit is a 900ms setTimeout rather than a real request. Deliberately
+   minimal: the cursor and a slight fade, no colour change, so the
+   in-flight state reads as the same button rather than a new one. The
+   label already changes to SENDING… , which is the design-sanctioned
+   place to show it. */
+.submit:disabled {
+  cursor: not-allowed;
+  opacity: .72;
+}
+
+/* Hover must not lift a button that cannot be pressed. */
+.submit:disabled:hover {
+  transform: none;
+  box-shadow: 0 12px 34px rgba(252, 163, 17, .3);
+}

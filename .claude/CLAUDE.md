@@ -432,7 +432,8 @@ responsive + a11y audit.** PF-85 → PF-92.
 | PF-85 | Projects section, API-wired | ✅ |
 | PF-93 | Reveal entrance regression — withdraw the hover deviation | ✅ |
 | PF-86 | Blog teaser (Field Notes), API-wired | ✅ |
-| PF-87 → PF-92 | Contact, Footer, cutover, audit | not started |
+| PF-87 | Contact section, API-wired, résumé link | ✅ |
+| PF-88 → PF-92 | Footer, cutover, responsive + a11y audit | not started |
 | — | **Sprint 13 prep — navbar rework + 2 removals** (2026-08-22) | ✅ |
 
 **Sprint 13 prep landed on this branch, unticketed and owner-directed
@@ -529,8 +530,13 @@ There is **no separate Sprint 11 retrospective document**, matching Sprint
 
 ### Outstanding work — deferred deliberately, not lost
 
-- **⚠️ `blogViews.test.js` flakes on Jest's 5s default timeout against
-  Atlas — it is a NETWORK timeout, not an assertion failure.** Seen
+- ~~**⚠️ `blogViews.test.js` flakes on Jest's 5s default timeout**~~ —
+  **FIXED in PF-87** via `jest.testTimeout: 30000`; three consecutive
+  runs gave 242/242/242. `mongodb-memory-server` is still the real fix
+  and still its own ticket. Original account kept below.
+
+- **⚠️ `blogViews.test.js` flaked on Jest's 5s default timeout against
+  Atlas — it was a NETWORK timeout, not an assertion failure.** Seen
   2026-08-22: three full-suite runs gave **242/242**, **239/242** and
   **241/242**, with a different count each time and always the same
   shape:
@@ -551,8 +557,13 @@ There is **no separate Sprint 11 retrospective document**, matching Sprint
   properly is a `jest.setTimeout()` bump or a local/in-memory Mongo for
   the suite; neither is in any current ticket.
 
-- **⚠️ `#contact`'s `scroll-margin-top` is 80px, not 71px — every navbar
-  CONTACT click lands 9px low.** Found 2026-08-22 while verifying the
+- ~~**⚠️ `#contact`'s `scroll-margin-top` is 80px, not 71px**~~ — **FIXED
+  in PF-87**, which rebuilt the section with `section.contact` at (0,1,1).
+  Re-measured: all six sections **71px**, both CTAs land flush with the
+  header. Original account below.
+
+- **⚠️ `#contact`'s `scroll-margin-top` WAS 80px, not 71px — every navbar
+  CONTACT click landed 9px low.** Found 2026-08-22 while verifying the
   route-aware navbar; **pre-existing, not introduced by it.** Measured on
   the production build:
 
@@ -589,6 +600,11 @@ There is **no separate Sprint 11 retrospective document**, matching Sprint
 
 None of this is in Sprint 11's PR. Each was checked on 2026-08-19 rather
 than copied forward:
+
+- ~~**One vacuous E2E test — `"Get In Touch" CTA scrolls to contact
+  section`**~~ — **REPLACED in PF-87**, and a FIFTH stale spec was found
+  alongside it in `e2e/contact.spec.js` (see the PF-87 entry). Both
+  mutation-tested. Original account below.
 
 - **One vacuous E2E test — `"Get In Touch" CTA scrolls to contact section`**
   (`e2e/homepage.spec.js`). Asserts Playwright's own auto-scroll, not the
@@ -694,6 +710,32 @@ than copied forward:
   the compact rows' is `var(--acc)` at `opacity:.65` (line 446), so only
   the featured one keeps dark theme's amber on light paper. Same shape as
   the terminal caret. Both batch naturally into PF-91.
+- **⚠️ FOUR contrast findings in Contact, reported and NOT fixed** (PF-87,
+  2026-08-22). All the prototype's own values, so they follow the PF-83
+  stat-label precedent and batch into PF-91:
+
+  | node | dark | light |
+  | --- | --- | --- |
+  | location line (`--muted2`, 11.5px) | 4.55 ✅ marginal | 5.45 ✅ |
+  | **form field labels** (`--muted2`, 10.5px) | **4.15** ✗ | 5.95 ✅ |
+  | error text (`#f87171`, 11.5px) | 6.65 ✅ | **2.48** ✗ |
+  | sent text (`#34d399`, 11.5px) | 9.57 ✅ | **1.72** ✗ |
+
+  The field-label row is the **fourth** occurrence of `--muted2` failing
+  dark at a small size on a translucent surface, and 4.15 is
+  byte-identical to About's stat labels before PF-83 fixed them.
+  `--muted` is the one-step-lighter answer each time. The two status
+  hexes fail LIGHT because they were chosen for a dark panel and the form
+  surface flips underneath them — the terminal-caret shape again.
+
+  ⚠️ Note the ticket predicted the location line would fail and it
+  PASSES; the labels it never mentions are the actual failure.
+
+- **⚠️ The contact email and the site's H1 disagree.** H1 is **Parindra
+  Gallage**, the email is **parindrachameekara@gmail.com**. The
+  prototype has it this way so PF-87 shipped it as found, but it is worth
+  the owner confirming rather than discovering live.
+
 - **⚠️ `mix-blend-mode: screen` is invisible in light theme.** The
   featured card's sweep layer computes to a +1/+1/+0 per-channel change
   over the light card's paper — pixel-differenced, not reasoned. It works
@@ -712,7 +754,17 @@ than copied forward:
 - **About/Hero API re-wiring.** Schema decision made (`numericValue` +
   `suffix`), ticket not written. Touches the Mongoose schema,
   `AdminAboutPanel`, and the availability gate's public reader.
-- **Résumé subsystem — a whole backend with no frontend at all.** Verified:
+- ~~**Résumé subsystem — a whole backend with no frontend at all**~~ —
+  **PUBLIC HALF SHIPPED IN PF-87.** `ContactSection`'s DOWNLOAD CV is the
+  subsystem's first frontend caller, via `apiUrl('/resume')`, and it
+  reproduces the prototype's own two-branch `applyResume()` behaviour off
+  `About.hasResume`. **The admin UPLOAD UI is still unbuilt** — Sprint 14,
+  per the owner's 2026-08-19 decision — so `hasResume` is `false` live and
+  the button ships inert with the prototype's explanatory title. Nothing
+  needs changing on the frontend when a résumé is finally uploaded.
+  Original account below.
+
+- **Résumé subsystem — the ADMIN half still has no frontend.** Verified:
   7 backend files (`routes/resumeRoutes.js`, `services/storage.js`,
   `controllers/aboutController.js`, `models/About.js`, `app.js`, `seed.js`,
   `routes/aboutRoutes.js`) and **zero** frontend callers. The only two
@@ -2035,11 +2087,327 @@ card that was not there. Register the catch-all first.
 `useTypewriter` and `apiUrl` are all still orphaned, still deliberate,
 still cutover work.
 
-`useInView` drops to **exactly one** consumer — `ContactSection`, PF-88's.
+~~`useInView` drops to **exactly one** consumer — `ContactSection`, PF-88's.~~
+**It dropped to ZERO in PF-87** — see that entry. Fourth orphan, as predicted here.
 Counted, not inferred: PF-82 recorded three (Projects, Blog, Contact),
 PF-85 took Projects and this ticket takes Blog. So the moment Contact is
 rebuilt, `useInView` and its test become the fourth orphan on the cutover
 list, and it is worth expecting rather than rediscovering.
+
+**Built by PF-87 — Contact is Phase 2, the main page is fully rebuilt, and
+the résumé subsystem finally has a frontend:**
+
+```
+frontend/src/
+  components/sections/
+    ContactSection.jsx  + .module.css   REPLACES the Phase 1 Contact, same path
+    __tests__/ContactSection.test.jsx   45 tests
+  pages/HomePage.jsx                    + <ErrorBoundary> around Contact
+  pages/__tests__/HomePage.test.jsx     + the guard for it
+frontend/e2e/homepage.spec.js           vacuous test REPLACED, +3
+backend/package.json                    jest.testTimeout 5000 → 30000
+```
+
+**⚠️ THE TICKET'S "the empty state has no design source" IS WRONG, AND THE
+PROTOTYPE'S ANSWER IS BETTER THAN ALL THREE OPTIONS IT OFFERED.** The
+ticket saw `<a href="#contact" download>` (line 505) and read it as
+PF-86's `href="#blog"` again — a design tool with nowhere to point. It is
+not. `applyResume()` (line 676) rewrites that anchor at runtime:
+
+```js
+if (r && r.dataUrl) { el.setAttribute('href', r.dataUrl); el.setAttribute('download', r.name); el.removeAttribute('title'); }
+else { el.setAttribute('href', '#contact'); el.removeAttribute('download'); el.setAttribute('title', 'Upload a résumé in the admin panel to enable this'); }
+```
+
+So the markup href is the EMPTY STATE, not a dead anchor, and the design
+does answer the question: always show the button, leave it inert, explain
+why on hover. Ported one-to-one onto `About.hasResume` — the same move
+PF-85 made mapping `applyProjectBgs()` onto `Project.backgroundImage`, and
+for the same reason: the localStorage hop is a design-tool affordance but
+the visual contract maps exactly.
+
+**⚠️ Which means the ticket's instruction "Do not pick one — report and
+let the owner decide" is superseded by "the prototype wins".** Nothing was
+invented. Worth reading as a pattern: this is the THIRD time a `<a
+href="#<own-section>">` in the prototype has looked like an artefact, and
+the second time it turned out to have a runtime handler behind it. **Grep
+the script block for the element's own attribute before calling an href
+dead** — `data-cv` here, `data-cardbg` in PF-85.
+
+**Case B is what is live** (checked, not assumed): `GET /api/about` returns
+`hasResume: false` with every `resume.*` field empty, and `GET /api/resume`
+returns **HTTP 404** `{"status":"fail","message":"No résumé is currently
+available"}`. So the CV button ships in its inert state today and becomes
+a real download the moment Sprint 14's upload UI is used — no frontend
+change needed.
+
+**⚠️ THE TICKET'S THIRD PROTOTYPE DEFECT DOES NOT EXIST.** Step 2.4 claims
+the email anchor is unterminated (`</a` with no `>`). It is terminated —
+verified at byte level, `3c 2f 61 3e` = `</a>`, at line 502. The known
+prototype defects remain **two**: the undeclared `acc` (line 834) and the
+unattached `data-terminal` (fixed in PF-85). Do not go looking for a third.
+
+**`#contact`'s `scroll-margin-top` is FIXED — 80px → 71px.** The headline
+of this ticket and the last live instance of the `[id]` cascade trap.
+Measured in Chromium on the production build, all six sections:
+
+| section | before | after |
+| --- | --- | --- |
+| hero · about · skills · projects · blog | 71px | 71px |
+| **contact** | **80px** ✗ | **71px** ✅ |
+
+Both CTAs that point here (`hero LOUD CTA`, navbar `CONTACT`) now land with
+`location.hash === '#contact'` and the section top at **exactly 71px**,
+flush with the header's bottom edge — clearance 0.
+
+**`ContactSection` is wrapped in `<ErrorBoundary>`, so NO SECTION IS BARE
+ANY MORE.** It was the last one, and the exposure was the whole root:
+`App.jsx` uses React Router's legacy component API with no `errorElement`
+and there is no boundary around `<App />` in `main.jsx`. Guarded in
+`HomePage.test.jsx` with a conditionally-throwing stub, confirmed by
+mutation.
+
+**`useInView` is now the FOURTH ORPHAN, exactly as PF-86 predicted.**
+Counted, not inferred: zero non-test consumers in `frontend/src`. It joins
+`useTypewriter`, `TerminalWindow` and `apiUrl` — except `apiUrl` is no
+longer one, see below. Its own test file still passes, which is the
+green-suite-hides-dead-code shape this file documents; do not read that as
+evidence of use.
+
+**`apiUrl` is NO LONGER an orphan.** `CV_HREF = apiUrl('/resume')` is its
+first consumer since PF-81 removed the last one, and its doc comment names
+this exact case — anchors the browser fetches itself, on a different origin
+in production. A literal `/api/resume` would work behind the dev proxy and
+404 on the live site.
+
+Six things worth knowing before touching the section:
+
+- **BOTH the section wash and the accent glow come out.** The wash
+  (`radial-gradient(100% 80% at 50% 0%, rgba(var(--srf),.8),
+  rgba(var(--gnd),.6) 70%)`, line 489) went under the 2026-08-18 site-wide
+  decision. The glow — a separate `aria-hidden` absolute child at
+  `rgba(252,163,17,.16)`, line 490 — was BUILT, raised as an open
+  question, and then **removed on sight by the owner (2026-08-22)**. Full
+  reasoning in Locked decisions; the short version is that the argument
+  for keeping it did not survive contact with `overflow: hidden`.
+  `overflow: hidden` itself STAYS — the prototype's own value, and not
+  "the other half" of the removal.
+- **The eyebrow's `margin-bottom` is 20px — a THIRD value, not a fourth
+  copy of 14px.** About 38px, Skills/Projects/Blog 14px, Contact 20px.
+  This is the section that vindicates `patterns.module.css` carrying none.
+- **The H2 is the only section heading with `letter-spacing` OR
+  `word-spacing`** — `.03em` and `.12em`, both real, both trivially lost
+  to a normalising pass. Verified rendered: 2.2464px / 8.9856px at 74.88px.
+- **`type="text" inputmode="email"`, not `type="email"`.** The prototype's
+  own choice, and it changes behaviour rather than semantics: `type=email`
+  fires native validation whose bubble has no treatment in this design.
+  The form carries `noValidate` so the two cannot drift apart.
+- **Client validation is the prototype's, copy included** — `All three
+  fields are required.` / `That email address looks off.` (lines
+  1138-1139). ⚠️ It is deliberately NOT the whole contract: the backend
+  additionally requires a message of **≥10 characters** and caps field
+  lengths. A 9-character message passes the client and comes back 400 with
+  the server's own sentence, which the catch surfaces. Duplicating the
+  server's rules client-side would be a second source of truth.
+- **The form clears on success ONLY.** No design source — the prototype's
+  submit is a 900ms `setTimeout` and cannot fail. A network blip must not
+  cost a visitor the message they came to write.
+
+**⚠️ `outline: 2px solid transparent`, and forced-colors PROVES it was
+needed.** The prototype ships a bare `outline: none` on all three fields,
+which would have been this repo's first — PF-83 recorded "there is no
+`outline: none` anywhere in this repo, checked" and left form controls out
+of the global `:focus-visible` ring precisely so this ticket could
+transcribe the prototype's own `border-color` treatment.
+
+Measured in Chromium's forced-colors emulation, all three fields:
+
+| mode | outline | border |
+| --- | --- | --- |
+| normal | `rgba(0, 0, 0, 0) solid 2px` — invisible | `rgb(252, 163, 17)` — the design's indicator |
+| **forced-colors active** | **`rgba(0, 230, 255, 0.8) solid 2px`** — system colour | overridden to the same |
+
+So the transparent outline renders as nothing normally and is **restored
+by the OS** when author colours are overridden. A bare `outline: none`
+would have left the field with no focus indicator at all in that mode —
+invisible to anyone testing normally. Guarded as "no bare `outline: none`
+anywhere in the file", via postcss.
+
+**⚠️ THIS SECTION DECLARES ZERO `transition`s, AND THAT IS TRANSCRIPTION
+RATHER THAN THE PF-93 RULE.** Which elements are Reveal targets is less
+obvious here than anywhere else: the prototype puts `data-reveal` on the
+ROW DIVS, not on the links inside them. Eight targets — `.eyebrow`,
+`.heading`, `.intro`, two `.ctaRow`s, `.socialRow`, `.location`, `.form`.
+
+The links, inputs and submit are **children** of a target rather than
+targets, so `hideReveals()` never writes to them either — and the
+prototype declares `transition` on nothing in this section. So every hover
+here **snaps**, in the export exactly as here. Measured on the production
+build, all four at `transition-duration: 0s`:
+
+| element | hover result |
+| --- | --- |
+| `.emailLink` | `translateY(-3px)`, accent fill, shadow → `0 22px 54px rgba(252,163,17,.5)` |
+| `.cvLink` | `translateY(-3px)`, accent fill, `--accInk` |
+| `.socialLink` | **no transform** — the prototype's hover has none; colour/border/bg only |
+| `.submit` | `translateY(-2px)`, shadow → `0 20px 46px rgba(252,163,17,.45)` |
+
+The absence of a transform on the social links is the design's, not an
+omission. PF-93's repo-wide scanner picks up all eight new classes
+automatically — confirmed by mutation, a `transition` on `.form` fails it
+by name.
+
+**⚠️ THREE AA FAILURES, REPORTED NOT FIXED — and one of them the ticket
+did not ask about.** All measured against each node's composited backdrop
+on the production build, both themes:
+
+| node | dark | light |
+| --- | --- | --- |
+| location line (`--muted2`, 11.5px) | **4.55** ✅ (marginal) | 5.45 ✅ |
+| **form field labels** (`--muted2`, 10.5px) | **4.15** ✗ | 5.95 ✅ |
+| error text (`#f87171`, 11.5px) | 6.65 ✅ | **2.48** ✗ |
+| sent text (`#34d399`, 11.5px) | 9.57 ✅ | **1.72** ✗ |
+
+Three things about that table:
+
+1. **The location line PASSES**, marginally, which is the opposite of what
+   the ticket expected — it flagged `--muted2` at 11.5px as the likely
+   failure. It sits on the page ground rather than on a translucent card,
+   which is what saves it.
+2. **The field labels are the actual `--muted2` failure, and the ticket
+   never mentions them.** 4.15 dark is BYTE-IDENTICAL to About's stat
+   labels before PF-83 fixed them — same token, same small size, same
+   translucent surface. That is the **fourth** occurrence of this exact
+   trap (About's stat labels, Blog's compact-row meta, the navbar's ADMIN
+   link, now these), and `--muted` is the one-step-lighter answer every
+   time.
+3. **Both status colours fail in LIGHT theme**, badly, and for the reason
+   the ticket predicted: they are literal hexes chosen for a dark panel
+   and the form surface flips underneath them. `#34d399` at 1.72 is worse
+   than `#f87171` at 2.48. Same token-vs-literal shape as the terminal
+   caret fixed in PF-85's follow-up.
+
+All four batch into PF-91, per the PF-83 stat-label precedent: raise, get
+sign-off, then change.
+
+**Live verification, measured in Chromium against the production build**,
+served from `dist-verify/` behind a same-origin proxy — `.env.production`
+is still the Railway placeholder:
+
+| Check | Result |
+| --- | --- |
+| `scroll-margin-top`, all 6 sections | **71px** each — the live 80px bug is gone |
+| header height | **71px**, unchanged |
+| section background | `none` / `rgba(0,0,0,0)`, both themes |
+| glow layer | **absent** — removed 2026-08-22; 0 decorative gradient layers in the section |
+| all 6 sections | `background-image: none` / `rgba(0,0,0,0)`, both themes |
+| H2 spacing | `2.2464px` letter · `8.9856px` word (= .03em / .12em) |
+| eyebrow margin | **20px** |
+| CV link (no résumé) | `href="#contact"`, no `download`, prototype's title |
+| focus, normal | outline transparent, border → `rgb(252,163,17)` ×3 |
+| focus, forced-colors | outline → **system cyan** ×3 — the fallback works |
+| hover | all four snap at `0s`; social has no transform, correctly |
+| all 8 reveals | inherit `.reveal`'s `opacity .85s / transform 1.05s` |
+| splash gate | **0/8** reveals mid-splash, **8/8** after it lifts |
+| reduced motion | `data-motion=reduced`, 0 running animations, all 8 at rest, hover **still lifts** `-3px` |
+| mobile 375px | no horizontal overflow, form single-column 343px, textarea 118px |
+| prototype declarations matched verbatim | **142**; the 4 unmatched are all composed from `patterns.module.css` |
+
+**The gate, all five commands:** frontend **586 / 586** (41 files) · lint
+**exit 0** over 115 files · build **218 modules**, 60.96 kB CSS / 412 kB JS
+· backend **242 / 242** · E2E **29 / 29** (up from 26, and 1.1m vs 1.6m).
+**39 mutations across every new guard, all caught** — 30 on the component and
+module, 4 on the E2E replacements, 5 on the glow-removal absence guards.
+
+**⚠️ Step 8's backend flake is FIXED, and the fix is one line.**
+`backend/package.json` gains `jest.testTimeout: 30000`, up from Jest's 5s
+default. Every suite here talks to a real Atlas cluster, so under
+full-suite load a round trip can exceed 5s and Jest kills the test before
+any assertion runs — a timeout with no `expect` diff, which reads as a
+regression on a diff that never touched the backend.
+
+Measured three consecutive full runs after the change: **242 · 242 · 242**,
+against the **242 · 239 · 241** recorded on 2026-08-22. ⚠️ The ticket asks
+which specs failed in the 239 run — that run predates this session and its
+per-spec output was not kept; the only record is the shape in Outstanding
+work (`blogViews.test.js › increments views by one`, "Exceeded timeout of
+5000 ms"). Three green runs is the evidence offered instead, and it is
+weaker than a named diagnosis: it shows the symptom gone, not that one
+slow file rather than scattered slowness caused it. **The real fix is
+still `mongodb-memory-server`**, which removes the class entirely and makes
+the suite runnable offline — its own ticket, because it touches the
+`npm test` wrapper whose URI rewrite is the only thing making `clearDB`'s
+wipe safe.
+
+**⚠️ THERE WAS A FIFTH STALE PHASE 1 E2E SPEC, IN A FILE THE TICKET NEVER
+NAMES.** PF-87's Step 1 points only at `homepage.spec.js`'s vacuous
+`"Get In Touch"` test. `e2e/contact.spec.js` — a whole file about the
+contact form — is not mentioned anywhere in the ticket, and it surfaced
+only by running the suite. It carried **both** documented failure shapes
+at once:
+
+| test | before | why |
+| --- | --- | --- |
+| `shows success state after valid submission` | **FAILED** | asserted Phase 1's copy `text=Message received`; Phase 2 says `✓ Message sent — I'll reply within 24 hours.` |
+| `empty form cannot be submitted (HTML5 validation)` | **PASSED, vacuous** | Phase 1's inputs had `required`; Phase 2 has `noValidate` and validates in JS. Its two assertions — the name input is visible, Phase 1's success text is absent — are true whether validation runs or not, and stay true if it is deleted |
+| `contact form is visible` | passed, legitimately | the three `name` attributes are unchanged |
+
+Both rewritten against the real Phase 2 behaviour, plus two new tests
+(malformed email, and that the email field carries no native validation).
+The empty-submit test now counts POST requests, which is the assertion the
+HTML5 version could not express — **mutation-tested by deleting the JS
+validation, which the old test would have sailed through.**
+
+`?nosplash` added to its `beforeEach` for the PF-84 reason: without it
+every test waits out the ~5.65s splash. **The whole suite went 1.6m → 1.1m
+while gaining three tests.**
+
+**The generalisable bit: "grep the specs the ticket names" is not a
+sweep.** PF-84 found four stale specs, this ticket's own Step 1 knew about
+one of them, and a fifth sat in the file whose name matches the section
+being replaced. Run the suite; do not grep for the tests you expect.
+
+**⚠️ One real bug in this ticket's own code, caught by that E2E run and
+not by any unit test.** The About query was destructured
+`{ isError: aboutError }`, so the diagnostic logged the BOOLEAN:
+
+```
+[console.error] ContactSection: useAbout() failed true
+```
+
+It names the symptom and drops the cause — the failure mode the
+`loginError.js` entry is about, in miniature. Fixed to destructure
+`isError` and `error` separately. Worth noting no unit test caught it,
+because every unit test asserts on the rendered fallback rather than on
+what reached the console; the E2E run printed it in passing.
+
+**PF-87 orphaned three Phase 1 CSS classes and un-orphaned one module.**
+Counted with a grep over `src/**/*.jsx` discounting tests, not inferred:
+
+| | before | after |
+| --- | --- | --- |
+| `useInView` | 1 (Contact) | **0** — fourth orphan |
+| `.section-label` · `.section-title` · `.section-divider` | 1 each (Contact) | **0 each** — now only in `global.css` |
+| `apiUrl` | 0 | **1** — no longer an orphan |
+| `useAbout` | 1 (AdminAboutPanel) | 2 |
+
+⚠️ `AboutSection` shows up in a naive `useAbout` grep and is NOT a
+consumer — the match is a doc comment explaining why PF-81 took it off the
+API. `contactService` keeps its second consumer, `AdminMessagesPanel`.
+
+The three CSS classes go with `global.css` at cutover; they are dead
+today. `.btn-primary` and `.btn-outline` are NOT orphaned — six and four
+admin/page consumers respectively.
+
+**⚠️ One thing still flagged for the owner rather than decided** — the
+accent glow was the other, and it was answered the same day (see Locked
+decisions):
+
+- **The email address and the H1 disagree.** The page's H1 is **Parindra
+  Gallage**; the contact email is **parindrachameekara@gmail.com**. Both
+  are presumably correct and the prototype has it this way, so it ships as
+  found — but it is the kind of thing better confirmed than discovered
+  live.
 
 ## Stack
 
@@ -3289,6 +3657,67 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   `{ behavior: 'smooth' }` would animate the jump for exactly the users
   who asked it not to, invisibly to anyone not testing with reduce on.
   Guarded on the ARGUMENT, because jsdom implements no scrolling at all.
+
+- **Contact's accent glow layer is removed (2026-08-22,
+  owner-requested).** The prototype's line 490 — an `aria-hidden`
+  absolute child, `top:-60px; left:50%; translateX(-50%)`,
+  `min(90%,900px)` × 300px, `radial-gradient(ellipse at center,
+  rgba(252,163,17,.16), transparent 70%)` — is gone from `#contact`.
+
+  **⚠️ This one is worth reading as a REASONING failure, not just a
+  preference.** PF-87 built it deliberately and argued to keep it, on
+  the grounds that the 2026-08-18 wash removal was about *opaque ground
+  tints producing stacked-panel banding*, and that an ADDITIVE amber
+  bloom is a different kind of thing — the same distinction that
+  correctly saved Blog's `.sweep` and About's `.portraitFade`. The
+  ticket agreed and recommended keeping it.
+
+  The distinction was real and the conclusion was still wrong, because
+  it ignored a value sitting two lines above it in the same rule.
+  **`overflow: hidden` on the section clips the 300px box**, so the
+  gradient's soft edges terminate in hard horizontal and vertical
+  seams. What renders is not a bloom bleeding into the star field; it
+  is a faint yellow RECTANGLE with visible edges — precisely the
+  panel look the wash removal exists to prevent. The owner saw it live
+  and said so.
+
+  **The lesson: "additive vs opaque" is a property of the gradient;
+  "reads as a panel" is a property of the rendered box.** A clip turns
+  the first into the second, and no amount of reading the gradient's
+  alpha will show that. This is the ungated-hover mistake in a new
+  costume — an argument from one property of a rule, when a neighbouring
+  property changed what it meant.
+
+  Three things to keep straight, the same shape as the splash scan
+  lines, the About caption and the Blog ghost numeral:
+  - The **element** is gone, not its background. A background-less
+    absolute div still sits in the section's top-centre and is still
+    walked by anything reading the DOM.
+  - **`overflow: hidden` STAYS.** It is the prototype's own declaration
+    (line 489), independent of the layer it happened to clip, and
+    nothing else in the section overflows. Deleting it as "the other
+    half" trades an untranscribed value for no visible change. Guarded
+    explicitly, because the pairing PF-87's own comment described makes
+    it a natural thing to sweep up.
+  - The **section wash** (line 489's `background`) was already out under
+    the 2026-08-18 decision. Two separate removals, one section.
+
+  Verified after: all six sections report `background-image: none` /
+  `rgba(0,0,0,0)` in both themes, and `#contact` reports **zero**
+  aria-hidden absolute children painting a gradient. The layers that
+  remain elsewhere — Hero's portrait glow and four drift blobs, About's
+  `.portraitFade` and sweep, Blog's card sweep — are all CONTENT layers
+  bound to a specific element, not section-spanning bands, and none was
+  touched.
+
+  Guarded as an absence **three ways** — no `.glow` rule, no
+  aria-hidden absolute child, no `radial-gradient` anywhere in the
+  module — plus a fourth pinning `overflow: hidden`. Via postcss and the
+  DOM, never a text search: the module documents the removed
+  declarations in prose exactly where the rule used to be. Five
+  mutations, each caught by a different guard: full restore, CSS-only,
+  element-only, the gradient smuggled onto the section itself, and
+  `overflow` swept up with it.
 
 - **The Blog featured card's ghost numeral is removed (2026-08-22,
   owner-requested).** The prototype's translucent `01` — `top: -30px;
