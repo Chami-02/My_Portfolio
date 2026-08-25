@@ -164,8 +164,17 @@ describe('HeroSection (PF-80)', () => {
     // single edit can quietly collapse them back onto each other.
     expect(screen.getByAltText('Portrait of Parindra Gallage')).toBeInTheDocument();
     expect(screen.queryByAltText('Parindra Gallage')).toBeNull();
-    // Marquee duplicates its children, so both copies match.
-    expect(pickAll(container, 'marqueeText')).toHaveLength(2);
+    // ⚠️ SIX copies, not the prototype's two, and the count is
+    // arithmetic rather than taste. `marq` translates the track by -50%
+    // of its own width, so one cycle slides it by only HALF the copies:
+    // the requirement is `copies >= 2 * band / copy`, not
+    // `copy >= band`. One copy of this strip is 1297px against a 1484px
+    // band, so two left 187px of the band empty at the wrap. Measured in
+    // Chromium; owner-approved 2026-08-24 and applied to the footer's
+    // band in the same pass. See Marquee.jsx.
+    const strips = pickAll(container, 'marqueeText');
+    expect(strips).toHaveLength(6);
+    expect(strips.length % 2).toBe(0);
   });
 
   // The marquee follows </section> in the prototype. Nested inside a

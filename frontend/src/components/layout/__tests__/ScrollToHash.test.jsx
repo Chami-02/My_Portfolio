@@ -168,6 +168,78 @@ describe('ScrollToHash', () => {
 
   // ══ re-navigation ═════════════════════════════════════════════════
 
+  /**
+   * ⚠️ PF-88. The footer's REPLAY INTRO button closes and reopens the
+   * readiness gate mid-session, and `splashReady` is one of this
+   * effect's dependencies — so without the per-navigation guard a user
+   * sitting at /#projects who clicks replay gets the scroll-to-top, then
+   * the whole ~5.65s splash, and then a silent yank back down to
+   * #projects the instant the gate reopens. Nothing errors; the button
+   * just stops ending where it says it does.
+   *
+   * Mutation-tested by deleting the `scrolledForKey` guard in
+   * ScrollToHash: this fails and every other test in the file passes.
+   */
+  it('does not re-scroll when the splash gate merely reopens', () => {
+    const el = mountTarget('projects');
+    let release;
+
+    function Releaser() {
+      const { setReady } = useSplashControls();
+      release = setReady;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/#projects']}>
+        <SplashProvider initialReady>
+          <Releaser />
+          <ScrollToHash />
+        </SplashProvider>
+      </MemoryRouter>,
+    );
+    flushRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+
+    // What a replay does: close the gate, then reopen it 320ms into the
+    // new splash's exit.
+    act(() => release(false));
+    act(() => release(true));
+    flushRaf();
+
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  it('still scrolls the FIRST time the gate opens, mid-splash', () => {
+    // The control for the guard above. A guard that simply never
+    // scrolled would also report "called once" — this pins the case the
+    // splash gate exists for: the effect bailed while ready was false,
+    // so nothing was marked handled and the real jump still happens.
+    const el = mountTarget('projects');
+    let release;
+
+    function Releaser() {
+      const { setReady } = useSplashControls();
+      release = setReady;
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/#projects']}>
+        <SplashProvider initialReady={false}>
+          <Releaser />
+          <ScrollToHash />
+        </SplashProvider>
+      </MemoryRouter>,
+    );
+    flushRaf();
+    expect(el.scrollIntoView).not.toHaveBeenCalled();
+
+    act(() => release(true));
+    flushRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
   it('cancels its pending frame on unmount', () => {
     const cancel = vi.fn();
     vi.stubGlobal('cancelAnimationFrame', cancel);

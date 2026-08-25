@@ -1,5 +1,5 @@
 // frontend/src/components/layout/ScrollToHash.jsx
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSplashReady } from '../../hooks/useSplashReady';
 
@@ -27,8 +27,31 @@ export function ScrollToHash() {
   const { hash, key } = useLocation();
   const splashReady = useSplashReady();
 
+  /**
+   * ⚠️ PF-88. The last navigation this component actually scrolled for.
+   *
+   * `splashReady` is a dependency, so the effect re-runs every time the
+   * gate opens — and PF-88's REPLAY INTRO button closes and reopens it
+   * mid-session. Without this, a user sitting at `/#projects` who clicks
+   * replay gets the scroll-to-top, then the whole splash, and then a
+   * silent yank back down to #projects the instant the gate reopens.
+   * Nothing errors; the button simply stops ending where it says it
+   * does.
+   *
+   * Keyed on react-router's per-navigation `key`, not on `hash`, so
+   * clicking the SAME hash twice still re-scrolls — that behaviour is
+   * why `key` is in the deps at all.
+   *
+   * Marked INSIDE the rAF, after the scroll, never at effect entry.
+   * StrictMode's simulated remount cancels the first mount's rAF before
+   * it fires; marking early would record a scroll that never happened
+   * and leave the second mount refusing to do it.
+   */
+  const scrolledForKey = useRef(null);
+
   useEffect(() => {
     if (!hash) return undefined;
+    if (scrolledForKey.current === key) return undefined;
 
     // ⚠️ Gated on splash readiness, not merely delayed.
     //
@@ -71,6 +94,7 @@ export function ScrollToHash() {
       // the users who asked it not to, and would do so invisibly to
       // anyone not testing with reduce on.
       target?.scrollIntoView();
+      scrolledForKey.current = key;
     });
 
     return () => {

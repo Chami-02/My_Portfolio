@@ -1,0 +1,348 @@
+/* frontend/src/components/layout/Footer.module.css
+ *
+ * Transcribed from `docs/design/Portfolio Revolution.dc.html` lines
+ * 543-603. Every value is the prototype's, verbatim — no rounding.
+ *
+ * Font stacks go through the tokens (`var(--font-mono)`,
+ * `var(--font-display)`) rather than the prototype's literal
+ * `'JetBrains Mono', monospace` / `'Anton', sans-serif`. Not cosmetic:
+ * `--font-display` includes the metric-matched `'Anton Fallback'` face
+ * declared in tokens.css, so the literal stack would drop the
+ * size-adjusted fallback and put the font-swap reflow back. Same choice
+ * every Phase 2 section made.
+ *
+ * ⚠️ PF-93 GOVERNS THIS FILE. Four elements here are Reveal-wrapped —
+ * `.identity`, `.column` (×2) and `.status` — and none declares a
+ * `transition`; `Reveal` owns that property on the element it renders
+ * and keeps owning it. Everything hoverable in this footer (`.link`,
+ * `.statusCta`, `.replay`, `.scrollUp`) sits INSIDE a reveal target
+ * rather than being one, so the prototype's hideReveals() never writes
+ * an inline transition over it either — and the prototype gives none of
+ * them a `transition` of their own. So they all SNAP, in the export
+ * exactly as here. That is the design's behaviour, not an omission:
+ * PF-93's repo-wide scanner catches the wrapped case automatically and
+ * cannot catch a missing transition on an unwrapped one.
+ */
+
+.footer {
+  position: relative;
+  overflow: hidden;
+  padding: 0 0 26px;
+  /* ⚠️ Deliberately NO background. The prototype's line 543 declares
+       background: linear-gradient(180deg,
+         rgba(var(--gnd),.4), rgba(var(--ftr),.86))
+     and it is omitted under the site-wide wash removal (2026-08-18,
+     owner-requested) so the StarfieldCanvas reads continuously behind
+     the whole page. This is an opaque ground tint spanning the full
+     width, which is exactly what that decision targeted — and after
+     PF-87's glow removal it would have been the only banded surface
+     left on the page.
+
+     Guarded as an ABSENCE, because a fidelity pass diffing this file
+     against the prototype reads a missing background as an
+     un-transcribed value and paints it back.
+
+     ⚠️ Two backgrounds in this file are NOT washes and stay: the
+     marquee band's own surface and the STATUS card's. Both are element
+     surfaces, and the 2026-08-18 entry is explicit that card and panel
+     surfaces were untouched. */
+}
+
+/* ── Marquee band — prototype lines 544-548 ─────────────────────────
+ *
+ * `overflow: hidden` and the flex track both come from Marquee itself
+ * (PF-74). The prototype puts `padding: 10px 0` on the animated track;
+ * Marquee owns that element, so it lands on this clipping container
+ * instead — the track is the only thing inside it, so the painted
+ * result is identical. Same resolution HeroSection reached.
+ *
+ * ⚠️ This band is NOT the hero's. The hero marquee was slimmed 38% at
+ * the owner's request on 2026-08-17 (font clamp(13px,1.6vw,21px),
+ * padding 8px, gap 24px). That deviation is scoped to the hero and must
+ * not leak here — the prototype's footer band is untouched by it. */
+.marqueeBand {
+  padding: 10px 0;
+  border-top: 1px solid rgba(252, 163, 17, .25);
+  border-bottom: 1px solid rgba(252, 163, 17, .25);
+  background: rgba(252, 163, 17, .06);
+}
+
+/* ⚠️ The markup's `color: rgba(252,163,17,.5)` is only half the story.
+   applyTheme() (prototype line 867) rewrites every [data-strip] element
+   to `color: var(--acc)` with `opacity: .95` in light and `.5` in dark.
+   In dark those are the same painted colour, which is why reading the
+   markup alone looks complete; in LIGHT `--acc` is #7E4800, so the
+   markup value would ship dark theme's amber onto light paper. Same
+   token-vs-literal shape as the terminal caret.
+
+   The prototype's runtime write is ported as a theme-scoped rule rather
+   than a JS sweep — the element never changes, only the theme does. */
+.marqueeText {
+  font-family: var(--font-display);
+  font-size: clamp(16px, 2vw, 26px);
+  text-transform: uppercase;
+  color: var(--acc, #FCA311);
+  opacity: .5;
+  white-space: nowrap;
+  padding-right: 30px;
+}
+
+/* (0,2,0) against the base rule's (0,1,0), so this wins on SPECIFICITY
+   rather than on bundle emission order — the tie that has bitten this
+   project six times. Dark is a REAL attribute (index.html's FOUC guard
+   and theme.js both write it), so the pair is exhaustive. */
+:global(html[data-theme='light']) .marqueeText {
+  opacity: .95;
+}
+
+.inner {
+  position: relative;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: clamp(38px, 6vw, 64px) clamp(16px, 4vw, 40px) 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: clamp(26px, 4vw, 46px);
+  align-items: start;
+}
+
+/* ── Column 1 — identity (data-reveal="up", no delay) ─────────────── */
+
+.identity {
+  display: grid;
+  gap: 16px;
+  max-width: 340px;
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(252, 163, 17, .45);
+  box-shadow: 0 0 26px rgba(252, 163, 17, .22);
+}
+
+.brandText {
+  display: grid;
+  gap: 3px;
+}
+
+.name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  text-transform: uppercase;
+  color: var(--strong);
+  line-height: 1;
+}
+
+.nameAccent {
+  color: var(--acc, #FCA311);
+}
+
+.role {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  color: var(--muted2);
+}
+
+.bio {
+  color: var(--muted2);
+  font-size: 13.5px;
+  line-height: 1.75;
+  margin: 0;
+}
+
+.availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(52, 211, 153, .32);
+  background: rgba(52, 211, 153, .06);
+  justify-self: start;
+}
+
+/* ⚠️ The `dot` keyframe pulses an AMBER ring — rgba(252,163,17,.55) —
+   around a green dot (keyframes/base.css:43, the prototype's line 30).
+   That mismatch is the design's own value and is transcribed as found.
+
+   `composes` rather than `animation-name: dot`: CSS Modules scopes a
+   keyframe name written inside a module to an identifier no @keyframes
+   defines, and the element then silently does not animate. Longhands
+   below for the same reason — the shorthand would reset the name the
+   composed class supplies. */
+.availabilityDot {
+  composes: kf-dot from global;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  animation-duration: 2s;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+.availabilityLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: #34d399;
+}
+
+/* ── Columns 2 and 3 — NAVIGATE / ELSEWHERE ───────────────────────── */
+
+.column {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.columnHeading {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .2em;
+  color: var(--acc, #FCA311);
+}
+
+.link {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Snaps — see the file header. The prototype declares no transition on
+   these and hideReveals() never reaches them, because the reveal target
+   is the COLUMN, not the link. */
+.link:hover {
+  color: var(--strong);
+}
+
+/* ── Column 4 — STATUS ────────────────────────────────────────────── */
+
+.status {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 20px;
+  border-radius: 18px;
+  /* A card surface, not a section wash — explicitly untouched by the
+     2026-08-18 removal, same as Skills' and About's cards. */
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .09);
+}
+
+.statusLines {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+
+.statusDotOk    { color: #34d399; }
+.statusDotAcc   { color: var(--acc, #FCA311); }
+.statusDotMuted { color: var(--muted); }
+
+/* ⚠️ [data-ok] is the prototype's own theme hook, driven from
+   applyTheme() (line 868): `#0E7A55` in light, `#34d399` in dark. Two
+   elements carry it — the AVAILABLE FOR WORK label and the CI status
+   dot — and the runtime write is ported as a theme-scoped rule for the
+   same reason as [data-strip] above.
+
+   This matters more than it looks: #34d399 on the light form surface
+   measured 1.72:1 in PF-87, and the design's answer to that is right
+   here in its own script block. Reading the markup alone would have
+   shipped the failure. */
+:global(html[data-theme='light']) .availabilityLabel,
+:global(html[data-theme='light']) .statusDotOk {
+  color: #0E7A55;
+}
+
+.statusCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: var(--acc, #FCA311);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  padding: 12px 16px;
+  border-radius: 999px;
+}
+
+.statusCta:hover {
+  color: var(--accInk);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(252, 163, 17, .4);
+}
+
+/* ── Bottom bar — prototype lines 598-602 ─────────────────────────── */
+
+.bottomBar {
+  margin-top: clamp(34px, 5vw, 56px);
+  padding-top: 22px;
+  border-top: 1px solid rgba(var(--ln), .09);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+}
+
+.replay {
+  justify-self: start;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--muted);
+  background: none;
+  border: 1px solid rgba(var(--ln), .18);
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.replay:hover {
+  color: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+.copyright {
+  justify-self: center;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--faint);
+}
+
+/* The prototype's own asymmetry: this is an <a>, so it carries neither
+   `background: none` nor `cursor: pointer` — both are button resets.
+   Everything else matches `.replay`. */
+.scrollUp {
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--muted);
+  border: 1px solid rgba(var(--ln), .18);
+  border-radius: 999px;
+  padding: 10px 16px;
+}
+
+.scrollUp:hover {
+  color: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}

@@ -31,6 +31,22 @@
  */
 const HOME = '/?nosplash=1';
 
+/**
+ * A link to one of the home page's sections, correct from any route.
+ *
+ * The single route-aware primitive — `navModel()` (the header) and
+ * `Footer` (PF-88) both build their hrefs from it, so the `?nosplash=1`
+ * convention and the on-home passthrough are expressed once.
+ *
+ * ⚠️ On "/" the bare hash is returned UNCHANGED. e2e selects on
+ * `a[href="#about"]`, and a plain in-page hash is what makes the
+ * browser's own smooth scroll (global.css/tokens.css) do the work
+ * instead of ScrollToHash.
+ */
+export function sectionHref(pathname, id) {
+  return pathname === '/' ? `#${id}` : `${HOME}#${id}`;
+}
+
 /** The portfolio's own sections, in the prototype's header order. */
 const SECTIONS = [
   { id: 'about', label: 'ABOUT' },
@@ -91,10 +107,10 @@ export function navModel(pathname) {
     variant: 'portfolio',
     brandHref: onHome ? '#hero' : HOME,
     links: SECTIONS.map(({ id, label }) => ({
-      href: onHome ? `#${id}` : `${HOME}#${id}`,
+      href: sectionHref(pathname, id),
       label,
     })),
-    pillHref: onHome ? '#contact' : `${HOME}#contact`,
+    pillHref: sectionHref(pathname, 'contact'),
     pillLabel: 'CONTACT',
   };
 }

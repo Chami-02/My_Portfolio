@@ -433,7 +433,8 @@ responsive + a11y audit.** PF-85 → PF-92.
 | PF-93 | Reveal entrance regression — withdraw the hover deviation | ✅ |
 | PF-86 | Blog teaser (Field Notes), API-wired | ✅ |
 | PF-87 | Contact section, API-wired, résumé link | ✅ |
-| PF-88 → PF-92 | Footer, cutover, responsive + a11y audit | not started |
+| PF-88 | Footer, API-free, REPLAY INTRO live | ✅ |
+| PF-89 → PF-92 | Cutover, responsive + a11y audit | not started |
 | — | **Sprint 13 prep — navbar rework + 2 removals** (2026-08-22) | ✅ |
 
 **Sprint 13 prep landed on this branch, unticketed and owner-directed
@@ -663,6 +664,14 @@ than copied forward:
   measurement.** No single value fits — filled project cards run 391–619px
   depending on width, description length and pill wrapping. Table in the
   PF-85 entry. Options: breakpoint it, drop the min-height, or leave it.
+- ~~**`frontend/dist-verify/` is not gitignored**~~ — **CLOSED in PF-88.**
+  This file's own live-verification recipe builds there, `eslint.config.js`
+  has ignored `dist-*/` since PF-93, and git did not — so following the
+  documented steps left a 410 kB bundle untracked and one `git add -A`
+  away from being committed. `frontend/.gitignore` now carries `dist-*/`.
+  One line, closed because the recipe that creates the problem is in
+  this file.
+
 - **The root `.gitignore` has no `node_modules` entry.** Running vitest
   from the repo root instead of `frontend/` leaves an untracked cache file
   that `git add -A` would stage. One line to fix.
@@ -730,6 +739,30 @@ than copied forward:
 
   ⚠️ Note the ticket predicted the location line would fail and it
   PASSES; the labels it never mentions are the actual failure.
+
+- **⚠️ TWO contrast findings in the Footer, reported and NOT fixed**
+  (PF-88, 2026-08-24). Both are the prototype's own values, so they
+  follow the PF-83 stat-label precedent and batch into PF-91:
+
+  | node | dark | light |
+  | --- | --- | --- |
+  | **copyright** (`--faint`, 10.5px) | **3.56** ✗ | 4.97 ✅ |
+  | **AVAILABLE FOR WORK** (10.5px) | 9.87 ✅ | **4.23** ✗ |
+
+  The copyright is the **second** open `--faint` finding — the terminal
+  panel's `➜` line measures 3.33 dark / 3.12 light — and the two want one
+  decision rather than two.
+
+  The badge is more interesting: the prototype ALREADY fixes it, at
+  runtime. `applyTheme()` line 868 recolours every `[data-ok]` to
+  `#0E7A55` in light, and PF-88 ports that — untreated `#34d399` measured
+  **1.72** on Contact's light surface in PF-87. So the design moved this
+  once and landed at 4.23, just short of the 4.5 that 10.5px needs.
+
+  ⚠️ The PF-88 ticket predicted `--muted2` would fail for a fifth time
+  here. It **passes**, 4.55 dark, for the same reason Contact's location
+  line did: the role line and bio sit on the page ground rather than on a
+  translucent card. **The trap is the surface, not the token.**
 
 - **⚠️ The contact email and the site's H1 disagree.** H1 is **Parindra
   Gallage**, the email is **parindrachameekara@gmail.com**. The
@@ -849,6 +882,13 @@ on them, and the board is the user's to change.**
 | PF-83 | 3 | **7** | audits eight tickets' surface, designs two things from nothing |
 | PF-84 | 2 | **5** | least code of the sprint, most verification surface |
 
+PF-88 is 3 points on the board and its own ticket recommends **6**. Six
+is right, and possibly light: the transcription is a morning's work, and
+REPLAY INTRO is the rest — it reaches into `SplashProvider`, `HomePage`,
+`App.jsx`, `ScrollToHash` and `utils/`, and the marquee defect it
+surfaced touched `Marquee` and the hero as well. Six of the fourteen
+changed files are not the footer.
+
 That totals **65** against Jira's 46. The gap is not estimation drift in
 the usual sense — seven of the ten overruns are work the *ticket did not
 know about*, found by checking the prototype or a browser rather than by
@@ -898,6 +938,8 @@ frontend/
     utils/
       theme.js                   React-free: normalise, readTheme, applyTheme, …
       motion.js                  React-free: prefersReducedMotion, subscribe…
+      nav.js                     React-free: navModel, isBlogPath, sectionHref
+      replay.js                  React-free: beginReplay() — PF-88
 ```
 
 The import order in `main.jsx`, which is a locked decision and silently breaks
@@ -2409,6 +2451,326 @@ decisions):
   found — but it is the kind of thing better confirmed than discovered
   live.
 
+**Built by PF-88 — the Footer is Phase 2, the main page is structurally
+complete, and REPLAY INTRO is a real feature the file had written off:**
+
+```
+frontend/src/
+  components/layout/
+    Footer.jsx  + .module.css        REPLACES the Phase 1 footer, same path
+    __tests__/Footer.test.jsx        23 cases
+    ScrollToHash.jsx                 + a per-navigation guard (see below)
+    __tests__/ScrollToHash.test.jsx  + 2 cases  (9 → 11)
+  components/motion/
+    Marquee.jsx                      + `copies` prop (owner-approved fix)
+    __tests__/Marquee.test.jsx       + 4 cases  (5 → 9)
+  components/sections/
+    HeroSection.jsx                  copies={6} — the same fix, its band too
+  providers/SplashProvider.jsx       + `resetKey`, a render-phase reset
+    __tests__/SplashProvider.test.jsx  + 3 cases  (7 → 10)
+  pages/HomePage.jsx                 + replayCount prop, keyed reveal subtree
+    __tests__/HomePage.test.jsx      + 4 cases  (2 → 6)
+  utils/replay.js                    NEW  beginReplay()
+    __tests__/replay.test.js         NEW  5 cases
+  utils/nav.js                       + sectionHref(), navModel() now uses it
+    __tests__/nav.test.js            + 5 cases  (4 → 9)
+  App.jsx                            owns replayCount; both consumers wired
+frontend/e2e/
+  footer.spec.js                     NEW  7 cases
+  navigation.spec.js                 3 selectors → `header`; one poll fixed
+  homepage.spec.js                   1 selector → `#hero` (see below)
+frontend/.gitignore                  + dist-*/
+```
+
+**⚠️ REPLAY INTRO IS A REAL FEATURE, AND THIS FILE SAID OTHERWISE.** The
+smooth-scroll locked decision called it "a design-tool 'replay splash'
+affordance, not a site feature". Corrected in place above. Reading it as
+an artefact and deleting the button would also have broken the layout —
+the bottom bar is `1fr auto 1fr`, so the copyright loses its centring.
+
+**Three documented decisions stood between the button and working, and
+the third is the one that looks like success.**
+
+1. **`HomePage` freezes the splash decision on purpose.** Recovering a
+   setter must not reopen that. It doesn't: the lazy initialiser stays
+   exactly as it was and `showSplash` is now a pure derivation,
+   `initialShowSplash || replayCount > 0`. The hazard was re-deriving
+   from live `matchMedia` during render, not a setter existing — and
+   `replayCount` only ever rises from a click.
+2. **`initialReady` only SEEDS.** So `SplashProvider` gained `resetKey`,
+   which closes the gate again through a **render-phase state
+   adjustment** — React's documented "adjusting state when a prop
+   changes", a setState on the provider during its own render.
+   ⚠️ **Not an effect.** The sections remount in the same commit that
+   raises `resetKey`, so an effect would let a fresh `Reveal` arm its
+   observer under `ready: true` and fire behind the splash — the exact
+   race `SplashProvider`'s own doc comment describes, one layer up. Lint
+   accepts it (`npx eslint` exit 0); `react-hooks/set-state-in-effect`
+   is the rule that would have rejected the effect version.
+3. **⚠️ THE REVEALS DO NOT REPLAY ON THEIR OWN.** `Reveal` sets
+   `revealed` true once and never unsets it, so closing the gate leaves
+   an already-revealed page revealed: **the splash plays over a fully
+   revealed page and lifts on a static one.** No error, nothing red, and
+   it looks like it works. Fixed by keying the revealed subtree, which
+   reproduces the prototype's `hideReveals()` + `runSplash()` pair
+   without touching a primitive six sections depend on.
+
+**⚠️ WHAT IS INSIDE THE KEY IS THE WHOLE OF IT.** Three things are
+deliberately outside, and each was verified rather than reasoned:
+
+| outside the key | why |
+| --- | --- |
+| `StarfieldCanvas` · `CursorGlow` · `GrainOverlay` | keying the PROVIDER instead would remount the canvas and regenerate every star mid-replay — a visible flicker behind the splash. `StarfieldCanvas` reads `useSplashReady()`, so it cannot simply be hoisted out |
+| `ScrollToHash` | a remount re-runs its jump for the current hash and fights the scroll-to-top the button just performed |
+| the footer's **bottom bar** | it holds the button that was just activated; remounting it drops keyboard focus to `<body>` mid-sequence |
+
+**⚠️ The footer's own four reveals are keyed SEPARATELY, in `Footer`.**
+`hideReveals()` walks every `[data-reveal]` in the document and four of
+them are in the footer — which `App.jsx` mounts as a **sibling** of the
+routed page, so `HomePage`'s key cannot reach them. Without the second
+key they stay revealed through a replay and are already shown when the
+visitor scrolls back down. Hence `Footer` takes `replayCount` as well as
+`onReplay`, and keys only its grid.
+
+**`App.jsx` owns the counter**, because `<Footer />` and `<HomePage />`
+are siblings there and that is their nearest common ancestor. Two props,
+no context module. ⚠️ Nothing tests that wiring by rendering it —
+`App.jsx` sits at `src/` root, which has no `__tests__` directory under
+this repo's convention — so `Footer.test.jsx` carries two **source-level**
+wiring guards that parse `App.jsx` with comments stripped. They were
+mutation-tested; dropping either prop is otherwise completely silent.
+
+**The replay sequence, traced in Chromium on the production build.**
+Clicked from the footer at `scrollY 3389`, times from the click:
+
+| ms | scrollY | splash | reveals `in` | canvas node |
+| --- | --- | --- | --- | --- |
+| 0 | 3389 | — | 49 / 49 | — |
+| 78 | 3389 | **YES** | 4 / 51 | same |
+| 505 | 690 | YES | 4 | same |
+| 1207 | **0** | YES | 4 | same |
+| 4702 | 0 | YES | 4 | same |
+| 5215 | 0 | YES | **24** | same |
+| 5815 | 0 | **gone** | 24 | same |
+
+The four that stay `in` at 78ms are the **footer's** own, measured before
+its separate key was added; with it they read `out out out out` at the
+same moment and return to `in` only when the visitor scrolls back down.
+Keyboard activation was checked in the same pass: focus is still on the
+button after `Enter`.
+
+**Under `prefers-reduced-motion` the button scrolls and stops.**
+`scrollTo` args `{top: 0, behavior: 'auto'}`, no splash mounted, reveals
+unchanged at 49, zero running animations in the footer. With motion
+allowed the same click gives `behavior: 'smooth'`.
+
+⚠️ **That `behavior` is the only real correctness decision in the whole
+feature, and the prototype hardcodes it wrong for this audience.** A JS
+`scrollTo` with an explicit `behavior` **ignores** the root's computed
+`scroll-behavior`, so `motion.css`'s root-element override — the one that
+exists because `html[data-motion="reduced"] *` cannot reach `<html>` —
+does not reach it. Copying line 1147 verbatim animates a scroll for
+exactly the users who asked it not to, invisibly to anyone not testing
+with reduce on. That is why the two lines live in **`utils/replay.js`**
+(`beginReplay()`) rather than inside `App.jsx`: React-free and directly
+unit-testable, matching `utils/theme.js`, `motion.js`, `splash.js`,
+`nav.js` and `parallax.js`.
+
+`beginReplay()` deliberately does **not** consult `?nosplash`. That param
+is the escape hatch for the AUTOMATIC splash on load, and `utils/nav.js`
+appends it to every off-home link home — honouring it here would make
+the button silently inert for anyone arriving from the blog.
+
+**⚠️ `ScrollToHash` gained a per-navigation guard, and PF-88 is what made
+it necessary.** `splashReady` is one of its dependencies, and replay now
+closes and reopens that gate mid-session — so a visitor sitting at
+`/#projects` who clicks replay got the scroll-to-top, the whole ~5.65s
+splash, and then a silent yank back down to `#projects` the instant the
+gate reopened. It now records the react-router navigation `key` it
+actually scrolled for. Two details are load-bearing: keyed on `key` and
+not `hash`, so clicking the same hash twice still re-scrolls; and marked
+**inside the rAF, after the scroll**, because StrictMode cancels the
+first mount's rAF and an early mark would leave the second mount
+refusing to do it. Both mutation-tested.
+
+**Step 3's route-awareness reuses `utils/nav.js`, as one new primitive.**
+`sectionHref(pathname, id)` returns a bare `#id` on `/` and
+`/?nosplash=1#id` everywhere else; `navModel()` now builds its own links
+from it, so the convention is expressed once rather than twice. Verified
+in Chromium from `/`, `/blog`, `/blog/a-post` and a 404 — and clicking
+`Projects` from a 404 lands `#projects` at exactly **71px**, identical to
+the navbar's own off-home link traced beside it.
+
+**⚠️ THE FOOTER BREAKS EXISTING E2E SELECTORS, AND THE FAILURES READ AS
+THE OPPOSITE OF WHAT THEY ARE.** Three fell out of the first full E2E
+run, and only the first was predictable from the diff:
+
+| spec | what broke | fix |
+| --- | --- | --- |
+| `navigation.spec.js` ×3 | `a[href="#about"]` now matches **2** elements — the footer repeats all six in-page anchors — so the strict locator throws, reading as "the navbar link disappeared" | scoped to `header` |
+| `homepage.spec.js` | `getByText('Open to opportunities')` went from **1** match to **13**: the badge plus the marquee's twelve repeats. ⚠️ The band is `aria-hidden` and it did not help — `getByText` ignores `aria-hidden`, only `getByRole` respects it | scoped to `#hero` |
+| `navigation.spec.js:78` | measured `#projects`'s `top` **once** after a fixed 1500ms wait; read **-355px** under full-suite load and 70.8 when run alone. Pre-existing, not caused here — but PF-88's taller footer makes the page slower to settle | `expect.poll` |
+
+⚠️ **The `expect.poll` fix was itself wrong on the first attempt, in a way
+worth recognising.** It polled `top > 69` and then took a SEPARATE
+reading for `< 73`. The failure state is an **unscrolled** page, where
+`top` is ~2664 — which satisfies `> 69` instantly, so the poll returned
+on its first tick and the second assertion ate the failure. **Polling a
+predicate that the failure state also satisfies is a vacuous poll**, the
+same class of mistake as a vacuous assertion, and it looks like a
+correctly-hardened test. The poll has to cover the whole condition:
+`.poll(() => Math.round(top)).toBe(71)`.
+
+Traced in isolation five times to confirm the underlying behaviour is
+sound before hardening the test rather than the code — `694→2258→2558→
+2596` scrollY over ~1s, settling at `top: 71` on every run:
+
+```
+RUN1  694/1973  2258/409  2558/109  2596/71  2596/71 …
+RUN2  900/1767  2292/375  2565/102  2596/71  2596/71 …
+```
+
+The `the home page still uses bare hashes` regression test was extended
+to assert the duplicate COUNT is 2, so the header-scoping's reason is
+visible rather than looking like over-caution to the next reader who
+might remove it.
+
+**Six things worth knowing before touching the section:**
+
+- **⚠️ THE MARQUEE STRIP IS NOT `rgba(252,163,17,.5)`, AND THE MARKUP
+  ALONE WILL NOT TELL YOU.** `applyTheme()` (prototype line 867) rewrites
+  every `[data-strip]` to `color: var(--acc)` with `opacity: .95` light /
+  `.5` dark. In dark those are the same painted colour, which is exactly
+  why reading the inline style looks complete; in **light** `--acc` is
+  `#7E4800`, so the markup value would ship dark theme's amber onto light
+  paper. Ported as a theme-scoped CSS rule. Measured: dark
+  `rgb(252,163,17) @0.5`, light `rgb(126,72,0) @0.95`.
+- **⚠️ SAME FOR `[data-ok]`, AND HERE IT IS AN ACCESSIBILITY FIX THE
+  DESIGN ALREADY MADE.** Line 868 recolours every `[data-ok]` to
+  `#0E7A55` in light and `#34d399` in dark. The PF-88 ticket predicted a
+  light-theme contrast failure on `#34d399` and told us to report it —
+  the prototype's own script block is the answer, and transcribing the
+  markup alone would have shipped the failure. **This is the third time a
+  prototype element's real behaviour lived in the script block rather
+  than its `style` attribute** (`data-cardbg` in PF-85, `data-cv` in
+  PF-87). Grep the script for the element's own attribute; do not read
+  the markup and stop.
+- **The section wash comes out** — `linear-gradient(180deg,
+  rgba(var(--gnd),.4), rgba(var(--ftr),.86))`, line 543 — under the
+  2026-08-18 site-wide decision, and after PF-87's glow removal it would
+  have been the only banded surface left on the page. Guarded as an
+  absence. **Two backgrounds here are NOT washes and stay**: the marquee
+  band's `rgba(252,163,17,.06)` (a designed band element) and the STATUS
+  card's `rgba(var(--srf),.5)` (a card surface, explicitly untouched by
+  that decision). Both guarded as presences, so over-deleting fails too.
+- **The footer logo takes `alt=""`.** The prototype's is
+  `alt="Parindra Gallage"`; this is the **fourth** element that would
+  otherwise carry that string, and it gets PF-83's splash-logo answer —
+  the name and role render as real text beside it and it is not a link.
+- **Everything hoverable here SNAPS, and that is transcription rather
+  than the PF-93 rule.** `data-reveal` sits on the four COLUMN wrappers,
+  so the links, buttons and CTA inside them are not reveal targets:
+  `hideReveals()` never writes an inline transition over them and the
+  prototype declares none of their own. Measured, all four at
+  `transition-duration: 0s`. PF-93's scanner catches the wrapped case
+  automatically; it **cannot** catch a missing transition on an unwrapped
+  element, so that direction has its own named guard.
+- **`Marquee` (PF-74) was reusable with one addition, not a rewrite.** It
+  hard-codes no type scale — the hero's 2026-08-17 slimming lives in
+  `HeroSection.module.css` — so the footer's band needed only its own
+  module class. The one change it did need is the `copies` prop; see
+  Locked decisions.
+
+**Live verification, measured in Chromium against the production build**,
+served from `dist-verify/` behind a same-origin proxy:
+
+| Check | Result |
+| --- | --- |
+| footer `background-image` / `-color`, both themes | `none` / `rgba(0,0,0,0)` |
+| footer `position` / `overflow` / `padding` | `relative` / `hidden` / `0px 0px 26px` |
+| marquee band | bg `rgba(252,163,17,.06)`, 2 accent borders, `padding 10px 0`, `aria-hidden` |
+| STATUS card | `rgba(20,33,61,.5)`, `padding 20px`, `radius 18px` |
+| track animation | `getAnimations()` → **1 running**, name `marq`, **15000ms** |
+| strip type | Anton, **26px**, uppercase, `padding-right 30px` — **not** the hero's slimmed 21px/24px |
+| both strips end in | `charCodeAt` **160** (U+00A0) |
+| `[data-strip]` | dark `rgb(252,163,17) @.5` · light `rgb(126,72,0) @.95` |
+| `[data-ok]` ×2 | dark `rgb(52,211,153)` · light `rgb(14,122,85)` |
+| inner | `max-width 1240px`, `padding 64px 40px 0` |
+| grid | `repeat(auto-fit, …)` → 4 × 255.5px, `gap 46px`, `align-items: start` |
+| reveal delays | `0s · .08s · .14s · .2s`, all four `data-type="up"` |
+| reveal transitions | all four inherit `.reveal`'s `opacity .85s / transform 1.05s` |
+| logo | 52×52, `radius 50%`, `object-fit: cover`, accent border, 26px glow, **`alt=""`** |
+| bottom bar | `1fr auto 1fr`, 3 children, `margin-top 56px`, `padding-top 22px` |
+| links from `/`, `/blog`, `/blog/:slug`, 404 | bare hashes on `/`, `/?nosplash=1#…` on all three others |
+| `Projects` clicked from a 404 | lands `#projects` at **71px**, no splash replay |
+| 375px | no horizontal overflow (375 vs 375), bar 3 columns, **zero overlapping pairs**, nothing escaping the footer box |
+
+**⚠️ TWO AA FAILURES, REPORTED NOT FIXED** — measured against each node's
+composited backdrop, both themes. They batch into PF-91 per the PF-83
+stat-label precedent:
+
+| node | dark | light |
+| --- | --- | --- |
+| **copyright** (`--faint`, 10.5px) | **3.56** ✗ | 4.97 ✅ |
+| **AVAILABLE FOR WORK** (`#34d399`/`#0E7A55`, 10.5px) | 9.87 ✅ | **4.23** ✗ |
+| role line + bio (`--muted2`, 10 / 13.5px) | 4.55 ✅ | 5.45 ✅ |
+| column heading (`--acc`) | 10.02 ✅ | 6.12 ✅ |
+| nav link · status lines · replay (`--muted`) | 7.68 / 7.00 / 7.68 ✅ | 6.35 / 6.94 / 6.35 ✅ |
+| CTA ink on accent | 9.79 ✅ | 7.46 ✅ |
+
+Three things about that table:
+
+1. **`--faint` fails DARK**, which is the same token and the same
+   direction as the terminal panel's `➜` line (3.33 dark / 3.12 light).
+   Two open `--faint` findings now, and they want one decision.
+2. **The green badge fails LIGHT at 4.23 even after the prototype's own
+   `#0E7A55` fix** — close, but 10.5px is small text and AA wants 4.5.
+   Worth knowing that the design already moved this once and did not
+   quite land it; the untreated `#34d399` measured **1.72** on Contact's
+   light form surface in PF-87.
+3. **⚠️ `--muted2` PASSES here, at 4.55 dark**, which is the opposite of
+   what the ticket predicted ("the fifth occurrence of that token").
+   Same reason Contact's location line passed: these sit on the page
+   ground rather than on a translucent card. The trap is the surface, not
+   the token.
+
+**PF-88 created ONE new orphan pair and changed no other count.**
+Counted rather than inferred, discounting each module's own file and its
+own test:
+
+| | before | after |
+| --- | --- | --- |
+| `--content-px` · `--content-max` | 1 each (the Phase 1 footer) | **0 each** — declared in `global.css`, read by nothing |
+| `useInView` · `useTypewriter` · `TerminalWindow` | 0 | 0 — still deliberate cutover work |
+| `apiUrl` | 1 (Contact) | 1 |
+
+Verified at `HEAD` that the Phase 1 footer really was their last
+consumer — `git grep` for either name outside `global.css` returns
+nothing else. They go with `global.css` at cutover; same shape as
+`--acc2`/`--acc2rgb`, which the sun/moon toggle orphaned. A token sweep
+should not read either pair as live.
+
+**The gate, all five commands:** frontend **627 / 627** (42 files) · lint
+**exit 0** · build **220 modules**, 64.21 kB CSS / 412.77 kB JS · backend
+**242 / 242** (22 suites, 163s) · E2E **36 / 36** (1.3m, up from 29).
+No flaky, no skipped.
+
+**42 mutations across every new guard, all caught**, including the two
+highest-value ones the ticket names: removing `key={replayCount}` (the
+splash still mounts, every other test in the file still passes, and only
+the reveal-reset assertion fails) and keying `SplashProvider` instead
+(the star field's canvas node is replaced).
+
+**⚠️ The backend suite failed 25 tests before it passed 242, and NONE of
+it was code.** PF-88 touches zero backend files. The first run went
+**25 failed / 217 passed in 1366 seconds** with individual suites taking
+110-640s; the second, after the network settled, went **242 / 242 in
+163s** — an 8× speedup. Classified rather than assumed: **zero `expect`
+diffs** in the failing run, 54 `Operation buffering timed out` and 34
+`Exceeded timeout of 30000 ms`. That is the shape the `blogViews` entry
+in Outstanding work describes, at scale. See the new SRV-DNS entry in
+Silent failures for the root cause.
+
 ## Stack
 
 React 19 · Vite · Tailwind v4 · CSS Modules · React Router v7 · TanStack Query v5
@@ -3323,6 +3685,114 @@ error message:
   Playwright `route.fulfill()` with a fixture over hammering the real API;
   it is deterministic as well as polite.
 
+- **⚠️ `test.use({ reducedMotion })` IS SILENTLY INERT IN THIS PROJECT'S
+  PLAYWRIGHT CONFIG, AND A TEST USING IT ASSERTS THE WRONG PATH WHILE
+  CLAIMING TO ASSERT THE RIGHT ONE.** Found in PF-88, measured rather
+  than inferred — Playwright 1.61.1:
+
+  | how the option is set | `matchMedia('(prefers-reduced-motion: reduce)').matches` |
+  | --- | --- |
+  | `test.use({ reducedMotion: 'reduce' })`, **file** level | **false** ✗ |
+  | `test.use({ reducedMotion: 'reduce' })`, **describe** level | **false** ✗ |
+  | `browser.newContext({ reducedMotion: 'reduce' })` | **true** ✅ |
+  | `await page.emulateMedia({ reducedMotion: 'reduce' })` | **true** ✅ |
+
+  With the fixture, `<html>` also carries **no `data-motion`**, so
+  `MotionProvider` is running the full-motion path. Nothing errors. The
+  test passes or fails on the wrong branch entirely, which is worse than
+  a red test: PF-88's reduced-motion replay test failed with
+  `behavior: 'smooth'` where it expected `'auto'` — the code was right
+  and the harness was lying.
+
+  **Use `await page.emulateMedia({ reducedMotion: 'reduce' })` in the
+  test body, and assert the emulation took**, one line, before asserting
+  anything that depends on it. `e2e/footer.spec.js` does both. The same
+  caution applies to every other `emulateMedia` option — `colorScheme`,
+  `forcedColors` — set through `test.use` here; none is currently used
+  that way, and none should be without checking it first.
+
+  The root cause was not chased: `playwright.config.js`'s project `use`
+  is `{ ...devices['Desktop Chrome'] }`, which declares no
+  `reducedMotion`, so the precedence should favour `test.use`. Whatever
+  the mechanism, the measurement is what matters and the workaround is
+  one line.
+
+- **⚠️ A DUPLICATED IN-PAGE ANCHOR TURNS AN E2E SELECTOR INTO A STRICT-MODE
+  THROW, AND THE FAILURE READS AS THE FEATURE BEING GONE.** PF-88's
+  footer added `#about #skills #projects #blog #contact #hero` to a page
+  whose header already had all six. `navigation.spec.js` clicked
+  `a[href="#about"]`, which now matches **two** elements — Playwright's
+  locators are strict, so the call throws rather than picking the first.
+
+  The failure prints as an element-resolution error on a navbar test, in
+  a diff that only touched the footer. The instinct is to go looking at
+  the navbar. **The rule: a new section that repeats an existing anchor,
+  label or role is a breaking change to every unscoped e2e selector**,
+  and the tell is a strict-mode violation naming a count of 2. Scope the
+  selector to its landmark (`header a[href="#about"]`) and, where a
+  regression guard already exists, assert the duplicate COUNT there too —
+  otherwise the scoping looks like over-caution to the next reader and
+  gets removed.
+
+  **⚠️ IT IS NOT ONLY ANCHORS, AND `aria-hidden` DOES NOT SAVE YOU.** The
+  same run broke `homepage.spec.js`'s
+  `getByText('Open to opportunities')`, which had matched exactly one
+  element — the hero badge — and now matched **thirteen**: the badge
+  plus the footer marquee's twelve repeats. The marquee band is
+  `aria-hidden="true"`, and `getByText` **ignores** `aria-hidden`;
+  only `getByRole` respects it. So a decorative, screen-reader-invisible
+  band still breaks a text locator. Scope to the landmark
+  (`page.locator('#hero').getByText(…)`) or match by role.
+
+  Note the unit suite cannot see any of this: a component test renders
+  one component, so the duplicates never coexist. Same
+  unit-green + E2E-red signature as a removed feature, from the other
+  direction.
+
+  **And the third failure in that run was neither** — it was a
+  pre-existing single-reading assertion going flaky. `navigation.spec.js`
+  measured `#projects`'s `top` once after a fixed 1500ms wait; under
+  full-suite load it read **-355px**, and the same file run alone read
+  70.8. `ScrollToHash` fires one rAF after the route commits and the page
+  keeps settling behind it — two unoptimised hero images plus three
+  API-driven sections all change the height of the content ABOVE the
+  target. Changed to `expect.poll`, which asserts where it SETTLES. Worth
+  recognising the shape: **a positional assertion taken once after a
+  fixed wait is a timer, not a measurement.**
+
+- **⚠️ `mongodb+srv://` needs SRV DNS, and a broken resolver presents as
+  a broken backend.** Seen 2026-08-24 on a phone-hotspot connection: the
+  API returned `{"status":"error","message":"querySrv ENOTFOUND
+  _mongodb._tcp.portfolio-cluster.oexyxqo.mongodb.net"}` on every route
+  and `/api/health` reported `"database": null`, while the server itself
+  was listening happily on 5050 and nothing in the repo was wrong.
+
+  The resolver (`172.20.10.1`, the hotspot gateway) returned **NXDOMAIN**
+  for the SRV record; Cloudflare and Google both answered it correctly in
+  the same second. Diagnose it in two commands, not by reading code:
+
+  ```bash
+  nslookup -type=SRV _mongodb._tcp.<cluster>.mongodb.net              # your resolver
+  nslookup -type=SRV _mongodb._tcp.<cluster>.mongodb.net 1.1.1.1      # a known-good one
+  ```
+
+  Disagreement between those two is the whole diagnosis. Confirm
+  end-to-end with a throwaway `dns.setServers(['1.1.1.1'])` before
+  connecting — it proves Atlas and the credentials are fine without
+  touching anything.
+
+  **⚠️ DO NOT "FIX" IT IN THE REPO.** Rewriting `MONGO_URI` to the
+  non-SRV `mongodb://host1,host2,host3` form works and hardcodes shard
+  hostnames Atlas is free to change, to work around a local network. Fix
+  the machine's DNS. It also resolved itself here when the connection
+  stabilised, which is worth knowing before spending an hour on it.
+
+  ⚠️ And note what it does to the backend suite: run through a forced
+  resolver over a flaky link, `npm test` took **23 minutes** and reported
+  25 failures, none of them with an `expect` diff. That is the
+  network-timeout shape the `blogViews` entry above describes, at scale —
+  a timeout with no assertion diff is never a code regression.
+
 Where a mistake would be silent, add a test that would catch it.
 
 ## Locked decisions — do not reopen
@@ -3658,6 +4128,19 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   who asked it not to, invisibly to anyone not testing with reduce on.
   Guarded on the ARGUMENT, because jsdom implements no scrolling at all.
 
+  **⚠️ PF-88 added a per-navigation guard, and it is not defensive.**
+  `splashReady` is a dependency, so the effect re-runs every time the
+  gate opens — and the footer's REPLAY INTRO button now closes and
+  reopens it mid-session. Without the guard a visitor sitting at
+  `/#projects` who clicks replay gets the scroll-to-top, the whole
+  ~5.65s splash, and then a silent yank back down to `#projects` the
+  instant the gate reopens. It records the react-router navigation `key`
+  it actually scrolled for. Keyed on `key` rather than `hash`, so
+  clicking the same hash twice still re-scrolls; and marked **inside the
+  rAF, after the scroll**, because StrictMode cancels the first mount's
+  rAF and an early mark would leave the second mount refusing to scroll
+  at all. Both directions mutation-tested.
+
 - **Contact's accent glow layer is removed (2026-08-22,
   owner-requested).** The prototype's line 490 — an `aria-hidden`
   absolute child, `top:-60px; left:50%; translateX(-50%)`,
@@ -3761,6 +4244,66 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   The Contact section's own email route is unaffected; the site still
   offers a way to make contact.
 
+
+- **Both marquee bands repeat their strip MORE than the prototype's two
+  times — footer 12, hero 6 (2026-08-24, raised and owner-approved).**
+  A sanctioned deviation, and the fourth entry on the "nothing is
+  reduced" list's sibling side: this is an *addition*, so it sits under
+  the "never substitute your own judgement, even upward" rule, which is
+  why it was raised before shipping rather than fixed quietly.
+
+  **The defect.** `marq` translates the track from `translateX(0)` to
+  `translateX(-50%)` **of the track's own width**, so one cycle slides it
+  by exactly HALF the copies. The seamlessness requirement is therefore
+
+  ```
+  copies ≥ 2 × bandWidth / copyWidth
+  ```
+
+  — **not** `copyWidth ≥ bandWidth`, which is the intuitive reading and
+  is wrong by a factor of two. With the prototype's two copies, anything
+  past `copyWidth` is empty band, and the empty stretch GROWS as the
+  track slides. Measured in Chromium on the production build at 1440px:
+
+  | band | one copy | needs | shipped with 2 copies |
+  | --- | --- | --- | --- |
+  | footer 1440 | 600px | 4.80 | **840px of empty band** at the wrap |
+  | hero 1484 | 1297px | 2.29 | **187px** |
+
+  Screenshotted at 25% and 49% of the cycle before and after, not
+  reasoned: the "before" band is visibly half empty.
+
+  **The prototype has exactly two `<span>`s in each strip** (lines
+  546-547 and 188-189), so this is not a transcription slip — the export
+  renders the same hole. The owner chose to fix **both** bands; the
+  hero's has been shipping the 187px version since PF-80.
+
+  **⚠️ NO SINGLE COUNT IS CORRECT AT EVERY WIDTH**, same shape as the
+  measured placeholder heights in PF-85 and PF-86. `copyWidth` is
+  `clamp()`ed so it stops growing while the band keeps going. The counts
+  in use are sized past any realistic window, and the coverage is stated
+  rather than implied:
+
+  | caller | copies | copy | covers a band up to |
+  | --- | --- | --- | --- |
+  | footer | 12 | 600px | **3600px** |
+  | hero | 6 | 1297px | **3891px** |
+
+  Verified seamless at 3440 · 2560 · 1920 · 1440 · 1280 · 1024 · 768 ·
+  600 · 375. Beyond ~3600px the hole returns; raise the count, and use
+  `copies/2 × copyWidth` rather than reasoning about it.
+
+  **`copies` MUST STAY EVEN.** An odd count lands mid-copy at the wrap
+  and the text visibly jumps once per cycle. Guarded, along with both
+  exact counts, in `Marquee.test.jsx` — which also reads both call sites
+  as source, because jsdom can measure none of this.
+
+  **The prop defaults to 2**, so any caller that does not pass it is
+  byte-identical to the pre-PF-88 component.
+
+  Do NOT "restore" either band to the prototype's two copies to match the
+  export; the mismatch is deliberate and is exactly what a fidelity pass
+  flags as a bug.
 
 - **Stars drift at `STAR_DRIFT = 0.35`, not the Portfolio prototype's
   0.09 (2026-08-21, owner-set).** The field read as so slow the motion
@@ -4023,6 +4566,10 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   **Three sanctioned exceptions exist to the "nothing is reduced" half**, all
   asked for by the site's owner. They are the only three — the third is the
   hero marquee's slimmed band, recorded with the other PF-80 deviations below.
+  ⚠️ The 2026-08-24 marquee `copies` change is **not** a fourth: it ADDS
+  repeats rather than removing anything, so it sits under the
+  "never substitute your own judgement, even upward" rule instead. Same
+  process — raised, reasoned, approved, recorded — different direction.
   First, the star-to-star
   cursor web in `StarfieldCanvas.jsx` reads more prominently on the real site
   than in the prototype, so on 2026-08-16 the user asked for it to be toned
@@ -4419,8 +4966,17 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   constants deliberately rather than importing them.
 - **Smooth scroll — sanctioned exception (PF-79, 2026-08-17).** The prototype
   uses the browser's native instant anchor-jump: zero matches for
-  `scroll-behavior`, and the only `behavior:'smooth'` in its script is a
-  design-tool "replay splash" affordance, not a site feature. Smooth scrolling
+  `scroll-behavior`, and the only `behavior:'smooth'` in its script is in
+  the REPLAY INTRO handler (line 1147).
+
+  ⚠️ **That handler is NOT "a design-tool affordance", which is what this
+  entry said until PF-88.** It is fully designed chrome — a styled,
+  labelled button occupying one third of the footer's bottom row — and
+  PF-88 built it. The claim was made to establish that `scroll-behavior`
+  is not a design value, which it still isn't; it was wrong about the
+  button. Anyone inheriting the old conclusion would have deleted a real
+  feature, and deleting it is not even free: the bottom bar is
+  `1fr auto 1fr`, so dropping the button un-centres the copyright. Smooth scrolling
   was raised explicitly and approved, per the PF-79 ticket. This is an
   *addition*, so it sits under the "never substitute your own aesthetic
   judgement, even upward" rule rather than the reduction rule above — same

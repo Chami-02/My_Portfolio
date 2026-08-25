@@ -174,7 +174,18 @@ export function HeroSection() {
       </section>
 
       <div className={styles.marqueeWrap}>
-        <Marquee duration={26} className={styles.marqueeInner}>
+        {/* `copies={6}`, not the prototype's 2 (lines 188-189). One
+            copy is 1297px against a 1484px band, and `marq` slides the
+            track by only HALF its width per cycle, so the requirement
+            is `copies ≥ 2 × band / copy` — two left 187px of the band
+            empty at the wrap. Six covers a band up to 3891px. The
+            footer's band has the same defect, worse. Pre-existing since
+            PF-80, fixed with the footer's on 2026-08-24,
+            owner-approved. Arithmetic and measurements in Marquee.jsx.
+
+            ⚠️ NOT part of this hero's 2026-08-17 slimming deviation —
+            that one is font-size and padding, and lives in the module. */}
+        <Marquee duration={26} copies={6} className={styles.marqueeInner}>
           <span className={styles.marqueeText}>{MARQUEE_TEXT}</span>
         </Marquee>
       </div>

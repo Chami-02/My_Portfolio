@@ -1,6 +1,6 @@
 // frontend/src/utils/__tests__/nav.test.js
 import { describe, it, expect } from 'vitest';
-import { navModel, isBlogPath } from '../nav';
+import { navModel, isBlogPath, sectionHref } from '../nav';
 
 /**
  * ⚠️ THE BUG THIS COVERS. App.jsx mounts <Navbar /> on `path="*"`, and
@@ -51,5 +51,33 @@ describe('navModel / isBlogPath (2026-08-22)', () => {
     expect(isBlogPath('/blog/some-slug')).toBe(true);
     expect(isBlogPath('/blogroll')).toBe(false);
     expect(isBlogPath('/')).toBe(false);
+  });
+
+  /* ── sectionHref — PF-88 ─────────────────────────────────────────── */
+
+  it('returns a bare hash for a section on the home page', () => {
+    // e2e selects on a[href="#about"], and a bare in-page hash is what
+    // lets the browser's own smooth scroll do the work rather than
+    // ScrollToHash.
+    expect(sectionHref('/', 'about')).toBe('#about');
+    expect(sectionHref('/', 'hero')).toBe('#hero');
+  });
+
+  it.each(['/blog', '/blog/a-post', '/nope'])(
+    'returns an absolute ?nosplash=1 link from %s',
+    (path) => {
+      expect(sectionHref(path, 'projects')).toBe('/?nosplash=1#projects');
+    },
+  );
+
+  it('is the single source navModel builds its section links from', () => {
+    // One route-aware helper, not two — the footer (PF-88) and the
+    // header build hrefs the same way, so the ?nosplash=1 convention is
+    // expressed once.
+    const m = navModel('/nope');
+    expect(m.links.map((l) => l.href)).toEqual(
+      ['about', 'skills', 'projects', 'blog'].map((id) => sectionHref('/nope', id)),
+    );
+    expect(m.pillHref).toBe(sectionHref('/nope', 'contact'));
   });
 });

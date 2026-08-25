@@ -20,9 +20,19 @@ test.describe('Homepage', () => {
     // `getByRole(...{ name })` matches the accessible name, hence `\s+`.
     await expect(page.getByRole('heading', { name: /Parindra\s+Gallage/i })).toBeVisible();
 
-    // Availability badge. The content is uppercase ("OPEN TO OPPORTUNITIES");
-    // `getByText` with a string is case-insensitive, so this still matches.
-    await expect(page.getByText('Open to opportunities')).toBeVisible();
+    // ⚠️ SCOPED TO THE HERO SINCE PF-88. The footer's marquee band
+    // repeats "OPEN TO OPPORTUNITIES ✦ LET'S BUILD SOMETHING LOUD ✦"
+    // twelve times, so an unscoped `getByText` now resolves to THIRTEEN
+    // elements and a strict locator throws. `aria-hidden` does not help:
+    // getByText ignores it, only getByRole respects it. The failure
+    // reads as the badge having disappeared, which is the opposite of
+    // what happened — see the duplicate-anchor entry in CLAUDE.md.
+    //
+    // The content is uppercase ("OPEN TO OPPORTUNITIES"); `getByText`
+    // with a string is case-insensitive, so this still matches.
+    await expect(
+      page.locator('#hero').getByText('Open to opportunities'),
+    ).toBeVisible();
     await expect(page.getByText('HEY — I AM')).toBeVisible();
   });
 
