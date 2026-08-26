@@ -1,0 +1,153 @@
+/* frontend/src/components/layout/ScrollToTop.module.css
+ *
+ * ⚠️ WHY THIS FILE EXISTS — 2026-08-25, owner-requested ("go up to top
+ * button according to the theme").
+ *
+ * The button was Phase 1's, styled with inline Phase 1 tokens:
+ * --bg-elevated, --border-bright, --accent, --accent-glow. Those live in
+ * global.css's :root, which is a SINGLE DARK PALETTE that never flips —
+ * the same fact behind the Phase 1 light-theme bridge in tokens.css. So
+ * in light theme the button kept dark-theme surfaces and Phase 1's
+ * indigo #818cf8, floating over warm paper. Nothing errored; it simply
+ * never followed the theme.
+ *
+ * Every value below is a Phase 2 token, and all of them flip.
+ *
+ * ⚠️ The prototype has NO such control — there is nothing to transcribe.
+ * The treatment is deliberately borrowed from ThemeToggle, which is the
+ * nearest Phase 2 precedent for a small round icon button: 44x44,
+ * --muted at rest, --acc on hover, accent-tinted ground on hover.
+ */
+
+.button {
+  /* Entrance. Phase 1 used `animation: fadeInUp .3s ease both` inline;
+     riseIn is the Phase 2 library's equivalent (14px vs 24px) and the
+     carrier already exists. `composes` must be the first declaration,
+     and the timing must be longhands — the `animation` shorthand resets
+     animation-name and undoes the carrier.
+
+     ⚠️ NO fill-mode, deliberately. Phase 1's `both` kept a FINISHED
+     animation in getAnimations() for the life of the page, which is the
+     one entry the PF-83 reduced-motion audit had to explain away
+     ("total is 1 in both modes, running is 0"). Without a fill the
+     browser drops it on completion, so that footnote goes away. The
+     animation starts on mount and runs forwards to the element's own
+     resting state, so there is nothing for a fill to hold. */
+  composes: kf-riseIn from global;
+  animation-duration: .3s;
+  animation-timing-function: ease;
+
+  position: fixed;
+  bottom: clamp(16px, 4vw, 32px);
+  right: clamp(16px, 4vw, 32px);
+  /* Under the header (60) and under grain (70), like page content.
+     Above nothing that matters — the splash (100) and the skip link
+     (200) must both stay over it. */
+  z-index: 40;
+
+  /* 44x44, matching ThemeToggle and the navbar logo. */
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background: rgba(var(--srf), .82);
+  border: 1px solid rgba(var(--ln), .18);
+  /* Base rule keeps a neutral fallback; both themes override it above
+     the fold of the cascade at (0,2,0). A theme with no stamp at all
+     still gets a legible control rather than an invisible one. */
+  color: var(--muted);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+
+  /* Not Reveal-wrapped — nothing else supplies this element a
+     transition, so it declares its own. PF-93's rule covers the
+     opposite case. */
+  transition: color .25s, border-color .25s, background .25s, transform .25s;
+}
+
+/* ⚠️ RAISED VISIBILITY, owner-requested 2026-08-25 — "go to up button is
+   looking like hiding so add glowing effect or something like that to
+   recognise", then "the glowing effect is nice and clean but the hover
+   effects ruin the look of the button".
+
+   At rest it carries the accent — ink, border and a glow — rather than
+   the --muted chrome treatment it had, which read as part of the star
+   field.
+
+   ⚠️ HOVER DOES NOT FILL. The first version inverted to a solid accent
+   disc with --accInk ink, and it came out as a featureless amber circle
+   with NO ARROW. Two things went wrong and only the second is obvious:
+
+     1. The fill is too loud for a control that already glows — it reads
+        as a different element appearing rather than the same one
+        responding.
+     2. ⚠️ THE INK NEVER APPLIED. `:global(html[data-theme='dark'])
+        .button` is (0,2,1) — an element, an attribute and a class —
+        while `.button:hover` is only (0,2,0). The theme rule won even
+        while hovered, so `color` stayed var(--acc): amber ink on an
+        amber fill, invisible. The seventh time an equal-or-losing
+        specificity tie has bitten this project, and the first where the
+        LOSING rule was the interactive state.
+
+   So hover intensifies what is already there — glow, border, a light
+   accent wash and the lift — and every colour change lives INSIDE its
+   theme block at (0,3,1), where it beats that theme's own rest rule
+   rather than racing it. The base rule below carries only `transform`,
+   which no theme rule sets, so it cannot lose.
+
+   ⚠️ THE GLOW IS THEME-SCOPED, and that is the whole of it. --acc is
+   amber #FCA311 in dark and BROWN #7E4800 in light, so one unscoped
+   `box-shadow: 0 0 18px var(--acc)` paints a brown smudge behind the
+   button on light paper — valid CSS, no error, reads as a rendering
+   artefact. Exactly the trap that forced the terminal caret to a literal
+   hex and that ThemeToggle's sun glow is scoped against. Light gets a
+   firmer shadow instead of a glow, because a glow needs something darker
+   than itself to bloom against and light theme's ground is warm paper.
+
+   Dark is a REAL attribute (index.html's FOUC guard and theme.js both
+   write it), never an absent default — had it been implicit,
+   [data-theme='dark'] would match nothing and the glow would silently
+   never appear in the one theme it is for. */
+.button:hover {
+  transform: translateY(-2px);
+}
+
+/* ── dark ─────────────────────────────────────────────────────────── */
+
+:global(html[data-theme='dark']) .button {
+  color: var(--acc, #FCA311);
+  border-color: rgba(252, 163, 17, .45);
+  box-shadow: 0 0 18px rgba(252, 163, 17, .28);
+}
+
+:global(html[data-theme='dark']) .button:hover {
+  color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .16);
+  border-color: rgba(252, 163, 17, .9);
+  box-shadow: 0 0 26px rgba(252, 163, 17, .5);
+}
+
+/* ── light ────────────────────────────────────────────────────────── */
+
+:global(html[data-theme='light']) .button {
+  color: var(--acc, #7E4800);
+  border-color: rgba(126, 72, 0, .45);
+  box-shadow: 0 8px 22px rgba(20, 33, 61, .20);
+}
+
+:global(html[data-theme='light']) .button:hover {
+  color: var(--acc, #7E4800);
+  background: rgba(126, 72, 0, .10);
+  border-color: rgba(126, 72, 0, .9);
+  box-shadow: 0 10px 28px rgba(20, 33, 61, .30);
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.75;
+}
