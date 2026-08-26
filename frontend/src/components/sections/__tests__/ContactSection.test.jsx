@@ -635,7 +635,7 @@ describe('transcribed copy (Step 9 #15)', () => {
     expect(github).toHaveAttribute('rel', 'noreferrer');
 
     expect(screen.getByRole('link', { name: 'LINKEDIN' }))
-      .toHaveAttribute('href', 'https://www.linkedin.com/in/chamikara-gallege-3b0861295/');
+      .toHaveAttribute('href', 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/');
   });
 
   it('keeps the 24-hour promise in the intro copy', () => {

@@ -43,7 +43,7 @@ const CV_HREF = apiUrl('/resume');
 
 const EMAIL = 'parindrachameekara@gmail.com';
 const GITHUB_URL = 'https://github.com/Chami-02';
-const LINKEDIN_URL = 'https://www.linkedin.com/in/chamikara-gallege-3b0861295/';
+const LINKEDIN_URL = 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/';
 
 const EMPTY_FORM = { name: '', email: '', message: '' };
 
