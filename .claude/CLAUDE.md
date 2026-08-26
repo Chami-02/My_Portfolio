@@ -434,7 +434,8 @@ responsive + a11y audit.** PF-85 → PF-92.
 | PF-86 | Blog teaser (Field Notes), API-wired | ✅ |
 | PF-87 | Contact section, API-wired, résumé link | ✅ |
 | PF-88 | Footer, API-free, REPLAY INTRO live | ✅ |
-| PF-89 → PF-92 | Cutover, responsive + a11y audit | not started |
+| PF-89 | Homepage Phase 1 cutover | ✅ |
+| PF-90 → PF-92 | Responsive + a11y audit, sprint gate | not started |
 | — | **Sprint 13 prep — navbar rework + 2 removals** (2026-08-22) | ✅ |
 
 **Sprint 13 prep landed on this branch, unticketed and owner-directed
@@ -531,6 +532,120 @@ There is **no separate Sprint 11 retrospective document**, matching Sprint
 
 ### Outstanding work — deferred deliberately, not lost
 
+- **⚠️ `/admin` AND `/admin/login` ARE UNREADABLE IN LIGHT THEME, AND HAVE
+  BEEN SINCE PF-67.** Found in PF-89's Step 1b sweep (2026-08-26),
+  measured on the production build, **not fixed** — see the decision at
+  the end of this entry, which reversed an earlier instruction.
+
+  **The mechanism, and it is one line of cause.** `--bg` is the **ONE**
+  Phase 1 token name that `tokens.css` also declares. `main.jsx` imports
+  `tokens.css` after `global.css`, both at `:root`, so tokens.css wins —
+  **and tokens.css's `--bg` flips with the theme** (`#050609` dark,
+  `#EDE8DF` warm paper light). Every *other* Phase 1 token
+  (`--text-primary`, `--text-body`, `--text-muted`, `--accent`,
+  `--bg-surface`, `--border`, `--border-bright`) is declared **only** in
+  `global.css`, which is a single **dark** palette that never flips.
+
+  So **the ground flips and the ink does not.** Confirmed present in
+  `e23d97b` (PF-67, the commit that created `tokens.css`) — `--bg` is at
+  lines 23 and 56 of that very first version, in both themes.
+
+  | node | dark | light |
+  | --- | --- | --- |
+  | `/admin` + `/admin/login` body ink (`--text-primary`) | 18.49 ✅ | **1.11 ✗** |
+  | `/admin/login` eyebrow "PORTFOLIO CMS" (`--accent`) | 6.79 ✅ | **2.44 ✗** |
+
+  1.11:1 is invisible, not merely low — the `<h1>` "Admin Sign In" is
+  `#f1f5f9` on `#EDE8DF`. This is the light-theme bridge's bug **exactly
+  inverted**: the bridge existed because Phase 1 ink sat on a Phase 2
+  ground in three *sections*, and it was scoped away from admin on the
+  reasoning that "admin panels' surfaces are the un-flipped dark
+  `--bg-surface`" — which is true of the panels and **false of the page
+  behind them**.
+
+  **⚠️ WHY THREE SPRINTS OF WORK WALKED PAST IT.** You have to be in
+  light mode **and then** open `/admin`. This site is developed in dark,
+  and `/admin` is the one route the Phase 2 work never touched — PF-75's
+  splash, PF-79's navbar and PF-88's footer are all mounted for
+  `path="*"` **except** `/admin/*`. Nothing errors, no test fails, no
+  console warning. It is the `ScrollToTop` finding again (PF-88's
+  revisions) on a bigger surface: **light theme is where a Phase 1 token
+  on a Phase 2 ground shows up, and it is the theme nobody develops in.**
+
+  **⚠️ DO NOT PIN `/admin` TO DARK.** PF-89 proposed exactly that and the
+  owner reversed it on 2026-08-26. `Admin.dc.html:16` carries a **full**
+  light palette — every token redefined, including `--acc:#7E4800`,
+  `--accInk:#ffffff`, `--ok:#0E7A55`, `--danger:#B4231F` — and
+  `toggleTheme()` at line 796 with `pg-theme` shared across all three
+  screens (verified: 2 occurrences of that key in each `.dc.html`).
+  **Admin genuinely follows the site theme by design.** Pinning it dark
+  would freeze behaviour the design explicitly rejects, and Sprint 14
+  would undo it.
+
+  **The real fix is Sprint 14 transcribing `Admin.dc.html:16`'s light
+  palette, which requires deleting `global.css`'s `:root`** — the last
+  Phase 1 stylesheet.
+
+  **⚠️ ADMIN'S LIGHT THEME, THE `:root` DELETION AND THE
+  `body { font-family }` CUTOVER ARE ONE PIECE OF WORK, NOT THREE.**
+  `:root` is what every admin surface currently reads, so admin's light
+  theme cannot land until it goes; and the font is deferred *only*
+  because Phase 1 layouts still exist, which stops being true in the same
+  ticket. Anyone scheduling these as three separate items will find each
+  one blocked on the other two.
+
+  **Two details from `Admin.dc.html` worth recording now, so Sprint 14
+  does not transcribe past them:**
+
+  - **⚠️ `--gnd` and `--srf` are BOTH `255,255,255` in the prototype's
+    light theme, so a panel transcribed as `rgba(var(--srf),.5)` is
+    invisible against the ground.** Admin panels are separated by
+    **border and shadow** there, not by fill.
+
+    ⚠️ **And this is NOT admin-specific — `Portfolio Revolution.dc.html`
+    collapses them identically.** Checked rather than assumed, because
+    the natural assumption is that the portfolio screen keeps them
+    apart. Both screens: dark `--gnd:5,6,9` / `--srf:20,33,61`, light
+    **both `255,255,255`**.
+
+    **What DOES differ is this repo.** `tokens.css` light gives
+    `--gnd: 251,248,243` and `--srf: 254,252,248` — separated where the
+    design collapses them. An undocumented PF-67 deviation, found here.
+    It does not rescue the panel: composited, `rgba(var(--srf),.5)` over
+    `--gnd` lands at `253,250,246` against a `251,248,243` ground, a
+    **2/2/3** per-channel delta. Invisible in the design, invisible in
+    the repo — just for a slightly different reason.
+
+  - **⚠️ Grain opacity is `.12` light / `.35` dark on admin** (line 791),
+    against the portfolio's `.13`/`.45` (line 860), while `GrainOverlay`
+    currently rests at **0.42** in both themes — see the Silent-failures
+    entry on why 0.42 is the real resting value and not a flash. **Three
+    values for one overlay across two screens; expected, not a bug.**
+    Do not normalise them.
+
+  **Two more Phase 1-token findings from the same sweep, reported and NOT
+  fixed** — both are on Phase 1 surfaces that go with the same rebuild:
+
+  | node | dark | light |
+  | --- | --- | --- |
+  | `NotFoundPage` eyebrow "ERROR 404" (`--accent`) | 6.79 ✅ | **2.44 ✗** |
+  | `NotFoundPage` body copy (`--text-body`) | 7.90 ✅ | **2.10 ✗** |
+  | `ErrorBoundary` error detail (`--text-muted`) | **2.67 ✗** | 6.21 ✅ |
+
+  ⚠️ **The 404 is NOT a pin-to-dark candidate either, and for a different
+  reason than admin**: its giant `404` numeral is `--border-bright`,
+  which measures **1.91 dark** / 8.67 light. It fails in the theme
+  pinning would lock it into. Genuinely mixed; needs the real palette,
+  not a freeze.
+
+  ⚠️ `ErrorBoundary` is the odd one out — it is a **Phase 2** surface
+  (it wraps all six sections) failing in **dark**, the default theme. It
+  was never reached by the light-theme bridge even while that existed,
+  because it *wraps* each section rather than nesting inside it: when it
+  catches, its fallback **replaces** `#projects` entirely, so it was
+  never a descendant of the bridge's scoping elements. Proved in PF-89
+  before deleting the bridge.
+
 - ~~**⚠️ `blogViews.test.js` flakes on Jest's 5s default timeout**~~ —
   **FIXED in PF-87** via `jest.testTimeout: 30000`; three consecutive
   runs gave 242/242/242. `mongodb-memory-server` is still the real fix
@@ -612,7 +727,12 @@ than copied forward:
   app; reports `flaky` rather than failing. Full measurement in Silent
   failures. Fix it with Sprint 12's Contact rebuild, pointing it at a real
   Phase 2 CTA.
-- **`frontend/test-results/.last-run.json` is tracked** even though
+- ~~**`frontend/test-results/.last-run.json` is tracked**~~ — **CLOSED in
+  PF-89** via `git rm --cached`. The file is still on disk and is now
+  correctly untracked-and-ignored (`git check-ignore` names
+  `frontend/.gitignore:38`). Original account below.
+
+- **`frontend/test-results/.last-run.json` WAS tracked** even though
   `/test-results/` is in `frontend/.gitignore` — it was committed before the
   rule existed, and gitignore does not apply to already-tracked files.
   ⚠️ The claim that it "dirties the tree after every Playwright run" is
@@ -814,9 +934,30 @@ than copied forward:
   the word "resumes" in a `StarfieldCanvas` test name. Needs a decision:
   build the admin UI and restore the public link in Sprint 12's Contact, or
   formally drop it and delete the backend.
-- **Three orphaned Phase 1 modules, 0 real consumers each** — `useTypewriter`
-  (still 4 passing tests, which is why a dead-code sweep walks past it),
-  `TerminalWindow`, and `apiUrl` in `services/api.js`. Left for cutover.
+- ~~**Three orphaned Phase 1 modules**~~ — **RESOLVED in PF-89
+  (2026-08-26), but not three and not all the same way.** The list was
+  stale in both directions, which is why the ticket made proving each
+  count Step 1:
+
+  | module | at the time of this entry | at PF-89 |
+  | --- | --- | --- |
+  | `useTypewriter` | orphan, 4 passing tests | **DELETED**, tests too |
+  | `TerminalWindow` | orphan, no tests | **DELETED** |
+  | `useInView` | not yet listed — PF-87 orphaned it after | **DELETED**, no tests |
+  | `apiUrl` | listed as an orphan | **KEPT** — PF-87 made it `CV_HREF` |
+
+  So the count was never three at any one moment. `apiUrl` had already
+  stopped being an orphan when this entry still named it, and `useInView`
+  had become one without being added. **A hand-maintained orphan list
+  drifts in both directions**; the replacement is
+  `styles/__tests__/cutover.test.js`, which fails if any of the three is
+  reintroduced.
+
+  ⚠️ **The JS bundle lost exactly 0 bytes** — 411.69 kB before and after.
+  That is not a disappointing result, it is the proof: Rollup never
+  included any of the three in the graph, so their unreachability is
+  measured rather than argued. Only CSS moved, 65.20 → 64.86 kB, from the
+  `[id]` rule and the light-theme bridge.
 - **`.env.production`'s API host is the placeholder**
   `https://your-railway-backend.up.railway.app/api`. Every fetch in a real
   production build fails. This is why PF-84's live checks were served
@@ -1732,7 +1873,9 @@ share a concept and almost nothing else — the Phase 1 component TYPES its
 lines in over ~4.3s and drops the caret when it finishes, where the prototype
 is a static snapshot with a permanent caret. Also radius 22px vs 0.875rem,
 8 lines vs 9, 12.5px/2 vs 0.8rem/1.8, literal hexes vs Phase 1 tokens.
-`TerminalWindow` stays orphaned for the cutover ticket.
+`TerminalWindow` was **DELETED in PF-89**; this entry is kept because
+"reuse the existing terminal component" is the obvious-looking move and
+it was wrong twice over.
 
 It renders **unconditionally, including while projects are loading** — it is
 hardcoded content with no API dependency, so gating it behind the query would
@@ -3108,7 +3251,7 @@ own test:
 | | before | after |
 | --- | --- | --- |
 | `--content-px` · `--content-max` | 1 each (the Phase 1 footer) | **0 each** — declared in `global.css`, read by nothing |
-| `useInView` · `useTypewriter` · `TerminalWindow` | 0 | 0 — still deliberate cutover work |
+| `useInView` · `useTypewriter` · `TerminalWindow` | 0 | 0 — ~~still deliberate cutover work~~ **all three DELETED in PF-89** |
 | `apiUrl` | 1 (Contact) | 1 |
 
 Verified at `HEAD` that the Phase 1 footer really was their last
@@ -3137,6 +3280,189 @@ diffs** in the failing run, 54 `Operation buffering timed out` and 34
 `Exceeded timeout of 30000 ms`. That is the shape the `blogViews` entry
 in Outstanding work describes, at scale. See the new SRV-DNS entry in
 Silent failures for the root cause.
+
+**Built by PF-89 — the Phase 1 cutover, and the second ticket in this
+project whose diff is mostly deletions:**
+
+```
+frontend/src/
+  hooks/useTypewriter.js               DELETED  (+ its 4-test file)
+  hooks/useInView.js                   DELETED  (no tests existed)
+  components/common/TerminalWindow.jsx DELETED  (no tests existed)
+  styles/global.css                    − [id] { scroll-margin-top: 5rem }
+  styles/tokens.css                    − the light-theme bridge
+  styles/__tests__/tokens.test.js      4 bridge guards → 2 (see below)
+  styles/__tests__/cutover.test.js     NEW  10 cases, the guard that outlives it
+  test/setup.js · utils/theme.js       prose naming the deleted modules
+  components/sections/ProjectsSection.jsx    same
+frontend/e2e/homepage.spec.js          same
+frontend/test-results/.last-run.json   git rm --cached
+```
+
+**⚠️ THE TICKET SAID THE TEST COUNT WOULD DROP. IT ROSE, 633 → 637**, and
+the arithmetic is worth stating so nobody reads it as the deletions not
+having happened: **−4** (useTypewriter's, deleted with the hook), **−4**
+bridge guards, **+2** replacing them, **+10** new cutover guards. The
+ticket's own suggested commit message needs that one line corrected.
+
+**The `[id]` rule was DELETED, not narrowed, and that deviates from the
+ticket.** Step 2 says: if any anchor target exists outside the six Phase
+2 sections, narrow rather than delete. One does — `<main id="main-content">`,
+the skip-link target, on **every** route. But the instruction's stated
+rationale ("the anchor just lands under the header") is provably false
+for it. Measured on the production build:
+
+| page | `#main-content` document position | skip-link scroll | `main` top after |
+| --- | --- | --- | --- |
+| home | **0** | 1500 → **0** | 0 |
+| 404 | **0** | 426 → **0** | 0 |
+| `/admin/login` | **0** | 0 → 0 | 0 |
+
+`<main>` is the first in-flow element on every route — the header and the
+skip link are both `position: fixed` — so it sits at document position 0,
+the browser clamps the scroll target at 0, and **`scroll-margin-top` is
+unreachable there.** Narrowing would have shipped an inert declaration,
+which this file's own `margin-left: auto` entry calls worse than none:
+the next reader treats it as load-bearing and builds around it.
+
+Its only other targets were `#root` (Vite's mount point, never an anchor)
+and `#pub`/`#featured`, two admin checkboxes on a page with **no fixed
+header at all** — so the rule was actively wrong there, adding 80px of
+scroll offset for a header that is not rendered on `/admin/*`.
+
+**⚠️ ONE GUARD THE TICKET SAID TO DELETE WAS KEPT, AND THE TICKET'S
+REASONING FOR DELETING IT WAS WRONG ON THE FACTS.** Step 6 says to remove
+all five bridge guards "including the one that fails if the rule is
+widened", on the grounds that it "protects a rule that no longer exists".
+There were **four**, not five — and the fourth never asserted anything
+about the bridge. It asserts that `tokens.css`'s `html[data-theme="light"]`
+block does **not** redefine Phase 1 property names. That hazard is
+completely untouched by the bridge's removal, because `/admin` still
+reads `global.css`'s `:root` for every one of them: hoisting the removed
+declarations up into the unscoped block — the obvious "simplification" —
+would put near-paper ink on the admin panels' dark surfaces. Kept, plus a
+second asserting no bridge rule survives anywhere. Both hardened to strip
+comments first, because `tokens.css` now documents the **removed** bridge
+in prose, naming every property the test forbids — the comment-matching
+trap, arriving by the exact route this file warns about.
+
+**The bridge's consumer count was proved, not assumed.** Grepping
+`text-primary|--accent` across `components/sections/` and `styles/`
+(discounting `tokens.css` and `global.css`) returns **zero**. Custom
+properties inherit, so the block's only possible consumers were
+descendants of `#projects`/`#blog`/`#contact` — and `ErrorBoundary` is
+**not** one, despite reading `--text-muted`, because it *wraps* the
+section rather than nesting inside it: its fallback replaces `#projects`
+entirely.
+
+**⚠️ THE VERIFICATION THAT ACTUALLY SETTLED THIS WAS A COMPUTED-STYLE
+CENSUS, NOT SCREENSHOTS.** A deletion ticket cannot be verified by
+looking at the result, and the pixel diff said so loudly: home-dark
+differed by **19.7%** before vs after. That number is meaningless without
+its control — **two runs against the SAME build differ by 13.8–24.0%**,
+because `StarfieldCanvas`, the marquee and `GrainOverlay` are all
+non-deterministic. The before/after diff sits *inside* the noise floor,
+in both directions.
+
+So the real instrument was a census of every tracked computed property on
+every element, under `prefers-reduced-motion`, across three pages × two
+themes — **1,252 elements**:
+
+| combination | elements | differ |
+| --- | --- | --- |
+| dark/home · light/home | 467 · 466 | **3 · 3** |
+| dark/404 · light/404 | 121 · 120 | **2 · 2** |
+| dark/adminlogin · light/adminlogin | 39 · 39 | **2 · 2** |
+
+Every one is `scrollMarginTop: 80px → 0px` on `#root` and
+`#main-content`. The third on each home run is a single `<div>` whose
+data-URI background changed length — `GrainOverlay`, which fills
+`Math.random()` noise and writes it with `toDataURL()`. **A same-build
+control differs on exactly that div and nothing else**, which is what
+makes it noise rather than a finding. `/admin` and `/admin/login` are
+**pixel-identical**, both themes.
+
+All six sections still land at exactly **71px**.
+
+**The gate, all five commands:** frontend **637 / 637** (43 files) · lint
+**exit 0** over **121** files · build **220 modules**, 64.86 kB CSS /
+411.69 kB JS · backend **242 / 242** (22 suites) · E2E **37 / 37**.
+
+**⚠️ THE JS BUNDLE LOST EXACTLY 0 BYTES — 411.69 kB before and after.**
+That is the headline result, not a disappointment: Rollup never included
+any of the three deleted modules in the graph, so their unreachability is
+**measured** rather than argued. Module count is identical at 220 for the
+same reason. Only CSS moved, 65.20 → 64.86 kB (−340 B), from the `[id]`
+rule plus the bridge.
+
+**Seven mutations across the new and surviving guards, all caught** —
+restore `useInView.js`, import `TerminalWindow` from a live component,
+put the `[id]` rule back, unqualify `section.blog` → `.blog`, restore
+`useTypewriter.test.js` alone, hoist a Phase 1 token into the unscoped
+light block, and restore the bridge rule.
+
+**`styles/__tests__/cutover.test.js` is the THIRD cross-cutting guard**,
+after PF-93's `revealTransition.test.js` and PF-88's `mobile.test.js`,
+and it follows their placement rather than inventing a `src/__tests__/`.
+It belongs to no module because the modules it is about are gone. Three
+things in it are load-bearing:
+
+- **It asserts it scanned >80 files.** A scanner that globs nothing
+  reports "no offenders" in exactly the same words as a clean tree —
+  the same self-check as `revealTransition`'s ">20 pairs".
+- **It strips comments before searching.** Four surviving files now
+  document these identifiers in prose, at the place the code used to be.
+- **`import.meta.url`, not `__dirname`.** The first version used
+  `__dirname`; it passes under Vitest, which supplies one, and **fails
+  lint** — `eslint`'s browser globals for `src/**` give ESM no
+  `__dirname`. Caught by the gate's lint step, which is the entry above
+  about `npm run lint` earning its widened scope.
+
+**⚠️ Four Phase 1 CSS classes are PROVEN DEAD and were deliberately NOT
+deleted**, plus four more the ticket never named:
+
+| class | jsx consumers |
+| --- | --- |
+| `.section-label` · `.section-title` · `.section-divider` · `.tech-tag` | **0** — the ticket's own list |
+| `.section-wrapper` · `.gradient-text` · `.animate-blink` · `.card-hover` | **0** — found alongside |
+| `.grid-bg` | 1 — `NotFoundPage` |
+| `.skeleton` · `.glass` · `.btn-primary` · `.btn-outline` | 5 · 12 · 7 · 8 — all admin |
+
+All eight left in `global.css` on purpose. Step 6's table is the deletion
+list and names modules only; `global.css` comes out **whole** with the
+admin rebuild, and a partial trim destroys the signal that nothing in
+that file has been audited yet. `.animate-blink` is worth recognising —
+it was the typewriter's caret, and it is the CSS half of the module
+deleted here.
+
+**⚠️ `.marqueeWrap` is NOT retired, and the PF-89 ticket says it is.**
+The *footer's* went with the tilt during PF-88's revisions; the **hero
+still has one** (`HeroSection.module.css:705`), where it clears the
+hero band's `rotate(-1.1deg)`. `Footer.test.jsx` already guards that the
+hero's values did not leak into the footer. Do not delete it. A
+whole-repo sweep of every `*.module.css` against its sibling `.jsx`
+found no other orphaned class; the hero's chip and dot classes only
+*look* orphaned because they are selected dynamically.
+
+**PF-89 created no new orphans.** `apiUrl` keeps its single consumer
+(`ContactSection`'s `CV_HREF`), `useAbout` keeps two, and the
+`--content-px`/`--content-max` and `--acc2`/`--acc2rgb` pairs are
+unchanged at zero — all four go with `global.css` and the Blog/Admin
+rebuilds respectively.
+
+**Not in scope, stated rather than omitted:** `body { font-family }`
+stays Inter. `/admin/*` and `NotFoundPage` are still Phase 1 layouts and
+switching the site font changes how both render — a visible change with
+no ticket behind it. See the admin light-theme entry in Outstanding work
+for why the font, `global.css`'s `:root` and admin's light palette are
+**one** piece of work rather than three.
+
+**One a11y observation, reported not fixed:** after the skip link is
+activated, `document.activeElement` is `<body>` — `<main>` carries no
+`tabindex="-1"`, so the browser scrolls to it without moving focus
+there, and the next Tab resumes from the top of the document rather than
+from the content. The classic skip-link gotcha. PF-83's territory, not a
+cutover finding.
 
 ## Stack
 
@@ -3684,14 +4010,29 @@ error message:
   finds `TerminalWindow` and walks straight past `useTypewriter`, because the
   green test looks like evidence of use. It is evidence of nothing but the test.
 
-  **Both are still in the tree on purpose.** Deleting Phase 1 code is cutover
-  work, not PF-80's — the Phase 1 sections around them are still mounted in
-  `HomePage.jsx` and get replaced by PF-81/82. **"Not deleted" here means
-  "noticed and deferred", not "missed".** Do not treat either as in use, and do
-  not re-import them; the Phase 2 hero has no typewriter (see the PF-80 entry
-  on `typeLoop()`/`ROLES`). Re-check consumer counts before deleting — grep for
-  the identifier and discount the module's own file and its own test, which is
-  exactly the discount that makes the count look non-zero if skipped.
+  **Both were left in the tree on purpose, and BOTH ARE NOW DELETED —
+  PF-89, 2026-08-26**, along with `useInView`, which became the same shape
+  after PF-87. Deleting Phase 1 code was cutover work rather than PF-80's:
+  the Phase 1 sections around them were still mounted in `HomePage.jsx`
+  until PF-81/82 replaced them. **"Not deleted" meant "noticed and
+  deferred", not "missed"** — and the deferral lasted six days for the
+  code and **nine** for `useTypewriter`'s tests, which kept reporting
+  four passes the whole time.
+
+  **The lesson stands whole and is why this entry is kept.** Re-check
+  consumer counts before deleting — grep for the identifier and discount
+  the module's own file and its own test, which is exactly the discount
+  that makes the count look non-zero if skipped. PF-89 ran that grep on
+  five candidates and it changed two verdicts: `apiUrl` was on the orphan
+  list and had a live consumer, `useInView` was not on the list and had
+  none.
+
+  ⚠️ **The replacement for a hand-maintained orphan list is
+  `styles/__tests__/cutover.test.js`**, which fails if any of the three
+  is reintroduced. A list in prose drifts in both directions; a scanner
+  does not. Do not re-import them — the Phase 2 hero has no typewriter
+  (see the PF-80 entry on `typeLoop()`/`ROLES`), and the Phase 2 terminal
+  panel is a deliberate non-port of `TerminalWindow` (see PF-85).
 - **A design image referenced by URL 404s in silence.** `docs/design/assets/` is
   not served by anything — it is design reference, outside the Vite root — and
   `frontend/public/` holds only `favicon.svg` and `icons.svg`. A ticket saying
@@ -3727,8 +4068,27 @@ error message:
   Keep `@supports` conditions var()-free and put the token in the rule body.
   Found while writing PF-81's outline-type fallback; guarded by
   `styles/__tests__/patterns.test.js`.
-- **A bare `.section` class loses `scroll-margin-top` to Phase 1's `[id]`
-  rule.** `global.css:338` carries `[id] { scroll-margin-top: 5rem }` —
+- ~~**A bare `.section` class loses `scroll-margin-top` to Phase 1's
+  `[id]` rule.**~~ — **THE RULE IS GONE, deleted in PF-89
+  (2026-08-26).** `global.css` no longer declares any
+  `scroll-margin-top`, so the tie described below cannot happen any
+  more and a new section written with a bare `.hero { … }` would
+  simply work.
+
+  ⚠️ **Keep writing `section.hero`, and the guard now enforces it.**
+  Two reasons the habit outlives the trap: the qualified form is
+  what all six sections carry today, so a bare one is a
+  gratuitous inconsistency; and it is the only form that stays
+  correct if any (0,1,0) `[id]`-style rule is ever reintroduced —
+  which `global.css` still could, since it survives to the admin
+  rebuild. `styles/__tests__/cutover.test.js` asserts both halves:
+  no blanket `[id]` scroll-margin anywhere in `global.css`, and all
+  six sections qualified by element name. Both mutation-tested.
+  Original account below, kept because the specificity mechanism is
+  the reusable part.
+
+- **A bare `.section` class USED TO LOSE `scroll-margin-top` to Phase
+  1's `[id]` rule.** `global.css:338` carries `[id] { scroll-margin-top: 5rem }` —
   specificity (0,1,0), *identical* to a single class, so the tie breaks on
   stylesheet order and the global rule wins. A section writing
   `.hero { scroll-margin-top: var(--header-h) }` therefore computes **80px, not

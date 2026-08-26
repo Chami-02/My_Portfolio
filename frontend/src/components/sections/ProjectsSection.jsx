@@ -35,13 +35,14 @@ const PLACEHOLDER_CARDS = 3;
 /**
  * The terminal mockup, transcribed from the prototype (lines 336-353).
  *
- * ⚠️ NOT `components/common/TerminalWindow.jsx`. That Phase 1 component
- * shares the concept and almost nothing else: it TYPES its lines in over
- * ~4.3s and drops the caret when it finishes, where this is a static
- * snapshot with a permanently blinking caret. Every property governing
- * how it feels differs too — radius 22px vs 0.875rem, 8 lines vs 9,
- * 12.5px/2 vs 0.8rem/1.8, literal hexes vs Phase 1 tokens. It stays
- * orphaned for the cutover ticket.
+ * ⚠️ NOT a port of `components/common/TerminalWindow.jsx`, which PF-89
+ * DELETED. That Phase 1 component shared the concept and almost nothing
+ * else: it TYPED its lines in over ~4.3s and dropped the caret when it
+ * finished, where this is a static snapshot with a permanently blinking
+ * caret. Every property governing how it felt differed too — radius 22px
+ * vs 0.875rem, 8 lines vs 9, 12.5px/2 vs 0.8rem/1.8, literal hexes vs
+ * Phase 1 tokens. Kept here as a note because "reuse the existing
+ * terminal component" is the obvious-looking move, and it was wrong.
  *
  * Renders unconditionally, including while projects are loading: it is
  * hardcoded content with no dependency on the API, so gating it behind

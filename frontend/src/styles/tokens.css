@@ -185,45 +185,35 @@ button:focus-visible,
 }
 
 /* ── Light-mode-only rules ───────────────────────────────── */
-/* ── Phase 1 sections in light theme — TEMPORARY, delete at cutover ─────
+/* ── Phase 1 light-theme bridge — REMOVED in PF-89 (2026-08-26) ────────
  *
- * Projects, Blog and Contact are still Phase 1 components and read their
- * colours from global.css's `:root`, which is a single dark palette that
- * never flips: `--text-primary` is #f1f5f9 (near-white) in BOTH themes.
- * On the warm-paper light ground that measures **1.11:1** — invisible.
+ * Between 2026-08-18 and the Sprint 12 rebuilds this file carried a
+ * block re-pointing Phase 1's never-flipping text tokens for
+ * `#projects`, `#blog` and `#contact`:
  *
- * This did not start with the 2026-08-18 background removal. Projects has
- * been unreadable in light theme for as long as light theme has existed;
- * Contact merely looked fine because its own dark `--bg-surface` wash sat
- * behind the text, so removing that wash exposed the same bug rather than
- * causing it. Measured before and after, not inferred.
+ *     html[data-theme="light"] #projects, … #blog, … #contact {
+ *       --text-primary: var(--strong);  --text-body: var(--text);
+ *       --text-muted: var(--muted2);    --bg-surface: rgba(var(--srf), .52);
+ *       --border: …;  --border-bright: …;
+ *       --accent: var(--acc);  --accent-glow: rgba(252, 163, 17, .15);
+ *     }
  *
- * ⚠️ Scoped to the three section elements ON PURPOSE. These tokens are
- * also read by every admin panel, whose surfaces are the un-flipped dark
- * `--bg-surface`. Redefining them at `html[data-theme="light"]` would put
- * dark text on those dark panels and break /admin in exactly the way this
- * fixes the home page. Custom properties inherit, so declaring them on
- * the sections re-scopes everything inside them and nothing outside.
+ * It existed because global.css's `:root` is a single DARK palette that
+ * never flips — `--text-primary` is #f1f5f9 in both themes, which
+ * measures 1.11:1 on the warm-paper light ground.
  *
- * Mapped onto Phase 2 tokens rather than fresh hex, so these sections
- * track the real palette until they are rebuilt in Sprint 12 — at which
- * point this whole block goes, along with global.css's `:root`.
+ * PF-85/86/87 rebuilt all three sections against Phase 2 tokens, so
+ * nothing inside them reads a Phase 1 property name any more. Proved
+ * before deleting, not assumed: grepping `text-primary|--accent` across
+ * `components/sections/` and `styles/` (discounting this file and
+ * global.css) returns ZERO. Custom properties inherit, so the block's
+ * only possible consumers were descendants of those three elements —
+ * and ErrorBoundary is NOT one, because it WRAPS the section rather
+ * than nesting inside it, so its fallback replaces `#projects` entirely.
+ *
+ * ⚠️ global.css's `:root` STAYS. /admin still reads it, and it comes out
+ * with the admin rebuild — not here.
  */
-html[data-theme="light"] #projects,
-html[data-theme="light"] #blog,
-html[data-theme="light"] #contact {
-  --text-primary:  var(--strong);
-  --text-body:     var(--text);
-  --text-muted:    var(--muted2);
-  --bg-surface:    rgba(var(--srf), .52);
-  --border:        rgba(var(--ln), .16);
-  --border-bright: rgba(var(--ln), .28);
-  /* Phase 1's indigo #818cf8 measures 2.44:1 on the paper ground and
-     2.91:1 on a card — the same failure --acc was deepened to #7E4800
-     to avoid (6.12:1 / 7.28:1). Point it at the real accent. */
-  --accent:        var(--acc);
-  --accent-glow:   rgba(252, 163, 17, .15);
-}
 
 html[data-theme="light"] [data-lightplate] { opacity: 1; }
 html[data-theme="light"] [data-terminal]   { box-shadow: 0 30px 60px rgba(20,33,61,.22); }

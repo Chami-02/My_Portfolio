@@ -78,7 +78,9 @@ export function toggleLabel(theme) {
  * this function with ZERO consumers while its tests stayed green
  * forever, because a unit test imports the module directly. That is the
  * useTypewriter shape CLAUDE.md documents: a green suite reporting
- * "alive" about code nothing in the app reaches.
+ * "alive" about code nothing in the app reaches. (useTypewriter itself
+ * was finally deleted, with its four passing tests, in PF-89 — it had
+ * been unreachable since PF-80.)
  *
  * Note the concern originally raised — that a destination-showing icon
  * would contradict a state-naming label — did not apply. It already

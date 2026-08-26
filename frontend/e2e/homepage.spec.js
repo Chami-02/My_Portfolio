@@ -38,9 +38,10 @@ test.describe('Homepage', () => {
 
   // Replaces two Phase 1 tests that asserted features PF-80 deliberately
   // removed: the typewriter's `.animate-blink` cursor and TerminalWindow's
-  // "$ docker compose up --build". Both components are now orphaned (zero
-  // consumers) and the Phase 2 hero has no typewriter at all, so those
-  // assertions could only ever fail. These cover what replaced them.
+  // "$ docker compose up --build". PF-89 deleted both components outright
+  // — they had sat at zero consumers since PF-80 — and the Phase 2 hero
+  // has no typewriter at all, so those assertions could only ever fail.
+  // These cover what replaced them.
   test('hero renders its Phase 2 role pills and the LOUD CTA', async ({ page }) => {
     await expect(page.getByText('Full-Stack Web Developer')).toBeVisible();
     await expect(page.getByText('Cloud & DevOps Enthusiast')).toBeVisible();
