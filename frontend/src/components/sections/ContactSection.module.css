@@ -281,6 +281,11 @@ section.contact {
 .field {
   display: grid;
   gap: 7px;
+  /* ⚠️ See .input below — a grid item's default `min-width: auto`
+     floors it at its content's min-content width, and this one's
+     content is an <input>. Both levels need the override or the floor
+     just moves up a box. */
+  min-width: 0;
 }
 
 .fieldLabel {
@@ -290,7 +295,28 @@ section.contact {
   color: var(--muted2);
 }
 
+/* ⚠️ `min-width: 0` IS A BUG FIX, NOT TIDYING — measured 2026-08-25.
+   An <input> has an intrinsic width of about 202px, and a grid item's
+   default `min-width: auto` refuses to shrink below its min-content
+   size. So when the form row goes to two columns the fields stayed
+   202px wide in a 151px track and the EMAIL field ran OFF THE RIGHT
+   EDGE of the viewport:
+
+     375px  1 column,  301px track   fields 301px   ok
+     390px  2 columns, 151px track   fields 202px   +14px past the edge
+     400px  2 columns, 156px track   fields 202px   +9px
+     414px  2 columns, 162px track   fields 202px   +2px
+     430px  2 columns, 170px track   fields 202px   ok — it FITS again
+
+   ⚠️ Which is why it went unnoticed: the field is 202px in two-column
+   mode at EVERY width, and only pokes out between ~380 and ~424px —
+   a band that contains the iPhone 14/15 Pro (393) and the 14 Plus
+   (414) and excludes the two widths anyone tests first, 375 and 430.
+   The page never grew a scrollbar either, because an ancestor clips.
+   `justify-self: stretch` was already sizing the field correctly; the
+   floor was overriding it. */
 .input {
+  min-width: 0;
   background: rgba(var(--gnd), .7);
   border: 1px solid rgba(var(--ln), .14);
   border-radius: 11px;

@@ -737,3 +737,55 @@ section.hero {
      stays proportionally the same rather than opening up. */
   padding-right: 24px;
 }
+
+/* ⚠️ TAP TARGET, mobile only — 2026-08-25, owner-requested "whole ui
+   mobile optimization should be fine as butter".
+
+   The prototype's padding renders this CTA 36px tall, under the 44px
+   minimum every touch guideline uses. Desktop is untouched — this is
+   the only visible deviation from the prototype's own value in the
+   mobile pass, and it is scoped so a pointer user never sees it.
+
+   ⚠️ `min-height`, not more padding. 12px top and bottom looked like it
+   made exactly 44 and measured 43.6: the line box is 19.6px, not the
+   whole 20 it appears to be, so the arithmetic was off by less than a
+   pixel and still under the floor. A min-height cannot be wrong by a
+   rounding error. The pill's 999px radius is unaffected either way.
+
+   Measured before: 277x36. After: 277x44. */
+@media (max-width: 768px) {
+  .loudCta {
+    min-height: 44px;
+  }
+}
+
+/* ⚠️ THE TWO OVERHANGING CHIPS, PULLED BACK IN BELOW 1024px —
+   2026-08-25, mobile pass.
+
+   `.chipFastapi` sits at `right: -6%` and `.chipNext` at `left: -5%`,
+   deliberately: they hang off the portrait stage so the cluster reads as
+   surrounding the frame rather than sitting inside it. That works while
+   the stage is narrower than the viewport, which it is at 1024px and up.
+
+   Below that the stage IS the full column, so the negative offsets land
+   the chips past the viewport edge and they are clipped MID-WORD.
+   Measured before: FastAPI cut by 5px at 375, 9px at 600, 14px at 900;
+   Next.js by 1 / 4 / 5px. Both are clean at 1024, which is why the
+   breakpoint is there and not at a phone width.
+
+   ⚠️ It never showed as a layout bug. The page has no horizontal scroll
+   at any width — an ancestor clips — so every automated check passed
+   while two of the ten chips were visibly sliced. Found by looking at a
+   screenshot, not by measuring.
+
+   0 rather than a positive inset: the chips still touch the stage edge,
+   which keeps the cluster's shape. Only the overhang goes. */
+@media (max-width: 1023px) {
+  .chipFastapi {
+    right: 0;
+  }
+
+  .chipNext {
+    left: 0;
+  }
+}

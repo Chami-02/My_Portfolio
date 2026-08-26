@@ -250,17 +250,32 @@
  * `md:` default rather than anything prototype-derived.
  * ──────────────────────────────────────────────────────────────────── */
 
+/* ⚠️ 44x44 HIT AREA, 32px BARS — the visual is unchanged, the tap
+   target is not. Measured 2026-08-25 at 32x32, which is below the 44px
+   minimum every touch guideline uses and the smallest target on the
+   site.
+
+   The 6px padding is what does it: the content box stays 32px, so the
+   bars below (`width: 100%`) stay 32px wide and the translateY(7px)
+   rotation math is untouched — `justify-content: center` positions them
+   relative to the content box, which did not move.
+
+   ⚠️ 44 is also the number that keeps --header-h at 71px. The header's
+   height is set by its tallest child and the logo and theme toggle are
+   both 44px; anything larger here moves --header-h, which every
+   section's scroll-margin-top reads. Re-measured after: 71px. */
 .hamburger {
   display: none;
   flex-direction: column;
   justify-content: center;
   gap: 5px;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
+  flex: none;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 6px;
 }
 
 /* 2px bar + 5px gap + 2px + 5px + 2px = 16px tall. The top bar's
@@ -326,12 +341,15 @@
   -webkit-backdrop-filter: blur(16px);
 }
 
+/* ⚠️ 44px, not 40 — 2026-08-25 mobile pass. Four pixels short of the
+   touch minimum, and it is the control a visitor reaches for to get OUT
+   of a full-screen overlay. */
 .overlayClose {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   font-size: 28px;
   line-height: 1;
   color: var(--strong);
@@ -344,15 +362,40 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  /* 8px, not 20. The links' boxes grew from 32px to 44px above, so the
+     gap shrinks by the same 12px and the SPACE BETWEEN LABELS stays at
+     the 20px this was tuned to. Changing one without the other is what
+     turns a tap-target fix into a visible layout change. */
+  gap: 8px;
 }
 
+/* ⚠️ THE MOST IMPORTANT TOUCH TARGETS ON THE SITE, and they measured
+   32px tall — 2026-08-25 mobile pass.
+   
+   At 20px with no padding the line box is 32px. These are the ONLY way
+   to navigate on a phone, they sit 20px apart, and a missed tap lands on
+   the neighbouring section rather than nothing.
+   
+   ⚠️ They were missed by the first two audit passes because the overlay
+   was CLOSED — an automated sweep over the page never opens it. Every
+   other tap target on the site was already measured and fixed while
+   these, the ones that matter most, were not. Open the menu before
+   trusting a mobile audit.
+   
+   `min-height` plus flex centring rather than padding: the links are
+   centred in a flex column, and vertical padding would push the visual
+   spacing to 20 + 12 + 12 = 44px between labels while the gap already
+   reads correctly at 20. This grows the BOX, not the rhythm. */
 .overlayLink {
   font-family: 'JetBrains Mono', monospace;
   font-size: 20px;
   letter-spacing: .1em;
   color: var(--strong);
   text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
 }
 
 /* composes: the element carries both classes, and these rules win on
