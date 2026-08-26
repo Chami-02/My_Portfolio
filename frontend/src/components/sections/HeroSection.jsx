@@ -185,7 +185,7 @@ export function HeroSection() {
 
             ⚠️ NOT part of this hero's 2026-08-17 slimming deviation —
             that one is font-size and padding, and lives in the module. */}
-        <Marquee duration={26} copies={6} className={styles.marqueeInner}>
+        <Marquee duration={40} copies={6} className={styles.marqueeInner}>
           <span className={styles.marqueeText}>{MARQUEE_TEXT}</span>
         </Marquee>
       </div>

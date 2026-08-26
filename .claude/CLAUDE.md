@@ -779,6 +779,15 @@ than copied forward:
   outside any ticket — grepping `heic` across `src/` and `e2e/` returns
   nothing. Not PF-86's; noticed while checking the tree before hand-off.
   Delete it or track it deliberately.
+- **⚠️ The live database still holds the OLD LinkedIn URL.** Corrected
+  in `seed.js` and the `About` model default on 2026-08-25
+  (`gallege` → `gallage`), but neither reaches production: `seed.js`
+  wipes five collections before writing, and a Mongoose `default` only
+  applies to new documents. The public site is unaffected — Contact and
+  the footer both use their own constants — but `AdminAboutPanel` reads
+  and writes `social.linkedin`, so the panel still shows the broken URL.
+  One field, fixable through the panel or by a migration.
+
 - **`migrations/004-skill-order.js` has still NOT been run.** Confirmed
   live, not inferred: `GET /api/skills` returns LANGUAGES as
   `JavaScript → Python → Java → HTML5 → CSS3`, so **Java is still third**
@@ -2733,6 +2742,364 @@ Three things about that table:
    Same reason Contact's location line passed: these sit on the page
    ground rather than on a translucent card. The trap is the surface, not
    the token.
+
+### PF-88 revisions — owner-requested, 2026-08-25
+
+Eleven changes across four passes in one session, all asked for directly
+after seeing the footer live. Recorded here because **seven of them
+reverse or delete work PF-88 had just shipped**, and a fidelity pass that
+cannot find them here will put every one of them back.
+
+⚠️ **Several passes contradict earlier passes in the same session.** Where
+that happens both halves are kept below, because the reasoning is the
+useful part — the marquee band was told to copy the hero exactly, then
+told to drop the hero's defining feature.
+
+```
+frontend/src/
+  components/layout/
+    Footer.jsx  + .module.css        band, grid, bottom bar, links
+    ScrollToTop.jsx + .module.css    NEW module css; Phase 1 inline styles gone
+    __tests__/ScrollToTop.test.jsx   NEW  10 cases
+    __tests__/Footer.test.jsx        replay cases → absence + layout guards
+  components/motion/
+    __tests__/Marquee.test.jsx       + a duration guard  (9 → 10)
+  components/sections/
+    HeroSection.jsx                  duration 26 → 40
+    ContactSection.jsx               LinkedIn URL
+  pages/HomePage.jsx                 replayCount + keyed subtree REMOVED
+  providers/SplashProvider.jsx       resetKey REMOVED
+  App.jsx                            replay state REMOVED
+  utils/replay.js                    DELETED  (+ its 5 tests)
+backend/src/
+  seed.js · models/About.js          LinkedIn URL
+frontend/e2e/footer.spec.js          replay tests → band + zone + absence tests
+```
+
+**1. REPLAY INTRO is gone, and so is the machinery behind it.**
+*"remove the replay intro button no one want to replay that splash when
+in the website."* The button was most of PF-88; removing it orphaned
+`utils/replay.js`, `SplashProvider`'s `resetKey`, `HomePage`'s
+`replayCount` prop and its keyed reveal subtree, and `App.jsx`'s counter.
+**All deleted rather than left in place** — a module whose last consumer
+disappears keeps its own tests passing forever, the `useTypewriter` shape
+this file documents at length. `HomePage.jsx` and `SplashProvider.jsx`
+are back to their pre-PF-88 shape.
+
+⚠️ **`ScrollToHash`'s per-navigation guard STAYS.** PF-88 added it because
+replay toggled the readiness gate mid-session; nothing toggles it now, so
+it never fires in production. Kept because it is *executed* code rather
+than dead code — it records the navigation key on every hash scroll — and
+because `setReady` is still exposed through `useSplashControls()`, so the
+hazard returns the moment anything closes the gate again.
+
+**2. SCROLL BACK UP is gone**, redundant with `ScrollToTop`. With both
+outer cells removed the prototype's `1fr auto 1fr` bottom bar **loses its
+grid entirely** rather than keeping two empty columns around a lone
+centred line — `text-align: center` on a block does the same job without
+an inert declaration the next reader treats as load-bearing.
+
+**3. The copyright gained ALL RIGHTS RESERVED**, mid-line:
+`© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM
+SCRATCH`. ⚠️ That took it to **78 characters**, and the `max-width: 60ch`
+first written for it wrapped it onto two lines at 1440px where there is
+room for one — `ch` counts the glyph advance and ignores the line's
+`.14em` letter-spacing, so 60ch is ~466px against a rendered ~606px. No
+cap now. Measured one line down to 768px, two at 600–375, three at 320,
+centred at every width.
+
+**4. ⚠️ THE FOOTER BAND IS THE HERO'S — MINUS THE HERO'S DEFINING
+FEATURE. Two passes, and the second reverses part of the first.**
+
+*Pass 1: "exactly like the top one … reduce the speed and features
+exactly like the above one."* This **reversed PF-88's own guard**, which
+asserted the hero's 2026-08-17 slimming had NOT leaked into the footer.
+It is now required to have.
+
+*Pass 2: "the banner shows the end of the web page and start of the
+footer so it should be full 100% horizontal and fit to footer."* So the
+tilt does **not** come across.
+
+| | prototype footer (line 544) | hero | shipped |
+| --- | --- | --- | --- |
+| ground | `rgba(252,163,17,.06)` + borders | solid `var(--acc)` | **solid `var(--acc)`** |
+| text | `var(--acc)` @ .5 | `var(--accInk)` | **`var(--accInk)`** |
+| size | `clamp(16px,2vw,26px)` | `clamp(13px,1.6vw,21px)` | **the hero's** |
+| gap | 30px | 24px | **24px** |
+| padding | 10px 0 | 8px 0 | **8px 0** |
+| tilt | none | `rotate(-1.1deg) scale(1.03)` | **NONE — pass 2** |
+| duration | 15s | 26s | **40s — see 5** |
+
+The hero's band is a torn strip laid over the page; this one is a level
+rule marking where the page ends and the footer begins. Measured: 0px gap
+above it, width exactly the viewport, `transform: none`.
+
+⚠️ **`.marqueeWrap` went with the tilt.** It existed ONLY to clear the
+rotation the footer's `overflow: hidden` would otherwise cut —
+`max(22px, 1.5vw)`, sized against a rise of `(bandWidth / 2) ×
+sin(1.1deg)` = **0.99vw, proportional, not constant**. A flat 22px had
+measured clear at 1440px, 2px at 1920px and **clipping by 4px at 2560px**
+before the vw term was added. All moot now; do not reintroduce the
+wrapper without the tilt.
+
+⚠️ **This also retires the `[data-strip]` theme rule** the prototype
+drives from `applyTheme()` line 867. It has nothing to act on — the text
+is ink-on-accent and `--accInk` already flips. Measured: dark
+`rgb(10,10,10)` on `rgb(252,163,17)`, light `rgb(255,255,255)` on
+`rgb(126,72,0)`.
+
+⚠️ **`copies` went UP, 12 → 16, and the direction is counter-intuitive.**
+Dropping to the hero's smaller type shrank one copy from ~600px to
+~485px, which *raises* the count `copies ≥ 2 × band / copy` demands. 16
+covers a band to ~3880px where 12 covered ~2900px.
+
+**5. Both bands slowed to 40s.** *"the top banner and the footer banner
+strips reduce the speed of the text."* The prototype runs the footer at
+15s and the hero at 26s; the footer was matched to 26 in pass 1 and then
+**both** went to 40. ⚠️ `duration={40}` is a **literal** in both call
+sites, not a shared constant — `Marquee.test.jsx` pins the two together
+by reading `duration={n}` out of each file as source, and a named import
+would slip past that regex while looking tidier.
+
+**6. ⚠️ THE FOOTER IS THREE ZONES AND FULL-BLEED, not four equal columns
+in a 1240px column.** *"the logo and the description and the available
+for work capsule should be more left and navigate and elsewhere section
+should be in the middle with a acceptable gap and status section (card)
+should be more right."*
+
+- `.grid` is `minmax(0, 1fr) auto minmax(0, 1fr)`, not the prototype's
+  `repeat(auto-fit, minmax(min(100%,210px), 1fr))`. `minmax(0, …)` rather
+  than `auto` on the outer tracks: an `auto` track is content-sized, so
+  the centre pair would drift off centre whenever the identity text
+  wrapped differently from the status card.
+- NAVIGATE and ELSEWHERE are wrapped in `.linkGroup` with a **wider** gap
+  than the grid's — at the grid's gap they read as two more equal
+  columns. The wrapper is a plain div; each column keeps its own `Reveal`
+  and its own stagger delay.
+- **`.inner` lost `max-width: 1240px`.** Within it the four columns
+  already spanned edge to edge, so there was no slack to redistribute —
+  the only way further out is to drop the cap. This puts the footer logo
+  at exactly the same x as the **header** logo, which went full-bleed on
+  2026-08-22 for the same reason; the two were 100px apart at 1440px
+  until now. Measured: both at 40px, at every width.
+  ⚠️ **Accepted consequence, identical to the header's:** above ~1320px
+  the footer no longer aligns with section content. Restoring the cap to
+  "fix" the alignment is the thing that was rejected.
+
+⚠️ **AN EXPLICIT THREE-TRACK GRID DOES NOT STACK, and the prototype's did
+it for free.** `auto-fit` drops a column when the tracks stop fitting;
+three explicit tracks never do — they get narrower. Measured before the
+breakpoint was added: zone widths went 323/217/320 at 1024px to
+**116/191/50 at 375px, with the status card crushed to 50px and the outer
+zones OVERLAPPING below 430px.** No scrollbar, nothing in the console.
+`@media (max-width: 899px)` stacks to one column; 899 is where three
+zones stop being comfortable, not where they break.
+
+**7. The band sits 46px above the content, not 64px — settled in two
+steps.** *"the footer banner should be very close to the text area …
+bring down the banner strip"*, which took `.inner`'s top padding from the
+prototype's `clamp(38px, 6vw, 64px)` to `clamp(18px, 2.2vw, 30px)`. That
+**overshot**, and the follow-up asked for the content a bit further below
+the band again: `clamp(26px, 3.4vw, 46px)`. Horizontal and bottom values
+untouched. Measured band-bottom to identity-top: 46 · 46 · 35 · 26 · 26px
+at 1920 → 375.
+
+⚠️ The instruction that settled it — *"bring more a bit to below the
+strip banner"* — reads two opposite ways (more space, or more of the
+tightening just applied) and was **asked rather than guessed**, because
+the two readings move the band in opposite directions.
+
+**8. `ScrollToTop` is on the Phase 2 token set, and glows.** *"go up to
+top button according to the theme"*, then *"looking like hiding so add
+glowing effect or something like that to recognise."*
+
+It was Phase 1's, styled with **inline** Phase 1 tokens — `--bg-elevated`,
+`--border-bright`, `--accent`, `--accent-glow`. Those live in
+`global.css`'s `:root`, a **single dark palette that never flips** (the
+same fact behind the Phase 1 light-theme bridge), so in light theme the
+button floated dark surfaces and Phase 1's indigo `#818cf8` over warm
+paper. Nothing errored. Measured after: dark `rgba(20,33,61,.82)` /
+`rgb(252,163,17)`, light `rgba(254,252,248,.82)` / `rgb(126,72,0)`.
+
+⚠️ **The prototype has NO such control**, so the treatment is borrowed
+from `ThemeToggle`, the nearest Phase 2 precedent for a small round icon
+button: 44×44, accent ink, accent border, a theme-scoped glow.
+
+**9. ⚠️ THE HOVER FILLED THE BUTTON AND THE ARROW VANISHED — a
+specificity tie, and the seventh in this project.** The first version
+inverted to a solid accent disc with `--accInk` ink. On screen it was a
+featureless amber circle with no arrow. Two causes, and only the first is
+visible in a screenshot:
+
+| | |
+| --- | --- |
+| the fill is too loud | a control that already glows reads as a *different element appearing* rather than the same one responding |
+| **the ink never applied** | `:global(html[data-theme='dark']) .button` is **(0,2,1)** — element + attribute + class — while `.button:hover` is **(0,2,0)**. The theme rule won *while hovered*, so `color` stayed `var(--acc)`: amber ink on an amber fill |
+
+**The rule that fixes it: every colour a hover changes must be declared
+inside the same theme block**, where it lands at (0,3,1) and beats that
+theme's own rest rule outright rather than racing it. The base `:hover`
+carries `transform` only — a property no theme rule sets, so it cannot
+lose. Hover now intensifies rather than inverts: brighter glow, full
+accent border, a light accent wash, the lift. Measured arrow-vs-its-own-
+hover-ground: **7.92:1 dark, 5.29:1 light.**
+
+⚠️ **The glow is theme-scoped and that is the whole of it.** `--acc` is
+amber in dark and **brown `#7E4800`** in light, so one unscoped
+`box-shadow: 0 0 18px var(--acc)` paints a brown smudge on light paper —
+valid CSS, no error, reads as a rendering artefact. Light gets a firmer
+shadow instead of a glow, because a glow needs something darker than
+itself to bloom against.
+
+**10. The entrance moved to `kf-riseIn` with NO fill-mode.** Phase 1 used
+`animation: fadeInUp .3s ease both` inline; `both` keeps a *finished*
+animation in `getAnimations()` for the life of the page — the single
+entry PF-83's reduced-motion audit had to explain away ("total is 1 in
+both modes, running is 0"). **That footnote is now obsolete; the total is
+0.**
+
+**11. The LinkedIn URL was wrong everywhere: `gallege` → `gallage`.**
+Five files — `ContactSection.jsx`, its test, `Footer.jsx`,
+`backend/src/seed.js`, `backend/src/models/About.js`. ⚠️ **The live
+database still holds the old URL** — see Outstanding work.
+
+**The gate after all eleven:** frontend **627 / 627** (42 files) · lint
+**exit 0** · build **220 modules**, 64.90 kB CSS / 411.69 kB JS · backend
+**242 / 242** · E2E **37 / 37**.
+
+**40 mutations across the session's new guards. Three found real gaps**,
+all closed:
+
+| mutation | what it exposed |
+| --- | --- |
+| band `duration` 40 → 26 | the two bands were pinned to nothing; now they are read from each other's source |
+| `ScrollToTop` reverting to Phase 1 tokens | the component had **no test at all**; now 10 cases |
+| unscoping the dark glow | the theme-scoping had no guard — the exact brown-smudge trap this file documents |
+
+⚠️ **Two mutations *reported* clean and were invalid**, both worth
+recognising because the failure shape is identical to a passing test:
+`copies={16}` → `{12}` and `alt=""` → the prototype's alt both edited a
+**comment** rather than the code, because the doc comments name those
+values. The tests strip comments and were right; the mutation script was
+wrong. Same trap this file documents, one level out — **mutate the code,
+then confirm the file actually changed.**
+
+### Mobile pass — owner-requested, 2026-08-25
+
+*"whole ui mobile optimization should be fine as butter."* An audit at
+320 · 360 · 375 · 390 · 414 · 430 · 480 · 600 · 768px, then six fixes.
+Guarded by `styles/__tests__/mobile.test.js` — a **cross-cutting** file,
+in `styles/__tests__/` per the `revealTransition.test.js` precedent,
+because none of it belongs to one module.
+
+**What was already right, and is worth knowing before touching it:**
+`document.documentElement.scrollWidth` equals the viewport at **every**
+width tested, before and after. There has never been a horizontal
+scrollbar on this site. Zero overlapping text pairs at every width, too.
+
+⚠️ **AND THAT IS EXACTLY WHY THE REAL BUGS SURVIVED.** Every problem
+found was invisible to the checks that usually catch layout faults —
+each one is clipped by an ancestor, so nothing scrolls, nothing errors,
+and the page measures perfectly while looking broken.
+
+**1. ⚠️ THE CONTACT FORM'S EMAIL FIELD RAN OFF THE SCREEN, on exactly the
+phones people own.** An `<input>` has an intrinsic width of ~202px and a
+grid item's default `min-width: auto` refuses to shrink below its
+min-content size, so when the form row went to two columns the fields
+stayed 202px in a 151px track:
+
+| viewport | row | track | field | result |
+| --- | --- | --- | --- | --- |
+| 375 | 1 col | 301px | 301px | ok |
+| **390** | 2 col | 151px | **202px** | **+14px past the edge** |
+| **400** | 2 col | 156px | **202px** | **+9px** |
+| **414** | 2 col | 162px | **202px** | **+2px** |
+| 430 | 2 col | 170px | 202px | ok — it fits again |
+
+**Broken only between ~380 and ~424px** — a band that contains the
+iPhone 14/15 Pro (393) and the 14 Plus (414) and **excludes both widths
+anyone tests first, 375 and 430.** `justify-self: stretch` was already
+sizing the field correctly; the floor was overriding it. Fixed with
+`min-width: 0` on `.input` **and** `.field` — both levels, or the floor
+just moves up a box.
+
+**2. Tap targets. Five were under 44px; the two that mattered most were
+found last.**
+
+| control | was | now |
+| --- | --- | --- |
+| hamburger | 32×32 | **44×44** (6px padding, bars still 32px) |
+| **overlay nav links** | **32px** | **44px** |
+| overlay close | 40px | 44px |
+| footer nav links ×10 | 22px | 44px, below 900px |
+| hero `LOUD` CTA · footer `START A PROJECT` | 36 / 42px | 44px, on touch widths |
+
+⚠️ **THE OVERLAY LINKS WERE MISSED BY TWO FULL AUDIT PASSES, because an
+automated sweep never opens the menu.** Every other target on the site
+was measured and fixed while the only way to navigate on a phone sat at
+32px. **Open the menu before trusting a mobile audit.**
+
+Three implementation notes that are not obvious:
+- **The hamburger's 6px padding keeps the content box at 32px**, so the
+  bars stay 32px wide and the `translateY(7px)` rotation math is
+  untouched. 44 is also the number that keeps `--header-h` at **71px** —
+  the header's height is its tallest child, and the logo and theme
+  toggle are both 44. Re-measured: 71px, and `#about`'s
+  `scroll-margin-top` still 71px.
+- **Every grown box paid for itself out of its gap.** The overlay's went
+  20px → 8px and the footer column's 12px → 0, so the space *between
+  labels* is unchanged. Growing one without shrinking the other turns a
+  tap-target fix into a visible layout change.
+- **`min-height`, never more padding.** 12px top and bottom on the hero
+  CTA looked like exactly 44 and measured **43.6** — the line box is
+  19.6px, not the whole 20 it appears to be. A `min-height` cannot be
+  wrong by a rounding error.
+
+**3. ⚠️ TWO HERO CHIPS WERE CLIPPED MID-WORD AT EVERY WIDTH BELOW
+1024px, and no measurement found it.** `.chipFastapi` sits at
+`right: -6%` and `.chipNext` at `left: -5%`, deliberately — the cluster
+reads as *surrounding* the portrait frame rather than sitting inside it.
+That works while the stage is narrower than the viewport, which it is at
+1024px and up. Below that the stage IS the column, so both landed past
+the edge:
+
+| viewport | FastAPI | Next.js |
+| --- | --- | --- |
+| 375 | −5px | −1px |
+| 600 | −9px | −4px |
+| 900 | −14px | −5px |
+| 1024 | clean | clean |
+
+Pulled to `0` below 1024px — they still touch the stage edge, so the
+cluster keeps its shape; only the overhang goes. **Found by looking at a
+screenshot**, after two numeric passes reported the page clean.
+
+**⚠️ The generalisable lesson, and it is the whole of this pass:
+`scrollWidth === clientWidth` proves nothing about whether a page looks
+right on a phone.** Three separate defects — a form field off-screen,
+two chips sliced in half, and the primary navigation at 32px — all sat
+behind an ancestor that clips, a media query that never fires in a
+sweep, or a width band nobody tests. Measure, then **open the menus and
+look at the screenshots.**
+
+**The gate after the mobile pass:** frontend **633 / 633** (43 files) ·
+lint **exit 0** · build **220 modules** · E2E **37 / 37**. Eight
+mutations across the new guards, all caught.
+
+⚠️ **Reported, not changed: 42 text nodes render below 11px** (10px and
+10.5px mono labels — stat labels, eyebrows, badges, the copyright).
+Every one is the prototype's own type scale, and body copy is 13.5–16px
+throughout. Raising them is a site-wide design decision, not a mobile
+fix, so it batches with PF-91.
+
+⚠️ **The rate limiter cost a verification round again**, exactly as the
+Silent-failures entry predicts: repeated automated page loads exhausted
+100 requests / 15 min / IP and the API started returning **429**, which
+presents as three sections rendering their error state for no reason.
+Restarting the backend clears it (`express-rate-limit`'s default store is
+in-memory), and the fix is to capture the four responses ONCE and serve
+them with `page.route()` + `route.fulfill()` thereafter — registering the
+catch-all FIRST, per the reverse-order trap in the same entry.
 
 **PF-88 created ONE new orphan pair and changed no other count.**
 Counted rather than inferred, discounting each module's own file and its

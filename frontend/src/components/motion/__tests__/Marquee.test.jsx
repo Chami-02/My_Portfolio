@@ -93,7 +93,7 @@ describe('Marquee (PF-74)', () => {
    * pinned here.
    */
   it.each([
-    ['footer', '../../layout/Footer.jsx', 12],
+    ['footer', '../../layout/Footer.jsx', 16],
     ['hero', '../../sections/HeroSection.jsx', 6],
   ])('$0 passes an even copies count of $2', async (_name, rel, expected) => {
     const { readFileSync } = await import('fs');
@@ -109,6 +109,41 @@ describe('Marquee (PF-74)', () => {
     const copies = Number(m[1]);
     expect(copies).toBe(expected);
     expect(copies % 2).toBe(0);
+  });
+
+  /**
+   * ⚠️ The two bands must also agree on DURATION, since 2026-08-25 —
+   * "reduce the speed … exactly like the above one", then "reduce the
+   * speed of the text" for both. The prototype runs the footer at 15s
+   * and the hero at 26s; the footer was matched to 26 and then both
+   * were slowed to 40.
+   *
+   * Guarded by comparing the two call sites to each other rather than
+   * to a frozen number, so re-tuning the hero fails this until the
+   * footer follows. Reverting the footer to 15 is otherwise silent in
+   * every unit test — found by mutation, not by reading.
+   */
+  it('footer and hero run their bands at the same speed', async () => {
+    const { readFileSync } = await import('fs');
+    const { resolve, dirname } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const here = dirname(fileURLToPath(import.meta.url));
+    const read = (rel) =>
+      readFileSync(resolve(here, rel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+    const durationOf = (src) => {
+      const m = /<Marquee[^>]*\sduration=\{(\d+)\}/.exec(src);
+      expect(m, 'no <Marquee duration={n}> found').not.toBeNull();
+      return Number(m[1]);
+    };
+
+    const footer = durationOf(read('../../layout/Footer.jsx'));
+    const hero = durationOf(read('../../sections/HeroSection.jsx'));
+
+    expect(footer).toBe(hero);
+    expect(footer).toBe(40);
+    expect(footer).not.toBe(15);   // the prototype's footer value
+    expect(footer).not.toBe(26);   // the prototype's hero value
   });
 
 });

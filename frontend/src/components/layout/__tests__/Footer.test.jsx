@@ -9,8 +9,8 @@
 // prose exactly where the rule used to be, so `css.includes('background')`
 // matches the COMMENT explaining the absence and reports PASS while
 // asserting nothing. postcss never visits a comment node.
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
@@ -41,6 +41,39 @@ function declsFor(css, selectorTest) {
   return out;
 }
 
+/**
+ * As `declsFor`, but TOP-LEVEL rules only — nothing inside an @media.
+ *
+ * ⚠️ Not a refinement for tidiness. `.grid` is declared twice: once at
+ * the top level and once inside the stacking breakpoint. Collapsing both
+ * into one object lets the media query's `grid-template-columns: 1fr`
+ * overwrite the base three-zone value, so a test asserting the base
+ * layout reads the MOBILE one and fails against correct code. Found
+ * exactly that way.
+ */
+function baseDeclsFor(css, selectorTest) {
+  const out = [];
+  postcss.parse(css).walkRules((rule) => {
+    if (rule.parent.type !== 'root') return;
+    if (!selectorTest(rule.selector)) return;
+    rule.walkDecls((d) => out.push({ prop: d.prop, value: d.value, selector: rule.selector }));
+  });
+  return out;
+}
+
+/** Declarations for a selector inside a given @media prelude. */
+function mediaDeclsFor(css, params, selectorTest) {
+  const out = [];
+  postcss.parse(css).walkAtRules('media', (at) => {
+    if (at.params !== params) return;
+    at.walkRules((rule) => {
+      if (!selectorTest(rule.selector)) return;
+      rule.walkDecls((d) => out.push({ prop: d.prop, value: d.value }));
+    });
+  });
+  return out;
+}
+
 /** Exactly this class, at any selector depth or state. */
 const forClass = (name) => (sel) =>
   new RegExp(`\\.${name}(?![\\w-])`).test(sel);
@@ -64,11 +97,11 @@ const pickAll = (root, name) =>
   [...root.querySelectorAll('[class]')].filter((el) => has(el, name));
 const pick = (root, name) => pickAll(root, name)[0] ?? null;
 
-function renderFooter({ path = '/', onReplay } = {}) {
+function renderFooter({ path = '/' } = {}) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <MotionProvider>
-        <Footer onReplay={onReplay} />
+        <Footer />
       </MotionProvider>
     </MemoryRouter>,
   );
@@ -100,7 +133,7 @@ describe('Footer (PF-88)', () => {
     // untouched.
     const band = declsFor(footerCss, forClass('marqueeBand'));
     expect(band).toContainEqual(
-      expect.objectContaining({ prop: 'background', value: 'rgba(252, 163, 17, .06)' }),
+      expect.objectContaining({ prop: 'background', value: 'var(--acc, #FCA311)' }),
     );
     expect(band.filter((d) => d.prop.startsWith('border-')).length).toBe(2);
 
@@ -138,30 +171,160 @@ describe('Footer (PF-88)', () => {
 
   /* ── Step 5 — the hero's slimming must not leak here ─────────────── */
 
-  it('uses the prototype marquee scale, not the hero\'s slimmed one', () => {
-    const text = Object.fromEntries(
+  it('uses the HERO\'s band treatment, not the prototype\'s footer strip', () => {
+    // ⚠️ OWNER-REQUESTED DEVIATION, 2026-08-25 — "exactly like the top
+    // one". This inverts the guard that stood here until today, which
+    // asserted the opposite: that the hero's 2026-08-17 slimming had
+    // NOT leaked into the footer. It is now required to have.
+    //
+    // Read from HeroSection's own module rather than from strings
+    // frozen here, so the two bands cannot drift apart silently — if
+    // the hero is ever re-tuned, this fails until the footer follows.
+    const footer = Object.fromEntries(
       declsFor(footerCss, forClass('marqueeText')).map((d) => [d.prop, d.value]),
     );
-    expect(text['font-size']).toBe('clamp(16px, 2vw, 26px)');
-    expect(text['padding-right']).toBe('30px');
+    const hero = Object.fromEntries(
+      declsFor(heroCss, forClass('marqueeText')).map((d) => [d.prop, d.value]),
+    );
+
+    expect(footer['font-size']).toBe(hero['font-size']);
+    expect(footer['padding-right']).toBe(hero['padding-right']);
+    expect(footer.color).toBe(hero.color);
+    expect(footer['text-transform']).toBe(hero['text-transform']);
+
+    // And explicitly NOT the prototype's footer values, so a fidelity
+    // pass diffing against the export cannot quietly restore them.
+    expect(footer['font-size']).not.toBe('clamp(16px, 2vw, 26px)');
+    expect(footer['padding-right']).not.toBe('30px');
+    expect(footer.color).not.toBe('var(--acc, #FCA311)');
 
     const band = Object.fromEntries(
       declsFor(footerCss, forClass('marqueeBand')).map((d) => [d.prop, d.value]),
     );
-    expect(band.padding).toBe('10px 0');
-
-    // The hero's 2026-08-17 deviation, read from the hero's own module
-    // so this fails if that deviation is ever copied across rather than
-    // comparing against a string frozen here.
-    const heroText = Object.fromEntries(
-      declsFor(heroCss, forClass('marqueeText')).map((d) => [d.prop, d.value]),
+    const heroWrap = Object.fromEntries(
+      declsFor(heroCss, forClass('marqueeWrap')).map((d) => [d.prop, d.value]),
     );
-    expect(heroText['font-size']).not.toBe(text['font-size']);
-    expect(text['font-size']).not.toBe('clamp(13px, 1.6vw, 21px)');
-    expect(band.padding).not.toBe('8px 0');
+    expect(band.background).toBe(heroWrap.background);
+
+    // ⚠️ The TILT is the one hero value that does NOT come across —
+    // owner's second pass, "full 100% horizontal and fit to footer".
+    // The hero's band is a torn strip laid over the page; this one is a
+    // level rule marking where the page ends.
+    expect(heroWrap.transform).toMatch(/rotate/);
+    expect(band.transform).toBeUndefined();
+    expect(band.width).toBe('100%');
+
+    // The hero splits the slab and its padding across two elements
+    // because its wrapper also carries a negative margin; here one
+    // element does both, so compare across the two class names.
+    const heroInner = Object.fromEntries(
+      declsFor(heroCss, forClass('marqueeInner')).map((d) => [d.prop, d.value]),
+    );
+    expect(band.padding).toBe(heroInner.padding);
+    expect(band.padding).not.toBe('10px 0');   // the prototype's footer value
+  });
+
+  it('has no tilt wrapper left behind', () => {
+    // `.marqueeWrap` existed ONLY to clear the rotation the footer's
+    // `overflow: hidden` would cut — max(22px, 1.5vw), sized against a
+    // rise of 0.99vw. With the tilt gone there is no rise, and the
+    // padding would read as an unexplained gap between Contact and the
+    // band. Guarded as an absence in both files, because the module
+    // still explains the retired rule in prose.
+    const selectors = [];
+    postcss.parse(footerCss).walkRules((r) => selectors.push(r.selector));
+    expect(selectors.join(' ')).not.toMatch(/\.marqueeWrap\b/);
+
+    const { container } = renderFooter();
+    const band = pick(container, 'marqueeBand');
+    expect(band).not.toBeNull();
+    // The band is the footer's FIRST child — nothing between it and the
+    // top edge.
+    expect(container.querySelector('footer').firstElementChild).toBe(band);
   });
 
   /* ── Step 6 / PF-93 — no transition on a Reveal-wrapped element ──── */
+
+  it('lays the footer out as three zones, with the link pair grouped', () => {
+    // ⚠️ Owner-requested 2026-08-25. The prototype's
+    // `repeat(auto-fit, minmax(min(100%,210px), 1fr))` gives four tracks
+    // of equal width, which reads as four peers; the ask is a left
+    // group, a centred pair and a right card.
+    const grid = Object.fromEntries(
+      baseDeclsFor(footerCss, forClass('grid')).map((d) => [d.prop, d.value]),
+    );
+    expect(grid['grid-template-columns']).toBe('minmax(0, 1fr) auto minmax(0, 1fr)');
+    expect(grid['grid-template-columns']).not.toMatch(/auto-fit/);
+
+    const group = Object.fromEntries(
+      baseDeclsFor(footerCss, forClass('linkGroup')).map((d) => [d.prop, d.value]),
+    );
+    expect(group['justify-self']).toBe('center');
+    // Wider than the grid's own gap — they are a pair, not two more
+    // equal columns.
+    expect(group['column-gap']).toBe('clamp(36px, 6vw, 96px)');
+
+    expect(
+      Object.fromEntries(baseDeclsFor(footerCss, forClass('identity')).map((d) => [d.prop, d.value]))['justify-self'],
+    ).toBe('start');
+    expect(
+      Object.fromEntries(baseDeclsFor(footerCss, forClass('status')).map((d) => [d.prop, d.value]))['justify-self'],
+    ).toBe('end');
+
+    // Three children of the grid, not four — the middle one wraps the
+    // two link columns, which keep their own Reveal delays.
+    const { container } = renderFooter();
+    const gridEl = pick(container, 'grid');
+    expect(gridEl.children).toHaveLength(3);
+    expect(has(gridEl.children[1], 'linkGroup')).toBe(true);
+    expect(container.querySelectorAll('[data-reveal]')).toHaveLength(4);
+  });
+
+  it('stacks below 900px, which the explicit grid does not do on its own', () => {
+    // ⚠️ The prototype's `repeat(auto-fit, minmax(min(100%,210px), 1fr))`
+    // drops a column when the tracks stop fitting. Three EXPLICIT tracks
+    // never do — they just get narrower. Measured without this rule:
+    // zone widths went 323/217/320 at 1024px to 116/191/50 at 375px,
+    // with the status card crushed to 50px and the outer zones
+    // overlapping below 430px. No scrollbar, nothing in the console.
+    const MQ = '(max-width: 899px)';
+
+    const grid = Object.fromEntries(
+      mediaDeclsFor(footerCss, MQ, forClass('grid')).map((d) => [d.prop, d.value]),
+    );
+    expect(grid['grid-template-columns']).toBe('1fr');
+
+    // Everything hugs the left once stacked — a centred pair and a
+    // right-aligned card under a left-aligned identity block reads as
+    // three unrelated fragments.
+    const stacked = mediaDeclsFor(footerCss, MQ, (sel) =>
+      /\.linkGroup\b/.test(sel) || /\.status\b/.test(sel));
+    expect(stacked.filter((d) => d.prop === 'justify-self').map((d) => d.value))
+      .toContain('start');
+  });
+
+  it('is full-bleed, like the header', () => {
+    // The prototype caps `.inner` at the 1240px content column. Within
+    // it the four columns already spanned edge to edge, so there was no
+    // slack to redistribute — the only way further out is to drop the
+    // cap. This is the same call the header made on 2026-08-22, and it
+    // carries the same accepted consequence: above ~1320px the footer
+    // no longer aligns with section content.
+    const inner = Object.fromEntries(
+      baseDeclsFor(footerCss, forClass('inner')).map((d) => [d.prop, d.value]),
+    );
+    expect(inner['max-width']).toBeUndefined();
+    expect(inner.margin).toBeUndefined();
+    expect(inner.padding).toMatch(/clamp\(16px, 4vw, 40px\)/);
+
+    // ⚠️ And the top padding is reduced from the prototype's
+    // clamp(38px, 6vw, 64px) — owner-requested, so the band reads as
+    // heading the footer rather than floating clear of it. Settled at
+    // 46px after 30px overshot. Guarded because it is exactly the kind
+    // of value a fidelity pass restores.
+    expect(inner.padding).toMatch(/^clamp\(26px, 3\.4vw, 46px\)/);
+    expect(inner.padding).not.toMatch(/6vw/);
+  });
 
   it('declares no transition on any of the four column wrappers', () => {
     // data-reveal sits on the COLUMNS in the prototype (lines 553, 568,
@@ -180,8 +343,9 @@ describe('Footer (PF-88)', () => {
     // children of a reveal target rather than targets, so the
     // prototype's hideReveals() never writes an inline transition over
     // them, and the prototype declares none. Adding easing here would
-    // be inventing a value.
-    for (const name of ['link', 'statusCta', 'replay', 'scrollUp']) {
+    // be inventing a value. (`.replay` and `.scrollUp` were in this
+    // list until 2026-08-25, when both controls were removed.)
+    for (const name of ['link', 'statusCta']) {
       const props = declsFor(footerCss, forClass(name)).map((d) => d.prop);
       expect(props.filter((p) => p.startsWith('transition'))).toEqual([]);
     }
@@ -189,7 +353,7 @@ describe('Footer (PF-88)', () => {
 
   /* ── Content and structure ───────────────────────────────────────── */
 
-  it('repeats the strip twelve times, each ending in a non-breaking space', () => {
+  it('repeats the strip sixteen times, each ending in a non-breaking space', () => {
     // ⚠️ TWELVE, not the prototype's two, and the number is arithmetic.
     // `marq` translates the track by -50% of its OWN width, so one cycle
     // slides it by half the copies — the requirement is
@@ -206,7 +370,7 @@ describe('Footer (PF-88)', () => {
     // repeats. A plain space is collapsed and the copies butt together.
     const { container } = renderFooter();
     const strips = pickAll(container, 'marqueeText');
-    expect(strips).toHaveLength(12);
+    expect(strips).toHaveLength(16);
     expect(strips.length % 2).toBe(0);
     for (const strip of strips) {
       expect(strip.textContent).toBe(
@@ -264,9 +428,13 @@ describe('Footer (PF-88)', () => {
       if (rule.selector.includes("data-theme='light'")) light.push(rule);
     });
     const selectors = light.map((r) => r.selector).join(' ');
-    expect(selectors).toMatch(/marqueeText/);
     expect(selectors).toMatch(/availabilityLabel/);
     expect(selectors).toMatch(/statusDotOk/);
+    // ⚠️ marqueeText is deliberately NOT here any more. The band is
+    // ink-on-accent since 2026-08-25 and --accInk already flips per
+    // theme, so the prototype's [data-strip] opacity rule has nothing
+    // left to act on.
+    expect(selectors).not.toMatch(/marqueeText/);
 
     const okRule = light.find((r) => r.selector.includes('statusDotOk'));
     expect(okRule.toString()).toMatch(/#0E7A55/);
@@ -278,7 +446,6 @@ describe('Footer (PF-88)', () => {
     renderFooter({ path: '/' });
     expect(screen.getByRole('link', { name: 'About' })).toHaveAttribute('href', '#about');
     expect(screen.getByRole('link', { name: 'Field Notes' })).toHaveAttribute('href', '#blog');
-    expect(screen.getByRole('link', { name: 'SCROLL BACK UP ↑' })).toHaveAttribute('href', '#hero');
     expect(screen.getByRole('link', { name: 'START A PROJECT →' })).toHaveAttribute('href', '#contact');
   });
 
@@ -296,7 +463,6 @@ describe('Footer (PF-88)', () => {
         Projects: '/?nosplash=1#projects',
         'Field Notes': '/?nosplash=1#blog',
         Contact: '/?nosplash=1#contact',
-        'SCROLL BACK UP ↑': '/?nosplash=1#hero',
         'START A PROJECT →': '/?nosplash=1#contact',
       };
       for (const [name, href] of Object.entries(expected)) {
@@ -307,156 +473,58 @@ describe('Footer (PF-88)', () => {
 
   /* ── Step 5 — the bottom bar ─────────────────────────────────────── */
 
-  it('lays the bottom bar out as 1fr auto 1fr with three children', () => {
-    // The centring is structural: with two children the copyright lands
-    // in column 1 and stops being centred, so dropping the replay button
-    // is a LAYOUT change, not one fewer control.
+  it('is a single centred copyright line, with no grid left behind', () => {
+    // ⚠️ OWNER-REQUESTED, 2026-08-25. The prototype's bar is
+    // `1fr auto 1fr` holding REPLAY INTRO · copyright · SCROLL BACK UP.
+    // Both outer controls are gone, so the grid goes with them — two
+    // empty `1fr` columns around a lone centred line is exactly the kind
+    // of inert declaration the next reader treats as load-bearing.
     const bar = Object.fromEntries(
       declsFor(footerCss, forClass('bottomBar')).map((d) => [d.prop, d.value]),
     );
-    expect(bar['grid-template-columns']).toBe('1fr auto 1fr');
+    expect(bar['grid-template-columns']).toBeUndefined();
+    expect(bar.display).toBeUndefined();
+    expect(bar['text-align']).toBe('center');
 
     const { container } = renderFooter({ path: '/' });
-    expect(pick(container, 'bottomBar').children).toHaveLength(3);
+    const bottom = pick(container, 'bottomBar');
+    expect(bottom.children).toHaveLength(1);
+    expect(has(bottom.firstElementChild, 'copyright')).toBe(true);
   });
 
-  it('keeps three bottom-bar children off the home page, without a dead button', () => {
-    // No splash exists off "/", so a replay button there would be dead
-    // chrome of exactly the kind Step 3 removed from the links — but the
-    // grid still needs its first column occupied.
-    const { container } = renderFooter({ path: '/blog' });
-    expect(pick(container, 'bottomBar').children).toHaveLength(3);
-    expect(screen.queryByRole('button', { name: /REPLAY INTRO/ })).toBeNull();
-    expect(screen.getByText(/DESIGNED & BUILT FROM SCRATCH/)).toBeInTheDocument();
-  });
-
-  it('calls onReplay when REPLAY INTRO is clicked on the home page', () => {
-    const onReplay = vi.fn();
-    renderFooter({ path: '/', onReplay });
-    fireEvent.click(screen.getByRole('button', { name: '↻ REPLAY INTRO' }));
-    expect(onReplay).toHaveBeenCalledTimes(1);
-  });
-
-  /* ── PF-88 — the footer's own reveals on replay ──────────────────── */
-
-  /**
-   * ⚠️ The prototype's hideReveals() walks EVERY [data-reveal] in the
-   * document, and four of them are in this component. <Footer /> is a
-   * sibling of the routed page in App.jsx, so HomePage's keyed subtree
-   * cannot reach them — without the grid's own key the four columns
-   * stay revealed through a replay and are already shown when the
-   * visitor scrolls back down, where the prototype re-animates them.
-   */
-  it('resets its four column reveals when replayCount rises', () => {
-    // ⚠️ The global IntersectionObserver stub in src/test/setup.js fires
-    // isIntersecting the instant it observes, so with it in place the
-    // remounted columns snap straight back to "in" and this test
-    // asserts nothing. A controllable stub reproduces the real
-    // situation: the footer is below the fold when replay is clicked, so
-    // the fresh observers arm and simply do not fire until the visitor
-    // scrolls back down. (Reveal's 140ms safety sweep cannot fire here
-    // either — every jsdom rect is zero-sized.)
-    const observed = [];
-    vi.stubGlobal('IntersectionObserver', class {
-      constructor(cb) { this.cb = cb; }
-      observe(el) { observed.push({ cb: this.cb, el }); }
-      unobserve() {}
-      disconnect() {}
-    });
-    const intersectAll = () => {
-      const pending = observed.splice(0);
-      act(() => pending.forEach(({ cb, el }) => cb([{ isIntersecting: true, target: el }])));
-    };
-
-    try {
-      const { container, rerender } = render(
-        <MemoryRouter initialEntries={['/']}>
-          <MotionProvider><Footer replayCount={0} /></MotionProvider>
-        </MemoryRouter>,
+  it('states all rights reserved, on every route', () => {
+    for (const path of ['/', '/blog', '/nope']) {
+      const { unmount } = renderFooter({ path });
+      expect(
+        screen.getByText(/ALL RIGHTS RESERVED/),
+      ).toHaveTextContent(
+        '© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM SCRATCH',
       );
-      const shown = () => [...container.querySelectorAll('[data-reveal]')]
-        .map((el) => el.getAttribute('data-reveal'));
-
-      expect(shown()).toEqual(['out', 'out', 'out', 'out']);
-      intersectAll();
-      expect(shown()).toEqual(['in', 'in', 'in', 'in']);
-
-      rerender(
-        <MemoryRouter initialEntries={['/']}>
-          <MotionProvider><Footer replayCount={1} /></MotionProvider>
-        </MemoryRouter>,
-      );
-      expect(shown()).toEqual(['out', 'out', 'out', 'out']);
-
-      // And they still reveal again once scrolled into view — the
-      // control. A remount that broke the observer would also report
-      // "out" forever.
-      intersectAll();
-      expect(shown()).toEqual(['in', 'in', 'in', 'in']);
-    } finally {
-      vi.unstubAllGlobals();
+      unmount();
     }
   });
 
-  it('does NOT remount the bottom bar, so the button keeps focus', () => {
-    // Remounting the element that was just activated drops keyboard
-    // focus to <body> mid-sequence. Nothing in the bar is a reveal
-    // target, so it has nothing to reset either.
-    const { container, rerender } = render(
-      <MemoryRouter initialEntries={['/']}>
-        <MotionProvider><Footer replayCount={0} /></MotionProvider>
-      </MemoryRouter>,
-    );
-    const button = screen.getByRole('button', { name: '↻ REPLAY INTRO' });
-    button.focus();
-    expect(document.activeElement).toBe(button);
-
-    rerender(
-      <MemoryRouter initialEntries={['/']}>
-        <MotionProvider><Footer replayCount={1} /></MotionProvider>
-      </MemoryRouter>,
-    );
-    expect(screen.getByRole('button', { name: '↻ REPLAY INTRO' })).toBe(button);
-    expect(document.activeElement).toBe(button);
-    expect(pick(container, 'bottomBar').children).toHaveLength(3);
+  it('renders neither removed control, on any route', () => {
+    // Guarded as an ABSENCE in both directions: the button and the link
+    // are in the prototype, so a fidelity pass diffing against the
+    // export reads them as un-transcribed and puts them back.
+    for (const path of ['/', '/blog', '/nope']) {
+      const { container, unmount } = renderFooter({ path });
+      expect(container.querySelectorAll('button')).toHaveLength(0);
+      expect(screen.queryByText(/REPLAY INTRO/i)).toBeNull();
+      expect(screen.queryByText(/SCROLL BACK UP/i)).toBeNull();
+      expect(container.querySelectorAll('a[href$="#hero"]')).toHaveLength(0);
+      unmount();
+    }
   });
 
-  /**
-   * ⚠️ A WIRING guard, not a behaviour test, and it is deliberate that
-   * it reads App.jsx as source.
-   *
-   * The two tests above prove the component does the right thing with
-   * the props; nothing proves App.jsx still HANDS it both. Dropping
-   * `replayCount` there is silent — every test in this file passes,
-   * every test in HomePage's file passes, and the footer's four columns
-   * quietly stop resetting on replay.
-   *
-   * It lives here rather than in an App test because App.jsx sits at
-   * src/ root, which has no `__tests__` directory under this repo's
-   * per-module convention (CLAUDE.md is explicit that there is no
-   * top-level src/__tests__/).
-   *
-   * Comments are stripped first: this file and App.jsx both discuss the
-   * prop names in prose, and a raw search would match the explanation
-   * rather than the JSX.
-   */
-  it('is handed BOTH props by App.jsx', () => {
-    const appSrc = readCss('../../../App.jsx')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '');
-
-    const tag = /<Footer\b([^/>]*)\/>/.exec(appSrc);
-    expect(tag, '<Footer /> is not rendered in App.jsx at all').not.toBeNull();
-    expect(tag[1]).toMatch(/onReplay=\{replay\}/);
-    expect(tag[1]).toMatch(/replayCount=\{replayCount\}/);
-  });
-
-  it('is handed replayCount by App.jsx to HomePage too', () => {
-    const appSrc = readCss('../../../App.jsx')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '');
-    const tag = /<HomePage\b([^/>]*)\/>/.exec(appSrc);
-    expect(tag).not.toBeNull();
-    expect(tag[1]).toMatch(/replayCount=\{replayCount\}/);
+  it('declares no rule for either removed control', () => {
+    // The CSS half. Both rules existed until today and the module still
+    // discusses them in prose, so this goes through postcss — a text
+    // search matches the comment explaining the removal.
+    const selectors = [];
+    postcss.parse(footerCss).walkRules((r) => selectors.push(r.selector));
+    expect(selectors.join(' ')).not.toMatch(/\.replay\b/);
+    expect(selectors.join(' ')).not.toMatch(/\.scrollUp\b/);
   });
 });

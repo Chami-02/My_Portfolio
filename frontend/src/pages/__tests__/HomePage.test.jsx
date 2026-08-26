@@ -8,16 +8,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('../../components/sections/HeroSection', () => ({
   HeroSection: () => { throw new Error('hero exploded'); },
 }));
-// ⚠️ About's stub renders a REAL Reveal (PF-88). The replay tests below
-// assert that every reveal resets to hidden, and a plain <div> stub
-// would let that pass while asserting nothing — the failure mode the
-// ticket calls "the part that looks like it works".
-vi.mock('../../components/sections/AboutSection', async () => {
-  const { Reveal } = await import('../../components/motion');
-  return {
-    AboutSection: () => <Reveal data-testid="about">about</Reveal>,
-  };
-});
+vi.mock('../../components/sections/AboutSection', () => ({
+  AboutSection: () => <div data-testid="about" />,
+}));
 vi.mock('../../components/sections/SkillsSection', () => ({
   SkillsSection: () => <div data-testid="skills" />,
 }));
@@ -107,83 +100,5 @@ describe('HomePage', () => {
     expect(screen.queryByTestId('contact')).toBeNull();
     ['about', 'skills', 'projects', 'blog'].forEach((id) =>
       expect(screen.getByTestId(id)).toBeInTheDocument());
-  });
-
-  /* ── PF-88 — REPLAY INTRO ────────────────────────────────────────────
-   *
-   * `replayCount` is a prop because <Footer /> is a SIBLING of this page
-   * in App.jsx, not a child; App.jsx owns the counter. Raising it here
-   * is exactly what a click on the footer's button does.
-   *
-   * These tests run with ?nosplash so the page starts with no splash and
-   * ready:true — the reveals are already IN, which is the only state in
-   * which "replay resets them" can be observed at all.
-   */
-  describe('replay', () => {
-    const withRouter = (ui) => (
-      <MemoryRouter>
-        <ThemeProvider><MotionProvider>{ui}</MotionProvider></ThemeProvider>
-      </MemoryRouter>
-    );
-
-    beforeEach(() => {
-      window.history.replaceState({}, '', '/?nosplash');
-    });
-
-    afterEach(() => {
-      window.history.replaceState({}, '', '/');
-    });
-
-    it('mounts a fresh splash when replayCount rises', () => {
-      const { rerender } = render(withRouter(<HomePage replayCount={0} />));
-      // ?nosplash — nothing on screen yet.
-      expect(screen.queryByText(/Booting portfolio/i)).toBeNull();
-
-      rerender(withRouter(<HomePage replayCount={1} />));
-      expect(screen.getByText(/Booting portfolio/i)).toBeInTheDocument();
-    });
-
-    /**
-     * ⚠️ THE TEST THAT MATTERS. Our Reveal sets `revealed` true once and
-     * never unsets it, so closing the readiness gate alone leaves an
-     * already-revealed page revealed: the splash plays over a fully
-     * revealed page and lifts on a static one. No error, nothing red —
-     * it simply does not do what the button says.
-     *
-     * Mutation-tested by removing `key={replayCount}` from the Fragment
-     * in HomePage: the splash still mounts, every other test here still
-     * passes, and this one fails.
-     */
-    it('resets an already-revealed section back to hidden', () => {
-      const { rerender } = render(withRouter(<HomePage replayCount={0} />));
-      expect(screen.getByTestId('about')).toHaveAttribute('data-reveal', 'in');
-
-      rerender(withRouter(<HomePage replayCount={1} />));
-      expect(screen.getByTestId('about')).toHaveAttribute('data-reveal', 'out');
-    });
-
-    /**
-     * The star-flicker guard. StarfieldCanvas reads useSplashReady(), so
-     * it has to live inside SplashProvider — which makes "key the
-     * provider" a tempting and wrong way to reset readiness: it would
-     * regenerate every star's position mid-replay, visibly, behind the
-     * splash. Node identity is the assertion, not presence: a remounted
-     * canvas is still a canvas.
-     */
-    it('does not remount the star field', () => {
-      const { container, rerender } = render(withRouter(<HomePage replayCount={0} />));
-      const before = container.querySelector('canvas');
-      expect(before).not.toBeNull();
-
-      rerender(withRouter(<HomePage replayCount={1} />));
-      expect(container.querySelector('canvas')).toBe(before);
-    });
-
-    it('leaves the sections mounted across the replay', () => {
-      const { rerender } = render(withRouter(<HomePage replayCount={0} />));
-      rerender(withRouter(<HomePage replayCount={1} />));
-      ['about', 'skills', 'projects', 'blog', 'contact'].forEach((id) =>
-        expect(screen.getByTestId(id)).toBeInTheDocument());
-    });
   });
 });

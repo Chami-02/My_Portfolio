@@ -11,7 +11,7 @@ test.describe('Navbar Navigation', () => {
 
   /* ⚠️ SCOPED TO `header` SINCE PF-88. The Phase 2 footer carries the
      same in-page anchors — About, Skills, Projects, Field Notes, Contact
-     and a SCROLL BACK UP → #hero — so a bare `a[href="#about"]` matches
+     (SCROLL BACK UP was removed 2026-08-25) — so a bare `a[href="#about"]` matches
      TWO elements on the home page and a strict locator throws. The
      failure reads as "the navbar link disappeared", which is the
      opposite of what happened. The footer's own links have their own

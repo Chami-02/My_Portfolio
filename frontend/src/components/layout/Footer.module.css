@@ -48,73 +48,194 @@
      surfaces were untouched. */
 }
 
-/* ── Marquee band — prototype lines 544-548 ─────────────────────────
+/* ── Marquee band ──────────────────────────────────────────────────
  *
- * `overflow: hidden` and the flex track both come from Marquee itself
- * (PF-74). The prototype puts `padding: 10px 0` on the animated track;
- * Marquee owns that element, so it lands on this clipping container
- * instead — the track is the only thing inside it, so the painted
- * result is identical. Same resolution HeroSection reached.
+ * ⚠️ OWNER-REQUESTED, in two passes on 2026-08-25. Read both, because
+ * the second REVERSES part of the first.
  *
- * ⚠️ This band is NOT the hero's. The hero marquee was slimmed 38% at
- * the owner's request on 2026-08-17 (font clamp(13px,1.6vw,21px),
- * padding 8px, gap 24px). That deviation is scoped to the hero and must
- * not leak here — the prototype's footer band is untouched by it. */
+ * Pass 1 — "exactly like the top one … reduce the speed and features
+ * exactly like the above one." The prototype's footer band (line 544)
+ * is a faint tinted strip: rgba(252,163,17,.06) ground, 1px accent
+ * borders, accent text at opacity .5, Anton clamp(16px,2vw,26px), 30px
+ * gap, 10px padding, 15s. All of it replaced by HeroSection's — a solid
+ * accent slab with ink-on-accent text at the hero's slimmed scale.
+ *
+ * Pass 2 — "the banner shows the end of the web page and start of the
+ * footer so it should be full 100% horizontal and fit to footer."
+ * So the HERO'S TILT DOES NOT COME ACROSS. The hero's
+ * `rotate(-1.1deg) scale(1.03)` and the -10px margin that tucks it
+ * under the hero exist to make it read as a torn strip laid over the
+ * page; this band's job is the opposite — a level rule marking where
+ * the page ends and the footer begins. It sits flush on the footer's
+ * top edge, square, full width.
+ *
+ * ⚠️ That retired `.marqueeWrap` with it. The wrapper existed ONLY to
+ * give the rotation clearance the footer's `overflow: hidden` would
+ * otherwise cut — `max(22px, 1.5vw)`, sized against a rise of 0.99vw.
+ * With no rotation there is no rise, and the padding would read as an
+ * unexplained gap between Contact and the band. Removed rather than
+ * zeroed; do not reintroduce it without the tilt.
+ *
+ * ⚠️ This ALSO retires the [data-strip] theme rule the prototype drives
+ * from applyTheme() (line 867: color var(--acc), opacity .95 light /
+ * .5 dark). It has nothing to act on — the text is ink-on-accent now,
+ * and --accInk already flips per theme (#0a0a0a dark, #ffffff light),
+ * so the band stays legible in both without a scoped rule.
+ */
 .marqueeBand {
-  padding: 10px 0;
-  border-top: 1px solid rgba(252, 163, 17, .25);
-  border-bottom: 1px solid rgba(252, 163, 17, .25);
-  background: rgba(252, 163, 17, .06);
+  /* Flush at the top of the footer and edge to edge. The footer is a
+     full-bleed element, so `width: 100%` here is the viewport — the
+     1240px column starts at `.inner`, one level down. */
+  width: 100%;
+  background: var(--acc, #FCA311);
+  /* Hero's borders. Deliberately NO transform — see pass 2 above. */
+  border-top: 1px solid rgba(var(--shd), .25);
+  border-bottom: 1px solid rgba(var(--shd), .25);
+  /* Hero's `.marqueeInner`. Prototype footer: 10px 0. */
+  padding: 8px 0;
 }
 
-/* ⚠️ The markup's `color: rgba(252,163,17,.5)` is only half the story.
-   applyTheme() (prototype line 867) rewrites every [data-strip] element
-   to `color: var(--acc)` with `opacity: .95` in light and `.5` in dark.
-   In dark those are the same painted colour, which is why reading the
-   markup alone looks complete; in LIGHT `--acc` is #7E4800, so the
-   markup value would ship dark theme's amber onto light paper. Same
-   token-vs-literal shape as the terminal caret.
-
-   The prototype's runtime write is ported as a theme-scoped rule rather
-   than a JS sweep — the element never changes, only the theme does. */
 .marqueeText {
   font-family: var(--font-display);
-  font-size: clamp(16px, 2vw, 26px);
+  /* Hero's slimmed scale. Prototype footer: clamp(16px,2vw,26px). */
+  font-size: clamp(13px, 1.6vw, 21px);
   text-transform: uppercase;
-  color: var(--acc, #FCA311);
-  opacity: .5;
+  color: var(--accInk);
   white-space: nowrap;
-  padding-right: 30px;
+  /* Hero's gap. Prototype footer: 30px. */
+  padding-right: 24px;
 }
 
-/* (0,2,0) against the base rule's (0,1,0), so this wins on SPECIFICITY
-   rather than on bundle emission order — the tie that has bitten this
-   project six times. Dark is a REAL attribute (index.html's FOUC guard
-   and theme.js both write it), so the pair is exhaustive. */
-:global(html[data-theme='light']) .marqueeText {
-  opacity: .95;
-}
+/* ⚠️ FULL-BLEED, owner-requested 2026-08-25 — "the logo … should be
+   more left … status section should be more right".
 
+   The prototype (line 551) caps this at `max-width: 1240px; margin: 0
+   auto`, which is every section's content column. Within it the four
+   columns already spanned edge to edge, so there was no slack left to
+   redistribute: the only way further out is to drop the cap.
+   
+   That also puts the footer logo at exactly the same x as the HEADER
+   logo — the header went full-bleed on 2026-08-22 for the same reason,
+   and the two were 100px apart at 1440px until now. Measured after: both
+   at 40px.
+   
+   ⚠️ ACCEPTED CONSEQUENCE, and it is the same one the header carries:
+   above ~1320px the footer no longer aligns with section content. At
+   1920px the logo sits at 40px where the hero's text starts at 340px.
+   That is full-bleed chrome over a centred content column, deliberately.
+   Restoring `max-width: 1240px` to "fix" the alignment is the thing that
+   was rejected. */
 .inner {
   position: relative;
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: clamp(38px, 6vw, 64px) clamp(16px, 4vw, 40px) 0;
+  /* ⚠️ TOP PADDING REDUCED FROM THE PROTOTYPE'S, owner-requested
+     2026-08-25 in two steps. The prototype's clamp(38px, 6vw, 64px) put
+     64px between the band and the identity block at 1440px, which read
+     as the band floating clear of the footer rather than heading it —
+     "the footer banner should be very close to the text area … bring
+     down the banner strip". That went to 30px, which overshot, and the
+     follow-up asked for the content a bit further below the band again.
+     46px is the settled value: closer than the prototype's, clear of
+     the 30px that was too tight. Horizontal and bottom values are
+     untouched. */
+  padding: clamp(26px, 3.4vw, 46px) clamp(16px, 4vw, 40px) 0;
 }
 
+/* ⚠️ THREE ZONES, not four equal columns — owner-requested.
+   The prototype's `repeat(auto-fit, minmax(min(100%,210px), 1fr))`
+   gives four tracks of equal width, which reads as four peers. The ask
+   is a left group, a centred pair and a right card, so the two link
+   columns are wrapped in `.linkGroup` and the outer tracks take the
+   free space.
+   
+   `minmax(0, …)` on both outer tracks rather than `auto`: an `auto`
+   track is sized by its content, so the centre group would drift off
+   centre whenever the identity column's text wrapped differently from
+   the status card's. Equal 1fr tracks keep it centred against the
+   footer, not against its neighbours. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: clamp(26px, 4vw, 46px);
   align-items: start;
 }
 
-/* ── Column 1 — identity (data-reveal="up", no delay) ─────────────── */
+/* ⚠️ THE THREE-ZONE GRID MUST STACK, and unlike the prototype's it does
+   not do so on its own.
+   
+   `repeat(auto-fit, minmax(min(100%, 210px), 1fr))` drops a column
+   whenever the tracks stop fitting; three explicit tracks never do —
+   they just get narrower. Measured before this rule was added: zone
+   widths went 323/217/320 at 1024px to 116/191/50 at 375px, with the
+   status card crushed to 50px and the outer zones OVERLAPPING below
+   430px. No horizontal scrollbar, nothing in the console — it simply
+   collapsed in on itself.
+   
+   900px is where the three zones stop being comfortable rather than
+   where they break (they break at 430px): at 900 the outer zones are
+   273px and the bio is already wrapping to four lines. */
+@media (max-width: 899px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ⚠️ 44px TAP TARGETS. At 14px with no padding these links render 22px
+     tall — half the minimum, and they are the densest set of touch
+     targets on the site: ten of them stacked 12px apart, where a missed
+     tap hits the neighbouring link rather than nothing.
+
+     The column's own gap goes to 0 in exchange, so the rhythm stays
+     close to the desktop's 34px per row (22 + 12) rather than jumping to
+     56. The links look identical; only the box around them grows.
+
+     Scoped by WIDTH rather than `(pointer: coarse)` deliberately: it
+     matches the breakpoint this file already stacks at, and it is
+     verifiable in the same measurement pass. A desktop window dragged
+     below 900px gets slightly roomier links, which is harmless. */
+  .column {
+    gap: 0;
+  }
+
+  .link {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* Same 44px floor, 2px short of it at the prototype's own padding.
+     `min-height` rather than more padding so the label stays optically
+     centred and the pill's 999px radius is unaffected. */
+  .statusCta {
+    min-height: 44px;
+  }
+
+  /* Everything hugs the left once stacked — a centred link pair and a
+     right-aligned card under a left-aligned identity block reads as
+     three unrelated fragments. */
+  .linkGroup,
+  .status {
+    justify-self: start;
+  }
+
+  .status {
+    max-width: 340px;
+  }
+}
+
+/* The two link columns, grouped and centred between the outer zones.
+   Their own gap is wider than the grid's — they are a pair, and at the
+   grid's gap they read as two more equal columns. */
+.linkGroup {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  column-gap: clamp(36px, 6vw, 96px);
+  justify-self: center;
+}
 
 .identity {
   display: grid;
   gap: 16px;
   max-width: 340px;
+  justify-self: start;
 }
 
 .brandRow {
@@ -234,6 +355,9 @@
   display: grid;
   gap: 14px;
   align-content: start;
+  justify-self: end;
+  width: 100%;
+  max-width: 320px;
   padding: 20px;
   border-radius: 18px;
   /* A card surface, not a section wash — explicitly untouched by the
@@ -289,60 +413,43 @@
   box-shadow: 0 14px 34px rgba(252, 163, 17, .4);
 }
 
-/* ── Bottom bar — prototype lines 598-602 ─────────────────────────── */
-
+/* ── Bottom bar ────────────────────────────────────────────────────
+ *
+ * ⚠️ OWNER-REQUESTED, 2026-08-25. The prototype's bar (line 598) is
+ * `display: grid; grid-template-columns: 1fr auto 1fr` holding REPLAY
+ * INTRO · copyright · SCROLL BACK UP. Both outer controls are removed:
+ * the splash is not something a visitor wants to replay mid-visit, and
+ * ScrollToTop already floats a scroll-to-top control on every route.
+ *
+ * The GRID goes with them rather than staying with two empty columns.
+ * `1fr auto 1fr` exists to centre the middle cell against two siblings;
+ * with no siblings a block-level `text-align: center` centres it
+ * directly, and an empty first column is exactly the kind of inert
+ * declaration the next reader treats as load-bearing.
+ */
 .bottomBar {
   margin-top: clamp(34px, 5vw, 56px);
   padding-top: 22px;
   border-top: 1px solid rgba(var(--ln), .09);
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  gap: 14px;
-}
-
-.replay {
-  justify-self: start;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: .14em;
-  color: var(--muted);
-  background: none;
-  border: 1px solid rgba(var(--ln), .18);
-  border-radius: 999px;
-  padding: 10px 16px;
-  cursor: pointer;
-}
-
-.replay:hover {
-  color: var(--acc, #FCA311);
-  border-color: var(--acc, #FCA311);
+  text-align: center;
 }
 
 .copyright {
-  justify-self: center;
-  text-align: center;
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: .14em;
   color: var(--faint);
-}
+  /* The prototype's line was one cell of a three-column grid and could
+     not wrap. This one spans the full width, so it is allowed to wrap —
+     it has to, because ALL RIGHTS RESERVED took it to 78 characters and
+     it no longer fits a phone.
 
-/* The prototype's own asymmetry: this is an <a>, so it carries neither
-   `background: none` nor `cursor: pointer` — both are button resets.
-   Everything else matches `.replay`. */
-.scrollUp {
-  justify-self: end;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: .14em;
-  color: var(--muted);
-  border: 1px solid rgba(var(--ln), .18);
-  border-radius: 999px;
-  padding: 10px 16px;
-}
-
-.scrollUp:hover {
-  color: var(--acc, #FCA311);
-  border-color: var(--acc, #FCA311);
+     ⚠️ No max-width. A 60ch cap was measured wrapping it onto two lines
+     at 1440px, where there is room for one: `ch` counts the glyph
+     advance and ignores this line's .14em letter-spacing, so 60ch is
+     ~466px against a rendered ~606px. An inline-block with no cap
+     shrinks to content, so it sits on one line wherever it fits and
+     wraps only where it genuinely cannot. */
+  display: inline-block;
+  line-height: 1.9;
 }

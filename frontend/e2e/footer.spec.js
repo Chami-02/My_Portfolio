@@ -1,128 +1,23 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * PF-88 — the Phase 2 footer.
+ * Footer — PF-88, revised 2026-08-25.
  *
- * Two things here are only observable in a real browser driving the real
- * page, which is why they are e2e rather than unit tests:
+ * ⚠️ This file was originally three-quarters about REPLAY INTRO. That
+ * button and the SCROLL BACK UP link were both removed at the owner's
+ * request; what is left covers the two things a unit test genuinely
+ * cannot reach:
  *
- *   1. REPLAY INTRO genuinely re-runs the splash over a page whose
- *      reveals have reset. Every piece of that is testable in isolation;
- *      the sequence is not.
- *   2. The footer's nav links resolve off the home page. That is the bug
- *      Step 3 fixed, and its failure mode is a link that does nothing —
- *      which no unit test of the component can see.
+ *   1. The route-aware links, driven through a real router on a real
+ *      404 — the bug that made every footer hash dead off "/".
+ *   2. The band and the bottom bar as rendered, including the tilt
+ *      clearance that only exists because the footer clips.
+ *
+ * Absence guards are kept rather than deleted: both removed controls
+ * are in the prototype, so a fidelity pass diffing against the export
+ * reads them as un-transcribed and puts them back.
  */
-
 test.describe('Footer (PF-88)', () => {
-
-  /* ── the replay sequence ─────────────────────────────────────────── */
-
-  /**
-   * ⚠️ The one assertion that cannot be faked. Our Reveal sets `revealed`
-   * true once and never unsets it, so closing the readiness gate alone
-   * leaves an already-revealed page revealed — the splash would play
-   * over a fully-revealed page and lift on a static one. Nothing errors.
-   *
-   * `?nosplash` so the page starts with no splash: the replay is then
-   * unambiguously the button's doing and not the load's.
-   */
-  test('REPLAY INTRO re-runs the splash over reset reveals', async ({ page }) => {
-    await page.goto('/?nosplash');
-    await page.locator('footer').scrollIntoViewIfNeeded();
-    await page.waitForTimeout(1200);
-
-    await expect(page.getByText(/Booting portfolio/i)).toHaveCount(0);
-    const revealedBefore = await page.locator('[data-reveal="in"]').count();
-    expect(revealedBefore).toBeGreaterThan(10);
-
-    await page.getByRole('button', { name: /REPLAY INTRO/ }).click();
-
-    // The splash comes up...
-    await expect(page.getByText(/Booting portfolio/i)).toBeVisible();
-    // ...over a page whose reveals have gone back to hidden.
-    expect(await page.locator('[data-reveal="in"]').count())
-      .toBeLessThan(revealedBefore);
-
-    // ...and we are taken back to the top.
-    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY)),
-      { timeout: 4000 }).toBe(0);
-
-    // The splash leaves on its own and the reveals fire again.
-    await expect(page.getByText(/Booting portfolio/i))
-      .toHaveCount(0, { timeout: 10000 });
-    await expect.poll(() => page.locator('[data-reveal="in"]').count(),
-      { timeout: 5000 }).toBeGreaterThan(5);
-  });
-
-  /**
-   * The star-flicker guard. StarfieldCanvas reads useSplashReady(), so it
-   * has to live inside SplashProvider — which makes "key the provider" a
-   * tempting and wrong way to reset readiness: it regenerates every
-   * star's position mid-replay, visibly, behind the splash. Node identity
-   * is the assertion; a remounted canvas is still a canvas.
-   */
-  test('replay does not regenerate the star field', async ({ page }) => {
-    await page.goto('/?nosplash');
-    await page.waitForTimeout(800);
-    await page.evaluate(() => { document.querySelector('canvas').dataset.probe = 'original'; });
-
-    await page.locator('footer').scrollIntoViewIfNeeded();
-    await page.waitForTimeout(600);
-    await page.getByRole('button', { name: /REPLAY INTRO/ }).click();
-    await expect(page.getByText(/Booting portfolio/i)).toBeVisible();
-
-    expect(await page.evaluate(() => document.querySelector('canvas')?.dataset.probe))
-      .toBe('original');
-  });
-
-  /**
-   * ⚠️ A JS scrollTo with an explicit `behavior` is NOT reached by
-   * motion.css's root-element scroll-behavior override, so the
-   * preference has to be read in the handler or it is silently ignored
-   * for the one audience it exists for. Asserted on the ARGUMENT,
-   * because an instant scroll and a fast smooth one look alike.
-   */
-  test.describe('under prefers-reduced-motion', () => {
-    test('replay scrolls instantly and mounts no splash', async ({ page }) => {
-      /* ⚠️ `page.emulateMedia()`, NOT `test.use({ reducedMotion })`.
-         The fixture is SILENTLY INERT in this project's config —
-         measured, not guessed: with `test.use({ reducedMotion: 'reduce'
-         })` at either file or describe level,
-         `matchMedia('(prefers-reduced-motion: reduce)').matches` reads
-         **false** inside the page and <html> carries no data-motion.
-         The same option passed to `browser.newContext()` works, and
-         emulateMedia works. A test written with the fixture therefore
-         asserts the FULL-MOTION path while claiming to test the reduced
-         one — it does not error, it just tests the wrong thing.
-         Asserted explicitly below so this cannot regress silently. */
-      await page.emulateMedia({ reducedMotion: 'reduce' });
-      await page.goto('/');
-      expect(await page.evaluate(
-        () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      )).toBe(true);
-
-      await page.locator('footer').scrollIntoViewIfNeeded();
-      await page.waitForTimeout(600);
-
-      await page.evaluate(() => {
-        window.__scrollArgs = [];
-        const orig = window.scrollTo.bind(window);
-        window.scrollTo = (...a) => { window.__scrollArgs.push(a[0]); return orig(...a); };
-      });
-      const revealedBefore = await page.locator('[data-reveal="in"]').count();
-
-      await page.getByRole('button', { name: /REPLAY INTRO/ }).click();
-      await page.waitForTimeout(500);
-
-      expect(await page.evaluate(() => window.__scrollArgs))
-        .toEqual([{ top: 0, behavior: 'auto' }]);
-      await expect(page.getByText(/Booting portfolio/i)).toHaveCount(0);
-      // The reveals stay exactly where they are — that is what the
-      // preference asks for.
-      expect(await page.locator('[data-reveal="in"]').count()).toBe(revealedBefore);
-    });
-  });
 
   /* ── route-aware links ───────────────────────────────────────────── */
 
@@ -131,7 +26,7 @@ test.describe('Footer (PF-88)', () => {
     const footer = page.locator('footer');
     await expect(footer.getByRole('link', { name: 'About' })).toHaveAttribute('href', '#about');
     await expect(footer.getByRole('link', { name: 'Field Notes' })).toHaveAttribute('href', '#blog');
-    await expect(footer.getByRole('link', { name: 'SCROLL BACK UP ↑' })).toHaveAttribute('href', '#hero');
+    await expect(footer.getByRole('link', { name: 'Contact' })).toHaveAttribute('href', '#contact');
   });
 
   /**
@@ -161,18 +56,119 @@ test.describe('Footer (PF-88)', () => {
     ).toBe(Math.round(headerHeight));
   });
 
-  test('no REPLAY INTRO button off the home page, but the bar keeps three columns', async ({ page }) => {
-    // There is no splash to replay off "/", so a button there would be
-    // dead chrome of exactly the kind the links above stopped being. The
-    // bar is `1fr auto 1fr`, so the slot still has to be occupied or the
-    // copyright stops being centred.
-    await page.goto('/this-page-does-not-exist');
-    await expect(page.locator('footer').getByRole('button')).toHaveCount(0);
+  test('neither removed control renders, on any route', async ({ page }) => {
+    // Both are in the prototype (line 599 and line 601), so this is an
+    // absence guard, not a leftover. REPLAY INTRO went because nobody
+    // wants to sit through the splash again mid-visit; SCROLL BACK UP
+    // went because ScrollToTop already floats one on every route.
+    for (const path of ['/?nosplash', '/this-page-does-not-exist']) {
+      await page.goto(path);
+      const footer = page.locator('footer');
+      await expect(footer.getByRole('button')).toHaveCount(0);
+      await expect(footer.getByText(/REPLAY INTRO/i)).toHaveCount(0);
+      await expect(footer.getByText(/SCROLL BACK UP/i)).toHaveCount(0);
+      await expect(footer.locator('a[href$="#hero"]')).toHaveCount(0);
+    }
+  });
+
+  test('the bottom bar is one centred line', async ({ page }) => {
+    await page.goto('/?nosplash');
     expect(await page.evaluate(() => {
-      const f = document.querySelector('footer');
-      const bar = f.children[1].lastElementChild;
-      return { children: bar.children.length, cols: getComputedStyle(bar).gridTemplateColumns.split(' ').length };
-    })).toEqual({ children: 3, cols: 3 });
+      const bar = document.querySelector('footer').children[1].lastElementChild;
+      const cs = getComputedStyle(bar);
+      const line = bar.firstElementChild.getBoundingClientRect();
+      const box = bar.getBoundingClientRect();
+      return {
+        children: bar.children.length,
+        display: cs.display,
+        // Centred within a couple of pixels, measured rather than
+        // inferred from `text-align`.
+        offCentre: Math.round(
+          Math.abs((line.left + line.right) / 2 - (box.left + box.right) / 2)),
+      };
+    })).toEqual({ children: 1, display: 'block', offCentre: 0 });
+  });
+
+  test('the band is a flat, full-bleed rule at the top of the footer', async ({ page }) => {
+    // ⚠️ Owner's second pass, 2026-08-25: "the banner shows the end of
+    // the web page and start of the footer so it should be full 100%
+    // horizontal and fit to footer." So the hero's tilt does NOT come
+    // across, and neither does the wrapper that used to clear it.
+    await page.goto('/?nosplash');
+    const band = await page.evaluate(() => {
+      const footer = document.querySelector('footer');
+      const slab = footer.firstElementChild;
+      const cs = getComputedStyle(slab);
+      const strip = slab.querySelector('span');
+      const sb = slab.getBoundingClientRect();
+      const fb = footer.getBoundingClientRect();
+      return {
+        background: cs.backgroundColor,
+        transform: cs.transform,
+        stripColour: getComputedStyle(strip).color,
+        stripOpacity: getComputedStyle(strip).opacity,
+        duration: slab.firstElementChild.getAnimations()
+          .map((a) => a.effect.getTiming().duration),
+        // Flush with the footer's top edge, and edge to edge.
+        gapAbove: Math.round(sb.top - fb.top),
+        widthDelta: Math.round(sb.width - document.documentElement.clientWidth),
+      };
+    });
+
+    // A solid accent slab with ink-on-accent text — not the prototype's
+    // .06 tint with .5 accent text.
+    expect(band.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(band.stripOpacity).toBe('1');
+    expect(band.duration).toEqual([40000]);
+
+    // Flat, flush, full width.
+    expect(band.transform).toBe('none');
+    expect(band.gapAbove).toBe(0);
+    expect(band.widthDelta).toBe(0);
+  });
+
+  test('the four columns sit in three zones', async ({ page }) => {
+    // Owner-requested: identity left, the link pair centred, status
+    // right. Measured as positions rather than read off the stylesheet,
+    // because `justify-self` inside a `minmax(0, 1fr)` track is exactly
+    // the kind of thing that computes correctly and lays out wrong.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/?nosplash');
+    const zones = await page.evaluate(() => {
+      const grid = document.querySelector('footer').children[1].firstElementChild;
+      const [identity, group, status] = [...grid.children].map((el) => el.getBoundingClientRect());
+      const page = document.documentElement.getBoundingClientRect();
+      return {
+        children: grid.children.length,
+        linkColumns: grid.children[1].children.length,
+        identityLeft: Math.round(identity.left),
+        statusRight: Math.round(page.width - status.right),
+        groupOffCentre: Math.round(
+          Math.abs((group.left + group.right) / 2 - page.width / 2)),
+      };
+    });
+
+    expect(zones.children).toBe(3);
+    expect(zones.linkColumns).toBe(2);
+    // Hard against the footer's own padding on both sides, which is
+    // clamp(16px, 4vw, 40px) — 40px at 1440.
+    expect(zones.identityLeft).toBe(40);
+    expect(zones.statusRight).toBe(40);
+    // Centred against the page, not merely between its neighbours.
+    expect(zones.groupOffCentre).toBeLessThanOrEqual(2);
+  });
+
+  test('the footer logo lines up with the header logo', async ({ page }) => {
+    // The point of going full-bleed. They were 100px apart at 1440px
+    // until 2026-08-25, because the header dropped its content cap on
+    // 2026-08-22 and the footer had not.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/?nosplash');
+    const [header, footer] = await page.evaluate(() => [
+      Math.round(document.querySelector('header img').getBoundingClientRect().left),
+      Math.round(document.querySelector('footer img').getBoundingClientRect().left),
+    ]);
+    expect(footer).toBe(header);
   });
 
   /* ── content ─────────────────────────────────────────────────────── */
@@ -184,7 +180,7 @@ test.describe('Footer (PF-88)', () => {
       await expect(footer.getByText(heading, { exact: true })).toBeVisible();
     }
     await expect(footer.getByText('AVAILABLE FOR WORK')).toBeVisible();
-    await expect(footer.getByText(/© 2026 PARINDRA GALLAGE · DESIGNED & BUILT FROM SCRATCH/)).toBeVisible();
+    await expect(footer.getByText(/© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM SCRATCH/)).toBeVisible();
     await expect(footer.getByRole('link', { name: 'START A PROJECT →' })).toHaveAttribute('href', '#contact');
     // The logo is decorative — the name and role are real text beside it.
     await expect(footer.locator('img')).toHaveAttribute('alt', '');
