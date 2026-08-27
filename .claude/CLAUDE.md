@@ -435,7 +435,8 @@ responsive + a11y audit.** PF-85 → PF-92.
 | PF-87 | Contact section, API-wired, résumé link | ✅ |
 | PF-88 | Footer, API-free, REPLAY INTRO live | ✅ |
 | PF-89 | Homepage Phase 1 cutover | ✅ |
-| PF-90 → PF-92 | Responsive + a11y audit, sprint gate | not started |
+| PF-90 | Responsive + **state** audit, both themes | ✅ |
+| PF-91 → PF-92 | Contrast batch, sprint gate | not started |
 | — | **Sprint 13 prep — navbar rework + 2 removals** (2026-08-22) | ✅ |
 
 **Sprint 13 prep landed on this branch, unticketed and owner-directed
@@ -531,6 +532,18 @@ There is **no separate Sprint 11 retrospective document**, matching Sprint
 10's rule. That section is the record; do not link to one.
 
 ### Outstanding work — deferred deliberately, not lost
+
+- ~~**⚠️ `ScrollToTop` covers the end of the copyright at ≤600px**~~ —
+  **FIXED 2026-08-27**, owner chose hiding the button while the footer's
+  bottom bar is in view, over padding the bar or shortening the
+  copyright. Re-verified with `elementFromPoint`: **0/8 occluded samples**
+  at 375 / 430 / 600, where it had been 2/8 · 2/8 · 1/8. Full account in
+  the PF-90 close-out above.
+
+  ⚠️ The button still floats over the Contact textarea at 375. Nothing is
+  covered there — the field is larger than the button — so it was left
+  alone, but it is the same control in the same position and any future
+  change should be checked against both.
 
 - **⚠️ `/admin` AND `/admin/login` ARE UNREADABLE IN LIGHT THEME, AND HAVE
   BEEN SINCE PF-67.** Found in PF-89's Step 1b sweep (2026-08-26),
@@ -1590,7 +1603,7 @@ nothing next session:
 | `data-motion` under reduce | `reduced` |
 | root `scroll-behavior` | `auto` — PF-79's root-selector fix has not regressed |
 | Splash under reduce | not mounted |
-| rAF calls in 1 idle second | **0** under reduce · **61** with motion allowed |
+| rAF calls in 1 idle second | **0** under reduce · **61** with motion allowed — ⚠️ **see the caveat below; this pair does NOT reproduce** |
 | `getAnimations()` page-wide | **0** under reduce · **29** with motion allowed |
 | About portrait parallax | `transform: none` under reduce |
 | Tab order | skip → logo → 4 links → CONTACT → toggle → ADMIN, exactly as specified |
@@ -1604,6 +1617,23 @@ nothing next session:
 **The 0-vs-61 and 0-vs-29 pairs matter more than the zeros.** A probe that
 is simply broken also reports zero; running the same probe with motion
 allowed is what distinguishes "gated correctly" from "measuring nothing".
+
+⚠️ **CORRECTED IN PF-90: the rAF half of that pair does NOT discriminate,
+and the 0-vs-61 reading is not reproducible.** A counter that measures rAF
+by calling `requestAnimationFrame` **self-drives** — the probe keeps the
+frame loop alive, so it counts its own callbacks and reads ~61 in *both*
+modes. Measured in PF-90: **61 under reduce and 61 with motion allowed**,
+on a page where `getAnimations()` correctly read 0 vs 42.
+
+Whatever produced PF-83's 0, it was not a rAF counter behaving as this one
+does; the number is left in the table above because it is what was
+recorded, flagged rather than deleted.
+
+**`getAnimations()` filtered on `playState === 'running'` is the
+measurement that works** — 0 under reduce against a motion-allowed control,
+which is the real content of the "matters more than the zeros" rule. The
+principle is untouched: a broken probe also reports zero, so always run the
+control. Only the *instrument* changed.
 
 **⚠️ One real accessibility finding — raised, approved, and FIXED
 2026-08-19.** About's four stat labels failed AA in dark theme only
@@ -3464,6 +3494,620 @@ there, and the next Tab resumes from the top of the document rather than
 from the content. The classic skip-link gotcha. PF-83's territory, not a
 cutover finding.
 
+**Built by PF-90 — the state audit, and the first ticket to find a defect
+in the BUILD rather than in the source:**
+
+```
+frontend/src/
+  components/layout/Navbar.module.css   backdrop-filter order (header + overlay)
+  styles/global.css                     backdrop-filter order (.glass)
+                                        + @source not for test files
+  styles/__tests__/prefixedPairs.test.js    NEW — 5 cases, 5 mutations
+  components/layout/ScrollToTop.jsx     hides while the footer bar is in view
+  components/layout/Footer.jsx          + data-footer-bottom; copies 16->18,
+                                        duration 40->50.5
+  components/layout/Footer.module.css   band Option A; bottomBar C3;
+                                        + the navbar surface + blur
+  components/sections/HeroSection.jsx   copies 6->8, duration 40->60
+  components/sections/HeroSection.module.css   band Option A
+  components/layout/__tests__/ScrollToTop.test.jsx   + 6 cases, + MemoryRouter
+  components/layout/__tests__/Footer.test.jsx       background guard INVERTED,
+                                        + navbar-parity guard, copies 18
+  components/motion/__tests__/Marquee.test.jsx      equal-duration assertion
+                                        INVERTED to equal-SPEED
+  components/sections/__tests__/HeroSection.test.jsx   band values, copies 8
+```
+
+**Everything else in this ticket is measurement.**
+
+**⚠️ THE HEADLINE: THE HEADER AND MOBILE MENU HAD NO BACKDROP BLUR IN
+CHROME, AND THE SOURCE WAS CORRECT THE WHOLE TIME.** The blur is the
+prototype's own (`backdrop-filter:blur(16px)`, unprefixed, 2 occurrences),
+`Navbar.module.css` transcribed it faithfully, CLAUDE.md's locked decision
+documented it — and esbuild dropped it at minification. Full mechanism in
+Silent failures. Fixed by reordering; **81 bytes**.
+
+**This is the first defect here that no amount of reading the source could
+find.** Every previous silent failure in this file is visible in a source
+file if you know what to look for. This one requires reading the **built**
+bundle, and the repo's own habit — "verify against generated output or a
+real browser" — is what caught it.
+
+### The Step 1 state matrix — every cell, both themes
+
+| State | dark | light |
+| --- | --- | --- |
+| Mobile menu open — 8 focusables, all ≥44px | ✅ | ✅ |
+| Menu trap cycles both directions, never leaks | ✅ | ✅ |
+| Escape returns focus to the hamburger | ✅ | ✅ |
+| Menu **legibility** | ✅ | **✗ → FIXED** (the blur) |
+| Each field focused — accent border + transparent 2px outline | ✅ | ✅ |
+| Form error, empty submit (`role="alert"`) | ✅ | ✅ renders |
+| Form error, malformed email | ✅ | ✅ renders |
+| Form success + fields cleared | ✅ | ✅ |
+| Skills / Projects / Blog **loading** placeholders | ✅ | ✅ |
+| Skills / Projects / Blog **error** — section, `<h2>`, `#anchor`, 71px survive | ✅ | ✅ |
+| Reduced motion — 0 running animations, 0 reveals off-rest, no splash | ✅ | ✅ |
+| Résumé empty state — `href="#contact"`, no `download`, title tooltip | ✅ | ✅ |
+| 404 page | ✅ | ✅ renders |
+| `/admin/login` | ✅ | **✗ confirmed broken, NOT fixed** |
+
+**Error states drop only the grid**, measured: section height 788/1150/991
+→ **362** for Skills/Projects/Blog, with heading, `#anchor` and
+`scroll-margin-top: 71px` intact in both themes.
+
+**Reduced motion was measured against a motion-allowed CONTROL**, per the
+0-vs-61 precedent: **0** running animations under reduce against **42**
+allowed, 0/64 reveals off-rest against 64/64, splash absent against
+mounted. ⚠️ **The rAF count is NOT a usable probe here** — a rAF-based
+counter self-drives and reads ~61 in both modes. `getAnimations()` filtered
+on `playState === 'running'` is the honest instrument.
+
+**`/admin/login` re-confirmed at 1.11:1** — `#f1f5f9` on a `rgb(237,232,223)`
+div, and the backdrop chain was walked to prove the ink really does sit on
+the flipping `--bg` rather than on an un-flipped panel. Sprint 14's, per the
+existing entry. Dark has its own 5 failures at 2.67 (`--text-muted`).
+
+**No NEW AA failures anywhere on the home page.** A full sweep of every
+leaf text node against its composited backdrop returns exactly the known
+PF-91 batch: Blog meta 4.30 dark, Contact labels 4.14 dark, footer
+copyright 3.56 dark, Blog separator 1.44 light, AVAILABLE FOR WORK 4.24
+light — plus the form status colours (2.48 / 1.72 light) measured in their
+live states.
+
+⚠️ **Two probe artifacts were caught before being reported as findings**,
+and both are worth recognising because each *looked* exactly like a real
+failure:
+
+- **A backdrop walk that skips the element's OWN background** reported the
+  skip link at 1.02:1 and 404's "Back to Home" at 1.06:1. Both are filled
+  buttons; including their own fill gives **9.79 / 7.46** and **6.43**. Both
+  pass.
+- **Outline type has a transparent FILL**, so `color` reads
+  `rgba(0,0,0,0)` and any contrast routine returns 1:1. Five headings
+  ("I am", "Toolkit", "Built", "Notes", "something loud!") tripped this.
+  They are painted by a 1.5px `-webkit-text-stroke` measuring **10.02 dark
+  / 6.12 light**. Both pass.
+
+### Step 2 — what a screenshot showed that a measurement did not
+
+`scrollWidth === clientWidth` at every width, before and after, exactly as
+the mobile pass recorded. The two real findings came from looking.
+
+**⚠️ `ScrollToTop` COVERS THE COPYRIGHT AT ≤600px — VISIBLE, REPORTED, NOT
+FIXED.** "DESIGNED & BUILT FROM SCRATCH" renders as "…FROM SCRA". The text
+is **not** clipped — `scrollWidth === clientWidth` and the box sits 16px
+inside the viewport at every width — it is **occluded** by the fixed
+z-40 button. `elementFromPoint` at the text's own coordinates returns the
+BUTTON:
+
+| width | overlap area | occluded samples |
+| --- | --- | --- |
+| 320 | 1449px² | 3/8 |
+| 375 | 1445px² | 2/8 |
+| 430 | 1498px² | 2/8 |
+| 600 | 1755px² | 1/8 |
+| 768 · 1440 | **0** | **0/8** |
+
+Any fix moves something visible, so it awaits sign-off — see Outstanding
+work. The screenshots live in the session scratch, not the repo (PF-83
+precedent); reproduce with a 375px viewport scrolled to the footer.
+
+⚠️ **My own first reading of that screenshot was WRONG in an instructive
+way**: it looked like horizontal clipping, and the measurement said no
+overflow. The measurement was right. **"Clipped" and "covered" look
+identical in a screenshot and are opposite defects** — one is an overflow
+bug, the other a stacking bug. `elementFromPoint` distinguishes them; no
+box measurement can.
+
+**The hero at 375 needed a second look for the opposite reason.** The
+first capture showed no portrait and ghosted chips, which reads as a
+rendering failure. It was the reveal gate working correctly — at 375 the
+portrait sits below the fold, so its `Reveal` had not fired when the
+element screenshot was taken. Scrolled in: portrait renders, all **10**
+chips legible, **none** clipped, PF-88's chip fix holding. **An element
+screenshot of a below-the-fold reveal target captures its hidden state.**
+
+Also looked at and clean: section boundaries at 375/768 both themes, footer
+three zones at 375/430/1024, marquee bands mid-cycle at 375 and **3440**
+(seamless, consistent with the 12-copy/~3600px coverage), the 380–424px
+form-field band (fields now shrink to 151–167px, zero overflow).
+
+### Step 3.1 — the `--srf` / `--gnd` light divergence, measured not changed
+
+⚠️ **The ticket calls it "undocumented since PF-67". It is documented in
+`tokens.css` itself**, with a stated rationale — "Warm whites, not pure
+white — #FFF against #EDE8DF paper reads cold and discordant." What it was
+missing is a record HERE, which is what this entry supplies. It is a
+deliberate PF-67 judgement, not a transcription slip.
+
+⚠️ **All THREE prototypes collapse the pair** (`--gnd:255,255,255;
+--srf:255,255,255`), not the two the ticket names — Admin does too.
+
+Measured on the production build, light theme, card over `--bg` #EDE8DF
+(ground `237,232,223`):
+
+| | card | delta vs ground | card-vs-ground contrast |
+| --- | --- | --- | --- |
+| design `rgba(255,255,255,.52)` | 246,244,240 | 9 / 12 / 17 | 1.111 |
+| **repo** `rgba(254,252,248,.52)` | **246,242,236** | **9 / 10 / 13** | **1.094** |
+
+Direction confirmed: **our light cards separate from the page slightly less
+than the design's, and they are warmer** (blue channel 236 vs 240). Max
+channel difference **4**. The ticket's predicted `246,243,236` is one off in
+green; the arithmetic gives 242.40.
+
+**Not changed** — it is a site-wide visual decision. Recorded as a
+sanctioned deviation by this entry.
+
+### Step 3.2 — the hero portrait's light-theme mask
+
+Full account folded into the PF-80 entry above, where the wrong sentence
+was. Short version: the prototype **does** mask this image, in light only,
+from `applyTheme()` line 862; `data-heroimg` appears **zero** times in
+`frontend/src`; PF-80's two-layer mask stands and is owner-approved; the
+two are now captured side by side for whenever the owner wants to compare.
+
+### The close-out (2026-08-27)
+
+**1 — `ScrollToTop` now hides while the footer's bottom bar is in view.**
+Owner decision, chosen over padding the bar (which moves a transcribed
+layout to accommodate a floating control) and over shortening the
+copyright (which would reverse the owner's own "ALL RIGHTS RESERVED"
+addition). Hiding is what the control *means*: at the bottom of the page
+the footer's own navigation is right there.
+
+`Footer` renders `data-footer-bottom` on the bar; `ScrollToTop` observes
+it. Three implementation points are load-bearing and all three are in the
+component's doc comment: **IntersectionObserver, never a scroll offset**
+(the bar's position moves with content length); **unmount, never
+`opacity: 0`** (a focusable invisible button is the skip-link failure mode
+in reverse); and the observer is **keyed on `pathname` with the reading
+DERIVED during render**, because `App.jsx` renders no footer on
+`/admin/*` — a visitor at the footer who clicks ADMIN would otherwise
+leave a stale "in view" reading and hide the button for the whole admin
+session. Deriving also keeps it clear of
+`react-hooks/set-state-in-effect`, which a reset would violate.
+
+⚠️ **`ScrollToTop` now calls `useLocation()`, so it needs a Router
+context.** In the app it has always been inside `App.jsx`'s
+`<BrowserRouter>`, but its tests rendered it bare and now wrap in
+`MemoryRouter`. A bare render fails with "useLocation() may be used only
+in the context of a `<Router>` component", which reads like a routing bug
+and is not one — the same trap `HomePage.test.jsx` hit.
+
+Verified in the browser with **`elementFromPoint` at the copyright's own
+coordinates**, not by screenshot, since that is the only probe that
+separates clipped from occluded:
+
+| width | occluded samples before | after |
+| --- | --- | --- |
+| 375 · 430 · 600 | 2/8 · 2/8 · 1/8 | **0/8** each |
+| 768 · 1440 | 0/8 | 0/8 |
+
+Also: visible mid-page and gone at the bar at 375 and 1440 in **both**
+themes, returns on scrolling back up, **45 Tab stops never land on it**
+while hidden, and its `riseIn` entrance collapses to **0.01ms** under
+`emulateMedia({reducedMotion:'reduce'})` against a **300ms**
+motion-allowed control.
+
+**3 — The prefixed-pair sweep: `backdrop-filter` was the ONLY live
+instance.** Checked in the BUILT css, per pair, not in the source:
+
+| pair | source order | built | verdict |
+| --- | --- | --- | --- |
+| `backdrop-filter` ×3 (header, overlay, `.glass`) | standard first | webkit-only | **was broken — fixed** |
+| `backdrop-filter` (ScrollToTop, ThemeToggle) | prefix first | both | safe |
+| **`mask-image`** (hero portrait) | prefix first | **both** | safe |
+| **`mask-composite`** (hero portrait) | prefix first | **both** | safe |
+| `background-clip` (`.gradient-text`) | prefix first | both | safe |
+| `-webkit-text-fill-color`, `-webkit-text-stroke`, `-webkit-font-smoothing`, `::-webkit-scrollbar` | prefix-only | — | no standard form; not a pair |
+
+⚠️ **The hero portrait mask was the one that could have been live and
+visible**, and it is fine — `mask-composite` computes `intersect,
+intersect` on the real element. Proved with a **rendered** three-panel
+control (a red square masked by a circle and a band): `intersect` paints
+only the circle, `add` and the default paint the whole square. That
+control is the instrument, because `CSS.supports()` returns `true` for a
+property that computes to `none`.
+
+`backdropFilter.test.js` became **`prefixedPairs.test.js`** — it now
+fails on ANY standard-before-prefixed pair in any `*.css` under `src/`,
+so a new pair in a new file is covered without anyone remembering.
+Mutation-tested five ways: hero `mask-image`, hero `mask-composite`,
+`.gradient-text` `background-clip`, the original navbar bug — all caught;
+plus a comment containing `mask-image: none; backdrop-filter: blur(9px)`
+correctly **not** caught, which is the control proving it parses rather
+than text-searches.
+
+### Footer revisions — ALL FOUR SHIPPED (2026-08-27, owner-selected)
+
+Owner asked for measured options rather than one guess, then chose:
+**2a Option A · 2b 70 px/s with independent durations · 2c C3 · 2d ship
+it.** All four are applied. The rejected options are kept below because
+the reasoning is the useful part — each was measured, and "why not B"
+is a question that will be asked again.
+
+**Baseline, measured (`offsetHeight`, not `getBoundingClientRect`):**
+
+| band | h @1440 | font | line-height | padding | gap | copyW | copies | px/s @40s |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| hero | **50px** | 21px | 33.6px | 8px | 24px | 1297 | 6 | 97.3 |
+| footer | **52px** | 21px | 33.6px | 8px | 24px | 484.7 | 16 | 96.9 |
+
+⚠️ **Line-height dominates: 33.6 of the 49.6px interior.** Padding is
+16px of it, which is why padding alone barely moves the band and why the
+hero's 2026-08-17 slimming needed font *and* padding together.
+
+**2a — thinner, two options, measured:**
+
+| | font | pad | gap | hero h | footer h | change |
+| --- | --- | --- | --- | --- | --- | --- |
+| current | `clamp(13px,1.6vw,21px)` | 8px | 24px | 50 | 52 | — |
+| **A ← SHIPPED** | `clamp(11px,1.25vw,17px)` | 6px | 20px | **39** | **41** | −21% |
+| ~~B~~ rejected | `clamp(10px,1.0vw,14px)` | 5px | 16px | 32 | 34 | −35% |
+
+⚠️ **BOTH OPTIONS BREAK SEAMLESSNESS AT THE SHIPPED COPY COUNTS**, because
+a smaller font shrinks `copyW` and the requirement is
+`copies ≥ 2 × band / copy`. Copies needed to keep 3440 coverage:
+
+| | hero copies | footer copies |
+| --- | --- | --- |
+| current | 6 (shipped **6** — exactly at the limit) | 16 (shipped **16** — exactly at the limit) |
+| **A** | **8** | **18** |
+| **B** | **8** | **22** |
+
+The current bands sit *exactly* on their limit at 3440, so any thinning
+requires a copies bump. Both must stay EVEN.
+
+**2b — slower, with px/s stated because duration alone is not speed.**
+Distance per cycle is `copies/2 × copyW`, so raising `copies` for
+seamlessness makes a band **faster** at the same duration:
+
+| geometry | distance @1440 | px/s @40s | 55s | 70s |
+| --- | --- | --- | --- | --- |
+| current hero (6) | 3891 | 97.3 | 70.7 | 55.6 |
+| current footer (16) | 3877.6 | 96.9 | 70.5 | 55.4 |
+| A hero (8) | 4202.4 | **105.1** | 76.4 | 60.0 |
+| A footer (18) | 3536.1 | 88.4 | 64.3 | 50.5 |
+| B hero (8) | 3458.8 | 86.5 | 62.9 | 49.4 |
+| B footer (22) | 3554.1 | 88.9 | 64.6 | 50.8 |
+
+On the CURRENT geometry the two bands are already matched (97.3 / 96.9),
+and one duration serves both: **55s ≈ 70 px/s**, **70s ≈ 55 px/s**. Under
+option A they diverge (105 vs 88) and would need different durations to
+stay matched — worth knowing before combining 2a and 2b.
+
+**2c — compaction. Provenance first, so it is clear what is being
+overruled:**
+
+| value | current @1440 | whose |
+| --- | --- | --- |
+| footer `padding-bottom` | 26px | **prototype's** |
+| `.inner` `padding-top` | 46px | **owner deviation** (prototype: `clamp(38px,6vw,64px)`) |
+| `.inner` `padding-x` | 40px | prototype's |
+| `.grid` `gap` | 46px | **prototype's** |
+| `.bottomBar` `margin-top` | 56px | **prototype's** `clamp(34px,5vw,56px)` |
+| `.bottomBar` `padding-top` | 22px | **prototype's** |
+| `.inner` `max-width` | none | owner deviation (prototype: 1240px) |
+
+Measured options, all with **zero horizontal overflow at 320–1440** and
+zone widths unchanged:
+
+| | inner-top | bar-top | gap | footer h @1440 | @375 | above:below |
+| --- | --- | --- | --- | --- | --- | --- |
+| current | 46 | 56 | 46 | 426 | 926 | 0.82 : 1 |
+| **C1** | 34 | 32 | 46 | **390** (−8%) | 906 | 1.06 : 1 |
+| **C2** | 26 | 22 | 36 | **372** (−13%) | 890 | 1.18 : 1 |
+| **C3 ← SHIPPED** | **46 (unchanged)** | 20 | 46 | **390** (−8%) | 906 | **2.30 : 1** |
+
+⚠️ **C3 is the one that actually answers "zones pushed DOWN".** C1 and C2
+compact from both sides, so the block keeps roughly its current position
+between band and rule. C3 saves the same 36px as C1 but takes it all from
+*below* the zones, so they sit markedly closer to the bottom rule — which
+is what was asked for. C1/C2 are the "just make it smaller" readings.
+
+**2d — the navbar surface on the footer. ⚠️ THE BRIEF'S PREMISE IS WRONG
+IN THE OWNER'S FAVOUR.**
+
+The brief says `--ftr` is `233,227,216` in light, predicts a 4/5/7
+channel difference against `--bg`, and warns the footer may read as
+nearly the same colour as the page. **`--ftr` light is actually
+`226,212,190`** — `tokens.css:108`, commented "tan chrome". So:
+
+| | composited surface | delta vs ground | |
+| --- | --- | --- | --- |
+| brief's assumed `233,227,216` | 234,228,217 | −3 / −4 / −6 | would indeed be near-invisible |
+| **real `226,212,190`** | **228,215,195** | **−9 / −17 / −28** | clearly a distinct band |
+
+Pixel-sampled from the rendered page rather than only computed: the empty
+footer surface goes **`rgb(226,223,216)` → `rgb(222,210,192)`** in light,
+and **`rgb(16,20,26)` → `rgb(19,24,38)`** in dark. It reads as warm tan
+chrome in light and navy chrome in dark, matching the navbar. **It does
+NOT read as "no change".**
+
+- **The marquee bands need nothing.** Their fill is `var(--acc)` at full
+  opacity (owner's 2026-08-25 pass made them solid ink-on-accent), so the
+  footer surface behind them is irrelevant — measured identical before
+  and after, `rgb(252,163,17)` dark / `rgb(126,72,0)` light.
+- **The STATUS card survives**, contrary to the brief's worry. Light:
+  composited `rgb(246,242,236)` → `rgb(241,234,222)`, still **+13/+19/+27**
+  clear of the new footer surface. It is a lighter panel on a tan ground
+  rather than a near-invisible one on paper.
+- **Star-field cost, measured as luminance RMS in an empty patch:**
+  **0.00253 → 0.00107 dark (−58%)**, **0.01963 → 0.01138 light (−42%)**.
+  Roughly half the visible texture behind the footer goes. `GrainOverlay`
+  is z-70, above the footer, so what is lost is the star field (z-0).
+- ⚠️ **AA GOT WORSE. ⚠️ THESE ARE PF-91'S NUMBERS — the pre-2026-08-27
+  figures elsewhere in this file describe a footer that no longer
+  exists.** Re-measured against the SHIPPED backdrop, every text node in
+  the footer, both themes (`19 pass / 3 fail` in each):
+
+  | node | token / size | dark | light |
+  | --- | --- | --- | --- |
+  | **copyright** | `--faint` 10.5px | 3.56 → **3.36** ✗ | 4.97 → **4.28** ✗ *newly failing* |
+  | **role line** "FULL-STACK DEVELOPER" | `--muted2` 10px | ok → **4.30** ✗ *newly failing* | 4.69 ✅ |
+  | **bio copy** | `--muted2` 13.5px | ok → **4.30** ✗ *newly failing* | 4.69 ✅ |
+  | **AVAILABLE FOR WORK** | `#0E7A55` 10.5px | 9.12 ✅ | 4.24 → **3.67** ✗ |
+  | **status dot ●** (ok) | `#0E7A55` 12px | 9.19 ✅ | ok → **4.47** ✗ *marginal* |
+  | nav links · column headings · STATUS · CTA | — | 7.25–9.79 ✅ | 5.26–7.46 ✅ |
+
+  ⚠️ The light badge sits on `rgb(217,215,192)` — its own tint over the
+  new footer surface, not the footer surface itself — which is why it
+  moves further than the copyright does.
+
+  The mechanism is the one this file already documents: `--muted2` and
+  `--faint` on a **translucent surface** rather than the page ground.
+  Adding a surface is exactly what flips them, and it is the fifth and
+  sixth occurrence of that trap.
+
+**This REVERSES the 2026-08-18 wash-removal scope**, and the draft
+Locked-decisions entry should say so rather than read as a fresh value:
+that decision strips section washes so the star field reads continuously,
+and this puts a band back at the bottom. The narrowing that makes it
+coherent is **chrome vs section** — the navbar already carries exactly
+this surface at the top, so the footer taking it makes the two ends of
+the page matching chrome rather than making the footer a sixth banded
+section. That is the owner's call to make, and it is a real narrowing
+rather than a loophole.
+
+Include the blur, and order `-webkit-backdrop-filter` FIRST — the guard
+added in this ticket enforces it.
+
+**Owner's reasons, recorded because they are judgement rather than
+measurement:** B was rejected as "thin enough to read as a hairline rule
+rather than a band, and the type gets small enough that the copy stops
+registering as text at a glance." C3 was chosen because "it is the only
+one that answers what I asked for: the zones move DOWN, toward the bottom
+rule, rather than the whole block shrinking in place." 70 px/s over the
+55s option because "a thin band moving fast reads as busier than a thick
+one at the same speed."
+
+**⚠️ THE TWO BANDS NOW RUN AT DIFFERENT DURATIONS, ON PURPOSE — and the
+test that used to assert they were EQUAL had to be inverted.** Equal
+duration was right while their copy widths were close; after Option A
+they are not, and one duration would have given 105 vs 88 px/s. The
+contract is equal SPEED:
+
+| band | copies | copyW | distance = copies/2 × copyW | duration | px/s |
+| --- | --- | --- | --- | --- | --- |
+| hero | 8 | 1050.6 | 4202.2px | **60s** | **70.04** |
+| footer | 18 | 392.9 | 3536.4px | **50.5s** | **70.03** |
+
+Measured on the production build, not computed. `Marquee.test.jsx` now
+pins each number *and* re-derives both px/s from the measured copy
+widths, so making them equal again fails. ⚠️ Its regex had to become
+`[\d.]+` — the footer's duration is **50.5**, not an integer.
+
+**⚠️ COPIES WENT UP, WHICH IS THE COUNTER-INTUITIVE HALF.** Thinning a
+band *raises* its copy requirement: a smaller font shrinks `copyW`, and
+`copies ≥ 2 × band / copy` moves against you. Hero **6 → 8**, footer
+**16 → 18**. Both were sitting exactly on their limit at 3440 before, so
+shipping Option A at the old counts would have reopened the hole the
+counts exist to close. Re-verified seamless at **3440 · 2560 · 1920 ·
+1440 · 1024 · 899 · 768 · 430 · 375 · 320**.
+
+**Post-ship verification:** hero **39px** / footer **41px** at 1440
+(30/32 below 1024) · `--header-h` **71px** at every width · `#about`
+`scroll-margin-top` **71px** · **zero** horizontal overflow 320–3440 ·
+bottom bar single centred child, **no collision** at any width.
+
+**2e** was folded into the above rather than left pending.
+
+### The footer scroll-to-top link — restored (2026-08-27, owner-requested)
+
+*"when i hit the bottom the small button is disappearing so now add
+right bottom of the footer a scroll top to button according to the
+theme."*
+
+**A direct consequence of part 1**, and a fair catch: hiding the
+floating `ScrollToTop` while the bottom bar is in view fixed the
+copyright occlusion and, at the very bottom of the page, left no way
+back up at all.
+
+**⚠️ NOT INVENTED — the prototype has this control** at line 601, and
+it was deleted on 2026-08-25 as "redundant with ScrollToTop". That was
+true then and stopped being true the moment that button learned to hide
+here. So this is a restoration, and the values are transcribed:
+
+```
+justify-self:end; font-size:10.5px; letter-spacing:.14em;
+color:var(--muted); border:1px solid rgba(var(--ln),.18);
+border-radius:999px; padding:10px 16px
+hover -> color / border-color: var(--acc)
+```
+
+`justify-self: end` is what puts it bottom-**right**, which is both where
+the owner asked for it and where the design already had it. "According to
+the theme" needed no work: every value is a token, so it follows the
+theme for free — measured `rgb(147,160,184)` dark / `rgb(69,83,109)`
+light, text contrast **7.25 / 5.46**, both passing.
+
+**⚠️ ONE DEVIATION: the LABEL.** The prototype reads
+`SCROLL BACK UP ↑`; this ships **`SCROLL TO TOP ↑`**, the owner's own
+wording. Everything else is the design's, so a fidelity pass will flag
+the label and nothing else — expected, and this is the record.
+
+**⚠️ THE `1fr auto 1fr` GRID CAME BACK, reversing part of the
+2026-08-25 change.** That change removed the grid with the reasoning
+"with both outer cells gone there is nothing left to balance … two empty
+`1fr` columns around a lone centred line is an inert declaration the next
+reader treats as load-bearing." The reasoning was right and its premise
+is gone: the right-hand cell is populated again. **The empty first cell
+is now genuinely load-bearing — it is the counterweight.** Neither
+`text-align: center` nor `space-between` can centre a line against a
+158px pill on one side only; measured off-centre **0px** at 1440/1024
+with the grid, **79px** without it.
+
+**An `<a href="#hero">`, not a `<button>` + `scrollTo`** — via
+`sectionHref(pathname, 'hero')`, so it is route-aware like every other
+footer link. A plain anchor inherits the root's `scroll-behavior`, which
+`motion.css` flips to `auto` under reduced motion; a JS `scrollTo` with
+an explicit `behavior` does **not**, which is the whole reason
+`utils/replay.js` existed and why `ScrollToTop` has to read the media
+query by hand. Traced both ways: **4921 → 0** with motion allowed
+(`scroll-behavior: smooth`) and **5244 → 0** under reduce
+(`scroll-behavior: auto`), `location.hash` `#hero` in both.
+
+**⚠️ IT STACKS BELOW 900px, AND BOTH HALVES ARE MEASURED:**
+
+| | ≥900px | ≤899px |
+| --- | --- | --- |
+| bar | `1fr auto 1fr`, pill flush right | one column, everything centred |
+| pill | 158 × **39px** (the prototype's) | 158 × **44px** |
+| copyright off-centre | 0 | 0 (was 79 before stacking) |
+
+`1fr auto 1fr` only centres while the copyright fits ONE LINE. It wraps
+from 768px down — `ALL RIGHTS RESERVED` took it to 78 characters — and
+the `auto` column keeps its 158px, so the two `1fr` columns stop being
+equal to the eye. **899px, not 768px**, so the footer changes shape once
+rather than twice: it matches `.grid`'s own breakpoint.
+
+**44px is the tap target, not a look.** The prototype's 10px padding on
+10.5px type measures **39px**, four short — and on a phone this is the
+only way back to the top. Applied at the stacked breakpoint only; 39px
+is the design's value and a pointer does not need 44.
+
+⚠️ **No `transition` is declared, and that is transcription rather than
+the PF-93 rule.** This bar sits outside the four `data-reveal` column
+wrappers, so `hideReveals()` never writes an inline transition over it
+and the prototype declares none of its own. Measured `0s` — it snaps, in
+the export exactly as here.
+
+**Reported, not fixed:** the pill's border is `rgba(var(--ln),.18)`,
+measuring **1.58 dark / 1.41 light** against its ground — below the 3:1
+a UI boundary wants. It is the prototype's own value, and the control's
+identification does not rest on it (the label is 7.25 / 5.46). Batches
+into PF-91 with the rest.
+
+**Guards: 5 new unit cases + 2 new E2E cases**, and **three existing
+absence guards had to be SPLIT** rather than deleted — REPLAY INTRO
+stays guarded as absent, the scroll-to-top link flips to a presence
+guard. Keeping the pair in one test is deliberate: they were removed
+together and only one came back, which is exactly what a fidelity pass
+gets wrong in both directions.
+
+⚠️ **Two test-authoring traps hit while writing those, both already
+documented in this file, both hit anyway:**
+
+- **`declsFor` collapses a base rule with its `@media` override**, so
+  the base assertions read the MOBILE values and failed against correct
+  code. `baseDeclsFor` exists for exactly this and its own doc comment
+  describes the trap. Use it, plus `mediaDeclsFor` for the breakpoint.
+- **`forClass('scrollUp')` also matches `.scrollUp:hover`**, so the
+  hover's `color: var(--acc)` overwrote the resting `var(--muted)` and
+  the rest colour read as wrong when it was not. Match the selector
+  exactly when a rule has pseudo-class siblings.
+
+⚠️ **And one mutation REPORTED CLEAN AND WAS INVALID** — the
+"mutate the code, then confirm the file actually changed" trap, which
+this file already records from the PF-88 revisions. Dropping the 44px
+tap target appeared uncaught; `Footer.module.css` has **three**
+`min-height: 44px` declarations (nav links and the CTA from the mobile
+pass, plus this one) and a first-match replace hit the wrong rule.
+Mutating the right line fails the guard correctly. **Six mutations, all
+caught** once the invalid one was redone.
+
+
+
+**⚠️ ONE E2E SPEC PINNED THE OLD DURATION AND WENT RED.**
+`e2e/footer.spec.js:122` asserted `duration === [40000]`; it is now
+`[50500]`. Worth recording because it is the *good* kind of failure —
+the guard existed precisely so a band's timing could not change
+unnoticed, and it caught the change on the first run. Updated with the
+reason rather than the number alone, since "make the two equal again" is
+the natural next edit and is now wrong.
+
+Three unit guards went red for the same reason and were inverted rather
+than relaxed: `Footer.test.jsx`'s "declares NO background on the
+`<footer>` rule" (now asserts the navbar surface is present AND the
+prototype's gradient still absent, plus a new guard that the footer's
+surface matches the header's property for property), its strip count
+16 → 18, `HeroSection.test.jsx`'s band values and copy count 6 → 8, and
+`Marquee.test.jsx`'s equal-duration assertion → equal-SPEED.
+
+⚠️ **Writing those, I hit the raw-text-matches-a-comment trap in the
+guard against it.** A new negative assertion —
+`expect(ruleBody('.marqueeText')).not.toContain('clamp(20px, 2.6vw, 34px)')`
+— failed against correct code, because the rule documents the
+prototype's own value in prose directly above itself. Fixed by stripping
+comments first. That is the eighth occurrence, and the first inside a
+test written by someone who had just re-read the entry warning about
+it. On the shipped state (part 1 only)
+`--header-h` re-measured **71px** at 320–3440, `#about`'s
+`scroll-margin-top` **71px**, zero horizontal overflow, and both marquee
+bands seamless at 3440 / 1440 / 375.
+
+### The gate
+
+frontend **648 / 648** (44 files) · lint **exit 0** over **122** files ·
+build **220 modules**, **66.42 kB** CSS / 412.01 kB JS · backend
+**242 / 242** (second run; see the fourth variant above) · E2E
+**37 / 37**.
+
+Final gate after the footer revisions AND the restored scroll-to-top
+link: frontend **651 / 651** (44 files) · lint **exit 0** over 122 files ·
+build **220 modules**, 66.98 kB CSS / 412.20 kB JS · backend
+**242 / 242** (183s) · E2E **38 / 38**.
+
+⚠️ **The backend needed a re-run, and the first result was NOT the
+documented network flake.** Run 1: **3 failed / 239 passed in 525s**, all
+three from `auth.test.js`'s `beforeEach` with
+`E11000 duplicate key error … dup key: { email: "admin@test.com" }`. Run 2:
+**242 / 242 in 179s**. Distinguishing it matters: the documented flake is a
+*timeout with no `expect` diff*; this is a *leftover document* — zero
+timeouts, zero assertion diffs, a unique-index collision, under
+`--runInBand` where suites are serial. `auth.test.js` alone passes 10/10
+and has not been touched since Sprint 7. PF-90 changes no backend file.
+**Test-isolation residue in `portfolio_test`, transient, and a third
+distinct backend failure shape to recognise.**
+
+⚠️ The E2E run printed **429**s from its own backend's rate limiter — the
+documented trap, triggered by the suite's own repeated page loads. All 37
+passed regardless; no spec depends on that data.
+
+**PF-90 created no orphans and removed none.**
+
 ## Stack
 
 React 19 · Vite · Tailwind v4 · CSS Modules · React Router v7 · TanStack Query v5
@@ -4487,6 +5131,67 @@ error message:
   recognising the shape: **a positional assertion taken once after a
   fixed wait is a timer, not a measurement.**
 
+- **⚠️ A RED BACKEND SUITE HAS THREE DISTINCT SHAPES, and all three appear
+  on a diff that never touched the backend.** The third was found in
+  PF-90; collecting them is the useful part, because the first move is
+  always to classify rather than to debug.
+
+  | shape | signature | cause | first move |
+  | --- | --- | --- | --- |
+  | **timeout flake** | `Exceeded timeout of Nms`, **zero** `expect` diffs | Atlas round trip under full-suite load | re-run; `jest.testTimeout` already raised to 30s in PF-87 |
+  | **SRV DNS** | `querySrv ENOTFOUND`, `/api/health` reports `database: null`, EVERY route fails | the machine's resolver, not the repo | `nslookup -type=SRV … 1.1.1.1` vs the default resolver |
+  | **isolation residue** (PF-90) | `E11000 duplicate key error … dup key: { email: "admin@test.com" }` in a `beforeEach`, **zero** timeouts, **zero** `expect` diffs | leftover documents in `portfolio_test` | re-run; run the file alone to confirm |
+
+  **The PF-90 instance, measured:** run 1 gave **3 failed / 239 passed in
+  525s**, all three from `auth.test.js`'s `beforeEach`. Run 2 gave
+  **242 / 242 in 179s**. `auth.test.js` alone passes **10/10** and has
+  not been touched since Sprint 7 (`6b74e46`).
+
+  ⚠️ **It is NOT the timeout flake, and the distinction matters** because
+  the remedies differ. The suite runs `--runInBand`, so suites are
+  **serial** — this is not parallel interference either. Something ahead
+  of `auth.test.js` left a user in `portfolio_test` that `clearDB` did
+  not remove, and `User.create(ADMIN)` then collided on the unique email
+  index. A timeout has no `expect` diff *and* no error of its own; this
+  has a real `MongoServerError`.
+
+  ⚠️ **`npm test` exited 0 while reporting 3 failures** on that run, so
+  an exit-code check alone would have called it green. Read the summary
+  line, not just the status.
+
+  ⚠️ **A FOURTH VARIANT, AND IT BREAKS THE "ZERO `expect` DIFFS"
+  HEURISTIC THE TABLE ABOVE RELIES ON.** Seen on PF-90's close-out run:
+
+  ```
+  ● GET /api/nonexistent › returns 404 for unknown routes
+      Expected: 404
+      Received: 500
+  ```
+
+  A real assertion diff, no timeout, no `E11000` — which reads like a
+  genuine regression in routing. It is not. **`app.js:59` mounts an
+  `await connectDB()` middleware BEFORE the routes**, so *every* request,
+  including one for a route that does not exist, tries the database
+  first. A transient connection failure calls `next(err)` with an error
+  carrying no `statusCode`, `errorHandler` defaults it to **500**, and
+  the request never reaches `notFound` — so it never gets its 404.
+
+  Run 1: **1 failed / 241 passed in 256s**. Run 2: **242 / 242 in 226s**.
+  `health.test.js` alone passes **4/4**, and PF-90 changed no backend
+  file.
+
+  **So the reliable discriminator is not "no `expect` diff" — it is "the
+  same suite passes in isolation and on a re-run, on a diff that never
+  touched the backend."** Any DB-dependent middleware in front of the
+  router can convert a network hiccup into a wrong status code, and a
+  wrong status code is indistinguishable from a logic bug by shape
+  alone. Classify by reproducibility first, shape second.
+
+  **`mongodb-memory-server` removes all three at once** — no network, no
+  shared cluster, no cross-run residue — and that is now the strongest
+  argument for the ticket, stronger than the offline-runnability one it
+  was originally filed under.
+
 - **⚠️ `mongodb+srv://` needs SRV DNS, and a broken resolver presents as
   a broken backend.** Seen 2026-08-24 on a phone-hotspot connection: the
   API returned `{"status":"error","message":"querySrv ENOTFOUND
@@ -4519,6 +5224,172 @@ error message:
   25 failures, none of them with an `expect` diff. That is the
   network-timeout shape the `blogViews` entry above describes, at scale —
   a timeout with no assertion diff is never a code regression.
+
+- **⚠️ `backdrop-filter` BEFORE `-webkit-backdrop-filter` SHIPS WEBKIT-ONLY,
+  AND CHROME NO LONGER HONOURS THE PREFIX — so the blur silently does not
+  render at all.** Found in PF-90 on the production build. It had been live
+  on the **header** (every page, every visit) and the **mobile nav overlay**
+  since PF-79, and on `.glass` since Phase 1.
+
+  **The mechanism.** esbuild's CSS minifier — Vite's default `cssMinify`,
+  and this repo sets no `browserslist` — treats the prefixed and unprefixed
+  property as the same declaration and keeps only the **last** one in the
+  rule. So the natural source order:
+
+  ```css
+  .overlay {
+    backdrop-filter: blur(16px);            /* dropped by the minifier */
+    -webkit-backdrop-filter: blur(16px);    /* the only one that ships */
+  }
+  ```
+
+  built to `-webkit-backdrop-filter:blur(16px)` alone. Measured in the
+  bundle: **2** standard declarations against **5** prefixed ones.
+
+  **And the prefixed form is inert in Chrome.** Verified with a three-panel
+  control — webkit-only, standard-only, neither — over a striped backdrop:
+  only the standard panel blurred, and `getComputedStyle(el).backdropFilter`
+  read **`none`** for the webkit-only one while `CSS.supports('backdrop-filter','blur(16px)')`
+  returned **true**. That combination is the tell, and it is thoroughly
+  misleading: support is real, the rule is present in the stylesheet, and
+  the property still computes to `none`.
+
+  ⚠️ **Do not diagnose this as a headless artifact.** That was the first
+  guess here and it was wrong: an inline `style="backdrop-filter:blur(16px)"`
+  computes correctly in the same browser, and headed mode behaves
+  identically. The declaration was genuinely absent from the built CSS.
+
+  **The fix is ORDER, not an extra declaration** — put `-webkit-` FIRST and
+  the standard property LAST, which is what `ScrollToTop.module.css` already
+  did and why it was the one file that survived. After: **5 standard / 5
+  prefixed**, and the blur renders. Cost **81 bytes**.
+
+  **What it looked like on screen.** Dark theme hid it almost completely —
+  0.86-alpha near-black over a near-black page has little to reveal. Light
+  theme did not: the hero's giant Anton wordmark and its chips read straight
+  through the mobile menu. Measured as luminance spread (P90−P10) across a
+  glyph-free band behind the nav links:
+
+  | | before | after |
+  | --- | --- | --- |
+  | light, backdrop band | **0.0259** | **0.0004** |
+  | light, hero-type zone | **0.188** | **0.0673** |
+  | dark, hero-type zone | 0.0266 | 0.0086 |
+
+  ⚠️ **The nav-link TEXT passed contrast the whole time** — ~13:1 light,
+  ~19:1 dark against its own surface. So a contrast audit reports this
+  section clean while the menu is visibly hard to read. The defect is
+  backdrop *noise*, not ink, and only a screenshot shows it.
+
+  Guarded by `styles/__tests__/backdropFilter.test.js` — parsed with
+  **postcss**, never a text search, because the rules now document
+  themselves in prose containing the exact property names being asserted.
+  Four mutations: standard-first (the real bug), webkit-only, mismatched
+  blur values — all caught; and a comment containing
+  `backdrop-filter: blur(99px)` correctly **not** caught, which is the
+  control proving the guard reads declarations rather than prose.
+
+- **⚠️ CLIPPED AND OCCLUDED LOOK IDENTICAL IN A SCREENSHOT AND ARE
+  OPPOSITE DEFECTS.** Found in PF-90 and then mis-diagnosed once before
+  being measured, which is the point of the entry.
+
+  The footer copyright rendered as **"…FROM SCRA"** at every phone width
+  — the tail of "DESIGNED & BUILT FROM SCRATCH" simply absent. That is
+  what a horizontal clip looks like, and it is not what was happening:
+
+  | probe | reading |
+  | --- | --- |
+  | `scrollWidth === clientWidth` on the text | **equal** — no overflow |
+  | the text's box vs the viewport | **16px inside** at every width |
+  | `document.documentElement.scrollWidth` | equals the viewport |
+  | **`elementFromPoint` at the text's own coords** | **the `ScrollToTop` BUTTON** |
+
+  Only the last one finds it. **Clipping is an overflow bug; occlusion is
+  a stacking bug** — a fixed, z-40 element painted over static text. Every
+  box measurement reports clean, because every box IS clean.
+
+  ⚠️ **THIRD MEMBER OF A FAMILY, and reading the three together is worth
+  more than any one of them:**
+
+  | | what was painted over what | what missed it |
+  | --- | --- | --- |
+  | the splash (PF-75) | a z-100 overlay over armed `Reveal` targets | `IntersectionObserver`, which measures position |
+  | Playwright `toBeVisible()` | anything under the splash | box + `visibility`, never what is on top |
+  | **this** | a z-40 button over the copyright | `scrollWidth`, box geometry, `overflow` checks |
+
+  **The general form: a position-based check cannot see what is painted
+  on top of the thing it is measuring.** Geometry answers "where is it",
+  never "can it be seen". When something is invisible but measures
+  correct, hit-test it — `elementFromPoint` for a static element,
+  actionability for an interactive one.
+
+  Fixed 2026-08-27 by hiding `ScrollToTop` while the footer's bottom bar
+  is in view; see its own doc comment for why an IntersectionObserver and
+  not a scroll offset, and why it unmounts rather than fading.
+
+- **⚠️ A TEST FILE UNDER `src/` SHIPS DEAD CSS, because Tailwind v4 scans it
+  for utility candidates.** Found in PF-90 while explaining an unexpected
+  build-size jump.
+
+  Tailwind v4 auto-detects sources under `src/`, and this repo's convention
+  puts **44** test files there (per-module `__tests__/`). Any bare token in
+  a test is a valid candidate — a property name in a comment, a class name
+  in a string literal — so the generator emits that utility into the
+  **shipped** stylesheet.
+
+  Measured: `styles/__tests__/backdropFilter.test.js` mentions
+  `backdrop-filter` and `blur`, which added **1,581 bytes** — two utilities
+  plus Tailwind's `@property` chain for them. The pre-existing 43 test files
+  were already contributing **193 bytes** (`.ease-in-out`, from
+  `animations.test.js`).
+
+  ⚠️ **The build number is what surfaces it, and only if you check.** The
+  CSS went 64.86 → 66.52 kB and the obvious suspect was the 3-declaration
+  CSS fix in the same diff. Isolating them gave **81 bytes** for the fix and
+  **1,581** for the test file — the opposite of the intuition. A build-size
+  delta that does not match the diff is worth ten minutes.
+
+  Fixed in `global.css` with Tailwind v4's own `@source not`:
+
+  ```css
+  @source not "**/__tests__/**";
+  @source not "**/*.test.{js,jsx}";
+  ```
+
+  ⚠️ **THE SAVING IS 193 BYTES, NOT THE 1,774 THIS ENTRY FIRST CLAIMED.**
+  Corrected 2026-08-27 after the number stopped reproducing, and left
+  visible rather than quietly edited.
+
+  The 1,774 figure was measured once, mid-session, and is not
+  reproducible in the finished tree. Re-measured at the end, by removing
+  the directives and rebuilding: **66,621 → 66,428**, i.e. exactly the
+  `.ease-in-out` leak. The two larger utilities are still emitted, and
+  bisection could not isolate their source — ruled out, each by
+  rebuilding without it: every file changed in PF-90, the new test file
+  (moving it out changes nothing, so the exclusion IS working), and the
+  prose in `global.css`'s own comments.
+
+  **What is certain, and is the part that matters:** the leak is
+  **pre-existing, not introduced here**. A build at `HEAD` with no
+  working changes is **66,441 bytes and already emits both utilities**,
+  against the finished tree's **66,428** — 13 bytes smaller while adding
+  a footer surface, two blur declarations and a new test file. So
+  nothing regressed; an earlier measurement was simply better than the
+  steady state and should not have been written down as a result.
+
+  The mechanism in the paragraph above is still real and still worth
+  knowing — a test that names a utility does emit it, proven by moving
+  `backdropFilter.test.js` out and back. Only the headline number was
+  wrong.
+
+  Safe because no test consumes the built stylesheet
+  — CSS Modules are stubbed under Vitest and `document.styleSheets.length`
+  is **0**, so tests assert stylesheets as TEXT. Verified by selector diff
+  rather than by size alone: exactly **three** selectors left the bundle
+  (`.backdrop-filter`, `.blur`, `.ease-in-out`), all three test-only, and
+  **zero** were gained. Every utility real components use — `flex`, `grid`,
+  `min-h-screen`, `items-center`, `justify-center`, `animate-fade-in-up` —
+  is still emitted.
 
 Where a mistake would be silent, add a test that would catch it.
 
@@ -5218,7 +6089,7 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   | `data-motion` | `reduced` | `null` |
   | root `scroll-behavior` | `auto` | `smooth` |
   | splash mounted | false | false |
-  | rAF in 1 idle second | **0** | **69** |
+  | rAF in 1 idle second | **0** | **69** | ⚠️ *not reproducible — see the rAF caveat in Silent failures*
   | `getAnimations()` **running** | **0** | **28** |
   | About portrait transform | `scale(1.02)` resting | `scale(1.1)` + 92.6px parallax |
   | 44 `[data-reveal]`, not at rest | **0** | 10 (below the fold) |
@@ -5378,7 +6249,49 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   - **The portrait's edges are masked, not painted as-is.** `hero-ai.png` is
     an egg-shaped cutout on transparency: the sky and the decorative arcs
     stop at a hard rim, and the turtleneck is cut flat by the bottom of the
-    frame. The prototype ships both edges raw. `.portraitImg` now carries
+    frame. ⚠️ **The prototype ships both edges raw IN DARK ONLY — this
+    sentence used to say "both edges raw" flatly, and that is false in
+    light theme. Corrected in PF-90.** `applyTheme()` (prototype line
+    862, not the 853-856 the PF-90 ticket cites) applies a light-mode-only
+    mask to `[data-heroimg]` and clears it in dark:
+
+    ```js
+    const m = this.themeLight ? 'radial-gradient(62% 68% at 50% 44%, #000 30%, rgba(0,0,0,.7) 56%, rgba(0,0,0,.28) 76%, transparent 92%)' : '';
+    el.style.webkitMaskImage = m; el.style.maskImage = m;
+    ```
+
+    So the design DOES soften this image — just in one theme, and from
+    the script block rather than the markup. **This is the fourth time a
+    prototype element's real behaviour lived in JS rather than its
+    `style` attribute** (`data-cardbg` PF-85, `data-cv` PF-87,
+    `data-strip`/`data-ok` PF-88). Grep the script for the element's own
+    attribute; do not read the markup and stop.
+
+    ⚠️ **`data-heroimg` is NOT a dangling hook of the `data-terminal`
+    kind, and the distinction matters.** `data-terminal` had a CSS rule
+    in `tokens.css` with no element to match. `data-heroimg` has
+    **neither** — zero occurrences anywhere in `frontend/src`. There was
+    never a rule to transcribe, because the prototype drives it from JS.
+    Nothing dangles; it simply was not ported.
+
+    **PF-80's mask STANDS (owner-approved, and unchanged by PF-90).** It
+    differs from the design's in two ways, both deliberate and both now
+    measured side by side in a browser:
+
+    | | PF-80 (shipped) | prototype |
+    | --- | --- | --- |
+    | dark | softened | **raw** — hard oval rim, flat-cut shoulders |
+    | light | softened, tighter disc | softened, wider//more diffuse vignette |
+
+    Captured side by side during PF-90 and viewed, but the shots live in the
+    session scratch rather than the repo — same as PF-83's audit scripts, and
+    they are one `mask-image` override away from being reproduced. The
+    honest read: the prototype's light mask is the
+    softer of the two and melts the image further into the paper, while
+    PF-80's keeps more of the picture and leaves a slightly more defined
+    circular edge. Neither is wrong; PF-80's also fixes dark, which the
+    design leaves raw. **Changing it is an owner call, not a fidelity
+    fix.** `.portraitImg` now carries
     two intersected mask layers — a radial that dissolves the oval rim on
     every side, and a linear that additionally dissolves the flat bottom,
     which the radial alone barely reaches (the bottom-centre sits nearest
@@ -5479,6 +6392,83 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   `not.toContain('gradient')` matches the note explaining the absence.
   That tripped twice while writing them — see the Silent-failures entry on
   raw-text CSS assertions matching comments.
+
+- **⚠️ THE FOOTER TAKES THE NAVBAR'S SURFACE — THIS REVERSES THE SCOPE OF
+  THE 2026-08-18 WASH REMOVAL (2026-08-27, owner-requested).** Recorded
+  as a reversal rather than a fresh value, because a fidelity pass that
+  finds only the new declaration will read it as a transcription slip and
+  a pass that finds only the 2026-08-18 entry will delete it.
+
+  **What changed.** `.footer` now carries
+  `background: rgba(var(--ftr), .86)` plus `blur(16px)` — the header's
+  treatment verbatim, not a value invented here. `Footer.test.jsx`
+  asserts the two rules match property for property, so the
+  justification cannot quietly drift away from the implementation.
+
+  **What did NOT change: the prototype's own gradient is still omitted.**
+  Line 543's `linear-gradient(180deg, rgba(var(--gnd),.4),
+  rgba(var(--ftr),.86))` remains untranscribed and is still guarded as an
+  absence. A flat token tint has no vertical ramp, so it does not
+  reintroduce the stacked-panel banding the 2026-08-18 decision targeted.
+  **Keep the two straight** — restoring the gradient is still wrong.
+
+  **The narrowing that makes it coherent: chrome vs section.** The
+  2026-08-18 decision strips *section* washes so the `StarfieldCanvas`
+  reads continuously down the page. The navbar has always carried this
+  exact surface at the top and was never in scope. Giving the footer the
+  same one makes the two ends of the page matching chrome rather than
+  making the footer a sixth banded section. That is a real narrowing of
+  the original scope, not a loophole — and it is the owner's call.
+
+  **⚠️ THE BRIEF'S OWN PREMISE WAS WRONG, IN THE OWNER'S FAVOUR, AND HE
+  ACCEPTED THE CORRECTION.** It cited `--ftr` light as `233,227,216` and
+  predicted a 4/5/7 channel delta — "a barely-visible tint over paper".
+  **`--ftr` light is `226,212,190`** (`tokens.css:108`, "tan chrome"):
+
+  | | composited | delta vs `--bg` |
+  | --- | --- | --- |
+  | brief's assumed value | 234,228,217 | −3 / −4 / −6 |
+  | **real value** | **228,215,195** | **−9 / −17 / −28** |
+
+  Pixel-sampled on the rendered page, not only computed: the empty footer
+  surface goes `rgb(226,223,216)` → `rgb(222,210,192)` in light and
+  `rgb(16,20,26)` → `rgb(19,24,38)` in dark. It reads as **warm tan
+  chrome in light and navy chrome in dark**. It does not read as "no
+  change".
+
+  **⚠️ THE PRICE, RECORDED BECAUSE IT IS THE REAL COST OF THE REVERSAL
+  AND NOT JUST THE VERDICT: the star field behind the footer is roughly
+  halved.** Luminance RMS in an empty footer patch:
+
+  | | before | after | |
+  | --- | --- | --- | --- |
+  | dark | 0.00253 | 0.00107 | **−58%** |
+  | light | 0.01963 | 0.01138 | **−42%** |
+
+  That is exactly what the 2026-08-18 decision existed to protect, and it
+  is being spent deliberately. `GrainOverlay` is z-70, *above* the
+  footer, so what is lost is the star field at z-0; the grain survives.
+
+  **Two things that were checked and need nothing:**
+  - **The marquee band.** Its fill is `var(--acc)` at full opacity since
+    the 2026-08-25 pass, so the surface behind it is irrelevant —
+    measured byte-identical before and after, `rgb(252,163,17)` dark /
+    `rgb(126,72,0)` light.
+  - **The STATUS card survives**, contrary to the brief's worry that it
+    might vanish. Light: composited `rgb(246,242,236)` → `rgb(241,234,222)`,
+    still **+13/+19/+27** clear of the new footer surface — a lighter
+    panel on a tan ground rather than near-invisible on paper.
+
+  **⚠️ AA GOT WORSE, AND PF-91 MUST USE THE POST-CHANGE NUMBERS.** The
+  full table is in the PF-90 entry. Summary: **1 → 3 failures per theme**,
+  with the copyright newly failing in light (4.97 → **4.28**) and the role
+  line and bio newly failing in dark (both **4.30**). The mechanism is the
+  one this file already documents — `--muted2` and `--faint` on a
+  *translucent surface* rather than on the page ground. Adding a surface
+  is precisely what flips them.
+
+  ⚠️ `-webkit-backdrop-filter` is declared FIRST here. The reverse order
+  ships no blur at all — see the minifier entry in Silent failures.
 
 - **The About portrait's caption is removed (2026-08-18,
   owner-requested).** The prototype's `GALLE, SRI LANKA — SEEING THE STACK`

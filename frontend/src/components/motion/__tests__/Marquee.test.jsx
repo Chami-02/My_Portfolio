@@ -93,8 +93,8 @@ describe('Marquee (PF-74)', () => {
    * pinned here.
    */
   it.each([
-    ['footer', '../../layout/Footer.jsx', 16],
-    ['hero', '../../sections/HeroSection.jsx', 6],
+    ['footer', '../../layout/Footer.jsx', 18],
+    ['hero', '../../sections/HeroSection.jsx', 8],
   ])('$0 passes an even copies count of $2', async (_name, rel, expected) => {
     const { readFileSync } = await import('fs');
     const { resolve, dirname } = await import('path');
@@ -112,18 +112,28 @@ describe('Marquee (PF-74)', () => {
   });
 
   /**
-   * ⚠️ The two bands must also agree on DURATION, since 2026-08-25 —
-   * "reduce the speed … exactly like the above one", then "reduce the
-   * speed of the text" for both. The prototype runs the footer at 15s
-   * and the hero at 26s; the footer was matched to 26 and then both
-   * were slowed to 40.
+   * ⚠️ THE TWO BANDS DELIBERATELY NO LONGER SHARE A DURATION — and the
+   * previous version of this test asserted that they did.
    *
-   * Guarded by comparing the two call sites to each other rather than
-   * to a frozen number, so re-tuning the hero fails this until the
-   * footer follows. Reverting the footer to 15 is otherwise silent in
-   * every unit test — found by mutation, not by reading.
+   * Until 2026-08-27 both ran at 40s, which was correct while their copy
+   * widths were close. The Option A slimming changed that: a smaller
+   * font shrinks `copyW`, and seamlessness (`copies >= 2 * band / copy`)
+   * then forced different copy counts — hero 6 -> 8, footer 16 -> 18. But
+   * distance per cycle is `copies/2 * copyW`, so at ONE duration the two
+   * bands would have run at 105 and 88 px/s: visibly different speeds.
+   *
+   * The owner set both to **70 px/s at 1440**, which needs:
+   *
+   *     footer  9 * 392.9  = 3536.4px / 50.5s = 70.02 px/s
+   *     hero    4 * 1050.6 = 4202.2px / 60s   = 70.04 px/s
+   *
+   * So EQUAL SPEED is the contract and equal duration is now the bug.
+   * jsdom can measure neither `copyW` nor px/s, so what is pinned here
+   * is each call site's number plus the arithmetic that ties them —
+   * reverting either band to 40 fails this, as does quietly making them
+   * equal again.
    */
-  it('footer and hero run their bands at the same speed', async () => {
+  it('each band runs at its own duration, matched on px/s not on time', async () => {
     const { readFileSync } = await import('fs');
     const { resolve, dirname } = await import('path');
     const { fileURLToPath } = await import('url');
@@ -132,7 +142,8 @@ describe('Marquee (PF-74)', () => {
       readFileSync(resolve(here, rel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
     const durationOf = (src) => {
-      const m = /<Marquee[^>]*\sduration=\{(\d+)\}/.exec(src);
+      // [\d.]+ — the footer's is 50.5, not an integer.
+      const m = /<Marquee[^>]*\sduration=\{([\d.]+)\}/.exec(src);
       expect(m, 'no <Marquee duration={n}> found').not.toBeNull();
       return Number(m[1]);
     };
@@ -140,10 +151,21 @@ describe('Marquee (PF-74)', () => {
     const footer = durationOf(read('../../layout/Footer.jsx'));
     const hero = durationOf(read('../../sections/HeroSection.jsx'));
 
-    expect(footer).toBe(hero);
-    expect(footer).toBe(40);
-    expect(footer).not.toBe(15);   // the prototype's footer value
-    expect(footer).not.toBe(26);   // the prototype's hero value
+    expect(footer).toBe(50.5);
+    expect(hero).toBe(60);
+    expect(footer).not.toBe(hero);   // equal duration = unequal speed
+    expect(footer).not.toBe(40);     // both bands' pre-2026-08-27 value
+    expect(hero).not.toBe(40);
+    expect(footer).not.toBe(15);     // the prototype's footer value
+    expect(hero).not.toBe(26);       // the prototype's hero value
+
+    // The measured copy widths that make those two numbers one speed.
+    const SPEED = 70;                       // px/s at 1440, owner-set
+    const footerPxS = (18 / 2 * 392.9) / footer;
+    const heroPxS = (8 / 2 * 1050.6) / hero;
+    expect(footerPxS).toBeCloseTo(SPEED, 0);
+    expect(heroPxS).toBeCloseTo(SPEED, 0);
+    expect(Math.abs(footerPxS - heroPxS)).toBeLessThan(1);
   });
 
 });

@@ -173,7 +173,12 @@ describe('HeroSection (PF-80)', () => {
     // Chromium; owner-approved 2026-08-24 and applied to the footer's
     // band in the same pass. See Marquee.jsx.
     const strips = pickAll(container, 'marqueeText');
-    expect(strips).toHaveLength(6);
+    // ⚠️ EIGHT since 2026-08-27, up from 6. The Option A font drop shrank
+    // one copy 1297px -> 1050.6px, which RAISES the seamlessness
+    // requirement (`copies >= 2 * band / copy`) — a thinner band needs
+    // MORE copies. Six covered 3891px and sat on the limit at 3440;
+    // eight covers 4202px.
+    expect(strips).toHaveLength(8);
     expect(strips.length % 2).toBe(0);
   });
 
@@ -329,9 +334,32 @@ describe('HeroSection (PF-80)', () => {
     // Owner-requested slimming. Both halves matter — dropping the padding
     // alone barely moves the band, because the line box dominates it.
     it('slims the marquee band below the prototype\'s values', () => {
-      expect(ruleBody('.marqueeInner')).toContain('padding: 8px 0');
-      expect(ruleBody('.marqueeText')).toContain('font-size: clamp(13px, 1.6vw, 21px)');
-      expect(ruleBody('.marqueeText')).toContain('padding-right: 24px');
+      // ⚠️ Slimmed TWICE. 2026-08-17 took the prototype's 14px/34px band
+      // to 8px + clamp(13px,1.6vw,21px); 2026-08-27 ("Option A") took it
+      // again to 6px + clamp(11px,1.25vw,17px). Measured offsetHeight
+      // 50px -> 39px.
+      //
+      // Option B (clamp(10px,1.0vw,14px), 32px) was measured and
+      // REJECTED: thin enough to read as a hairline rule rather than a
+      // band, with the type no longer registering as text at a glance.
+      //
+      // Both halves are pinned because padding alone barely moves the
+      // band — the line box is 33.6 of the 49.6px interior.
+      expect(ruleBody('.marqueeInner')).toContain('padding: 6px 0');
+      expect(ruleBody('.marqueeText')).toContain('font-size: clamp(11px, 1.25vw, 17px)');
+      expect(ruleBody('.marqueeText')).toContain('padding-right: 20px');
+      // and NOT the values either slimming replaced.
+      // ⚠️ Comments stripped first: both rules name the prototype's own
+      // values in prose directly above themselves, so a raw negative
+      // matches the comment explaining the change rather than the
+      // declaration. This assertion failed against correct code before
+      // the strip was added — the trap CLAUDE.md documents, hit while
+      // writing a guard against it.
+      const noComments = (sel) => ruleBody(sel).replace(/\/\*[\s\S]*?\*\//g, '');
+      expect(noComments('.marqueeInner')).not.toContain('padding: 14px 0');
+      expect(noComments('.marqueeInner')).not.toContain('padding: 8px 0');
+      expect(noComments('.marqueeText')).not.toContain('clamp(20px, 2.6vw, 34px)');
+      expect(noComments('.marqueeText')).not.toContain('clamp(13px, 1.6vw, 21px)');
     });
 
     // The strip stays edge to edge — only its thickness came down. A

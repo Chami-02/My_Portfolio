@@ -28,19 +28,37 @@
   position: relative;
   overflow: hidden;
   padding: 0 0 26px;
-  /* ⚠️ Deliberately NO background. The prototype's line 543 declares
+
+  /* ⚠️ THE NAVBAR'S SURFACE, owner-requested 2026-08-27. This REVERSES
+     the scope of the 2026-08-18 wash removal for this element — see the
+     Locked-decisions entry, which records the reversal rather than
+     presenting this as a fresh value.
+
+     Not the prototype's gradient (still omitted, see below): this is
+     Navbar.module.css's `.header` treatment verbatim, so the two ends of
+     the page are matching chrome rather than the footer being a sixth
+     banded section. That narrowing — chrome vs section — is the whole
+     justification.
+
+     ⚠️ -webkit- FIRST, standard LAST. esbuild collapses the pair and
+     keeps only the last; Chrome no longer honours the prefixed form, so
+     the reverse order ships NO blur at all. Guarded by
+     styles/__tests__/prefixedPairs.test.js. */
+  background: rgba(var(--ftr), .86);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+
+  /* ⚠️ The PROTOTYPE'S OWN GRADIENT IS STILL OMITTED. Line 543 declares
        background: linear-gradient(180deg,
          rgba(var(--gnd),.4), rgba(var(--ftr),.86))
-     and it is omitted under the site-wide wash removal (2026-08-18,
-     owner-requested) so the StarfieldCanvas reads continuously behind
-     the whole page. This is an opaque ground tint spanning the full
-     width, which is exactly what that decision targeted — and after
-     PF-87's glow removal it would have been the only banded surface
-     left on the page.
+     and that TWO-STOP GRADIENT is still not transcribed. The 2026-08-27
+     surface above is a flat token tint, not a wash: no vertical ramp, so
+     it does not reintroduce the banded-panel look the removal targeted.
+     Keep them straight — restoring the gradient is still wrong.
 
      Guarded as an ABSENCE, because a fidelity pass diffing this file
-     against the prototype reads a missing background as an
-     un-transcribed value and paints it back.
+     against the prototype reads a missing gradient as an un-transcribed
+     value and paints it back.
 
      ⚠️ Two backgrounds in this file are NOT washes and stay: the
      marquee band's own surface and the STATUS card's. Both are element
@@ -91,19 +109,23 @@
   /* Hero's borders. Deliberately NO transform — see pass 2 above. */
   border-top: 1px solid rgba(var(--shd), .25);
   border-bottom: 1px solid rgba(var(--shd), .25);
-  /* Hero's `.marqueeInner`. Prototype footer: 10px 0. */
-  padding: 8px 0;
+  /* Hero's `.marqueeInner`. Prototype footer: 10px 0.
+     ⚠️ 8px -> 6px, 2026-08-27 owner "Option A". Band 52px -> 41px. */
+  padding: 6px 0;
 }
 
 .marqueeText {
   font-family: var(--font-display);
-  /* Hero's slimmed scale. Prototype footer: clamp(16px,2vw,26px). */
-  font-size: clamp(13px, 1.6vw, 21px);
+  /* Hero's slimmed scale. Prototype footer: clamp(16px,2vw,26px).
+     ⚠️ Slimmed again 2026-08-27, owner "Option A" — must stay in step
+     with HeroSection.module.css's `.marqueeText`. */
+  font-size: clamp(11px, 1.25vw, 17px);
   text-transform: uppercase;
   color: var(--accInk);
   white-space: nowrap;
-  /* Hero's gap. Prototype footer: 30px. */
-  padding-right: 24px;
+  /* Hero's gap. Prototype footer: 30px.
+     ⚠️ 24px -> 20px with the 2026-08-27 font drop. */
+  padding-right: 20px;
 }
 
 /* ⚠️ FULL-BLEED, owner-requested 2026-08-25 — "the logo … should be
@@ -428,10 +450,137 @@
  * declaration the next reader treats as load-bearing.
  */
 .bottomBar {
-  margin-top: clamp(34px, 5vw, 56px);
+  /* ⚠️ OPTION C3, owner-requested 2026-08-27. The prototype's own value
+     is clamp(34px, 5vw, 56px) — this OVERRULES it.
+
+     The ask was "more compact overall, and the three zones pushed DOWN,
+     closer to the bottom horizontal rule". Two independent levers reach
+     that: the space ABOVE the zones (`.inner` padding-top) and the space
+     BELOW them (this). C1/C2 cut both and shrink the block in place,
+     leaving the group where it sits; C3 takes the whole 36px saving from
+     below, so the zones actually move toward the rule.
+
+     Measured at 1440: footer 426px -> 390px, and the above:below ratio
+     goes 0.82:1 -> 2.30:1. `.inner`'s padding-top is deliberately
+     UNCHANGED — that is what makes this C3 rather than C1. */
+  margin-top: clamp(14px, 1.4vw, 20px);
   padding-top: 22px;
   border-top: 1px solid rgba(var(--ln), .09);
+
+  /* ⚠️ THE GRID IS BACK, 2026-08-27. It was removed on 2026-08-25 with
+     the reasoning "with both outer cells gone there is nothing left to
+     balance, so the grid goes too rather than leaving two empty 1fr
+     columns holding a centred line that a plain block already centres."
+
+     That reasoning was correct and its premise no longer holds: SCROLL
+     BACK UP is back in the right-hand cell, so there IS something to
+     balance again. The prototype's own `1fr auto 1fr` is what keeps the
+     copyright optically centred against a control on one side only —
+     `space-between` would push it left, and `text-align: center` on a
+     block cannot account for the pill at all.
+
+     The empty first cell is therefore load-bearing, not inert: it is
+     the counterweight. REPLAY INTRO, which used to fill it, stays gone. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
   text-align: center;
+}
+
+/* ⚠️ RESTORED 2026-08-27, owner-requested: "when i hit the bottom the
+   small button is disappearing so now add right bottom of the footer a
+   scroll top to button".
+   
+   A direct consequence of hiding the floating ScrollToTop while this bar
+   is in view — that fixed the copyright occlusion and, at the very
+   bottom of the page, left no way back up at all.
+
+   ⚠️ NOT INVENTED — this is the prototype's own control, line 601,
+   transcribed. It was deleted on 2026-08-25 as "redundant with
+   ScrollToTop", which was true then and stopped being true the moment
+   that button learned to hide here.
+
+   ⚠️ ONE DEVIATION: the LABEL. The prototype reads "SCROLL BACK UP ↑";
+   this ships "SCROLL TO TOP ↑", the owner's own wording. Everything
+   else below is the prototype's, so a fidelity pass will flag the label
+   and nothing else — that is expected, and this is the record.
+   Values are the prototype's:
+
+     justify-self:end; font-size:10.5px; letter-spacing:.14em;
+     color:var(--muted); border:1px solid rgba(var(--ln),.18);
+     border-radius:999px; padding:10px 16px
+     hover -> color/border-color: var(--acc)
+
+   `justify-self: end` is what puts it bottom-RIGHT, which is where the
+   owner asked for it and where the design already had it.
+
+   ⚠️ NO `transition` DECLARED, deliberately. This bar sits outside the
+   four `data-reveal` column wrappers, so `hideReveals()` never writes an
+   inline transition over it and the prototype declares none of its own —
+   every hover in this bar SNAPS, in the export exactly as here. This is
+   the PF-93 rule's second half: an element that is NOT Reveal-wrapped
+   normally must keep its own transition, but only if the design gives it
+   one. This one does not. */
+.scrollUp {
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--muted);
+  border: 1px solid rgba(var(--ln), .18);
+  border-radius: 999px;
+  padding: 10px 16px;
+  text-decoration: none;
+  white-space: nowrap;
+  /* ⚠️ Grid items default to `stretch`, which would pull the pill to the
+     full row height once the copyright wraps to two lines on a phone.
+     `center` keeps it pill-shaped at every width. */
+  align-self: center;
+}
+
+.scrollUp:hover {
+  color: var(--acc);
+  border-color: var(--acc);
+}
+
+/* ⚠️ BELOW 900px THE BAR STACKS, and both halves are measured rather
+   than assumed.
+
+   `1fr auto 1fr` only centres the copyright while the copyright FITS ONE
+   LINE. Once it wraps — which it does from 768px down, since ALL RIGHTS
+   RESERVED took it to 78 characters — the `auto` pill column keeps its
+   158px and the two `1fr` columns are no longer equal to the eye:
+   measured, the copyright's centre drifted 79px off the bar's centre at
+   768 and below. Stacking restores it to 0.
+
+   899px, not 768px, so this matches `.grid`'s own breakpoint — the
+   footer changes shape once, not twice.
+
+   ⚠️ 44px min-height is the TAP TARGET, not a look: the prototype's
+   10px padding on 10.5px type measures 39px, four short. Same fix and
+   same reasoning as the footer nav links at this breakpoint. It is
+   applied ONLY here — at desktop widths 39px is the prototype's value
+   and a pointer does not need 44. */
+@media (max-width: 899px) {
+  .bottomBar {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 18px;
+  }
+
+  /* The counterweight only counterweighs in a row. Stacked it would be
+     an empty grid row plus a gap. */
+  .barSpacer {
+    display: none;
+  }
+
+  .scrollUp {
+    justify-self: center;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }
 
 .copyright {

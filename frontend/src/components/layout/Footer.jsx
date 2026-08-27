@@ -75,14 +75,26 @@ export function Footer() {
           ~3880px where 12 covered ~2900px. The even-count requirement
           and the full arithmetic are in Marquee.jsx.
 
-          ⚠️ `duration={40}` is a LITERAL, not a shared constant, and
-          deliberately: Marquee.test.jsx pins the two bands together by
-          reading `duration={n}` out of both call sites as source, and a
+          ⚠️ THE TWO BANDS NO LONGER SHARE A DURATION, and that is the
+          point rather than drift. Owner-set 2026-08-27: both run at
+          **70 px/s at 1440**, and after the Option A slimming their
+          copy widths differ enough that one duration would have made
+          them visibly different speeds (105 vs 88 px/s). Distance per
+          cycle is `copies/2 x copyW`, so:
+
+            footer  9 x 392.9  = 3536.4px / 50.5s = 70.02 px/s
+            hero    4 x 1050.6 = 4202.2px / 60s   = 70.04 px/s
+
+          Equal DURATION would be the bug; equal SPEED is the contract.
+
+          ⚠️ `duration={50.5}` is a LITERAL, not a shared constant, and
+          deliberately: Marquee.test.jsx pins both call sites by
+          reading `duration={n}` out of them as source, and a
           named import would slip straight past that regex while looking
           tidier. Both bands were slowed together — the prototype runs
           the footer at 15s and the hero at 26s; the footer was matched
           to 26 on 2026-08-25 and then both went to 40 the same day. */}
-      <Marquee duration={40} copies={16} className={styles.marqueeBand}>
+      <Marquee duration={50.5} copies={18} className={styles.marqueeBand}>
         <span className={styles.marqueeText}>{MARQUEE_TEXT}</span>
       </Marquee>
 
@@ -179,7 +191,13 @@ export function Footer() {
 
         </div>
 
-        <div className={styles.bottomBar}>
+        {/* ⚠️ `data-footer-bottom` is READ BY ScrollToTop, which hides
+            itself while this bar is on screen — it was covering the end
+            of the copyright at <=600px. Dropping the attribute does not
+            error and nothing here changes; the button simply starts
+            occluding the line again. Guarded in Footer.test.jsx and
+            ScrollToTop.test.jsx. */}
+        <div className={styles.bottomBar} data-footer-bottom>
           {/* ⚠️ ONE CENTRED LINE, not the prototype's `1fr auto 1fr`.
               Owner-requested 2026-08-25: REPLAY INTRO and SCROLL BACK
               UP are both removed — replaying the splash is not
@@ -189,7 +207,23 @@ export function Footer() {
               goes too rather than leaving two empty `1fr` columns
               holding a centred line that a plain block already
               centres. */}
+          {/* Empty first cell — the counterweight that keeps the
+              copyright optically centred against the pill on the right.
+              See .bottomBar in the module for why the grid came back. */}
+          <span aria-hidden="true" className={styles.barSpacer} />
+
           <span className={styles.copyright}>{COPYRIGHT}</span>
+
+          {/* ⚠️ The prototype's own control (line 601), restored
+              2026-08-27. An <a href="#hero">, not a <button> + scrollTo:
+              a plain anchor inherits the root's `scroll-behavior`, which
+              motion.css flips to `auto` under reduced motion. A JS
+              scrollTo with an explicit `behavior` does NOT — that is the
+              trap utils/replay.js was written for and the reason
+              ScrollToTop has to read the media query by hand. */}
+          <a href={sectionHref(pathname, 'hero')} className={styles.scrollUp}>
+            SCROLL TO TOP ↑
+          </a>
         </div>
       </div>
     </footer>

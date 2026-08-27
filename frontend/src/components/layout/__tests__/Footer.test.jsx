@@ -111,18 +111,50 @@ describe('Footer (PF-88)', () => {
 
   /* ── Step 4 — the wash decision ─────────────────────────────────── */
 
-  it('declares NO background on the <footer> rule', () => {
-    // The prototype's line 543 carries
+  it('carries the navbar surface, and STILL not the prototype gradient', () => {
+    // ⚠️ THIS REVERSED ON 2026-08-27, and both halves matter.
+    //
+    // Until then the <footer> rule declared NO background at all, under
+    // the 2026-08-18 site-wide wash removal. The owner then asked for
+    // the navbar's surface on the whole footer, which narrows that
+    // decision to "sections, not chrome" — see Locked decisions.
+    //
+    // What did NOT come back is the prototype's line 543 gradient:
     //   background: linear-gradient(180deg, rgba(var(--gnd),.4),
     //                               rgba(var(--ftr),.86))
-    // omitted under the 2026-08-18 site-wide wash removal. Asserted as
-    // an ABSENCE so a fidelity pass diffing against the prototype
-    // cannot read it as un-transcribed and paint it back.
+    // A flat token tint is not a wash — no vertical ramp, so it does not
+    // reintroduce the banded-panel look the removal targeted. Still
+    // asserted as an absence, because a fidelity pass diffing against
+    // the prototype reads the missing gradient as un-transcribed.
     const decls = declsFor(footerCss, forClass('footer'));
-    expect(decls.length).toBeGreaterThan(0);          // the rule exists at all
-    expect(decls.map((d) => d.prop)).not.toContain('background');
-    expect(decls.map((d) => d.prop)).not.toContain('background-image');
+    expect(decls.length).toBeGreaterThan(0);
+
+    // present: the navbar's own surface, verbatim
+    expect(decls).toContainEqual(
+      expect.objectContaining({ prop: 'background', value: 'rgba(var(--ftr), .86)' }),
+    );
+    // present: the blur, prefix FIRST — reversed order ships no blur at
+    // all (esbuild collapses the pair; Chrome ignores the prefixed form)
+    const props = decls.map((d) => d.prop);
+    expect(props).toContain('-webkit-backdrop-filter');
+    expect(props).toContain('backdrop-filter');
+    expect(props.indexOf('-webkit-backdrop-filter'))
+      .toBeLessThan(props.indexOf('backdrop-filter'));
+
+    // absent: the prototype's two-stop wash
     expect(decls.some((d) => /gradient/.test(d.value))).toBe(false);
+  });
+
+  it('matches the navbar surface exactly, rather than inventing a value', () => {
+    // The justification for reversing the wash removal is "the two ends
+    // of the page are matching chrome". A drifted value would keep the
+    // reversal without its reason.
+    const navCss = readCss('../Navbar.module.css');
+    const header = declsFor(navCss, forClass('header'));
+    const footer = declsFor(footerCss, forClass('footer'));
+    const pick = (decls, prop) => decls.find((d) => d.prop === prop)?.value;
+    expect(pick(footer, 'background')).toBe(pick(header, 'background'));
+    expect(pick(footer, 'backdrop-filter')).toBe(pick(header, 'backdrop-filter'));
   });
 
   it('keeps the marquee band surface and the STATUS card surface', () => {
@@ -353,15 +385,18 @@ describe('Footer (PF-88)', () => {
 
   /* ── Content and structure ───────────────────────────────────────── */
 
-  it('repeats the strip sixteen times, each ending in a non-breaking space', () => {
-    // ⚠️ TWELVE, not the prototype's two, and the number is arithmetic.
+  it('repeats the strip eighteen times, each ending in a non-breaking space', () => {
+    // ⚠️ EIGHTEEN as of 2026-08-27, and the number is arithmetic.
     // `marq` translates the track by -50% of its OWN width, so one cycle
     // slides it by half the copies — the requirement is
-    // `copies >= 2 * band / copy`, which is 4.8 at 1440px and 8.5 at
-    // 2560px, NOT the intuitive `copy >= band`. One copy of this strip
-    // is 600px, so the prototype's two left 840px of the band empty at
-    // the wrap, growing as the track slid. Twelve covers a band up to
-    // 3600px. Measured in Chromium; owner-approved 2026-08-24.
+    // `copies >= 2 * band / copy`, NOT the intuitive `copy >= band`.
+    //
+    // It was 16, which covered 3878px and sat EXACTLY on the limit at
+    // 3440. The Option A slimming dropped the font, which shrank one
+    // copy from 484.7px to 392.9px and so RAISED the requirement to 18 —
+    // thinning a band makes it need MORE copies, not fewer. Shipping A
+    // at 16 would have reopened the hole this count exists to close.
+    // Measured in Chromium; owner-approved 2026-08-27.
     //
     // Even, separately: an odd count lands mid-copy at the wrap and the
     // text visibly jumps once per cycle.
@@ -370,7 +405,7 @@ describe('Footer (PF-88)', () => {
     // repeats. A plain space is collapsed and the copies butt together.
     const { container } = renderFooter();
     const strips = pickAll(container, 'marqueeText');
-    expect(strips).toHaveLength(16);
+    expect(strips).toHaveLength(18);
     expect(strips.length % 2).toBe(0);
     for (const strip of strips) {
       expect(strip.textContent).toBe(
@@ -473,23 +508,74 @@ describe('Footer (PF-88)', () => {
 
   /* ── Step 5 — the bottom bar ─────────────────────────────────────── */
 
-  it('is a single centred copyright line, with no grid left behind', () => {
-    // ⚠️ OWNER-REQUESTED, 2026-08-25. The prototype's bar is
-    // `1fr auto 1fr` holding REPLAY INTRO · copyright · SCROLL BACK UP.
-    // Both outer controls are gone, so the grid goes with them — two
-    // empty `1fr` columns around a lone centred line is exactly the kind
-    // of inert declaration the next reader treats as load-bearing.
+  it('is a three-cell bar: spacer, centred copyright, scroll-to-top', () => {
+    // ⚠️ THE GRID IS BACK, 2026-08-27, and this test asserted the
+    // OPPOSITE until then. Both states were right for their moment.
+    //
+    // 2026-08-25 removed REPLAY INTRO and SCROLL BACK UP, so the
+    // prototype's `1fr auto 1fr` had nothing left to balance and went
+    // with them — two empty columns around a lone centred line is an
+    // inert declaration the next reader treats as load-bearing.
+    //
+    // The owner then asked for a scroll-to-top control back, because
+    // hiding the floating ScrollToTop over this bar left no way up from
+    // the very bottom. With the right-hand cell populated again the
+    // premise is gone: `1fr auto 1fr` is what keeps the copyright
+    // optically centred against a control on ONE side, which neither
+    // `space-between` nor `text-align: center` can do.
+    // ⚠️ baseDeclsFor, not declsFor — the stacking breakpoint redeclares
+    // grid-template-columns as `1fr`, and collapsing both into one object
+    // makes this read the MOBILE value and fail against correct code.
+    // Exactly the trap that helper's own doc comment describes.
     const bar = Object.fromEntries(
-      declsFor(footerCss, forClass('bottomBar')).map((d) => [d.prop, d.value]),
+      baseDeclsFor(footerCss, forClass('bottomBar')).map((d) => [d.prop, d.value]),
     );
-    expect(bar['grid-template-columns']).toBeUndefined();
-    expect(bar.display).toBeUndefined();
-    expect(bar['text-align']).toBe('center');
+    expect(bar.display).toBe('grid');
+    expect(bar['grid-template-columns']).toBe('1fr auto 1fr');
 
     const { container } = renderFooter({ path: '/' });
     const bottom = pick(container, 'bottomBar');
-    expect(bottom.children).toHaveLength(1);
-    expect(has(bottom.firstElementChild, 'copyright')).toBe(true);
+    expect(bottom.children).toHaveLength(3);
+    // The empty first cell is the counterweight, not decoration.
+    expect(has(bottom.children[0], 'barSpacer')).toBe(true);
+    expect(bottom.children[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(has(bottom.children[1], 'copyright')).toBe(true);
+    expect(has(bottom.children[2], 'scrollUp')).toBe(true);
+    expect(bottom.children[2]).toHaveTextContent(/SCROLL TO TOP/i);
+  });
+
+  it('puts the scroll-to-top link at the RIGHT, and it snaps rather than easing', () => {
+    // `justify-self: end` is the prototype's own value (line 601) and is
+    // what puts it bottom-right, where the owner asked for it.
+    // ⚠️ EXACT selector, not forClass: `.scrollUp:hover` is also a
+    // top-level rule, so forClass matches both and the hover's
+    // `color: var(--acc)` overwrites the resting `var(--muted)`. Reads
+    // as the rest colour being wrong when it is not.
+    // And baseDeclsFor, since the breakpoint redeclares justify-self.
+    const pill = Object.fromEntries(
+      baseDeclsFor(footerCss, (sel) => sel.trim() === '.scrollUp')
+        .map((d) => [d.prop, d.value]),
+    );
+    expect(pill['justify-self']).toBe('end');
+    expect(pill['border-radius']).toBe('999px');
+    expect(pill['font-size']).toBe('10.5px');
+    expect(pill.color).toBe('var(--muted)');
+
+    // ⚠️ NO transition — this bar sits outside the four data-reveal
+    // column wrappers, so nothing supplies one and the prototype
+    // declares none. Every hover in this bar snaps, in the export as
+    // much as here. The PF-93 rule's second half: an unwrapped element
+    // keeps its own transition ONLY if the design gives it one.
+    expect(Object.keys(pill).some((k) => k.startsWith('transition'))).toBe(false);
+
+    // The hover is its own rule, and it is the prototype's: accent ink
+    // and an accent border, nothing else.
+    const hover = Object.fromEntries(
+      baseDeclsFor(footerCss, (sel) => sel.trim() === '.scrollUp:hover')
+        .map((d) => [d.prop, d.value]),
+    );
+    expect(hover.color).toBe('var(--acc)');
+    expect(hover['border-color']).toBe('var(--acc)');
   });
 
   it('states all rights reserved, on every route', () => {
@@ -504,27 +590,63 @@ describe('Footer (PF-88)', () => {
     }
   });
 
-  it('renders neither removed control, on any route', () => {
-    // Guarded as an ABSENCE in both directions: the button and the link
-    // are in the prototype, so a fidelity pass diffing against the
-    // export reads them as un-transcribed and puts them back.
+  it('renders REPLAY INTRO nowhere, and the scroll-to-top link everywhere', () => {
+    // ⚠️ THE TWO REMOVED CONTROLS HAVE DIFFERENT FATES NOW, and keeping
+    // them in one test is deliberate — they were removed together on
+    // 2026-08-25 and only one came back, which is exactly the pair a
+    // fidelity pass would get wrong in both directions.
+    //
+    // REPLAY INTRO stays gone: "no one wants to replay that splash when
+    // in the website". It is in the prototype, so it still needs an
+    // absence guard.
     for (const path of ['/', '/blog', '/nope']) {
       const { container, unmount } = renderFooter({ path });
-      expect(container.querySelectorAll('button')).toHaveLength(0);
       expect(screen.queryByText(/REPLAY INTRO/i)).toBeNull();
-      expect(screen.queryByText(/SCROLL BACK UP/i)).toBeNull();
-      expect(container.querySelectorAll('a[href$="#hero"]')).toHaveLength(0);
+      // no <button> — the restored control is an <a>, not a button
+      expect(container.querySelectorAll('button')).toHaveLength(0);
+
+      // The scroll-to-top link is back, on every route, pointing at the
+      // hero through sectionHref so it works off the home page too.
+      //
+      // ⚠️ MATCHED ON /SCROLL TO TOP/, NOT the prototype's own
+      // "SCROLL BACK UP ↑" (line 601). The owner renamed it to match
+      // what he asked for — "go to top button". Everything else about
+      // the control is the prototype's; only the label deviates, and
+      // this regex is the record of that.
+      const up = screen.getByText(/SCROLL TO TOP/i);
+      expect(up.tagName).toBe('A');
+      expect(up.getAttribute('href')).toBe(
+        path === '/' ? '#hero' : '/?nosplash=1#hero',
+      );
       unmount();
     }
   });
 
-  it('declares no rule for either removed control', () => {
-    // The CSS half. Both rules existed until today and the module still
-    // discusses them in prose, so this goes through postcss — a text
-    // search matches the comment explaining the removal.
+  it('declares a rule for the scroll-to-top link but not for REPLAY INTRO', () => {
+    // The CSS half. Goes through postcss — the module discusses both
+    // controls in prose, so a text search matches the comment rather
+    // than the rule.
     const selectors = [];
     postcss.parse(footerCss).walkRules((r) => selectors.push(r.selector));
     expect(selectors.join(' ')).not.toMatch(/\.replay\b/);
-    expect(selectors.join(' ')).not.toMatch(/\.scrollUp\b/);
+    expect(selectors.join(' ')).toMatch(/\.scrollUp\b/);
+  });
+
+  it('gives the pill a 44px tap target once the bar stacks', () => {
+    // The prototype's 10px padding on 10.5px type measures 39px — four
+    // short of the touch minimum, and this is the only way back to the
+    // top from the bottom of a phone screen. Applied at the stacked
+    // breakpoint only; 39px is the design's value for a pointer.
+    const pill = Object.fromEntries(
+      mediaDeclsFor(footerCss, '(max-width: 899px)', forClass('scrollUp'))
+        .map((d) => [d.prop, d.value]),
+    );
+    expect(pill['min-height']).toBe('44px');
+
+    const bar = Object.fromEntries(
+      mediaDeclsFor(footerCss, '(max-width: 899px)', forClass('bottomBar'))
+        .map((d) => [d.prop, d.value]),
+    );
+    expect(bar['grid-template-columns']).toBe('1fr');
   });
 });

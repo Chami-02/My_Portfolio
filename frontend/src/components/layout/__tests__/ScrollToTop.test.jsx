@@ -17,8 +17,32 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import postcss from 'postcss';
+import { MemoryRouter } from 'react-router-dom';
 
 import { ScrollToTop } from '../ScrollToTop';
+
+// ⚠️ ScrollToTop calls useLocation() since 2026-08-27, so it needs a
+// Router context. In the app it has always been inside App.jsx's
+// <BrowserRouter>, so nothing changed there — but these tests rendered
+// it bare. A bare render now fails with "useLocation() may be used only
+// in the context of a <Router> component", which reads like a routing
+// bug and is not one. Same trap HomePage.test.jsx hit.
+const renderButton = (ui = <ScrollToTop />) =>
+  render(<MemoryRouter>{ui}</MemoryRouter>);
+
+/**
+ * Mount a stand-in for the footer's bottom bar.
+ *
+ * The global IntersectionObserver stub in test/setup.js fires
+ * `isIntersecting: true` the moment observe() is called, so simply
+ * having this in the DOM is what puts the button in its hidden state.
+ */
+function mountBottomBar() {
+  const bar = document.createElement('div');
+  bar.setAttribute('data-footer-bottom', '');
+  document.body.appendChild(bar);
+  return () => bar.remove();
+}
 
 const css = readFileSync(
   resolve(dirname(fileURLToPath(import.meta.url)), '../ScrollToTop.module.css'),
@@ -53,7 +77,7 @@ describe('ScrollToTop', () => {
   });
 
   it('appears only past 400px of scroll', () => {
-    render(<ScrollToTop />);
+    renderButton();
     expect(screen.queryByRole('button', { name: 'Scroll to top' })).toBeNull();
     scrollTo(500);
     expect(screen.getByRole('button', { name: 'Scroll to top' })).toBeInTheDocument();
@@ -217,7 +241,7 @@ describe('ScrollToTop', () => {
       const spy = vi.fn();
       vi.stubGlobal('scrollTo', spy);
 
-      const { unmount } = render(<ScrollToTop />);
+      const { unmount } = renderButton();
       scrollTo(500);
       screen.getByRole('button', { name: 'Scroll to top' }).click();
 
@@ -228,11 +252,99 @@ describe('ScrollToTop', () => {
   });
 
   it('hides its icon from assistive technology', () => {
-    render(<ScrollToTop />);
+    renderButton();
     scrollTo(500);
     const button = screen.getByRole('button', { name: 'Scroll to top' });
     // The accessible name comes from aria-label; the arrow would
     // otherwise contribute nothing but noise.
     expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+  });
+});
+
+describe('ScrollToTop — hides while the footer bottom bar is in view (PF-90)', () => {
+  // The defect: at <=600px the fixed button covered the end of the
+  // copyright line — "DESIGNED & BUILT FROM SCRATCH" read "...FROM SCRA".
+  // Occlusion, not clipping: no overflow existed to find.
+
+  it('is visible mid-page when there is no footer bottom bar on screen', () => {
+    renderButton();
+    scrollTo(800);
+    expect(screen.getByRole('button', { name: /scroll to top/i })).toBeInTheDocument();
+  });
+
+  it('is GONE once the footer bottom bar is in view', () => {
+    const remove = mountBottomBar();
+    try {
+      renderButton();
+      scrollTo(800);
+      expect(screen.queryByRole('button', { name: /scroll to top/i })).toBeNull();
+    } finally {
+      remove();
+    }
+  });
+
+  it('unmounts rather than hiding — nothing focusable is left behind', () => {
+    // An invisible but focusable button is the skip-link failure mode in
+    // reverse: Tab lands on a control nobody can see. Assert the element
+    // is absent from the DOM entirely, not merely styled away.
+    const remove = mountBottomBar();
+    try {
+      const { container } = renderButton();
+      scrollTo(800);
+      expect(container.querySelector('button')).toBeNull();
+      expect(document.activeElement).not.toBe(container.querySelector('button'));
+    } finally {
+      remove();
+    }
+  });
+
+  it('observes the bar rather than reading a scroll offset', () => {
+    // A hardcoded threshold rots when the footer's height changes, so the
+    // observer is the mechanism. Proven by the button being hidden at a
+    // scroll position that otherwise shows it (800 > the 400 threshold).
+    const observed = [];
+    const RealIO = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class extends RealIO {
+      observe(el) { observed.push(el); super.observe(el); }
+    };
+    const remove = mountBottomBar();
+    try {
+      renderButton();
+      scrollTo(800);
+      expect(observed).toHaveLength(1);
+      expect(observed[0].hasAttribute('data-footer-bottom')).toBe(true);
+    } finally {
+      remove();
+      globalThis.IntersectionObserver = RealIO;
+    }
+  });
+
+  it('disconnects the observer on unmount', () => {
+    const remove = mountBottomBar();
+    const disconnect = vi.fn();
+    const RealIO = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class extends RealIO {
+      disconnect() { disconnect(); super.disconnect(); }
+    };
+    try {
+      const { unmount } = renderButton();
+      unmount();
+      expect(disconnect).toHaveBeenCalled();
+    } finally {
+      remove();
+      globalThis.IntersectionObserver = RealIO;
+    }
+  });
+
+  it('Footer renders the data-footer-bottom hook the observer looks for', () => {
+    // Source-level, because rendering Footer here would drag in its whole
+    // provider tree. Dropping the attribute is otherwise SILENT: nothing
+    // errors, the footer is unchanged, and the button quietly starts
+    // covering the copyright again.
+    const footer = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../Footer.jsx'),
+      'utf8',
+    ).replace(/\{\/\*[\s\S]*?\*\/\}/g, '');   // strip JSX comments — one NAMES the attribute
+    expect(footer).toMatch(/data-footer-bottom/);
   });
 });

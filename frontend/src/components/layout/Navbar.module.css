@@ -22,8 +22,13 @@
   right: 0;
   z-index: 60;
   background: rgba(var(--ftr), .86);
-  backdrop-filter: blur(16px);
+  /* ⚠️ -webkit- FIRST, standard LAST — order is load-bearing.
+     esbuild's CSS minifier drops whichever of the pair comes first,
+     so `backdrop-filter` before `-webkit-backdrop-filter` shipped
+     webkit-only, and Chrome no longer honours the prefixed form —
+     the blur silently did not render at all. PF-90. */
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(var(--ln), .08);
 }
 
@@ -337,8 +342,13 @@
   justify-content: center;
   gap: 28px;
   background: rgba(var(--ftr), .86);
-  backdrop-filter: blur(16px);
+  /* ⚠️ -webkit- FIRST, standard LAST — order is load-bearing.
+     esbuild's CSS minifier drops whichever of the pair comes first,
+     so `backdrop-filter` before `-webkit-backdrop-filter` shipped
+     webkit-only, and Chrome no longer honours the prefixed form —
+     the blur silently did not render at all. PF-90. */
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 
 /* ⚠️ 44px, not 40 — 2026-08-25 mobile pass. Four pixels short of the

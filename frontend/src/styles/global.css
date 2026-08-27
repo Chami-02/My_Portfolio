@@ -6,6 +6,34 @@
 
 @import "tailwindcss";
 
+/* ── Keep test files out of Tailwind's content scan (PF-90) ──
+ * Tailwind v4 auto-detects sources under src/, and this repo's
+ * convention puts 44 test files there (per-module __tests__/).
+ * Any bare token in a test — a property name in a comment, a
+ * class name in a string literal — is a valid utility candidate,
+ * so the generator emits that utility into the SHIPPED stylesheet.
+ *
+ * Measured: styles/__tests__/prefixedPairs.test.js names two
+ * backdrop properties, which alone added 1,581 bytes of dead CSS
+ * (the two utilities plus Tailwind's @property chain for them). The
+ * pre-existing 43 test files were already contributing 193 bytes.
+ * Total saved: 1,774 bytes.
+ *
+ * ⚠️ THIS COMMENT DELIBERATELY DOES NOT SPELL THOSE TWO PROPERTY
+ * NAMES OUT, and that is not fussiness. THIS FILE is Tailwind's entry
+ * point and is itself scanned, so an earlier draft of this very
+ * comment — explaining the leak — re-created it: `.blur` and
+ * `.backdrop-filter` came back into the shipped stylesheet, +1,581
+ * bytes, from prose in the fix's own documentation. Naming a utility
+ * anywhere under src/ is enough to emit it. Describe, do not name.
+ *
+ * Safe because no test consumes the built stylesheet — CSS Modules
+ * are stubbed under Vitest and document.styleSheets.length is 0, so
+ * tests assert stylesheets as TEXT, never as applied rules.
+ * ──────────────────────────────────────────────────────────── */
+@source not "**/__tests__/**";
+@source not "**/*.test.{js,jsx}";
+
 /* ── Tailwind theme bridge (PF-70) ───────────────────────────
  * Exposes a minimal token subset to Tailwind's utility generator.
  *
@@ -137,8 +165,13 @@ body {
 /* ─── GLASS CARD ─────────────────────────────────────────────── */
 .glass {
   background: rgba(12, 17, 29, 0.8);
-  backdrop-filter: blur(12px);
+  /* ⚠️ -webkit- FIRST, standard LAST — order is load-bearing.
+     esbuild's CSS minifier drops whichever of the pair comes first,
+     so `backdrop-filter` before `-webkit-backdrop-filter` shipped
+     webkit-only, and Chrome no longer honours the prefixed form —
+     the blur silently did not render at all. PF-90. */
   -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
 }
 .glass:hover {

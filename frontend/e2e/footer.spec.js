@@ -56,37 +56,92 @@ test.describe('Footer (PF-88)', () => {
     ).toBe(Math.round(headerHeight));
   });
 
-  test('neither removed control renders, on any route', async ({ page }) => {
-    // Both are in the prototype (line 599 and line 601), so this is an
-    // absence guard, not a leftover. REPLAY INTRO went because nobody
-    // wants to sit through the splash again mid-visit; SCROLL BACK UP
-    // went because ScrollToTop already floats one on every route.
+  test('REPLAY INTRO stays gone; the scroll-to-top link is on every route', async ({ page }) => {
+    // ⚠️ THESE TWO WERE REMOVED TOGETHER AND ONLY ONE CAME BACK, which
+    // is exactly the pair a fidelity pass gets wrong in both directions.
+    // Both are in the prototype (lines 599 and 601).
+    //
+    // REPLAY INTRO is still an ABSENCE guard: nobody wants to sit
+    // through the splash again mid-visit.
+    //
+    // The scroll-to-top link was removed on 2026-08-25 as "redundant
+    // with ScrollToTop" — true until that button learned to hide over
+    // this bar, which left no way up from the bottom. Restored
+    // 2026-08-27, so it is now a PRESENCE guard.
     for (const path of ['/?nosplash', '/this-page-does-not-exist']) {
       await page.goto(path);
       const footer = page.locator('footer');
       await expect(footer.getByRole('button')).toHaveCount(0);
       await expect(footer.getByText(/REPLAY INTRO/i)).toHaveCount(0);
-      await expect(footer.getByText(/SCROLL BACK UP/i)).toHaveCount(0);
-      await expect(footer.locator('a[href$="#hero"]')).toHaveCount(0);
+
+      // Present, an <a>, and route-aware via sectionHref.
+      const up = footer.getByText(/SCROLL TO TOP/i);
+      await expect(up).toHaveCount(1);
+      await expect(up).toHaveAttribute(
+        'href',
+        path.startsWith('/?') ? '#hero' : '/?nosplash=1#hero',
+      );
     }
   });
 
-  test('the bottom bar is one centred line', async ({ page }) => {
+  test('the bottom bar centres the copyright against a right-hand link', async ({ page }) => {
+    // ⚠️ This asserted `{ children: 1, display: 'block' }` until
+    // 2026-08-27 — one centred line with no grid. The owner then asked
+    // for a scroll-to-top control back in the footer, because hiding the
+    // floating ScrollToTop over this bar left no way up from the very
+    // bottom of the page. The prototype's `1fr auto 1fr` came back with
+    // it: an empty counterweight cell, the copyright, and the link.
+    //
+    // The centring is still the point, and it is still MEASURED rather
+    // than inferred from `text-align` — `text-align: center` cannot
+    // account for a 158px pill on one side, which is the whole reason
+    // the grid is needed.
     await page.goto('/?nosplash');
     expect(await page.evaluate(() => {
       const bar = document.querySelector('footer').children[1].lastElementChild;
       const cs = getComputedStyle(bar);
-      const line = bar.firstElementChild.getBoundingClientRect();
+      const copy = [...bar.children].find((e) => /ALL RIGHTS RESERVED/.test(e.textContent));
+      const link = bar.querySelector('a');
+      const c = copy.getBoundingClientRect();
       const box = bar.getBoundingClientRect();
       return {
         children: bar.children.length,
         display: cs.display,
-        // Centred within a couple of pixels, measured rather than
-        // inferred from `text-align`.
+        columns: cs.gridTemplateColumns.split(' ').length,
         offCentre: Math.round(
-          Math.abs((line.left + line.right) / 2 - (box.left + box.right) / 2)),
+          Math.abs((c.left + c.right) / 2 - (box.left + box.right) / 2)),
+        // the link is at the RIGHT, which is where it was asked for
+        linkFlushRight: Math.round(box.right - link.getBoundingClientRect().right),
+        label: link.textContent.trim(),
       };
-    })).toEqual({ children: 1, display: 'block', offCentre: 0 });
+    })).toEqual({
+      children: 3,
+      display: 'grid',
+      columns: 3,
+      offCentre: 0,
+      linkFlushRight: 0,
+      label: 'SCROLL TO TOP ↑',
+    });
+  });
+
+  test('the scroll-to-top link actually returns to the top', async ({ page }) => {
+    // The reason it exists: ScrollToTop unmounts once this bar is in
+    // view, so at the very bottom this is the only way back up.
+    await page.goto('/?nosplash');
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY) > 0)).toBe(true);
+
+    // The floating button is genuinely gone at this point.
+    await expect(page.locator('button[aria-label="Scroll to top"]')).toHaveCount(0);
+
+    await page.locator('footer a', { hasText: 'SCROLL TO TOP' }).click();
+
+    // Poll the ROUNDED value to equality — a predicate like `y < 500`
+    // is satisfied by plenty of non-top positions and would pass on the
+    // first tick from a page that never moved.
+    await expect
+      .poll(() => page.evaluate(() => Math.round(window.scrollY)), { timeout: 8000 })
+      .toBe(0);
   });
 
   test('the band is a flat, full-bleed rule at the top of the footer', async ({ page }) => {
@@ -119,7 +174,12 @@ test.describe('Footer (PF-88)', () => {
     // .06 tint with .5 accent text.
     expect(band.background).not.toBe('rgba(0, 0, 0, 0)');
     expect(band.stripOpacity).toBe('1');
-    expect(band.duration).toEqual([40000]);
+    // ⚠️ 50.5s, and the HERO's is 60s — they no longer match, on purpose.
+    // Owner-set 2026-08-27: both bands run at 70 px/s at 1440. After the
+    // Option A slimming their copy widths differ enough that one duration
+    // would have given 105 vs 88 px/s. Equal SPEED is the contract;
+    // equal duration would now be the bug.
+    expect(band.duration).toEqual([50500]);
 
     // Flat, flush, full width.
     expect(band.transform).toBe('none');

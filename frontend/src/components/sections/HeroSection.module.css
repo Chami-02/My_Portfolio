@@ -719,23 +719,34 @@ section.hero {
    track is the only thing inside it, so the painted result is identical.
 
    Owner-requested slimming, 2026-08-17: the prototype's 14px. The strip
-   stays full-bleed; only the band's thickness comes down. */
+   stays full-bleed; only the band's thickness comes down.
+
+   ⚠️ Slimmed AGAIN 2026-08-27 (owner "Option A"): 8px -> 6px, alongside
+   the font drop below. Band height 50px -> 39px, measured offsetHeight.
+   Padding alone would barely have moved it — the line box is 33.6 of the
+   49.6px interior — which is why both halves change together. */
 .marqueeInner {
-  padding: 8px 0;
+  padding: 6px 0;
 }
 
 .marqueeText {
   font-family: var(--font-display);
   /* Prototype: clamp(20px, 2.6vw, 34px). Scaled down with the padding
      above — this is the larger half of the height reduction, since the
-     line box dominates. */
-  font-size: clamp(13px, 1.6vw, 21px);
+     line box dominates.
+
+     ⚠️ 2026-08-27, owner "Option A": clamp(13px,1.6vw,21px) -> this.
+     Option B (clamp(10px,1.0vw,14px)) was measured at 32px and rejected
+     — thin enough to read as a hairline rule rather than a band, and the
+     type stops registering as text at a glance. */
+  font-size: clamp(11px, 1.25vw, 17px);
   text-transform: uppercase;
   color: var(--accInk);
   white-space: nowrap;
   /* Prototype: 34px. Scaled with the type so the gap between repeats
-     stays proportionally the same rather than opening up. */
-  padding-right: 24px;
+     stays proportionally the same rather than opening up.
+     ⚠️ 24px -> 20px with the 2026-08-27 font drop, same reason. */
+  padding-right: 20px;
 }
 
 /* ⚠️ TAP TARGET, mobile only — 2026-08-25, owner-requested "whole ui
