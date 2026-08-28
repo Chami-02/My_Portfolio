@@ -306,6 +306,27 @@
   margin: 0;
 }
 
+/* ── PF-91 · Group A — `--muted2` fails AA in DARK on a tinted surface ──
+   The role line and the bio measured 4.31 dark against the footer surface rgb(9,15,29), below the
+   4.5 that 10px and 13.5px text needs. `--muted` is the one-step-lighter token in
+   the same palette and measures 7.27. This is PF-83's stat-label fix
+   for the fourth, fifth and sixth time: the trap is the SURFACE, not the
+   token — the same token on the page ground passes.
+
+   ⚠️ DARK ONLY, and it wins on SPECIFICITY, not emission order.
+   `:global(html[data-theme='dark'])` is (0,2,1) against the base rule's
+   (0,1,0). An equal-specificity tie resolving on bundle order is a bug
+   this project has hit six times; this does not add a seventh. Light
+   passes at 4.69 and is deliberately untouched.
+
+   Relies on dark being an EXPLICIT attribute, which it is — the FOUC
+   guard writes data-theme="dark" at index.html:31. Were it the absent
+   default, this selector would match nothing and fail silently. */
+:global(html[data-theme='dark']) .role,
+:global(html[data-theme='dark']) .bio {
+  color: var(--muted);
+}
+
 .availability {
   display: inline-flex;
   align-items: center;
@@ -337,11 +358,15 @@
   animation-iteration-count: infinite;
 }
 
+/* PF-91: `var(--ok)` rather than the literal pair. The token already
+   carried exactly this dark/light split and had no consumer; reading it
+   here deletes the theme-scoped override that used to sit below. Light
+   was 3.66 (the design's own #0E7A55, short of 4.5) and is now 4.92. */
 .availabilityLabel {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: .14em;
-  color: #34d399;
+  color: var(--ok);
 }
 
 /* ── Columns 2 and 3 — NAVIGATE / ELSEWHERE ───────────────────────── */
@@ -395,24 +420,34 @@
   color: var(--muted);
 }
 
-.statusDotOk    { color: #34d399; }
+/* PF-91: `var(--ok)`, as .availabilityLabel above. 4.44 -> 5.98 light. */
+.statusDotOk    { color: var(--ok); }
 .statusDotAcc   { color: var(--acc, #FCA311); }
 .statusDotMuted { color: var(--muted); }
 
 /* ⚠️ [data-ok] is the prototype's own theme hook, driven from
    applyTheme() (line 868): `#0E7A55` in light, `#34d399` in dark. Two
    elements carry it — the AVAILABLE FOR WORK label and the CI status
-   dot — and the runtime write is ported as a theme-scoped rule for the
-   same reason as [data-strip] above.
+   dot — and PF-88 ported that runtime write as a theme-scoped rule, the
+   same way [data-strip] above is ported.
 
    This matters more than it looks: #34d399 on the light form surface
    measured 1.72:1 in PF-87, and the design's answer to that is right
    here in its own script block. Reading the markup alone would have
-   shipped the failure. */
-:global(html[data-theme='light']) .availabilityLabel,
-:global(html[data-theme='light']) .statusDotOk {
-  color: #0E7A55;
-}
+   shipped the failure.
+
+   ⚠️ PF-91 DELETED THAT SCOPED RULE. Not because the port was wrong —
+   it was right, and it is why this section only measured 3.66 instead of
+   1.72 — but because `var(--ok)` above now expresses the same pair in
+   one place. Keeping both would have been two sources of truth for one
+   colour, drifting silently the next time either moved. The port's
+   BEHAVIOUR is unchanged and still guarded; only its duplicate is gone.
+
+   ⚠️ .availabilityDot is deliberately NOT routed through --ok. Only two
+   elements carry [data-ok] in the prototype — this label and the CI dot
+   — and the availability dot is not one of them. Recolouring it would be
+   a design change wearing an accessibility fix's clothes; it is a 7px
+   decorative disc and the label beside it carries the meaning. */
 
 .statusCta {
   display: inline-flex;
@@ -583,11 +618,21 @@
   }
 }
 
+/* ── PF-91 · Group B — `--faint` fails AA in BOTH themes here ────────
+   3.37 dark / 4.27 light against the footer surface; 10.5px needs 4.5.
+   `--muted` measures 7.27 / 5.46. Unscoped, unlike Group A above and
+   unlike the hero's SCROLL label, precisely BECAUSE both themes fail —
+   there is no compliant value being moved for symmetry.
+
+   ⚠️ This node is the argument for two steps rather than one. It read
+   4.97 light until the 2026-08-27 footer surface landed, then 4.28 — a
+   0.69 drop from a tint that changed none of its own colours. `--muted2`
+   would have restored it to 4.69, which is the same fragility again. */
 .copyright {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: .14em;
-  color: var(--faint);
+  color: var(--muted);
   /* The prototype's line was one cell of a three-column grid and could
      not wrap. This one spans the full width, so it is allowed to wrap —
      it has to, because ALL RIGHTS RESERVED took it to 78 characters and

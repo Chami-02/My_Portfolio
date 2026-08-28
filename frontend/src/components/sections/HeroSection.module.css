@@ -690,6 +690,23 @@ section.hero {
   color: var(--faint);
 }
 
+/* ── PF-91 · Group B — `--faint` fails AA in DARK ────────────────────
+   3.56 against the page ground rgb(5,6,9); 10px needs 4.5. `--muted`
+   measures 7.68.
+
+   ⚠️ DARK ONLY. Light's `--faint` (#55637C) already measures 4.97 here
+   and is left alone — moving a compliant value for symmetry is the thing
+   PF-83 refused to do. Scoped on SPECIFICITY, (0,2,1) against (0,1,0),
+   never on emission order.
+
+   Worth knowing WHY the two steps: `--muted2` would have cleared this
+   node at 4.55, and 0.05 of headroom does not survive a backdrop change.
+   The footer copyright went 4.97 -> 4.28 from a surface tint that touched
+   none of its own colours. */
+:global(html[data-theme='dark']) .scrollLabel {
+  color: var(--muted);
+}
+
 .scrollLine {
   composes: kf-nudge from global;
   width: 1px;

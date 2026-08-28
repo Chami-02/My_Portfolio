@@ -28,8 +28,17 @@ function App() {
           <Route path="*" element={<Navbar />} />
         </Routes>
 
-        {/* id is the skip link's target — see SkipLink.jsx. */}
-        <main id="main-content" style={{ flexGrow: 1 }}>
+        {/* id is the skip link's target — see SkipLink.jsx.
+
+            ⚠️ tabIndex={-1} is load-bearing, not decoration. Without it the
+            skip link SCROLLS to <main> without moving focus: document
+            .activeElement stays on <body>, so the next Tab restarts from the
+            top of the document and walks the whole header again — the exact
+            failure a skip link exists to prevent. A negative tabindex makes
+            the element programmatically focusable without adding a tab stop,
+            so the keyboard order PF-83 specified is unchanged. It takes no
+            focus ring: :focus-visible does not match a programmatic focus. */}
+        <main id="main-content" tabIndex={-1} style={{ flexGrow: 1 }}>
           <Routes>
             {/* Public */}
             <Route path="/"            element={<HomePage />} />

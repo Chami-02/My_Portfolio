@@ -454,25 +454,56 @@ describe('Footer (PF-88)', () => {
     expect(container.querySelectorAll('[data-ok]')).toHaveLength(2);
   });
 
-  it('scopes the [data-ok] and [data-strip] colours to a real theme attribute', () => {
-    // Ported from applyTheme() as CSS rather than a JS sweep. Both win
-    // on SPECIFICITY — (0,2,0) against (0,1,0) — not on bundle emission
-    // order, which is the tie that has bitten this project six times.
-    const light = [];
+  /*
+   * ⚠️ REWRITTEN IN PF-91, AND THE BEHAVIOUR IT GUARDS DID NOT CHANGE.
+   *
+   * PF-88 ported applyTheme()'s [data-ok] recolour as a light-scoped
+   * rule carrying the literal #0E7A55, and this test pinned that rule.
+   * PF-91 moved the same pair onto `var(--ok)` — which tokens.css had
+   * declared since PF-67 with nothing reading it — and deleted the
+   * scoped rule as a second source of truth.
+   *
+   * So the test now pins the CONTRACT rather than its expression: the
+   * two nodes read a token, and that token really does resolve to a
+   * different value per theme. Both halves are needed — a token that
+   * failed to flip would leave the same 1.72:1 failure the port exists
+   * to prevent, and would pass a check for `var(--ok)` alone.
+   *
+   * That cross-file reach is the cost of the token: the mechanism now
+   * lives in two files, so the guard has to as well.
+   */
+  it('gives both [data-ok] elements a green that really flips per theme', () => {
+    const declared = [];
     postcss.parse(footerCss).walkRules((rule) => {
-      if (rule.selector.includes("data-theme='light'")) light.push(rule);
+      rule.walkDecls('color', (d) => {
+        if (/\.(availabilityLabel|statusDotOk)\b/.test(rule.selector)) {
+          declared.push({ sel: rule.selector.trim(), value: d.value });
+        }
+      });
     });
-    const selectors = light.map((r) => r.selector).join(' ');
-    expect(selectors).toMatch(/availabilityLabel/);
-    expect(selectors).toMatch(/statusDotOk/);
-    // ⚠️ marqueeText is deliberately NOT here any more. The band is
+    expect(declared).toHaveLength(2);
+    declared.forEach((d) => {
+      expect(d.value).toBe('var(--ok)');
+      // ...and NOT via a theme-scoped duplicate, which is what was deleted
+      expect(d.sel).not.toMatch(/data-theme/);
+    });
+
+    // the token must genuinely carry two different values
+    const tokensCss = readCss('../../../styles/tokens.css');
+    const ok = [];
+    postcss.parse(tokensCss).walkDecls('--ok', (d) => ok.push(d.value.trim()));
+    expect(ok).toHaveLength(2);
+    expect(new Set(ok).size).toBe(2);
+
+    // ⚠️ marqueeText is deliberately NOT scoped any more. The band is
     // ink-on-accent since 2026-08-25 and --accInk already flips per
     // theme, so the prototype's [data-strip] opacity rule has nothing
     // left to act on.
-    expect(selectors).not.toMatch(/marqueeText/);
-
-    const okRule = light.find((r) => r.selector.includes('statusDotOk'));
-    expect(okRule.toString()).toMatch(/#0E7A55/);
+    const scoped = [];
+    postcss.parse(footerCss).walkRules((rule) => {
+      if (rule.selector.includes('data-theme')) scoped.push(rule.selector);
+    });
+    expect(scoped.join(' ')).not.toMatch(/marqueeText/);
   });
 
   /* ── Step 3 — route-aware links ──────────────────────────────────── */
@@ -648,5 +679,100 @@ describe('Footer (PF-88)', () => {
         .map((d) => [d.prop, d.value]),
     );
     expect(bar['grid-template-columns']).toBe('1fr');
+  });
+});
+
+/*
+ * ── PF-91 · the footer's three contrast fixes ──────────────────────────
+ *
+ * The footer is where the 2026-08-27 navbar surface did the most damage:
+ * adding a translucent ground under text that had been sitting on the
+ * page ground flipped --muted2 and --faint from passing to failing, on
+ * colours that themselves did not move. That is the whole mechanism, and
+ * it is why the fixes below are two steps rather than one.
+ */
+describe('PF-91 contrast', () => {
+  /*
+   * ⚠️ EXACT selector, not `forClass`. `forClass('role')` matches
+   * `.role` at any depth — including the new
+   * `:global(html[data-theme='dark']) .role`, which is also a top-level
+   * rule, so `baseDeclsFor` does not filter it out either. Collecting
+   * both and letting the last win made `base('role').color` read
+   * `var(--muted)` and the base-rule assertion fail against correct
+   * code. Same shape as the `.scrollUp` / `.scrollUp:hover` trap this
+   * file already documents.
+   */
+  const base = (name) => {
+    const d = {};
+    baseDeclsFor(footerCss, (sel) => sel.trim() === `.${name}`)
+      .forEach((x) => { d[x.prop] = x.value; });
+    return d;
+  };
+
+  /* Colour declarations on rules scoped to one theme, with the selector. */
+  const scopedColours = (theme, classRe) =>
+    declsFor(footerCss, (sel) => sel.includes(`[data-theme='${theme}']`))
+      .filter((d) => d.prop === 'color' && classRe.test(d.selector));
+
+  /* Group A — role and bio fail DARK only, so the fix is dark-scoped. */
+  describe('role and bio (Group A)', () => {
+    it('keeps --muted2 as the base, so light stays unmoved at 4.69', () => {
+      expect(base('role').color).toBe('var(--muted2)');
+      expect(base('bio').color).toBe('var(--muted2)');
+    });
+
+    it('raises both to --muted in DARK, on specificity not source order', () => {
+      // ⚠️ `.role, .bio` is a comma-GROUP: postcss sees one rule with one
+      // `color` declaration, so counting declarations reads 1 and not 2.
+      // Assert against the selector list instead.
+      const scoped = scopedColours('dark', /\.(role|bio)\b/);
+      expect(scoped).toHaveLength(1);
+      expect(scoped[0].value).toBe('var(--muted)');
+
+      const parts = scoped[0].selector.split(',').map((x) => x.trim());
+      expect(parts).toHaveLength(2);
+      parts.forEach((sel) => {
+        // (0,2,1) — never a second bare `.role {}` relying on emission order
+        expect(sel).toMatch(/^:global\(html\[data-theme='dark'\]\)\s+\.(role|bio)$/);
+      });
+    });
+  });
+
+  /* Group B — the copyright fails BOTH themes, so it is UNSCOPED. That
+     asymmetry with role/bio directly above is deliberate: there is no
+     compliant value being moved for symmetry here. */
+  describe('copyright (Group B)', () => {
+    it('is --muted in BOTH themes — it failed 3.37 dark AND 4.27 light', () => {
+      expect(base('copyright').color).toBe('var(--muted)');
+    });
+
+    it('has NO dark-scoped override, because the base rule already moved', () => {
+      expect(scopedColours('dark', /\.copyright\b/)).toEqual([]);
+    });
+  });
+
+  /* Group D — the two [data-ok] elements move onto the token. */
+  describe('the AVAILABLE FOR WORK badge and CI dot (Group D)', () => {
+    it('reads var(--ok) rather than hardcoding the pair', () => {
+      expect(base('availabilityLabel').color).toBe('var(--ok)');
+      expect(base('statusDotOk').color).toBe('var(--ok)');
+    });
+
+    it('DELETED the light-scoped literal, so there is one source of truth', () => {
+      // PF-88's port was correct and is why this measured 3.66 rather
+      // than 1.72. Keeping it alongside var(--ok) would be two places
+      // declaring one colour, drifting the next time either moved.
+      expect(scopedColours('light', /\.(availabilityLabel|statusDotOk)\b/)).toEqual([]);
+      // and no literal green survives on either node
+      expect(base('availabilityLabel').color).not.toMatch(/#0E7A55|#34d399|#0B6446/i);
+      expect(base('statusDotOk').color).not.toMatch(/#0E7A55|#34d399|#0B6446/i);
+    });
+
+    it('leaves .availabilityDot on its literal — it is NOT a [data-ok] node', () => {
+      // Only two elements carry [data-ok] in the prototype: the label
+      // and the CI dot. Recolouring this 7px decorative disc as well
+      // would be a design change wearing an accessibility fix's clothes.
+      expect(base('availabilityDot').background).toBe('#34d399');
+    });
   });
 });

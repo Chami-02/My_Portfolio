@@ -480,3 +480,42 @@ describe('HeroSection (PF-80)', () => {
     expect(removeSpy).toHaveBeenCalledWith('pointermove', expect.any(Function));
   });
 });
+
+/*
+ * ── PF-91 · Group B — the SCROLL label ─────────────────────────────────
+ *
+ * `--faint` measured 3.56 against the page ground; 10px needs 4.5.
+ * `--muted` measures 7.68.
+ *
+ * ⚠️ DARK ONLY. Light's --faint already measures 4.97 here, and moving a
+ * compliant value for symmetry is what PF-83 refused to do — so the base
+ * rule must keep --faint and the fix must be scoped on SPECIFICITY,
+ * (0,2,1) against (0,1,0), never a second bare rule resolving on
+ * emission order.
+ *
+ * Two steps rather than one because --muted2 would have cleared this at
+ * 4.55, and 0.05 of headroom does not survive a backdrop change — the
+ * footer copyright went 4.97 -> 4.28 from a surface tint that touched
+ * none of its own colours.
+ */
+describe('PF-91 SCROLL label contrast', () => {
+  const declsOf = (sel) => {
+    let out = null;
+    postcss.parse(css).walkRules((rule) => {
+      if (rule.selector !== sel) return;
+      out = {};
+      rule.walkDecls((d) => { out[d.prop] = d.value; });
+    });
+    return out;
+  };
+
+  it('keeps --faint as the base colour, so light is unmoved at 4.97', () => {
+    expect(declsOf('.scrollLabel').color).toBe('var(--faint)');
+  });
+
+  it('raises it to --muted in DARK, scoped on specificity', () => {
+    const d = declsOf(":global(html[data-theme='dark']) .scrollLabel");
+    expect(d).not.toBeNull();
+    expect(d.color).toBe('var(--muted)');
+  });
+});

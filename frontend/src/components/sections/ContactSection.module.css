@@ -295,6 +295,26 @@ section.contact {
   color: var(--muted2);
 }
 
+/* ── PF-91 · Group A — `--muted2` fails AA in DARK on a tinted surface ──
+   All three field labels measured 4.15 dark against the form surface rgb(13,20,35), below the
+   4.5 that 10.5px text needs. `--muted` is the one-step-lighter token in
+   the same palette and measures 7.00. This is PF-83's stat-label fix
+   for the fourth, fifth and sixth time: the trap is the SURFACE, not the
+   token — the same token on the page ground passes.
+
+   ⚠️ DARK ONLY, and it wins on SPECIFICITY, not emission order.
+   `:global(html[data-theme='dark'])` is (0,2,1) against the base rule's
+   (0,1,0). An equal-specificity tie resolving on bundle order is a bug
+   this project has hit six times; this does not add a seventh. Light
+   passes at 5.96 and is deliberately untouched.
+
+   Relies on dark being an EXPLICIT attribute, which it is — the FOUC
+   guard writes data-theme="dark" at index.html:31. Were it the absent
+   default, this selector would match nothing and fail silently. */
+:global(html[data-theme='dark']) .fieldLabel {
+  color: var(--muted);
+}
+
 /* ⚠️ `min-width: 0` IS A BUG FIX, NOT TIDYING — measured 2026-08-25.
    An <input> has an intrinsic width of about 202px, and a grid item's
    default `min-width: auto` refuses to shrink below its min-content
@@ -368,17 +388,28 @@ section.contact {
    own surface in both themes and reported in the hand-off rather than
    changed — the prototype's values, following the PF-83 stat-label
    precedent of raise-then-change. */
+/* ⚠️ PF-91: both were literals chosen against a DARK panel, and the form
+   surface flips underneath them — #f87171 measured 2.48 light, #34d399
+   measured 1.72. Now `var(--danger)` / `var(--ok)`, which carry the
+   theme-scoped pair the site already declared and nothing read.
+
+   `--danger` needed NO value change: #B4231F is the prototype's own
+   light value and measures 5.88 here. It was failing purely because the
+   literal bypassed it. `--ok`'s light value moved #0E7A55 -> #0B6446;
+   see tokens.css for why that is extending the design's own fix.
+
+   Dark is byte-identical in both cases — 6.68 and 9.61, unmoved. */
 .errorText {
   font-family: var(--font-mono);
   font-size: 11.5px;
-  color: #f87171;
+  color: var(--danger);
   margin: 0;
 }
 
 .sentText {
   font-family: var(--font-mono);
   font-size: 11.5px;
-  color: #34d399;
+  color: var(--ok);
   margin: 0;
 }
 

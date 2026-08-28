@@ -683,4 +683,78 @@ describe('reveal targets', () => {
     const { container } = renderSection();
     expect(container.querySelector('form')).toHaveAttribute('data-reveal');
   });
+
+  /*
+   * ── PF-91 · the dark-scoped AA fix ──────────────────────────────────
+   *
+   * `--muted2`/`--faint` fail AA in DARK on a tinted surface. The fix is
+   * `--muted`, one step lighter in the same palette — PF-83's stat-label
+   * precedent, introducing no new colour.
+   *
+   * ⚠️ The SCOPING is the part worth guarding. It must win on
+   * SPECIFICITY — `:global(html[data-theme='dark'])` is (0,2,1) against
+   * the base rule's (0,1,0) — not on emission order. An equal-specificity
+   * tie resolving on bundle order is a bug this project has hit six
+   * times, and a second bare rule would look identical in review while
+   * depending on which stylesheet the bundler happened to emit last.
+   *
+   * ⚠️ And the base rule must SURVIVE. Light passes everywhere here, so
+   * over-applying the fix into an unscoped change would move a compliant
+   * colour for no reason — exactly what PF-83 refused to do.
+   */
+
+  describe('PF-91 dark-theme contrast fix', () => {
+    it('keeps .fieldLabel\'s base colour at --muted2, so light is unmoved', () => {
+      expect(decls('.fieldLabel').color).toBe('var(--muted2)');
+    });
+
+    it('raises the three field labels to --muted in DARK, scoped on specificity', () => {
+      const targets = ['.fieldLabel'];
+      const scoped = [];
+      root.walkRules((rule) => {
+        if (!rule.selector.includes("[data-theme='dark']")) return;
+        targets.forEach((t) => {
+          if (!rule.selector.includes(t)) return;
+          rule.walkDecls('color', (d) => scoped.push({ sel: rule.selector, v: d.value }));
+        });
+      });
+      expect(scoped.map((s) => s.v)).toEqual(targets.map(() => 'var(--muted)'));
+      expect(scoped).toHaveLength(targets.length);
+      // (0,2,1): every scoped selector carries the html[data-theme]
+      // qualifier, and is never a second BARE class relying on emission
+      // order. `^\.name` would be that bare form.
+      scoped.forEach((s) => {
+        expect(s.sel).toMatch(/:global\(html\[data-theme='dark'\]\)\s*\./);
+        expect(s.sel.trim()).not.toMatch(/^\./);
+      });
+    });
+  });
+
+
+  /*
+   * ── PF-91 · Group D — the two status colours ────────────────────────
+   *
+   * Both were literals chosen against a DARK panel, and the form surface
+   * flips underneath them: #f87171 measured 2.48 in light, #34d399
+   * measured 1.72 — the second-worst text ratio found anywhere.
+   *
+   * ⚠️ These are the OPPOSITE answer from the Projects terminal, in the
+   * same ticket, for the identical hex. #34d399 measures 10.54 on that
+   * panel in both themes and 1.72 here. The SURFACE decides: a panel
+   * that never flips must carry literal ink, a surface that flips must
+   * carry a token. That asymmetry looks like an oversight and is not —
+   * ProjectsSection.test.jsx guards the other half.
+   */
+  describe('PF-91 status colours', () => {
+    it('reads the tokens rather than hardcoding a dark-panel literal', () => {
+      expect(decls('.errorText').color).toBe('var(--danger)');
+      expect(decls('.sentText').color).toBe('var(--ok)');
+    });
+
+    it('leaves no literal green or red behind on either node', () => {
+      expect(decls('.errorText').color).not.toMatch(/#f87171|#B4231F/i);
+      expect(decls('.sentText').color).not.toMatch(/#34d399|#0E7A55|#0B6446/i);
+    });
+  });
+
 });

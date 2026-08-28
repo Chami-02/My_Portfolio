@@ -1,3 +1,7 @@
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import postcss from 'postcss';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Splash from '../Splash';
@@ -312,5 +316,100 @@ describe('Splash (PF-78)', () => {
 
     advance(1);
     expect(gated).toHaveAttribute('data-reveal', 'in');
+  });
+});
+
+/*
+ * ── PF-91 · THE SPLASH'S CONTRAST, MEASURED FOR THE FIRST TIME ─────────
+ *
+ * ⚠️ NOT ONE OF THESE NODES HAD EVER BEEN MEASURED — not by PF-83, whose
+ * entire purpose was the a11y contract, and not by PF-90's state matrix.
+ * Every sweep in this project's history loaded `?nosplash`, for the very
+ * good reason PF-84 documents: without it each E2E test waits out ~5.65s
+ * of splash, and the suite went 2.1m -> 1.2m when it was added.
+ *
+ * The general form is worth more than the fix: THE OPTIMISATION THAT
+ * MAKES A PROBE FAST IS WHAT PUTS A SURFACE OUTSIDE IT. Same shape as
+ * PF-83's reduced-motion audit, which reported 0 finished animations
+ * only because it never scrolled far enough to mount ScrollToTop. It
+ * will recur here, because `?nosplash` is in the E2E beforeEach and
+ * belongs there — so an audit has to mount the splash deliberately.
+ *
+ * ⚠️ These go through postcss, never a text search. The rules being
+ * asserted document themselves in prose containing `var(--ok)`,
+ * `var(--faint)` and `#34d399`; a raw `toContain` would match the
+ * comment explaining the rule and report PASS.
+ */
+describe('PF-91 contrast', () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const css = readFileSync(resolve(here, '../Splash.module.css'), 'utf8');
+  const root = postcss.parse(css);
+
+  const decls = (selector) => {
+    let found = null;
+    root.walkRules((rule) => {
+      if (rule.selector.trim() !== selector) return;
+      found = {};
+      rule.walkDecls((d) => { found[d.prop] = d.value; });
+    });
+    return found;
+  };
+
+  /* Group B — LOADING, the percentage and SKIP INTRO, all 3.56 in dark. */
+  describe('progress labels and SKIP INTRO (Group B)', () => {
+    it('keeps --faint as the base, so light stays unmoved at 4.97', () => {
+      expect(decls('.progressLabels').color).toBe('var(--faint)');
+      expect(decls('.skip').color).toBe('var(--faint)');
+    });
+
+    it('raises BOTH to --muted in dark — .skip is a separate rule', () => {
+      // ⚠️ The trap this pins: .skip is NOT a child of .progressLabels.
+      // A scoped rule naming only .progressLabels fixes LOADING and the
+      // percentage and silently leaves SKIP INTRO at 3.56.
+      const scoped = [];
+      root.walkRules((rule) => {
+        if (!rule.selector.includes("data-theme='dark'")) return;
+        if (rule.selector.includes(':hover')) return;
+        rule.walkDecls('color', (d) => scoped.push({ sel: rule.selector, v: d.value }));
+      });
+      const covered = scoped.flatMap((x) => x.sel.split(',').map((y) => y.trim()));
+      expect(covered).toContain(":global(html[data-theme='dark']) .progressLabels");
+      expect(covered).toContain(":global(html[data-theme='dark']) .skip");
+      scoped.forEach((x) => expect(x.v).toBe('var(--muted)'));
+    });
+
+    it('re-declares .skip\'s HOVER inside the dark block, or it never shows', () => {
+      // :global(html[data-theme='dark']) .skip is (0,2,1) and
+      // .skip:hover is (0,2,0), so the theme rule wins WHILE HOVERED and
+      // the accent hover simply never appears. That is the ScrollToTop
+      // bug of 2026-08-25 exactly: every colour a hover changes must be
+      // declared inside the same theme block, where it lands at (0,3,1).
+      const hover = decls(":global(html[data-theme='dark']) .skip:hover");
+      expect(hover).not.toBeNull();
+      expect(hover.color).toBe('var(--acc, #FCA311)');
+      // and the base hover must still exist for light theme
+      expect(decls('.skip:hover').color).toBe('var(--acc, #FCA311)');
+    });
+  });
+
+  /* Group D/F — the boot lines were the worst failure on the whole surface. */
+  describe('green boot lines (Group D/F)', () => {
+    it('reads var(--ok), not the literal that measured 1.58 on paper', () => {
+      expect(decls('.bootLineGreen').color).toBe('var(--ok)');
+      expect(decls('.bootLineGreen').color).not.toMatch(/#34d399|#0E7A55|#0B6446/i);
+    });
+
+    it('cannot be collapsed to one literal — the two themes need opposites', () => {
+      // A value dark enough for light paper measures 2.82 on the
+      // splash's near-black ground. This node genuinely needs the theme
+      // to flip under it, which is the exact OPPOSITE of the Projects
+      // terminal's .lineSuccess — same hex, same ticket, and that one
+      // must stay literal because its panel never flips.
+      const tokens = readFileSync(resolve(here, '../../../styles/tokens.css'), 'utf8');
+      const ok = [];
+      postcss.parse(tokens).walkDecls('--ok', (d) => ok.push(d.value.trim()));
+      expect(ok).toHaveLength(2);
+      expect(new Set(ok).size).toBe(2);
+    });
   });
 });

@@ -1,5 +1,6 @@
 // frontend/src/components/sections/__tests__/ProjectsSection.test.jsx
 import { readFileSync } from 'fs';
+import postcss from 'postcss';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { render, screen } from '@testing-library/react';
@@ -429,6 +430,96 @@ describe('terminal panel', () => {
     useProjects.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
     const { container } = render(withMotion(<ProjectsSection />));
     expect(container.querySelectorAll('[data-terminal]')).toHaveLength(1);
+  });
+
+  /**
+   * ── PF-91 · THE GROUP C / GROUP D BOUNDARY ────────────────────────
+   *
+   * This panel is deliberately dark in BOTH themes (DESIGN.md line 85),
+   * so every colour painted ON it must be theme-independent. PF-85 made
+   * the caret a literal for this reason; PF-91 made the arrow line and
+   * the chrome label literals for the same one.
+   *
+   * The hazard this guards is not a typo. In the SAME ticket,
+   * `.lineSuccess` stayed `#34d399` while Contact's `.sentText` became
+   * `var(--ok)` — the same green, the same concept, three files apart,
+   * opposite answers. That asymmetry looks exactly like an oversight and
+   * is the obvious thing for a later tidy-up to "unify". Unifying it
+   * would reintroduce a 2.82:1 line on the splash-dark panel while
+   * looking like a cleanup.
+   *
+   * ⚠️ PARSED WITH POSTCSS, NEVER SEARCHED AS TEXT. The rules above now
+   * document this boundary in prose containing the literal strings
+   * `var(--ok)` and `var(--faint)`, so a raw `not.toContain` would match
+   * the comment explaining the rule and report PASS. Declarations are a
+   * different node type from comments; a walk cannot see them.
+   */
+  describe('is theme-independent ink (Group C/D boundary)', () => {
+    const root = postcss.parse(css);
+    const TERMINAL = /^\.(terminal|line|dot)/;
+
+    it('paints every terminal colour with a literal, never a theme token', () => {
+      const tokenised = [];
+      let seen = 0;
+      root.walkRules((rule) => {
+        if (!TERMINAL.test(rule.selector)) return;
+        rule.walkDecls('color', (decl) => {
+          seen++;
+          if (decl.value.includes('var(')) tokenised.push(`${rule.selector} { color: ${decl.value} }`);
+        });
+      });
+      // A scanner that matches nothing reports "no offenders" in exactly
+      // the same words as a clean file — same self-check as
+      // revealTransition.test.js's ">20 pairs".
+      expect(seen).toBeGreaterThanOrEqual(6);
+      expect(tokenised).toEqual([]);
+    });
+
+    /*
+     * The token/literal split alone is not enough, and mutation testing
+     * is what showed it: reverting .terminalLabel to its old #5c677d
+     * left the guard green, because #5c677d is a perfectly good literal.
+     * It also measures 3.04 in both themes. So the VALUES are pinned too
+     * — a silent revert to a failing hex now fails.
+     */
+    it('pins the two colours PF-91 raised, so a revert cannot be silent', () => {
+      const colourOf = (sel) => {
+        let v = null;
+        root.walkRules((rule) => {
+          if (rule.selector !== sel) return;
+          rule.walkDecls('color', (decl) => { v = decl.value.trim(); });
+        });
+        return v;
+      };
+      // #8b949e — GitHub's muted-on-#161b22. 5.62 on the chrome bar,
+      // 6.15 on the panel body, both themes. Was 3.04 and 3.33/3.12.
+      expect(colourOf('.terminalLabel')).toBe('#8b949e');
+      expect(colourOf('.lineMuted')).toBe('#8b949e');
+      // and it must stay BELOW .lineInfo, which is the panel's own
+      // hierarchy — the reason this hex was chosen over a brighter one
+      expect(colourOf('.lineInfo')).toBe('#93a0b8');
+    });
+
+    it('never reads --ok or --danger, which Contact and the splash do', () => {
+      const offenders = [];
+      root.walkDecls((decl) => {
+        if (/var\(\s*--(ok|danger)\b/.test(decl.value)) offenders.push(`${decl.prop}: ${decl.value}`);
+      });
+      expect(offenders).toEqual([]);
+    });
+
+    it('keeps --shd on the DROP SHADOW, which should track the theme', () => {
+      // The counterweight. "Literal ink" must not be over-applied into
+      // literalising the shadow this panel casts onto the PAGE behind it
+      // — that surface does flip, and no contrast rule reaches a shadow.
+      let shadow = null;
+      root.walkRules((rule) => {
+        if (rule.selector !== '.terminal') return;
+        rule.walkDecls('box-shadow', (decl) => { shadow = decl.value; });
+      });
+      expect(shadow).not.toBeNull();
+      expect(shadow).toContain('var(--shd)');
+    });
   });
 });
 

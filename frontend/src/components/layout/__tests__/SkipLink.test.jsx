@@ -125,6 +125,19 @@ describe('SkipLink (PF-83)', () => {
       expect(appSrc).toMatch(/<main[^>]*\bid="main-content"/);
     });
 
+    /*
+     * PF-91. Without tabIndex={-1} the link scrolls to <main> and leaves
+     * document.activeElement on <body>, so the next Tab restarts from the
+     * top of the document — the failure the link exists to prevent. It is
+     * NEGATIVE deliberately: a positive value would add a tab stop and
+     * change the keyboard order PF-83 specified and measured.
+     */
+    it('gives <main> a NEGATIVE tabIndex so the link can move focus to it', () => {
+      const main = appSrc.match(/<main[^>]*>/)[0];
+      expect(main).toMatch(/tabIndex=\{-1\}/);
+      expect(main).not.toMatch(/tabIndex=\{\s*[0-9]/);
+    });
+
     it('renders the link before the route that renders the Navbar', () => {
       const link = appSrc.indexOf('<SkipLink />');
       const navbar = appSrc.indexOf('<Navbar />');

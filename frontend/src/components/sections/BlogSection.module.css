@@ -225,7 +225,21 @@ section.blog {
   color: var(--muted);
 }
 
-.featuredSep { color: rgba(252, 163, 17, .7); }
+/* ⚠️ PF-91 — UNIFIED WITH .rowSep BELOW, and this is a fidelity fix as
+   much as a contrast one. The prototype implements the same mark twice:
+   a literal `rgba(252,163,17,.7)` here (line 435) and `var(--acc)` at
+   opacity .65 on the compact rows (line 446). Only the LITERAL collapses
+   in light theme — it keeps dark theme's amber on paper and measured
+   1.44, the worst text ratio in the section — because light's `--acc` is
+   #7E4800. Putting both on the token fixes this one for free.
+
+   The alpha is .9, and it is measured rather than picked: .85 came out
+   at 4.46 against this card's own backdrop, 0.04 short. Dark 5.20 ->
+   8.18, light 1.44 -> 4.96. */
+.featuredSep {
+  color: var(--acc, #FCA311);
+  opacity: .9;
+}
 
 .featuredTitle {
   position: relative;
@@ -326,9 +340,36 @@ section.blog {
   color: var(--muted2);
 }
 
+/* ── PF-91 · Group A — `--muted2` fails AA in DARK on a tinted surface ──
+   All six compact-row meta spans measured 4.30 dark against the card surface rgb(10,15,27), below the
+   4.5 that 10px text needs. `--muted` is the one-step-lighter token in
+   the same palette and measures 7.25. This is PF-83's stat-label fix
+   for the fourth, fifth and sixth time: the trap is the SURFACE, not the
+   token — the same token on the page ground passes.
+
+   ⚠️ DARK ONLY, and it wins on SPECIFICITY, not emission order.
+   `:global(html[data-theme='dark'])` is (0,2,1) against the base rule's
+   (0,1,0). An equal-specificity tie resolving on bundle order is a bug
+   this project has hit six times; this does not add a seventh. Light
+   passes at 5.80 and is deliberately untouched.
+
+   Relies on dark being an EXPLICIT attribute, which it is — the FOUC
+   guard writes data-theme="dark" at index.html:31. Were it the absent
+   default, this selector would match nothing and fail silently. */
+:global(html[data-theme='dark']) .rowMeta {
+  color: var(--muted);
+}
+
+/* PF-91: alpha .65 -> .9. Dark 4.51 -> 7.79, light 3.06 -> 5.22.
+
+   ⚠️ The dark value was PASSING at 4.5053 — the PF-91 ticket recorded it
+   as 4.49 ✗ and that was wrong by 0.015. Recorded so the next sweep
+   compares against 4.51, not against a failure that never existed. Only
+   light was failing here; the change is carried across both themes
+   because one alpha serves both. */
 .rowSep {
   color: var(--acc, #FCA311);
-  opacity: .65;
+  opacity: .9;
 }
 
 .rowTitle {

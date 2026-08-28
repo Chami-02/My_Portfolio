@@ -1,5 +1,6 @@
 // frontend/src/styles/__tests__/tokens.test.js
 import { readFileSync } from 'fs';
+import postcss from 'postcss';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { describe, it, expect } from 'vitest';
@@ -139,7 +140,57 @@ describe('Design tokens (PF-67)', () => {
     it('rings links, buttons and anything explicitly tabbable', () => {
       expect(rule).toContain('a:focus-visible');
       expect(rule).toContain('button:focus-visible');
-      expect(rule).toContain('[tabindex]:focus-visible');
+      expect(rule).toContain('[tabindex]');
+      expect(rule).toContain(':focus-visible');
+    });
+
+    /**
+     * PF-91. A negative tabindex means "programmatically focusable,
+     * NEVER a tab stop", so such an element is only ever focused as a
+     * scroll/reading-position target — <main>, focused by the skip link,
+     * is the one case in this repo. A bare `[tabindex]:focus-visible`
+     * matches it and drew a 2px accent ring around the ENTIRE page the
+     * moment the skip link was activated.
+     *
+     * ⚠️ The obvious-looking cause is wrong and worth recording: the
+     * ring is NOT because :focus-visible fails to distinguish
+     * programmatic focus. Chromium keys the heuristic on the most recent
+     * input MODALITY, and the link is activated with Enter — so a
+     * programmatic .focus() following a keypress does match. Measured in
+     * Chromium: main.matches(':focus-visible') === true.
+     */
+    it('excludes tabindex="-1" so the skip link does not ring the whole page', () => {
+      expect(rule).toContain('[tabindex]:not([tabindex="-1"]):focus-visible');
+      // the ring rule itself must never reach for outline:none
+      expect(rule).not.toMatch(/outline:\s*none/);
+    });
+
+    /**
+     * PF-91. Excluding tabindex="-1" above stops OUR ring, not
+     * Chromium's: measured, <main> then took `outline: auto 1px
+     * rgb(0, 95, 204)`, the UA default, so the skip link drew a blue box
+     * around the whole page. Only an explicit suppression removes it.
+     *
+     * This is the repo's first `outline: none` and the selector is what
+     * keeps it safe — it must stay pinned to <main>, which a negative
+     * tabindex keeps out of the tab order entirely. A widened selector
+     * would start stripping indicators off real controls, silently.
+     */
+    it('suppresses the UA ring on <main> ONLY, never on a control', () => {
+      const decls = stripped.replace(/\s+/g, ' ');
+
+      // Exactly ONE suppression in the whole file...
+      const all = decls.match(/outline:\s*(none|0)\b/g) || [];
+      expect(all).toHaveLength(1);
+
+      // ...and it belongs to exactly this selector. Extracting the
+      // selector is what makes this un-foolable: a `not.toMatch` for
+      // element names is not, because `main` contains an `a` and a
+      // naive /(a|button|...)/ alternation matches its own rule. That
+      // false positive is how this guard was written the first time.
+      const owner = decls.match(/([^{};]+)\{[^{}]*outline:\s*(?:none|0)\b/);
+      expect(owner).not.toBeNull();
+      expect(owner[1].trim()).toBe('main[tabindex="-1"]:focus');
     });
 
     it('draws an accent outline offset outward', () => {
@@ -177,6 +228,50 @@ describe('Design tokens (PF-67)', () => {
       // ":focus-visible, not :focus" in the comment cannot satisfy it.
       expect(rule).not.toMatch(/(^|[^-])\ba:focus\s*[,{]/);
       expect(rule).not.toMatch(/\bbutton:focus\s*[,{]/);
+    });
+  });
+
+
+  /*
+   * ── PF-91 · --ok and --danger ──────────────────────────────────────
+   *
+   * Both were declared in PF-67 and read by NOTHING but Tailwind's alias
+   * for three sprints, while four sites hardcoded the same pair of hexes
+   * — and two of those shipped a light-theme failure the token would
+   * have prevented. PF-91 gave them their first consumers.
+   *
+   * --ok's light value is #0B6446, not the prototype's #0E7A55, and the
+   * framing matters: applyTheme() line 868 ALREADY recolours [data-ok]
+   * from #34d399 to #0E7A55 in light. The design saw this and moved the
+   * value; it just landed short — 3.67 on the AVAILABLE FOR WORK badge,
+   * 4.43 on the status dot, against 4.5. This extends a fix the design
+   * started rather than correcting an oversight.
+   *
+   * --danger is UNCHANGED. #B4231F is the prototype's own light value
+   * and measures 5.88 on the Contact form; it was failing only because
+   * the literal #f87171 bypassed it.
+   */
+  describe('status tokens (PF-91)', () => {
+    const valuesOf = (name) => {
+      const out = [];
+      postcss.parse(css).walkDecls(name, (d) => out.push(d.value.trim()));
+      return out;
+    };
+
+    it('declares --ok once per theme, with DIFFERENT values', () => {
+      const ok = valuesOf('--ok');
+      expect(ok).toEqual(['#34d399', '#0B6446']);
+    });
+
+    it('keeps --danger on the prototype\'s own pair', () => {
+      expect(valuesOf('--danger')).toEqual(['#f87171', '#B4231F']);
+    });
+
+    it('does not leave --ok light on #0E7A55, which measured 3.67', () => {
+      // The design's own value, and short of AA on the badge. Pinned so
+      // a fidelity pass "restoring" it fails loudly rather than
+      // reintroducing the failure it looks like it is fixing.
+      expect(valuesOf('--ok')).not.toContain('#0E7A55');
     });
   });
 

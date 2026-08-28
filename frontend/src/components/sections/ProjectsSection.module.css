@@ -224,8 +224,20 @@ section.projects {
    #161b22 are GitHub's editor chrome, and the log colours are a
    terminal's, not the site's palette. Tokenising them would make the
    mockup shift with the theme, which is exactly what a screenshot of a
-   dark terminal should not do. `var(--shd)` and `var(--faint)` ARE
-   tokens in the prototype and stay tokens here.
+   dark terminal should not do.
+
+   ⚠️ PF-91 CORRECTED THIS BLOCK. It used to end "`var(--shd)` and
+   `var(--faint)` ARE tokens in the prototype and stay tokens here." The
+   reasoning above is right and that conclusion did not follow from it: a
+   panel that is deliberately dark in BOTH themes cannot carry a token
+   that flips with the theme, whoever wrote it first. DESIGN.md line 85
+   says the same. `var(--faint)` measured 3.33 dark / 3.12 light on the
+   arrow line and is now a literal, exactly as PF-85 did for the caret.
+
+   `var(--shd)` STAYS — it is a box-SHADOW cast onto the page behind the
+   panel, not ink painted on it, so it should track the theme and no
+   contrast rule reaches it. INK is literal here; the drop shadow is not.
+   Guarded, both directions, in ProjectsSection.test.jsx.
 
    `:5000` in the body is text inside the mockup. It is NOT this repo's
    backend port (5050 on macOS, see CLAUDE.md) and must not be
@@ -256,11 +268,17 @@ section.projects {
 .dotAmber { background: #febc2e; }
 .dotGreen { background: #28c840; }
 
+/* PF-91: #5c677d measured 3.04 in BOTH themes against the chrome bar's
+   #161b22 — a literal that was never measured rather than a theme bug,
+   which is why it failed identically in both. #8b949e is GitHub's own
+   muted-on-#161b22 and measures 5.62. Chosen to sit just BELOW
+   .lineInfo's #93a0b8 so the panel's internal hierarchy survives the
+   fix; that mattered more than maximising the ratio. */
 .terminalLabel {
   margin-left: auto;
   font-family: var(--font-mono);
   font-size: 11px;
-  color: #5c677d;
+  color: #8b949e;
 }
 
 .terminalBody {
@@ -272,9 +290,29 @@ section.projects {
 
 .lineCommand { color: #ffffff; }
 .lineInfo    { color: #93a0b8; }
+
+/* ⚠️ PF-91 · GROUP C/D BOUNDARY — .lineSuccess STAYS A LITERAL while
+   Contact's .sentText became `var(--ok)` in the same ticket. Same green,
+   same concept, three files apart, opposite answers — and that is not an
+   oversight to tidy up later.
+
+   The rule that decides it is the SURFACE, not the colour: this panel is
+   deliberately dark in both themes, so anything painted on it must be
+   theme-independent. .sentText sits on the form surface, which flips, so
+   it must track the theme. #34d399 measures 10.54 here in BOTH themes
+   and 1.72 on the light form — the identical hex, passing on one surface
+   and failing on the other.
+
+   Guarded: ProjectsSection.test.jsx asserts the terminal rules name NO
+   theme token at all, so a later "unification" fails loudly. */
 .lineSuccess { color: #34d399; }
 .lineAccent  { color: #FCA311; }
-.lineMuted   { color: var(--faint); }
+
+/* PF-91: was `var(--faint)` — 3.33 dark / 3.12 light against the panel's
+   #0d1117. A theme token on a panel that does not theme is a BUG, not a
+   contrast miss, which is why it failed in both. #8b949e matches the
+   chrome label above; 6.15 here. Same fix PF-85 made to the caret. */
+.lineMuted   { color: #8b949e; }
 
 /* The caret CANNOT name its keyframe here. CSS Modules scopes
    @keyframes names AND rewrites the name inside an animation

@@ -40,6 +40,15 @@
   --shd:  0,0,0;          /* shadows */
 
   /* ── Status ──────────────────────────────────────────────── */
+  /* ⚠️ PF-91 gave these two their FIRST consumers. Both were declared in
+     PF-67 and read by nothing but Tailwind's alias for three sprints,
+     while four sites hardcoded the identical pair of hexes and two of
+     them shipped a light-theme failure. Route new status colour through
+     the token; the next green decision is then one edit, not four.
+
+     The ONE exception is the Projects terminal, which is deliberately
+     dark in both themes — a token that flips cannot be painted on it.
+     See the Group C/D boundary comment in ProjectsSection.module.css. */
   --ok:      #34d399;
   --danger:  #f87171;
 
@@ -108,7 +117,20 @@ html[data-theme="light"] {
   --ftr:  226,212,190;   /* tan chrome */
   --shd:  20,33,61;
 
-  --ok:      #0E7A55;
+  /* ⚠️ PF-91 — #0B6446, NOT the prototype's #0E7A55, and the distinction
+     matters: this is EXTENDING an accessibility fix the design already
+     made, not correcting an oversight. applyTheme() line 868 already
+     recolours every [data-ok] from #34d399 to #0E7A55 in light — the
+     design saw the problem and moved the value. It just landed short:
+     measured 3.67 on the AVAILABLE FOR WORK badge and 4.43 on the status
+     dot, against the 4.5 that 10.5px and 12px text need. #0B6446 is the
+     same hue darkened until it clears every light backdrop it lands on —
+     worst case 4.93 on the badge, 6.44 on the Contact form.
+
+     --danger is UNCHANGED: #B4231F is the prototype's own light value
+     (Admin.dc.html:16) and already measures 5.88 on the form surface.
+     It was failing only because nothing read it. */
+  --ok:      #0B6446;
   --danger:  #B4231F;
 }
 
@@ -162,12 +184,49 @@ a:hover    { color: var(--strong); }
  * treatment since PF-72 at a 2px offset; its `.toggle:focus-visible`
  * is (0,2,0) and keeps winning over this rule's (0,1,1), which is
  * intended — a 30px switch wants a tighter ring than a text link.
+ *
+ * ⚠️ PF-91: `:not([tabindex="-1"])` is load-bearing. A negative
+ * tabindex means "programmatically focusable, NEVER a tab stop", so
+ * such an element is only ever focused as a scroll/reading-position
+ * target — <main> is the one case here, focused by the skip link.
+ * The ticket predicted :focus-visible would not match a programmatic
+ * focus. It DOES: Chromium keys the heuristic on the most recent input
+ * modality, and the link is activated with Enter — so pressing the
+ * skip link drew a 2px accent ring around the ENTIRE page. Measured,
+ * not assumed (`matches(':focus-visible')` === true before this).
+ * Excluding -1 keeps every real tab stop ringed and costs nothing,
+ * where `outline: none` would be this repo's first — see PF-83.
  */
 a:focus-visible,
 button:focus-visible,
-[tabindex]:focus-visible {
+[tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: 3px;
+}
+
+/* ⚠️ PF-91 — THIS IS THIS REPO'S FIRST `outline: none`, and PF-83
+ * recorded its absence as a checked fact. Here is why it is the right
+ * one, and why it cannot spread.
+ *
+ * Excluding tabindex="-1" from the rule above stops OUR ring; it does
+ * not stop CHROMIUM'S. Measured after that change alone: <main> took
+ * `outline: auto 1px rgb(0, 95, 204)` — the UA default — so activating
+ * the skip link drew a blue box around the entire page. Only an
+ * explicit suppression removes a UA default.
+ *
+ * Safe because the selector cannot reach a keyboard-operable control:
+ * `main[tabindex="-1"]` is the skip link's landing target and nothing
+ * else. WCAG 2.4.7 governs components a keyboard can OPERATE, and a
+ * negative tabindex means this one is never in the tab order at all —
+ * it is focused only to move the reading position. Every real tab stop
+ * keeps its ring, re-measured: 11 of 11 at `2px solid`, 999px radii
+ * intact.
+ *
+ * NOT the PF-87 `outline: 2px solid transparent` treatment. That exists
+ * so forced-colors mode can restore an indicator on a CONTROL; a
+ * full-page ring in forced-colors would be noise, not information. */
+main[tabindex="-1"]:focus {
+  outline: none;
 }
 
 /* ── Anton guard (PF-68) ─────────────────────────────────────

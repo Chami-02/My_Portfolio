@@ -345,9 +345,19 @@
   transition: opacity .35s, transform .35s;
 }
 
+/* ⚠️ PF-91: was the literal #34d399, which measured 1.58 on light paper
+   — the worst failure found anywhere on the Phase 2 surface, and never
+   seen before because every sweep loaded `?nosplash`. `var(--ok)` is
+   #34d399 in dark (10.54, byte-identical to before) and #0B6446 in light
+   (5.88).
+
+   Note it CANNOT be one literal: a value dark enough for light paper
+   measures 2.82 on the splash's near-black ground. This node genuinely
+   needs the theme to flip under it — which is the exact opposite of the
+   terminal's .lineSuccess, same hex, same ticket. The surface decides. */
 .bootLineGreen {
   composes: bootLine;
-  color: #34d399;
+  color: var(--ok);
 }
 
 .bootLineAccent {
@@ -383,6 +393,37 @@
   font-size: 10.5px;
   letter-spacing: .16em;
   color: var(--faint);
+}
+
+/* ── PF-91 · Group B — `--faint` fails AA in DARK ────────────────────
+   LOADING, the percentage and SKIP INTRO all measured 3.56 against the
+   splash's rgb(5,6,9); 10.5px needs 4.5. `--muted` measures 7.68. Light
+   passes at 4.97 and is untouched.
+
+   ⚠️ THESE THREE WERE NEVER MEASURED BEFORE PF-91, INCLUDING BY PF-83,
+   whose whole purpose was the a11y contract. Every sweep loaded
+   `?nosplash` — the flag that makes the suite fast is the flag that puts
+   this entire surface outside it. Mount the splash when auditing.
+
+   ⚠️ `.skip` IS A SEPARATE RULE, NOT A CHILD OF `.progressLabels`. It
+   sits below with its own `--faint`, so a scoped rule naming only
+   `.progressLabels` fixes LOADING and the percentage and silently leaves
+   SKIP INTRO at 3.56. Both are named here.
+
+   ⚠️ AND `.skip` HAS A HOVER, so its hover colour is re-declared INSIDE
+   this theme block. `:global(html[data-theme='dark']) .skip` is (0,2,1)
+   and `.skip:hover` is (0,2,0) — the theme rule would win WHILE HOVERED
+   and the accent hover would simply never appear. That is the
+   ScrollToTop bug of 2026-08-25 exactly: every colour a hover changes
+   must be declared inside the same theme block, where it lands at
+   (0,3,1) and beats that theme's own rest rule outright. */
+:global(html[data-theme='dark']) .progressLabels,
+:global(html[data-theme='dark']) .skip {
+  color: var(--muted);
+}
+
+:global(html[data-theme='dark']) .skip:hover {
+  color: var(--acc, #FCA311);
 }
 
 .skip {

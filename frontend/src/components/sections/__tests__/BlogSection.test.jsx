@@ -609,4 +609,80 @@ describe('with no published posts', () => {
     expect(pick(c, 'count')).toBeNull();
     expect(pick(c, 'featuredCard')).toBeNull();
   });
+
+  /*
+   * ── PF-91 · the dark-scoped AA fix ──────────────────────────────────
+   *
+   * `--muted2`/`--faint` fail AA in DARK on a tinted surface. The fix is
+   * `--muted`, one step lighter in the same palette — PF-83's stat-label
+   * precedent, introducing no new colour.
+   *
+   * ⚠️ The SCOPING is the part worth guarding. It must win on
+   * SPECIFICITY — `:global(html[data-theme='dark'])` is (0,2,1) against
+   * the base rule's (0,1,0) — not on emission order. An equal-specificity
+   * tie resolving on bundle order is a bug this project has hit six
+   * times, and a second bare rule would look identical in review while
+   * depending on which stylesheet the bundler happened to emit last.
+   *
+   * ⚠️ And the base rule must SURVIVE. Light passes everywhere here, so
+   * over-applying the fix into an unscoped change would move a compliant
+   * colour for no reason — exactly what PF-83 refused to do.
+   */
+
+  describe('PF-91 dark-theme contrast fix', () => {
+    it('keeps .rowMeta\'s base colour at --muted2, so light is unmoved', () => {
+      expect(decls('.rowMeta').color).toBe('var(--muted2)');
+    });
+
+    it('raises the six compact-row meta spans to --muted in DARK, scoped on specificity', () => {
+      const targets = ['.rowMeta'];
+      const scoped = [];
+      root.walkRules((rule) => {
+        if (!rule.selector.includes("[data-theme='dark']")) return;
+        targets.forEach((t) => {
+          if (!rule.selector.includes(t)) return;
+          rule.walkDecls('color', (d) => scoped.push({ sel: rule.selector, v: d.value }));
+        });
+      });
+      expect(scoped.map((s) => s.v)).toEqual(targets.map(() => 'var(--muted)'));
+      expect(scoped).toHaveLength(targets.length);
+      // (0,2,1): every scoped selector carries the html[data-theme]
+      // qualifier, and is never a second BARE class relying on emission
+      // order. `^\.name` would be that bare form.
+      scoped.forEach((s) => {
+        expect(s.sel).toMatch(/:global\(html\[data-theme='dark'\]\)\s*\./);
+        expect(s.sel.trim()).not.toMatch(/^\./);
+      });
+    });
+  });
+
+
+  /*
+   * ── PF-91 · Group E — the two separators are ONE mark ───────────────
+   *
+   * The prototype implements it twice: a literal `rgba(252,163,17,.7)`
+   * on the featured card (line 435) and `var(--acc)` at opacity .65 on
+   * the compact rows (line 446). Only the LITERAL collapses in light,
+   * because light's --acc is #7E4800 while a hardcoded amber stays
+   * amber on paper — it measured 1.44, the worst text ratio here.
+   *
+   * Unifying them on the token is a fidelity fix as much as a contrast
+   * one, so BOTH halves are guarded: same colour, same alpha.
+   *
+   * ⚠️ The alpha is .9 because .85 was MEASURED at 4.46 against the
+   * featured card's own backdrop — 0.04 short. Do not round it down.
+   */
+  describe('PF-91 separators', () => {
+    it('paints both separators with the token, never a literal amber', () => {
+      expect(decls('.featuredSep').color).toBe('var(--acc, #FCA311)');
+      expect(decls('.rowSep').color).toBe('var(--acc, #FCA311)');
+      expect(decls('.featuredSep').color).not.toMatch(/rgba?\(\s*252/);
+    });
+
+    it('gives both the same .9 alpha — .85 measured 4.46, which fails', () => {
+      expect(decls('.featuredSep').opacity).toBe('.9');
+      expect(decls('.rowSep').opacity).toBe('.9');
+    });
+  });
+
 });
