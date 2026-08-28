@@ -436,7 +436,8 @@ responsive + a11y audit.** PF-85 → PF-92.
 | PF-88 | Footer, API-free, REPLAY INTRO live | ✅ |
 | PF-89 | Homepage Phase 1 cutover | ✅ |
 | PF-90 | Responsive + **state** audit, both themes | ✅ |
-| PF-91 → PF-92 | Contrast batch, sprint gate | not started |
+| PF-91 | Accessibility & contrast pass | ✅ |
+| PF-92 | Sprint gate, PR, close | not started |
 | — | **Sprint 13 prep — navbar rework + 2 removals** (2026-08-22) | ✅ |
 
 **Sprint 13 prep landed on this branch, unticketed and owner-directed
@@ -544,6 +545,25 @@ There is **no separate Sprint 11 retrospective document**, matching Sprint
   covered there — the field is larger than the button — so it was left
   alone, but it is the same control in the same position and any future
   change should be checked against both.
+
+- **⚠️ THE 404 PAGE NEEDS ITS OWN TICKET, AND SOONER THAN THE ADMIN
+  REBUILD.** Raised in PF-91, which excluded it deliberately: its fix is
+  Phase 1 **token** work and PF-91's was Phase 2 **palette** work.
+
+  | node | token | dark | light |
+  | --- | --- | --- | --- |
+  | the giant `404` numeral | `--border-bright` | **1.91 ✗** | 8.67 ✅ |
+  | eyebrow "ERROR 404" | `--accent` | 6.79 ✅ | **2.44 ✗** |
+  | body copy | `--text-body` | 7.90 ✅ | **2.10 ✗** |
+
+  **⚠️ Why it outranks admin's 1.11, which is a worse number.** The
+  numeral fails at **1.91 in DARK — the default theme, on a page any
+  broken link reaches.** Admin's failure needs a deliberate theme toggle
+  *and* a deliberate navigation to a route the owner alone visits. Reach
+  beats severity here.
+
+  ⚠️ **And it is NOT a pin-to-dark candidate**, unlike admin: it fails in
+  the theme pinning would lock it into. It needs the real palette.
 
 - **⚠️ `/admin` AND `/admin/login` ARE UNREADABLE IN LIGHT THEME, AND HAVE
   BEEN SINCE PF-67.** Found in PF-89's Step 1b sweep (2026-08-26),
@@ -771,6 +791,12 @@ than copied forward:
   to exactly `-4px`. PF-74's, and not introduced by PF-93.
   **Decided and fixed the same day** — see the Locked decision on ungated
   hover lifts, which has the split rule and the re-measured audit contract.
+- ~~**⚠️ Terminal ink fails AA in light theme.**~~ — **CLOSED in PF-91.**
+  The `➜` line and the chrome label are both `#8b949e` now (6.15 / 5.62,
+  both themes); the `➜` line was the last theme token on a panel that
+  does not theme. The card numerals are EXEMPT, not fixed — see the
+  PF-91 exemptions in Locked decisions. Original account below.
+
 - **⚠️ Terminal ink fails AA in light theme.** The panel is a fixed dark
   image (`#0d1117`) but two of its ink colours are theme tokens, so they
   darken while the panel does not. Measured against the panel:
@@ -836,6 +862,11 @@ than copied forward:
   ascending purely to keep it deterministic. Fixing it is a seed change
   plus, against the live cluster, a production write like migration 004 —
   the owner's call. Details in the PF-86 entry.
+- ~~**⚠️ Two inherited contrast failures in the Blog teaser**~~ —
+  **CLOSED in PF-91** (Groups A and E). ⚠️ Note the compact-row meta was
+  **4.30 dark**, and the separator pair turned out to be one mark
+  implemented twice. Original account below.
+
 - **⚠️ Two inherited contrast failures in the Blog teaser, reported and
   NOT fixed** (PF-86, 2026-08-21) — both are the prototype's own values,
   so they follow the PF-83 stat-label precedent of raise-then-change:
@@ -852,6 +883,12 @@ than copied forward:
   the compact rows' is `var(--acc)` at `opacity:.65` (line 446), so only
   the featured one keeps dark theme's amber on light paper. Same shape as
   the terminal caret. Both batch naturally into PF-91.
+- ~~**⚠️ FOUR contrast findings in Contact**~~ — **CLOSED in PF-91.**
+  The field labels went to `--muted` in dark (7.00) and both status
+  colours onto `var(--ok)`/`var(--danger)` (6.43 / 5.88 light). ⚠️ The
+  location line was never failing — 4.55 dark — exactly as the entry
+  below says. Original account below.
+
 - **⚠️ FOUR contrast findings in Contact, reported and NOT fixed** (PF-87,
   2026-08-22). All the prototype's own values, so they follow the PF-83
   stat-label precedent and batch into PF-91:
@@ -872,6 +909,12 @@ than copied forward:
 
   ⚠️ Note the ticket predicted the location line would fail and it
   PASSES; the labels it never mentions are the actual failure.
+
+- ~~**⚠️ TWO contrast findings in the Footer**~~ — **CLOSED in PF-91**,
+  and by then there were **six**, not two: the 2026-08-27 surface tint
+  had newly failed the role line, the bio and the status dot, and pushed
+  the copyright under in light as well. All six are in the PF-90
+  close-out table and all six now pass. Original account below.
 
 - **⚠️ TWO contrast findings in the Footer, reported and NOT fixed**
   (PF-88, 2026-08-24). Both are the prototype's own values, so they
@@ -1533,8 +1576,12 @@ Six decisions worth knowing, all made here rather than transcribed:
   three inputs are the prototype's *only* focus styling (lines 518/522/527)
   and use a `border-color` shift, which works because they already have a
   border to shift. Sprint 12 should transcribe that; a global ring now would
-  pre-empt it. Until then they keep the UA default — there is no
-  `outline: none` anywhere in this repo, checked.
+  pre-empt it. Until then they keep the UA default — there was no
+  `outline: none` anywhere in this repo when this was written, checked.
+  ⚠️ **That stopped being true in PF-91 (2026-08-28)**, which added
+  exactly one: `main[tabindex="-1"]:focus { outline: none }`. See the
+  entry under PF-91 for why the scoping is what makes it safe, and why
+  it must never be quoted to excuse an unscoped one.
 - **`ThemeToggle` keeps its own 2px offset** from PF-72. `.toggle:focus-visible`
   is (0,2,0) and beats the new rule's (0,1,1). Intended, not an oversight — a
   30px switch wants a tighter ring than a text link.
@@ -2444,6 +2491,19 @@ which would have been this repo's first — PF-83 recorded "there is no
 of the global `:focus-visible` ring precisely so this ticket could
 transcribe the prototype's own `border-color` treatment.
 
+⚠️ **PF-91 (2026-08-28) added the repo's first and only `outline: none`,
+so "zero anywhere" is no longer true — and the two cases are worth
+reading together, because they resolve in OPPOSITE directions on the same
+question.** Here, a form control needs an indicator, so the suppression
+is refused and a transparent outline preserves the forced-colors
+fallback. There, `<main>` carries `tabindex="-1"` and is therefore never
+in the tab order at all — it is focused only to move the reading
+position, so WCAG 2.4.7 does not reach it and a full-page ring in
+forced-colors would be noise rather than information. **The discriminator
+is whether a keyboard can OPERATE the element, not whether it can receive
+focus.** That is exactly the distinction a later reader will collapse if
+only one half is recorded.
+
 Measured in Chromium's forced-colors emulation, all three fields:
 
 | mode | outline | border |
@@ -3258,6 +3318,13 @@ look at the screenshots.**
 **The gate after the mobile pass:** frontend **633 / 633** (43 files) ·
 lint **exit 0** · build **220 modules** · E2E **37 / 37**. Eight
 mutations across the new guards, all caught.
+
+⚠️ **PF-91 did NOT raise these, and that is a decision rather than an
+omission.** The ticket scoped to contrast, and after its fixes **all 42
+pass AA at their existing sizes** — the failures were ink, not scale.
+Raising the type is still the site-wide design decision described below,
+and it is still unmade. It no longer has an accessibility argument behind
+it, only a legibility one.
 
 ⚠️ **Reported, not changed: 42 text nodes render below 11px** (10px and
 10.5px mono labels — stat labels, eyebrows, badges, the copyright).
@@ -5131,6 +5198,84 @@ error message:
   recognising the shape: **a positional assertion taken once after a
   fixed wait is a timer, not a measurement.**
 
+- **⚠️ `:focus-visible` DOES match a programmatically-focused element, so
+  "it's a `.focus()` call, no ring will show" is false.** Cost nothing
+  only because PF-91 verified it instead of trusting the ticket that said
+  it.
+
+  The PF-91 ticket's Step 4 reads: *"confirm no focus ring appears on
+  `<main>` itself (`:focus-visible` won't match a programmatic focus, but
+  verify rather than assume)"*. The parenthesis is wrong. **Chromium's
+  heuristic keys on the most recent input MODALITY, not on how focus was
+  moved** — the skip link is activated with **Enter**, so the `.focus()`
+  that follows matches `:focus-visible` exactly as a Tab would.
+
+  Measured: `main.matches(':focus-visible') === true`, and the global ring
+  rule painted **a 2px accent outline around the entire page** the moment
+  the skip link was used.
+
+  ⚠️ **And there is a second ring behind the first.** Narrowing the ring
+  rule to `[tabindex]:not([tabindex="-1"])` stops OUR outline and not the
+  browser's: `<main>` then took `outline: auto 1px rgb(0, 95, 204)`, the
+  UA default. Same box, different colour, and easy to declare victory
+  after the first fix without re-looking. Only an explicit suppression
+  removes a UA default.
+
+  Both are fixed in `tokens.css`; see the PF-91 Locked decision for why
+  `main[tabindex="-1"]:focus { outline: none }` is safe where the same
+  declaration on a control would not be.
+
+- **⚠️ THE OPTIMISATION THAT MAKES A PROBE FAST IS WHAT PUTS A SURFACE
+  OUTSIDE IT.** Found in PF-91, and it is the general form of a mistake
+  this file already records once without naming it.
+
+  **The instance.** PF-91's contrast sweep found the splash carrying five
+  AA failures — three `--faint` labels at 3.56 dark, and two boot lines
+  at **1.58** on light paper, the worst text ratio anywhere on the Phase
+  2 surface. **Not one of them had ever been measured**, in any pass, by
+  any ticket — including **PF-83, whose entire purpose was the a11y
+  contract**, and PF-90's state matrix, which walked every cell of the
+  page in both themes.
+
+  **The cause is a good decision, not a missed step.** Every sweep loads
+  `/?nosplash=1`, for the reason PF-84 documents at length: without it
+  Playwright's actionability check will not click through a z-index-100
+  overlay, so every test waits out the full ~5.65s splash. Adding it took
+  the E2E suite from **2.1m to 1.2m while gaining two tests**. It belongs
+  in the `beforeEach` and should stay there.
+
+  So the flag that makes the suite fast is the flag that removes an
+  entire surface from everything the suite can see. Nothing errors. The
+  audit reports clean, because it genuinely is clean — over the subset it
+  looked at.
+
+  **⚠️ THIS IS THE SECOND OCCURRENCE, AND THE FIRST IS ALREADY IN THIS
+  FILE.** PF-83's reduced-motion audit reported `getAnimations()` total 0
+  and was believed for two sprints; PF-91's Locked-decisions entry on
+  ungated hover lifts later found the real total is **1**, from
+  `ScrollToTop`'s `fill-mode: both`. The probe was not wrong — it simply
+  **never scrolled far enough to mount that button**. Same shape: a
+  cheaper probe, a surface outside it, a clean report.
+
+  | | what made the probe cheap | what fell outside it |
+  | --- | --- | --- |
+  | PF-83 | not scrolling to the footer | `ScrollToTop`, and its one animation |
+  | PF-91 | `?nosplash` | the whole splash — 10 text nodes, 5 failures |
+
+  **The habit that catches it: name what the probe EXCLUDES, in the same
+  breath as its result.** "Zero failures" is not a finding; "zero
+  failures across 246 nodes with the splash not mounted" is, and it
+  states its own gap. PF-91's verification runs three passes for this
+  reason — the page with `?nosplash`, the splash mounted deliberately at
+  4200ms, and the Contact form's error and sent states, which only exist
+  after an interaction and had likewise never been in a sweep.
+
+  Note the mounted-splash pass needs its own control: sample too early
+  and the boot lines are still at `opacity: 0` mid-entrance, which reads
+  as ratio 1.00 — indistinguishable from a real failure. 4200ms is after
+  the last line lands (2954ms) plus its ~1s entrance, and before the
+  4500ms exit.
+
 - **⚠️ A RED BACKEND SUITE HAS THREE DISTINCT SHAPES, and all three appear
   on a diff that never touched the backend.** The third was found in
   PF-90; collecting them is the useful part, because the first move is
@@ -6158,6 +6303,149 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   prototype's omission is a wiring gap, not a design choice, and this was
   raised and approved before shipping.
 
+
+### PF-91 — the accessibility contrast pass (2026-08-28)
+
+Every value changed below was the prototype's own, so each was raised,
+measured and approved before shipping — the PF-83 stat-label precedent.
+**All five groups were approved by the owner.** Recorded here because a
+fidelity pass diffing against `docs/design/` will flag every one of them.
+
+**Result: ZERO AA failures across the Phase 2 surface, both themes**,
+measured over **259 nodes per theme** — 246 on the page, 10 on the splash
+**mounted**, 3 in the Contact form's live error and sent states. Zero
+regressions; no previously-passing value moved except the four covered
+below.
+
+| Group | Change | Blast radius |
+| --- | --- | --- |
+| **A** | `--muted2` → `--muted`, **DARK only**, on tinted surfaces | 4 rules: footer `.role` `.bio`, Contact `.fieldLabel`, Blog `.rowMeta` |
+| **B** | `--faint` → `--muted` | hero `.scrollLabel` + splash `.progressLabels` `.skip` (dark only); footer `.copyright` (**both** themes) |
+| **C** | the terminal panel's ink becomes literal | Projects `.lineMuted`, `.terminalLabel` → `#8b949e` |
+| **D/F** | `--ok` light `#0E7A55` → **`#0B6446`**, 4 sites adopt `var(--ok)`/`var(--danger)` | the token + footer ×2, splash ×1, Contact ×2 |
+| **E** | both Blog separators unified on `var(--acc)` at `.9` | Blog `.featuredSep`, `.rowSep` |
+
+**Group A/B scope on SPECIFICITY, never emission order.**
+`:global(html[data-theme='dark']) .x` is (0,2,1) against the base rule's
+(0,1,0). Light passes for all of Group A and is deliberately untouched —
+the base rules still read `--muted2`, guarded in both directions.
+
+**⚠️ Group B took TWO steps, not one, and the reason is the footer.**
+`--muted2` would have cleared the page-ground nodes at **4.55** and the
+light copyright at **4.69**. The owner rejected that headroom on
+evidence: this project has re-litigated a borderline value three times
+(the `--muted2` stat labels, the 4.47 status dot, and the PF-91 ticket's
+own 4.49 that was really 4.51), and **the footer copyright itself went
+4.97 → 4.28 purely from the 2026-08-27 surface tint — a change that
+touched none of its own colours.** A margin under 0.2 does not survive a
+backdrop change.
+
+**⚠️ `.skip` IS A SEPARATE RULE FROM `.progressLabels`.** A scoped rule
+naming only `.progressLabels` fixes LOADING and the percentage and
+silently leaves SKIP INTRO at 3.56. And `.skip` has a hover, so its hover
+colour is **re-declared inside the dark block** — `:global(html[data-theme=
+'dark']) .skip` is (0,2,1) and `.skip:hover` is (0,2,0), so the theme rule
+would win *while hovered* and the accent hover would never appear. That
+is the ScrollToTop bug of 2026-08-25 exactly.
+
+**⚠️ THE GROUP C / GROUP D BOUNDARY — the same hex gets opposite answers
+in one ticket, and that is correct.** Projects' `.lineSuccess` stays the
+literal `#34d399` while Contact's `.sentText` and the splash's
+`.bootLineGreen` become `var(--ok)`. **The SURFACE decides, not the
+colour**: the terminal is deliberately dark in both themes (DESIGN.md
+line 85), so a token that flips cannot be painted on it — `#34d399`
+measures **10.54 there in both themes and 1.72 on the light form**. Three
+files apart, this looks exactly like an oversight, and "unifying" it
+would reintroduce a 2.82:1 line while reading as a cleanup. Guarded:
+`ProjectsSection.test.jsx` asserts the terminal rules name **no theme
+token at all**, and pins the two raised values so a silent revert to a
+failing literal also fails.
+
+⚠️ `var(--shd)` **stays** on that panel — it is a drop SHADOW cast onto
+the page behind it, which does flip, and no contrast rule reaches a
+shadow. Ink is literal there; the shadow is not. Guarded both ways.
+
+**⚠️ `--ok` and `--danger` had ZERO consumers before this ticket** — declared
+in PF-67, read by nothing but Tailwind's alias for three sprints, while
+four sites hardcoded the identical pair and two of them shipped a
+light-theme failure. Routing through the token makes the next green
+decision one edit rather than four. `--danger` needed **no value change**:
+`#B4231F` is the prototype's own light value at 5.88, failing only
+because the literal bypassed it.
+
+**⚠️ `--ok` light is `#0B6446`, and the framing matters.** `applyTheme()`
+line 868 **already** recolours `[data-ok]` from `#34d399` to `#0E7A55` in
+light — the design saw this problem and moved the value. It landed short:
+**3.67** on the badge, **4.43** on the dot. This EXTENDS the design's own
+fix rather than correcting an oversight, which is what makes the
+deviation small. A fidelity pass "restoring" `#0E7A55` would reintroduce
+the failure it looks like it is fixing; pinned by a test.
+
+**⚠️ `.availabilityDot` is deliberately NOT routed through `--ok`.** Only
+two elements carry `[data-ok]` in the prototype — the label and the CI
+dot — and the 7px decorative disc is not one of them. Recolouring it too
+would be a design change wearing an accessibility fix's clothes. Guarded.
+
+**Group E is a fidelity fix as much as a contrast one.** The prototype
+implements one mark twice — a literal `rgba(252,163,17,.7)` on the
+featured card (line 435) and `var(--acc)` at `.65` on the compact rows
+(line 446). Only the **literal** collapses in light, keeping dark theme's
+amber on paper at **1.44**; the token resolves to `#7E4800`. Unifying
+them fixes the featured one for free. ⚠️ The alpha is `.9` because `.85`
+**measured 4.46** against the featured card's own backdrop — 0.04 short,
+found by measuring rather than by arithmetic on a neighbouring backdrop.
+
+⚠️ **This is the one place a passing value moved**: the four dark
+separators went 5.20/4.51 → 8.18/7.79. Unavoidable and approved — one
+alpha necessarily serves both themes.
+
+**⚠️ `main[tabindex="-1"]:focus { outline: none }` IS THIS REPO'S FIRST
+AND ONLY `outline: none`.** PF-83 and PF-87 both record that there were
+zero; both entries are corrected in place. It exists because the skip
+link was scrolling to `<main>` without moving focus, and fixing that
+exposed first our ring and then Chromium's UA default — see the
+`:focus-visible` entry in Silent failures for both.
+
+**The scoping is the entire justification, and it must not be quoted to
+excuse an unscoped one.** A negative tabindex means "programmatically
+focusable, NEVER a tab stop", so this element is only ever focused to
+move the reading position. **WCAG 2.4.7 governs components a keyboard can
+OPERATE** — the discriminator is operability, not focusability. Every
+real tab stop keeps its ring: re-measured **11 of 11 at `2px solid`**,
+999px radii intact. Guarded by extracting the selector that owns the sole
+`outline: none` and asserting it is exactly this one; a widened selector
+fails.
+
+### PF-91 exemptions — decided, not omitted (2026-08-28)
+
+Recorded as decisions so the next sweep does not read two 1.19 ratios and
+six sub-3.0 borders as misses.
+
+**The six decorative numerals stay.** Projects `02/03/04` at
+`rgba(252,163,17,.28)` (1.75 dark / 1.19 light) and Blog `02/03/04` at
+`.3` (1.83 / 1.20). All six are `aria-hidden` and convey nothing the
+card's own heading and link do not. **WCAG 1.4.3 exempts text that is
+pure decoration.**
+
+**The 17 control borders stay, argued per row rather than as a block** —
+a blanket exemption is what gets quoted later to excuse a border that
+*is* the only affordance. 1.4.11 applies to indicators **required to
+identify** a control, and every one of these sits on a control whose
+LABEL passes comfortably:
+
+| Border | Border ratio | The label that carries it |
+| --- | --- | --- |
+| footer SCROLL TO TOP pill | 1.58 / 1.41 | **7.25 / 5.46** |
+| navbar links, CONTACT, ADMIN | ~1.6 / ~1.4 | **7.27 – 9.79** |
+| theme toggle | 1.58 / 1.41 | non-text 9.48 / 5.56, already clear of 3.0 |
+| Blog featured card, 3 compact rows | 1.58 / 1.41 | **not controls at all** |
+
+**⚠️ The caret reads 1.00 in a single-sample sweep and is NOT a
+failure.** `blink` is `step-end`, so half of every cycle sits at
+`opacity: 0`. Sampled across 40 frames it alternates 0 and 1 as
+specified, and its colour is PF-85's literal `#FCA311` at **9.36** on the
+panel — untouched by PF-91. A sweep that reports it as failing has
+sampled the dark half.
 
 - Design fidelity is absolute. Nothing visible is removed or simplified for
   performance.
