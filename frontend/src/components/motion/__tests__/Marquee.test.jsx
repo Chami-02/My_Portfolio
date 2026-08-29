@@ -122,10 +122,12 @@ describe('Marquee (PF-74)', () => {
    * distance per cycle is `copies/2 * copyW`, so at ONE duration the two
    * bands would have run at 105 and 88 px/s: visibly different speeds.
    *
-   * The owner set both to **70 px/s at 1440**, which needs:
+   * The owner set both to 70 px/s on 2026-08-27 and then to **50 px/s**
+   * on 2026-08-29 ("slow down more both up and down banner strips"),
+   * which needs:
    *
-   *     footer  9 * 392.9  = 3536.4px / 50.5s = 70.02 px/s
-   *     hero    4 * 1050.6 = 4202.2px / 60s   = 70.04 px/s
+   *     footer  9 * 392.9  = 3536.4px / 70.7s = 50.02 px/s
+   *     hero    4 * 1050.6 = 4202.2px / 84s   = 50.03 px/s
    *
    * So EQUAL SPEED is the contract and equal duration is now the bug.
    * jsdom can measure neither `copyW` nor px/s, so what is pinned here
@@ -151,16 +153,18 @@ describe('Marquee (PF-74)', () => {
     const footer = durationOf(read('../../layout/Footer.jsx'));
     const hero = durationOf(read('../../sections/HeroSection.jsx'));
 
-    expect(footer).toBe(50.5);
-    expect(hero).toBe(60);
+    expect(footer).toBe(70.7);
+    expect(hero).toBe(84);
     expect(footer).not.toBe(hero);   // equal duration = unequal speed
     expect(footer).not.toBe(40);     // both bands' pre-2026-08-27 value
     expect(hero).not.toBe(40);
+    expect(footer).not.toBe(50.5);   // the 70 px/s pair, superseded
+    expect(hero).not.toBe(60);       //   2026-08-29 by the 50 px/s pair
     expect(footer).not.toBe(15);     // the prototype's footer value
     expect(hero).not.toBe(26);       // the prototype's hero value
 
     // The measured copy widths that make those two numbers one speed.
-    const SPEED = 70;                       // px/s at 1440, owner-set
+    const SPEED = 50;                       // px/s at 1440, owner-set
     const footerPxS = (18 / 2 * 392.9) / footer;
     const heroPxS = (8 / 2 * 1050.6) / hero;
     expect(footerPxS).toBeCloseTo(SPEED, 0);

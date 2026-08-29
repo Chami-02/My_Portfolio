@@ -511,10 +511,30 @@ section.hero {
   animation-direction: reverse;
 }
 
-/* z-index 4 is the prototype's, and it is the only blob above the
-   portrait frame's 3 — this one drifts in FRONT of the image. */
+/* ⚠️ z-index 2, NOT the prototype's 4 — owner-requested 2026-08-29:
+   "the image in the hero section, it seems like a mist or blurry thing
+   in front of the image; it should be always clear and perfect".
+
+   This was the only blob above the portrait frame's z-index 3, so it
+   was the one layer that drifted in FRONT of the picture: a blur(9px)
+   pale-blue haze, animated over 19s, passing across the lower-left of
+   the portrait. That is the mist — and it being animated is why it read
+   as an image-animation problem rather than as a static overlay.
+
+   MOVED BEHIND, NOT DELETED, and the distinction is deliberate. The
+   request is about the portrait being clear, not about losing a blob:
+   the ambient cluster is still four blobs, blobC keeps its size,
+   position, gradient, blur, 19s duration and 1.5s delay, and it still
+   drifts — just behind the frame with its three siblings. Deleting it
+   would have reduced the design further than was asked, which is the
+   over-deletion trap this project has hit with .scanTexture and
+   .portraitFade.
+
+   ⚠️ The prototype's own value is 4, and CLAUDE.md's PF-80 entry
+   records that as intentional depth. This overrides it on the owner's
+   direct instruction; a fidelity pass WILL flag this line. */
 .blobC {
-  z-index: 4;
+  z-index: 2;
   bottom: 14%;
   left: 2%;
   width: clamp(100px, 18vw, 210px);

@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
 import { AboutSection } from '../AboutSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
+import { leadsWithIcon } from '../../../test/leadsWithIcon';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(resolve(here, '../AboutSection.module.css'), 'utf8');
@@ -143,6 +144,28 @@ describe('AboutSection (PF-81)', () => {
       .toHaveAttribute('href', '#projects');
     expect(screen.getByText('EMAIL ME').closest('a'))
       .toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
+  });
+
+  /*
+   * ⚠️ NOT IN THE PROTOTYPE — owner-requested 2026-08-29. Guarded
+   * because the icon is exactly the kind of addition a later fidelity
+   * pass deletes to "match the export", and because nothing else here
+   * would notice: the link keeps its href, its label and its accessible
+   * name whether the <svg> is there or not.
+   */
+  it('puts the envelope mark in front of EMAIL ME, and keeps it silent', () => {
+    render(withMotion(<AboutSection />));
+    const link = screen.getByText('EMAIL ME').closest('a');
+    const svg = link.querySelector('svg');
+
+    expect(svg).not.toBeNull();
+    // In FRONT of the label, not after it.
+    expect(leadsWithIcon(link)).toBe(true);
+    // aria-hidden, so the link's accessible name is still just its text.
+    expect(svg).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByRole('link', { name: 'EMAIL ME' })).toBe(link);
+    // currentColor, so it tracks theme and hover with no extra rule.
+    expect(svg.getAttribute('fill')).toBe('currentColor');
   });
 
   it('renders the portrait with its alt text', () => {

@@ -439,6 +439,7 @@ responsive + a11y audit.** PF-85 → PF-92.
 | PF-91 | Accessibility & contrast pass | ✅ |
 | PF-92 | Sprint gate, PR, close | not started |
 | — | **Sprint 13 prep — navbar rework + 2 removals** (2026-08-22) | ✅ |
+| — | **Link icons + live dot + band slowdown + hero de-mist** (2026-08-29) | ✅ |
 
 **Sprint 13 prep landed on this branch, unticketed and owner-directed
 (2026-08-22).** It is recorded here because it is real shipped work that
@@ -1175,11 +1176,17 @@ writing any `animation` declaration in a `*.module.css`.
   (`size-adjust: 88%`, `ascent-override: 90%`, `descent-override: 22%`) so the
   swap doesn't reflow. Note `--font-mono` is declared in *both* `global.css`
   and `tokens.css`; tokens.css wins purely because it imports second.
-- **32 keyframes** (`frontend/src/styles/keyframes/`) — `base.css` holds 22,
+- **33 keyframes** (`frontend/src/styles/keyframes/`) — **the design's 32,
+  plus one addition.** `dot-ok` was added 2026-08-29 for the LIVE SITE
+  green dot and is the only keyframe here with no prototype source;
+  `keyframes.test.js` keeps it in its own `ADDITIONS` list precisely so
+  the 32 below still means the design's own set. The rest of this entry
+  describes those 32. `base.css` holds 22,
   `flt`/`drift`/`sheen` are per-screen variants, and there are **8 of them,
   not 9**: the Blog prototype has no `drift` animation at all, so
   `drift-blog` does not exist and never should. `auroraA`/`auroraB` are
-  Admin-only and live in `admin.css`. 22 + 8 + 2 = 32.
+  Admin-only and live in `admin.css`. 22 + 8 + 2 = 32, + `dot-ok` = 33
+  defined in total.
 
   **⚠️ `base.css` is NOT "the 22 shared by every screen", which is what this
   entry used to say.** Counted against the three prototypes, only **4 of the
@@ -1366,10 +1373,21 @@ prototype rather than the ticket:
 - **There are four drift blobs, not eight, and they live inside the portrait
   stage.** The PF-80 ticket's inventory listed four in the section background
   *and* four more around the portrait. The prototype has four total, all
-  children of `[data-tilt]` (lines 138-141). `blobC` is at **z-index 4**, above
-  the portrait frame's 3, so it drifts in *front* of the image while the other
-  three stay behind — flattening the z-index or hoisting them to the section
-  loses that depth. Guarded by a test asserting the count and the containment.
+  children of `[data-tilt]` (lines 138-141). `blobC` is at **z-index 4** in the
+  prototype, above the portrait frame's 3, so it drifts in *front* of the image
+  while the other three stay behind. Guarded by a test asserting the count and
+  the containment.
+
+  ⚠️ **THIS REPO SHIPS `blobC` AT z-index 2, NOT 4 — owner-requested
+  2026-08-29.** In front of the portrait it read as a drifting mist over the
+  photograph ("it should be always clear and perfect"); it is now behind the
+  frame with its three siblings, unchanged in every other respect and still
+  drifting. The sentence this entry used to carry — that flattening the
+  z-index "loses that depth" — was the argument for keeping 4, and the owner
+  overrode it. It is still true *of the prototype* and no longer describes
+  what renders here. Hoisting the blobs to the SECTION is still wrong; that
+  half stands. See the Locked-decisions entry, and the stacking guard in
+  `HeroSection.test.jsx`.
 - **React and FastAPI chips carry an accent border**, `rgba(252,163,17,.3)`,
   where the other six use `rgba(var(--ln),.16)`. Reads like a copy-paste slip
   in the prototype and is not — they are the two nearest the portrait's glow.
@@ -3217,6 +3235,210 @@ values. The tests strip comments and were right; the mutation script was
 wrong. Same trap this file documents, one level out — **mutate the code,
 then confirm the file actually changed.**
 
+### Link icons, the live dot, slower bands and a de-misted hero — owner-requested, 2026-08-29
+
+Six changes in one pass, all asked for directly. **Five of the six are
+additions or overrides the prototype does not have**, so every one is a
+sanctioned deviation and this section is the only record a fidelity pass
+will find. The sixth (the marquee slowdown) moves a value the owner had
+already set twice.
+
+```
+frontend/src/
+  components/icons/                     NEW  BrandIcons.jsx + index.js barrel
+  test/leadsWithIcon.js                 NEW  shared assertion — see the trap below
+  components/sections/
+    AboutSection.jsx                    + MailIcon on EMAIL ME
+    ProjectsSection.jsx                 + GitHubIcon, + the live dot
+    ProjectsSection.module.css          + .liveDot
+    ContactSection.jsx                  + Mail / GitHub / LinkedIn marks
+    ContactSection.module.css           .socialLink -> inline-flex row
+    HeroSection.jsx                     marquee duration 60 -> 84
+    HeroSection.module.css              .blobC z-index 4 -> 2
+  components/layout/
+    Footer.jsx                          + Icon on all 5 ELSEWHERE rows; 50.5 -> 70.7
+    Footer.module.css                   .link -> flex row at every width
+  styles/
+    keyframes/base.css                  + @keyframes dot-ok  (the 33rd)
+    animations.css                      + .kf-dot-ok carrier
+    __tests__/keyframes.test.js         BASE/VARIANTS + a new ADDITIONS list
+  components/*/__tests__/               + 7 guards, all mutation-tested
+frontend/e2e/footer.spec.js             band duration 50500 -> 70700
+```
+
+**1 — Brand marks on nine links.** About's `EMAIL ME`, Projects'
+`VIEW ON GITHUB`, Contact's email / `GITHUB` / `LINKEDIN`, and all five
+footer ELSEWHERE rows. Official marks for GitHub, LinkedIn, Facebook and
+Instagram; Material Design's `email` envelope for the three `mailto:`
+links.
+
+- **⚠️ `public/icons.svg` EXISTS AND IS UNUSABLE — do not "reuse" it.**
+  It has zero consumers (checked) and every path in it is a hardcoded
+  `fill="#08060d"` or `stroke="#aa3bff"`, so a symbol would stay
+  near-black on a near-black dark theme and would not follow a link's
+  hover colour. Inline SVG with `currentColor` is the repo's own
+  precedent (`ThemeToggle.jsx`), and it is what these follow. Measured:
+  icon `fill` equals its link's computed `color` exactly, both themes.
+- **Every icon is `aria-hidden`.** Each sits beside a label that already
+  names the destination, so an exposed `<svg>` would give the link a
+  second accessible name — and every `getByRole('link', { name })`
+  lookup in the existing tests would stop resolving, which reads as "the
+  link disappeared". Same call PF-83 made for the splash and footer
+  logos.
+- **The trailing `→` / `↗` characters STAY.** The mark was added *to*
+  the label, not instead of its arrow. Trimming them to balance the row
+  would be an unrequested transcription change; guarded.
+- Two CSS changes only: Contact's `.socialLink` gained the inline-flex
+  trio its two siblings already declared, and the footer's `.link`
+  became a flex row at every width (it was already one below 899px, and
+  those two duplicate declarations were removed from the media query
+  rather than left inert). `.ctaSecondary`, `.emailLink` and
+  `.githubLink` were already inline-flex rows with a gap and needed
+  nothing.
+
+**2 — A pulsing green dot on LIVE SITE**, so a deployed project reads as
+live at a glance. Fill is `var(--ok)` — measured `rgb(52,211,153)` dark
+/ `rgb(11,100,70)` light, i.e. it flips and inherits PF-91's contrast
+work. **8.31:1 dark / 7.01:1 light** against the card, well past the
+3:1 a non-text indicator needs.
+
+**⚠️ THIS ADDED THE 33rd KEYFRAME, THE ONLY ONE THE PROTOTYPE DOES NOT
+HAVE.** `@keyframes dot-ok` in `base.css`, plus a `.kf-dot-ok` carrier.
+It could not reuse `dot`: that keyframe writes `rgba(252,163,17,...)`
+into its own `box-shadow`, and **a rule cannot override a colour an
+animation is writing**. Green is a literal `52,211,153` in both themes
+exactly as `dot` uses literal amber in both; only the dot's fill flips,
+because a glow needs to be lighter than what it blooms against and light
+theme's `#0B6446` glowing would paint a dark smudge — the ScrollToTop
+trap.
+
+⚠️ **`keyframes.test.js` now carries THREE lists, not two.** `ADDITIONS`
+is separate from `BASE` so the 32-count assertion keeps meaning what it
+meant: `BASE + VARIANTS` is still exactly the design's set and is still
+asserted as such, and anything defined outside all three lists fails.
+Folding `dot-ok` into `BASE` would have let the next addition hide
+inside a number nobody reads.
+
+⚠️ **`.liveDot` declares a resting `box-shadow` as well as the
+animation, and that is load-bearing under reduced motion.** `motion.css`
+collapses every animation to 0.01ms with one iteration, and `dot-ok`
+carries **no fill-mode** — deliberately, because `fill-mode: both` keeps
+a finished animation in `getAnimations()` for the life of the page (the
+`ScrollToTop` finding). So once it finishes the element falls back to
+the static declaration. Measured under reduce: **0 animations** and the
+glow still present at `rgba(52,211,153,.65) 0 0 6px 1px`. The dot still
+says "live" for anyone who asked for no motion.
+
+**3 — Both marquee bands slowed to 50 px/s**, from the 70 px/s the owner
+set on 2026-08-27. The equal-SPEED contract is what makes the numbers
+un-round:
+
+| band | copies | copyW | distance | duration | px/s |
+| --- | --- | --- | --- | --- | --- |
+| hero | 8 | 1050.6 | 4202.2px | **84s** (was 60) | 50.03 |
+| footer | 18 | 392.9 | 3536.4px | **70.7s** (was 50.5) | 50.02 |
+
+Measured in the browser: `getAnimations()` reports **84000ms** and
+**70700ms**. Copies are unchanged, so seamlessness is unaffected —
+duration does not enter `copies >= 2 x band / copy`. `Marquee.test.jsx`
+pins both numbers, re-derives both px/s, and now also asserts neither is
+50.5 or 60, so the superseded pair cannot come back silently.
+`e2e/footer.spec.js` pinned 50500 and went red on the first run — the
+guard working, exactly as it did on 2026-08-27.
+
+**4 — ⚠️ THE HERO PORTRAIT'S "MIST" WAS `.blobC`, AND THE OWNER'S OWN
+GUESS ("image animation, I think") WAS RIGHT ABOUT THE MECHANISM.**
+
+Reported as *"it seems like a mist or blurry thing in front of the
+image; it should be always clear and perfect"*. `.blobC` is a
+`blur(9px)` pale-blue radial haze that drifts on a 19s loop, and the
+prototype puts it at **z-index 4** — above `.portraitFrame`'s 3, the
+only one of the four blobs above the picture. CLAUDE.md's own PF-80
+entry records that as intentional depth, so this overrides the design on
+the owner's direct instruction.
+
+**Moved to z-index 2, NOT deleted**, and the distinction is the point:
+the request is about the portrait being clear, not about losing a blob.
+It keeps its size, position, gradient, blur, 19s duration and 1.5s delay
+and still drifts — behind the frame with its three siblings. Deleting it
+would have satisfied "the image is clear" while quietly reducing the
+design by a quarter of its ambient cluster, which is the over-deletion
+trap `.scanTexture` and `.portraitFade` already record.
+
+**Verified by HIT-TEST, not by screenshot**, per the clipped-vs-occluded
+entry — a box measurement cannot see what is painted on top:
+
+| | before | after |
+| --- | --- | --- |
+| 25 sample points over the portrait | blobC over the image | **24/25 return the IMAGE itself** |
+| the 25th | — | a floating chip (`kf-flt-portfolio`) — deliberate content |
+| all four blobs' computed `z-index` | 2 · 2 · **4** · 2 | **2 · 2 · 2 · 2** |
+
+Same in both themes.
+
+⚠️ **THE OTHER CANDIDATE WAS RULED OUT, NOT MISSED.** `.portraitImg`'s
+two-layer `mask-image` also softens the picture, and it is the other
+thing that could be called "misty". It was NOT changed: it is static and
+at the EDGES, where the report was of something animated and *in front*
+— and it is itself an owner-approved deviation from 2026-08-17. If the
+edge fade is ever what is meant, that mask is the lever, and both radii
+must stay at 50% (see the PF-80 entry for why over-50% reintroduces a
+hard rim).
+
+**⚠️ A NEW SILENT-FAILURE CLASS, FOUND BY MUTATION IN THIS PASS:
+`link.firstElementChild === svg` DOES NOT TEST ORDERING.** Full entry in
+Silent failures. Four guards were written that way, and moving the icon
+*behind* its label left every one of them green — the label is a TEXT
+node, which `firstElementChild` skips by definition. `test/leadsWithIcon.js`
+is the fix and is now shared by all four files.
+
+**Guards: 8 new tests, 11 mutations, all caught** once the two invalid
+ones were redone:
+
+| mutation | caught by |
+| --- | --- |
+| drop the About / Projects / Contact / Footer icon | its own presence guard |
+| icon moved AFTER the label (×4) | `leadsWithIcon` — **and NOT by the first version** |
+| Instagram reuses Facebook's mark | the footer's distinct-path-data check |
+| Contact's LinkedIn reuses GitHub's mark | the same check in Contact |
+| an icon leaks into the footer's NAVIGATE column | the counterweight assertion |
+| `.blobC` back to z-index 4 | the blob stacking guard |
+| `.blobC` deleted rather than moved | the same guard's "still four" half |
+| terminal `.lineSuccess` onto `var(--ok)` | the narrowed PF-91 guard |
+| `.liveDot` off `var(--ok)` onto a literal | its new counterweight |
+| band duration reverted to 50.5 / 60 | `Marquee.test.jsx` |
+
+⚠️ **PF-91's Group C/D guard had to be NARROWED, and the narrowing is a
+correction rather than a weakening.** It walked the whole
+`ProjectsSection.module.css` for `var(--ok)`, which the new `.liveDot`
+trips. But the rule PF-91 settled is about a **surface**, not a file:
+`--ok` flips and the terminal panel deliberately does not, so the token
+is wrong there and right on the LIVE SITE link, which is ordinary themed
+page surface. A whole-module walk conflated the two and would have
+pushed the live dot onto a hardcoded literal — reintroducing exactly the
+four-hardcoded-sites problem PF-91 removed. It is now scoped to the
+terminal's own selectors, **asserts it matched more than 10 rules** (a
+selector list that stops matching reports "no offenders" in the same
+words as a clean panel), and has a counterweight test requiring
+`.liveDot` to keep the token.
+
+⚠️ **One invalid mutation reported clean and had to be redone** — the
+"mutate the code, then confirm the file actually changed" trap, which
+this file already records from the PF-88 revisions. A `perl -0pi` regex
+did not match, so the run measured nothing. And separately, restoring a
+mutated file with `git checkout` rather than from a backup copy silently
+reverted a *real* edit in the same file — the hero's new marquee
+duration. The full suite caught it. **Restore from a copy, never from
+the index, while unstaged work is in the tree.**
+
+**The gate:** frontend **691 / 691** (44 files) · lint **exit 0** ·
+build **220 modules**, 67.76 kB CSS / 415.84 kB JS · E2E **38 / 38** ·
+backend **242 / 242**.
+
+⚠️ The E2E run printed **429**s from the rate limiter again — the
+documented artefact of the suite's own repeated page loads. All 38
+passed; no spec depends on that data.
+
 ### Mobile pass — owner-requested, 2026-08-25
 
 *"whole ui mobile optimization should be fine as butter."* An audit at
@@ -4672,6 +4894,50 @@ error message:
   correct code, which is how it presents. Found writing PF-83's focus-trap
   escape test. Use `document.activeElement.blur()`, which genuinely resets
   `activeElement` to `<body>`.
+- **⚠️ `link.firstElementChild === svg` DOES NOT TEST ORDERING, and it
+  reads exactly like it does.** Found by mutation on 2026-08-29, on four
+  guards written the same way in the same hour.
+
+  The natural way to assert "the icon is in FRONT of the label" is:
+
+  ```js
+  const svg = link.querySelector('svg');
+  expect(link.firstElementChild).toBe(svg);   // asserts nothing of the kind
+  ```
+
+  **`firstElementChild` skips text nodes by definition**, and the label
+  beside the icon *is* a text node. So the assertion passes just as
+  happily with the icon after the label — it only ever proves the icon
+  is the first ELEMENT, which is trivially true whenever it is the only
+  element. Measured: moving `<GitHubIcon />` behind `VIEW ON GITHUB →`
+  left the guard green, and the same held for About, Contact and the
+  footer.
+
+  It is the vacuous-assertion shape again — a test that reports PASS
+  while asserting nothing — but arriving through the DOM API rather
+  than through a comment match, which is why it earns its own entry
+  beside the raw-text one.
+
+  **The fix — walk `childNodes`, ignore whitespace-only text, and ask
+  whether the first MEANINGFUL node is the icon.** It lives in
+  `frontend/src/test/leadsWithIcon.js`, shared by all four files rather
+  than copied per-file like `localName`/`pick`: it is the assertion
+  itself that is subtle, so one place to read the reason is worth more
+  than the usual duplication.
+
+  ```js
+  const first = [...link.childNodes]
+    .find((n) => n.nodeType !== Node.TEXT_NODE || n.textContent.trim() !== '');
+  return first === icon;
+  ```
+
+  Confirmed by mutation in both directions on all four call sites.
+  **The generalisable bit: any `*Element*` DOM accessor silently filters
+  out text**, so it cannot answer a question about where text sits.
+  `firstElementChild`, `children`, `nextElementSibling` and
+  `previousElementSibling` are all wrong instruments for "is this before
+  the label".
+
 - **A `[class*="name"]` test selector silently matches longer class names.**
   Distinct from the entry above about stylesheets, and easy to conflate with
   it. That one still holds exactly — verified again in PF-82,
@@ -6447,6 +6713,64 @@ specified, and its colour is PF-85's literal `#FCA311` at **9.36** on the
 panel — untouched by PF-91. A sweep that reports it as failing has
 sampled the dark half.
 
+
+### Link icons, the live dot and the hero blob — owner-requested (2026-08-29)
+
+Five sanctioned deviations from one request. Full measurements and the
+file map are in the dated section above; these are the decisions a
+fidelity pass must not undo.
+
+- **⚠️ NINE LINKS CARRY AN ICON THE PROTOTYPE DOES NOT HAVE.** About's
+  `EMAIL ME`, Projects' `VIEW ON GITHUB`, Contact's email / `GITHUB` /
+  `LINKEDIN`, and every footer ELSEWHERE row. All nine are bare text in
+  `Portfolio Revolution.dc.html`. Official marks for GitHub, LinkedIn,
+  Facebook and Instagram; Material's `email` envelope for the three
+  `mailto:` links. `components/icons/`, inline SVG on `currentColor`,
+  every one `aria-hidden`.
+
+  ⚠️ **Do NOT reach for `public/icons.svg`.** It has zero consumers and
+  hardcodes `fill="#08060d"` / `stroke="#aa3bff"` on every path, so it
+  neither themes nor follows a hover. `ThemeToggle.jsx` is the
+  precedent, not that sprite.
+
+  ⚠️ **The trailing `→` / `↗` are the prototype's and STAY.** The mark
+  is an addition to the label, not a replacement for its arrow.
+  Guarded.
+
+- **⚠️ LIVE SITE CARRIES A PULSING GREEN DOT, AND IT ADDED THE ONLY
+  NON-PROTOTYPE KEYFRAME IN THE LIBRARY.** `@keyframes dot-ok`, the
+  33rd. It cannot be expressed by reusing `dot`, which writes amber into
+  its own `box-shadow` — a rule cannot override a colour an animation is
+  writing. `keyframes.test.js` keeps `BASE + VARIANTS` at exactly the
+  design's 32 and lists this separately under `ADDITIONS`; do not fold
+  it into `BASE`.
+
+  Fill is `var(--ok)` and flips; the GLOW is a literal green in both
+  themes, deliberately, because light theme's `#0B6446` glowing paints a
+  dark smudge. The resting `box-shadow` on `.liveDot` is not redundant
+  with the keyframe — it is what the element falls back to once
+  `motion.css` collapses the animation, and `dot-ok` carries no
+  fill-mode on purpose.
+
+- **⚠️ `.blobC` IS AT z-index 2, OVERRIDING THE PROTOTYPE'S 4.**
+  Owner-reported as a "mist or blurry thing in front of the image"; it
+  was the only blob above `.portraitFrame`'s 3, a `blur(9px)` haze
+  drifting across the portrait on a 19s loop. **Moved behind, not
+  deleted** — it keeps every other value and the cluster is still four
+  blobs. The PF-80 entry's "z-index 4 is the prototype's, and that is
+  intentional depth" is superseded for this element only. Verified by
+  hit-test: 24/25 sample points over the portrait now return the image
+  itself, the 25th a floating chip.
+
+  ⚠️ `.portraitImg`'s two-layer `mask-image` was NOT touched and is the
+  other thing that could be called misty — static, at the edges, and
+  itself owner-approved from 2026-08-17. Ruled out, not missed.
+
+- **Both marquee bands run at 50 px/s** (hero 84s, footer 70.7s), down
+  from 70 px/s. Equal SPEED is still the contract and equal duration is
+  still the bug; the durations are un-round because they encode one
+  speed over two different distances.
+
 - Design fidelity is absolute. Nothing visible is removed or simplified for
   performance.
   **Three sanctioned exceptions exist to the "nothing is reduced" half**, all
@@ -7095,6 +7419,25 @@ Frontend tests use **per-module `__tests__` directories** — `src/utils/`,
 `src/components/ambient/`, `src/components/splash/`,
 `src/components/layout/` and `src/components/sections/` each have their own.
 Not a top-level `src/__tests__/`.
+
+**Shared test HELPERS — as opposed to test files — live in
+`src/test/`**, beside `setup.js`. There is exactly one so far:
+`src/test/leadsWithIcon.js` (2026-08-29), used by four `__tests__`
+files. The bar for putting one there rather than duplicating it
+per-file, the way `localName`/`pick` are duplicated, is that the
+ASSERTION itself is subtle enough to need its reasoning written once —
+that helper exists because the obvious version of the check is silently
+vacuous (see Silent failures). A plain convenience wrapper should still
+be copied into the file that uses it.
+
+⚠️ It is `leadsWithIcon.js`, not `.test.js`, and not under a
+`__tests__/` directory. That matters beyond tidiness: `global.css`'s
+`@source not` rules exclude exactly those two patterns from Tailwind's
+scan, so a helper named either way would be excluded — but one named
+like this is NOT, and any bare utility-looking token in it would be
+emitted into the shipped stylesheet. Verified for this file by building
+with and without it: **67,767 bytes either way**, so it leaks nothing.
+Re-check that if a second helper lands here.
 
 **One file deliberately breaks that convention**:
 `styles/__tests__/revealTransition.test.js` (PF-93) reads every

@@ -218,6 +218,44 @@ section.projects {
   background: rgba(252, 163, 17, .1);
 }
 
+/* ⚠️ NOT IN THE PROTOTYPE — owner-requested 2026-08-29: a glowing green
+   dot marking a project as live.
+
+   `composes: kf-dot-ok from global` and NOT `animation: dot-ok ...`.
+   A keyframe name written inside a *.module.css is scoped by the CSS
+   Modules compiler and then resolves to nothing — the single most
+   expensive silent failure recorded in CLAUDE.md. The name is supplied
+   by a global carrier in styles/animations.css; only the timing
+   longhands live here. The shorthand is likewise avoided: `animation:
+   2s ease-out infinite` would reset animation-name to `none` and undo
+   the composed class.
+
+   Fill is `var(--ok)`, so it flips with the theme and inherits PF-91's
+   contrast work (#34d399 dark / #0B6446 light). The GLOW around it is a
+   literal green in both themes, inside the keyframe — see base.css. */
+.liveDot {
+  composes: kf-dot-ok from global;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ok);
+  /* ⚠️ The RESTING glow, and it is load-bearing under reduced motion.
+     motion.css collapses every animation to 0.01ms with one iteration,
+     and `dot-ok` carries NO fill-mode — deliberately, because
+     `fill-mode: both` keeps a finished animation in getAnimations()
+     for the life of the page (the ScrollToTop finding in CLAUDE.md).
+     So once it finishes the element falls back to this declaration,
+     which is what keeps the dot reading as "live" rather than as a
+     plain green disc for anyone who asked for no motion. With motion
+     allowed the running animation supplies box-shadow instead and this
+     value is never seen. */
+  box-shadow: 0 0 6px 1px rgba(52, 211, 153, .65);
+  animation-duration: 2s;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
 /* ── terminal panel ───────────────────────────────────────────────────
    ⚠️ The literal hexes below are the prototype's and stay literal. This
    element is a PICTURE of a terminal, not themed UI — #0d1117 and

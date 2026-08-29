@@ -184,8 +184,15 @@ export function HeroSection() {
             owner-approved. Arithmetic and measurements in Marquee.jsx.
 
             ⚠️ NOT part of this hero's 2026-08-17 slimming deviation —
-            that one is font-size and padding, and lives in the module. */}
-        <Marquee duration={60} copies={8} className={styles.marqueeInner}>
+            that one is font-size and padding, and lives in the module.
+
+            ⚠️ `duration={84}`, slowed from 60 on 2026-08-29 at the
+            owner's request. It is NOT a free-standing preference: the
+            two bands are matched on SPEED, not on time, and 84s is what
+            puts this one at 50 px/s at 1440 (4 × 1050.6 = 4202.2px).
+            The footer's 70.7s is the same 50 px/s over its own shorter
+            distance. Change one and Marquee.test.jsx fails by name. */}
+        <Marquee duration={84} copies={8} className={styles.marqueeInner}>
           <span className={styles.marqueeText}>{MARQUEE_TEXT}</span>
         </Marquee>
       </div>

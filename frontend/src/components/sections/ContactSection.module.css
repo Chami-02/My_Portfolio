@@ -225,6 +225,15 @@ section.contact {
 }
 
 .socialLink {
+  /* ⚠️ The three properties below are NOT the prototype's — they exist
+     only to lay out the brand marks added 2026-08-29. `.emailLink` and
+     `.cvLink` already declared this exact trio (inline-flex / centre /
+     10px), so this brings the third link in the section into line with
+     its two siblings rather than inventing a layout. Without them the
+     <svg> sits on the text baseline and rides ~3px low. */
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: .08em;

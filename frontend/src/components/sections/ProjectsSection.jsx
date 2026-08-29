@@ -1,6 +1,7 @@
 // frontend/src/components/sections/ProjectsSection.jsx
 import { useEffect } from 'react';
 import { Reveal } from '../motion';
+import { GitHubIcon } from '../icons';
 import { useProjects } from '../../hooks/useProjects';
 import styles from './ProjectsSection.module.css';
 
@@ -115,8 +116,27 @@ function CardLayers({ project }) {
   );
 }
 
-/** The two action links. `noreferrer` implies `noopener`, so the
- *  reverse-tabnabbing hole is closed — the prototype has both. */
+/**
+ * The two action links. `noreferrer` implies `noopener`, so the
+ * reverse-tabnabbing hole is closed — the prototype has both.
+ *
+ * ⚠️ TWO OWNER-REQUESTED ADDITIONS HERE (2026-08-29), neither in the
+ * prototype, both recorded in CLAUDE.md's Locked decisions:
+ *
+ *   - the GitHub mark in front of VIEW ON GITHUB;
+ *   - a pulsing green dot in front of LIVE SITE, so a deployed project
+ *     reads as live at a glance.
+ *
+ * The trailing "→" and "↗" are the prototype's and STAY. The icon is an
+ * addition to the label, not a replacement for its arrow — deleting
+ * either character to "balance" the row would be an unrequested
+ * transcription change.
+ *
+ * The dot is `aria-hidden`: "LIVE SITE" already says what it means, and
+ * an exposed decorative span would add nothing a screen reader can use.
+ * It is a <span>, not a ::before, so `dot-ok` can animate it
+ * independently of the link's own hover treatment.
+ */
 function ProjectLinks({ project, className }) {
   return (
     <div className={className}>
@@ -126,6 +146,7 @@ function ProjectLinks({ project, className }) {
         target="_blank"
         rel="noreferrer"
       >
+        <GitHubIcon size={15} />
         VIEW ON GITHUB →
       </a>
       {project.liveUrl && (
@@ -135,6 +156,7 @@ function ProjectLinks({ project, className }) {
           target="_blank"
           rel="noreferrer"
         >
+          <span aria-hidden="true" className={styles.liveDot} />
           LIVE SITE ↗
         </a>
       )}

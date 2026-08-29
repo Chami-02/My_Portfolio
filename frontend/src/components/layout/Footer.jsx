@@ -1,6 +1,13 @@
 // frontend/src/components/layout/Footer.jsx
 import { useLocation } from 'react-router-dom';
 import { Reveal, Marquee } from '../motion';
+import {
+  MailIcon,
+  GitHubIcon,
+  LinkedInIcon,
+  FacebookIcon,
+  InstagramIcon,
+} from '../icons';
 import { sectionHref } from '../../utils/nav';
 import logo from '../../assets/logo.png';
 import styles from './Footer.module.css';
@@ -40,12 +47,21 @@ const NAV_LINKS = [
 
 /* Prototype lines 575-579, verbatim including the trailing ↗. The mail
    link carries no target/rel — it is not a document navigation. */
+/**
+ * ⚠️ `Icon` is an owner-requested addition (2026-08-29), not the
+ * prototype's — its ELSEWHERE column is text-only. Carried on the data
+ * rather than branched on in the JSX so the list stays one place to
+ * edit: adding a sixth network is a row here, not a row plus a
+ * conditional. The trailing "↗" in each label is the prototype's and
+ * stays; the mark goes IN FRONT of the text, so the row reads
+ * mark → name → outbound arrow.
+ */
 const ELSEWHERE_LINKS = [
-  { href: 'https://github.com/Chami-02',                                  label: 'GitHub ↗',    external: true },
-  { href: 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/',     label: 'LinkedIn ↗',  external: true },
-  { href: 'https://web.facebook.com/parindra.chameekara',                 label: 'Facebook ↗',  external: true },
-  { href: 'https://www.instagram.com/__pc_02/',                           label: 'Instagram ↗', external: true },
-  { href: 'mailto:parindrachameekara@gmail.com',                          label: 'Email ↗',     external: false },
+  { href: 'https://github.com/Chami-02',                                  label: 'GitHub ↗',    external: true,  Icon: GitHubIcon },
+  { href: 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/',     label: 'LinkedIn ↗',  external: true,  Icon: LinkedInIcon },
+  { href: 'https://web.facebook.com/parindra.chameekara',                 label: 'Facebook ↗',  external: true,  Icon: FacebookIcon },
+  { href: 'https://www.instagram.com/__pc_02/',                           label: 'Instagram ↗', external: true,  Icon: InstagramIcon },
+  { href: 'mailto:parindrachameekara@gmail.com',                          label: 'Email ↗',     external: false, Icon: MailIcon },
 ];
 
 const COPYRIGHT =
@@ -76,25 +92,33 @@ export function Footer() {
           and the full arithmetic are in Marquee.jsx.
 
           ⚠️ THE TWO BANDS NO LONGER SHARE A DURATION, and that is the
-          point rather than drift. Owner-set 2026-08-27: both run at
-          **70 px/s at 1440**, and after the Option A slimming their
-          copy widths differ enough that one duration would have made
-          them visibly different speeds (105 vs 88 px/s). Distance per
-          cycle is `copies/2 x copyW`, so:
+          point rather than drift. After the Option A slimming their copy
+          widths differ enough that one duration would have made them
+          visibly different speeds (105 vs 88 px/s). Distance per cycle
+          is `copies/2 x copyW`, so:
 
-            footer  9 x 392.9  = 3536.4px / 50.5s = 70.02 px/s
-            hero    4 x 1050.6 = 4202.2px / 60s   = 70.04 px/s
+            footer  9 x 392.9  = 3536.4px / 70.7s = 50.02 px/s
+            hero    4 x 1050.6 = 4202.2px / 84s   = 50.03 px/s
 
           Equal DURATION would be the bug; equal SPEED is the contract.
 
-          ⚠️ `duration={50.5}` is a LITERAL, not a shared constant, and
+          ⚠️ SLOWED AGAIN 2026-08-29 — owner: "slow down more both up and
+          down banner strips motion speed". 70 px/s (owner-set
+          2026-08-27) -> **50 px/s**, both bands, so the equal-speed
+          contract survives the change: one duration would have reopened
+          the 105-vs-88 split it exists to close. The durations move by
+          the same 1.4x factor because they encode the same speed over
+          different distances, which is why they are not round numbers.
+
+          ⚠️ `duration={70.7}` is a LITERAL, not a shared constant, and
           deliberately: Marquee.test.jsx pins both call sites by
           reading `duration={n}` out of them as source, and a
           named import would slip straight past that regex while looking
-          tidier. Both bands were slowed together — the prototype runs
-          the footer at 15s and the hero at 26s; the footer was matched
-          to 26 on 2026-08-25 and then both went to 40 the same day. */}
-      <Marquee duration={50.5} copies={18} className={styles.marqueeBand}>
+          tidier. Both bands have always been slowed together — the
+          prototype runs the footer at 15s and the hero at 26s; the
+          footer was matched to 26 on 2026-08-25, both went to 40 the
+          same day, then to 50.5/60, and now to 70.7/84. */}
+      <Marquee duration={70.7} copies={18} className={styles.marqueeBand}>
         <span className={styles.marqueeText}>{MARQUEE_TEXT}</span>
       </Marquee>
 
@@ -163,7 +187,7 @@ export function Footer() {
 
             <Reveal delay={140} className={styles.column}>
               <span className={styles.columnHeading}>ELSEWHERE</span>
-              {ELSEWHERE_LINKS.map(({ href, label, external }) => (
+              {ELSEWHERE_LINKS.map(({ href, label, external, Icon }) => (
                 <a
                   key={label}
                   href={href}
@@ -171,6 +195,7 @@ export function Footer() {
                   target={external ? '_blank' : undefined}
                   rel={external ? 'noreferrer' : undefined}
                 >
+                  <Icon />
                   {label}
                 </a>
               ))}

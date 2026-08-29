@@ -39,6 +39,19 @@ const VARIANTS = [
   'auroraA', 'auroraB',
 ];
 
+/**
+ * ⚠️ KEYFRAMES THIS PROJECT ADDED THAT THE PROTOTYPE DOES NOT HAVE.
+ *
+ * Kept as a THIRD list rather than folded into BASE so the 32-count
+ * assertion below keeps meaning what it meant: BASE + VARIANTS is still
+ * exactly the design's own set, and this list is the explicit, reviewed
+ * exception budget. Growing BASE instead would have let the next
+ * addition hide inside a number nobody reads.
+ */
+const ADDITIONS = [
+  'dot-ok',   // owner-requested 2026-08-29 — the LIVE SITE green dot
+];
+
 // FIX 2 — anchor to line start with the m flag, so a mention in
 // prose can't satisfy the match.
 const defines = (css, name) =>
@@ -54,9 +67,20 @@ describe('Keyframe library (PF-69)', () => {
     expect(defines(screens, name)).toBe(true);
   });
 
-  it('defines 32 keyframes in total', () => {
+  it.each(ADDITIONS)('base defines the added @keyframes %s', (name) => {
+    expect(defines(base, name)).toBe(true);
+  });
+
+  it('defines the prototype\'s 32 keyframes plus exactly the listed additions', () => {
     const found = [...all.matchAll(/@keyframes\s+([a-zA-Z0-9_-]+)/g)].map(m => m[1]);
-    expect(found).toHaveLength(BASE.length + VARIANTS.length);
+
+    // The design's own set is still 32 and still asserted as such.
+    expect(BASE.length + VARIANTS.length).toBe(32);
+
+    // Anything defined that is in none of the three lists is drift.
+    const known = new Set([...BASE, ...VARIANTS, ...ADDITIONS]);
+    expect(found.filter((n) => !known.has(n))).toEqual([]);
+    expect(found).toHaveLength(BASE.length + VARIANTS.length + ADDITIONS.length);
   });
 
   it('defines no keyframe name twice', () => {

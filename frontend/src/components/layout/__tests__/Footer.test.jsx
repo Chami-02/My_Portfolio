@@ -19,6 +19,7 @@ import postcss from 'postcss';
 
 import { Footer } from '../Footer';
 import { MotionProvider } from '../../../providers/MotionProvider';
+import { leadsWithIcon } from '../../../test/leadsWithIcon';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const readCss = (rel) => readFileSync(resolve(here, rel), 'utf8');
@@ -443,6 +444,42 @@ describe('Footer (PF-88)', () => {
     const email = screen.getByRole('link', { name: 'Email ↗' });
     expect(email).toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
     expect(email).not.toHaveAttribute('target');
+  });
+
+  /*
+   * ⚠️ FIVE BRAND MARKS, NONE IN THE PROTOTYPE — owner-requested
+   * 2026-08-29. The ELSEWHERE column is text-only in the export.
+   *
+   * The NAVIGATE half of this test is the counterweight, and it is the
+   * half that matters: `.link` is shared by both columns and now carries
+   * a flex row with a gap for the marks. Asserting NAVIGATE has none
+   * stops the icons being "made consistent" across a column the owner
+   * did not ask about.
+   */
+  it('fronts every ELSEWHERE link with its brand mark, and NAVIGATE with none', () => {
+    renderFooter();
+    const names = ['GitHub ↗', 'LinkedIn ↗', 'Facebook ↗', 'Instagram ↗', 'Email ↗'];
+    const paths = [];
+
+    for (const name of names) {
+      const link = screen.getByRole('link', { name });
+      const svg = link.querySelector('svg');
+      expect(svg, `no icon on ${name}`).not.toBeNull();
+      expect(leadsWithIcon(link, svg)).toBe(true);
+      expect(svg).toHaveAttribute('aria-hidden', 'true');
+      expect(svg.getAttribute('fill')).toBe('currentColor');
+      paths.push(svg.querySelector('path').getAttribute('d'));
+    }
+
+    // Five DIFFERENT marks. A copy-paste that gives two networks the
+    // same glyph still passes every presence check above.
+    expect(new Set(paths).size).toBe(5);
+
+    // NAVIGATE is untouched — the trailing ↗ is what tells the two
+    // columns apart, so match the in-page anchors by their bare labels.
+    for (const name of ['About', 'Skills', 'Projects', 'Field Notes', 'Contact']) {
+      expect(screen.getByRole('link', { name }).querySelector('svg')).toBeNull();
+    }
   });
 
   it('tags both [data-ok] elements the prototype tags', () => {

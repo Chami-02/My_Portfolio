@@ -207,6 +207,66 @@ describe('HeroSection (PF-80)', () => {
     blobs.forEach((b) => expect(stage.contains(b)).toBe(true));
   });
 
+  /*
+   * ⚠️ OWNER-REQUESTED 2026-08-29, and it OVERRIDES THE PROTOTYPE —
+   * which is exactly why it needs a guard rather than just a comment.
+   *
+   * `.blobC` shipped at the prototype's z-index 4, the only blob above
+   * `.portraitFrame`'s 3, so a blur(9px) haze drifted across the FRONT
+   * of the portrait on a 19s loop. The owner reported the image looking
+   * misty and asked for it to be "always clear and perfect".
+   *
+   * Two halves, and the second is the one that stops an over-correction:
+   * nothing may paint above the frame, AND all four blobs must survive.
+   * Deleting blobC would also satisfy "the image is clear" while quietly
+   * reducing the design by a quarter of its ambient cluster.
+   *
+   * jsdom applies no stylesheet, so this reads the module as text —
+   * parsed with postcss, never a raw search, because the rule documents
+   * the retired `z-index: 4` in prose immediately above itself and a
+   * text match would find the comment.
+   */
+  it('keeps every drift blob BEHIND the portrait, so the image stays clear', async () => {
+    const postcss = (await import('postcss')).default;
+    const { readFileSync } = await import('fs');
+    const { resolve, dirname } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const here = dirname(fileURLToPath(import.meta.url));
+    const root = postcss.parse(
+      readFileSync(resolve(here, '../HeroSection.module.css'), 'utf8'),
+    );
+
+    const z = (sel) => {
+      let v = null;
+      root.walkRules((rule) => {
+        if (rule.selector !== sel) return;
+        rule.walkDecls('z-index', (d) => { v = Number(d.value.trim()); });
+      });
+      return v;
+    };
+
+    const frame = z('.portraitFrame');
+    expect(frame).toBe(3);
+
+    // The shared base rule puts blobs at 2; only blobC ever overrode it.
+    expect(z('.blob')).toBe(2);
+    expect(z('.blobC')).toBe(2);
+    expect(z('.blobC')).toBeLessThan(frame);
+
+    // ...and the cluster is still four. Moved behind, not removed.
+    const { container } = render(withMotion(<HeroSection />));
+    expect(pickAll(container, 'blob')).toHaveLength(4);
+
+    // blobC keeps everything else the prototype gave it — this is a
+    // stacking change, not a redesign of the blob.
+    let body = '';
+    root.walkRules((rule) => {
+      if (rule.selector === '.blobC') body = rule.toString();
+    });
+    expect(body).toContain('blur(9px)');
+    expect(body).toContain('19s');
+  });
+
   // The light-theme reveal of this element is a global rule in
   // tokens.css matching [data-lightplate], not anything in this
   // component's module. The attribute is the whole join between them:

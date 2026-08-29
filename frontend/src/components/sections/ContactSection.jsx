@@ -1,6 +1,7 @@
 // frontend/src/components/sections/ContactSection.jsx
 import { useEffect, useState } from 'react';
 import { Reveal } from '../motion';
+import { MailIcon, GitHubIcon, LinkedInIcon } from '../icons';
 import { useAbout } from '../../hooks/useAbout';
 import { contactService } from '../../services/contactService';
 import { apiUrl } from '../../services/api';
@@ -202,7 +203,15 @@ export function ContactSection() {
             </Reveal>
 
             <Reveal type="up" delay={180} className={styles.ctaRow}>
-              <a href={`mailto:${EMAIL}`} className={styles.emailLink}>{EMAIL}</a>
+              {/* Icons added 2026-08-29 at the owner's request; the
+                  prototype labels all three of these links with bare
+                  text. `.emailLink` and `.cvLink` were already
+                  inline-flex rows with a 10px gap, so only `.socialLink`
+                  needed a CSS change. */}
+              <a href={`mailto:${EMAIL}`} className={styles.emailLink}>
+                <MailIcon />
+                {EMAIL}
+              </a>
             </Reveal>
 
             <Reveal type="up" delay={200} className={styles.ctaRow}>
@@ -229,6 +238,7 @@ export function ContactSection() {
                 rel="noreferrer"
                 className={styles.socialLink}
               >
+                <GitHubIcon />
                 GITHUB
               </a>
               <a
@@ -237,6 +247,7 @@ export function ContactSection() {
                 rel="noreferrer"
                 className={styles.socialLink}
               >
+                <LinkedInIcon />
                 LINKEDIN
               </a>
             </Reveal>

@@ -174,12 +174,14 @@ test.describe('Footer (PF-88)', () => {
     // .06 tint with .5 accent text.
     expect(band.background).not.toBe('rgba(0, 0, 0, 0)');
     expect(band.stripOpacity).toBe('1');
-    // ⚠️ 50.5s, and the HERO's is 60s — they no longer match, on purpose.
-    // Owner-set 2026-08-27: both bands run at 70 px/s at 1440. After the
-    // Option A slimming their copy widths differ enough that one duration
-    // would have given 105 vs 88 px/s. Equal SPEED is the contract;
-    // equal duration would now be the bug.
-    expect(band.duration).toEqual([50500]);
+    // ⚠️ 70.7s, and the HERO's is 84s — they no longer match, on purpose.
+    // Both bands run at one SPEED, not one duration: after the Option A
+    // slimming their copy widths differ enough that a shared duration
+    // would have given 105 vs 88 px/s. Owner-set to 70 px/s on
+    // 2026-08-27 and slowed to 50 px/s on 2026-08-29, which is
+    // 3536.4px / 70.7s here and 4202.2px / 84s in the hero. Equal SPEED
+    // is the contract; equal duration would be the bug.
+    expect(band.duration).toEqual([70700]);
 
     // Flat, flush, full width.
     expect(band.transform).toBe('none');

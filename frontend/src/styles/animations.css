@@ -53,6 +53,7 @@
 .kf-blink      { animation-name: blink; }
 .kf-breathe    { animation-name: breathe; }
 .kf-dot        { animation-name: dot; }
+.kf-dot-ok     { animation-name: dot-ok; }
 .kf-flicker    { animation-name: flicker; }
 .kf-glowdot    { animation-name: glowdot; }
 .kf-glowpulse  { animation-name: glowpulse; }

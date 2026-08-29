@@ -217,9 +217,12 @@
     gap: 0;
   }
 
+  /* `display: flex` and `align-items: center` used to live here too.
+     They moved to the base rule on 2026-08-29, when the ELSEWHERE links
+     gained brand marks and needed the row at every width — repeating
+     them here would be two inert declarations the next reader treats as
+     load-bearing. Only the tap-target floor is width-scoped. */
   .link {
-    display: flex;
-    align-items: center;
     min-height: 44px;
   }
 
@@ -384,7 +387,16 @@
   color: var(--acc, #FCA311);
 }
 
+/* ⚠️ The flex row is NOT the prototype's — it exists for the brand marks
+   added to ELSEWHERE on 2026-08-29 (owner-requested). It is declared on
+   `.link` rather than on an ELSEWHERE-only class deliberately: both
+   columns share this class, and a single-child flex row with a gap lays
+   out identically to the block it replaced, so NAVIGATE is unaffected.
+   Measured: NAVIGATE label positions are unchanged. */
 .link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 14px;
   color: var(--muted);
 }

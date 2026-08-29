@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
 import { MotionProvider } from '../../../providers/MotionProvider';
+import { leadsWithIcon } from '../../../test/leadsWithIcon';
 
 // vi.mock, not vi.spyOn on the module namespace — Vite's SSR transform
 // defines each export as a getter-only property, so spyOn cannot
@@ -636,6 +637,37 @@ describe('transcribed copy (Step 9 #15)', () => {
 
     expect(screen.getByRole('link', { name: 'LINKEDIN' }))
       .toHaveAttribute('href', 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/');
+  });
+
+  /*
+   * ⚠️ THREE ICONS, NONE IN THE PROTOTYPE — owner-requested 2026-08-29.
+   * Guarded as presences for the fidelity-pass reason, and each one
+   * checked for aria-hidden separately rather than in bulk: an exposed
+   * <svg> would give its link a second accessible name, and the
+   * getByRole lookups above would then stop resolving — which reads as
+   * "the link disappeared" rather than "the icon is announced".
+   */
+  it('fronts all three links with a mark, and none of them is announced', () => {
+    renderSection();
+    const links = [
+      screen.getByRole('link', { name: 'parindrachameekara@gmail.com' }),
+      screen.getByRole('link', { name: 'GITHUB' }),
+      screen.getByRole('link', { name: 'LINKEDIN' }),
+    ];
+
+    for (const link of links) {
+      const svg = link.querySelector('svg');
+      expect(svg, `no icon on ${link.textContent}`).not.toBeNull();
+      expect(leadsWithIcon(link, svg)).toBe(true);      // in FRONT of the text
+      expect(svg).toHaveAttribute('aria-hidden', 'true');
+      expect(svg.getAttribute('fill')).toBe('currentColor');
+    }
+
+    // Three distinct marks, not one pasted three times. Compared on the
+    // path data, because a wrong-but-present icon is the failure a
+    // presence check alone cannot see.
+    const d = links.map((l) => l.querySelector('path').getAttribute('d'));
+    expect(new Set(d).size).toBe(3);
   });
 
   it('keeps the 24-hour promise in the intro copy', () => {

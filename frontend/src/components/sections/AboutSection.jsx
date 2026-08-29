@@ -1,6 +1,7 @@
 // frontend/src/components/sections/AboutSection.jsx
 import { useEffect, useRef } from 'react';
 import { Reveal, CountUp } from '../motion';
+import { MailIcon } from '../icons';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { computeParallaxTransform } from '../../utils/parallax';
 import aboutPortrait from '../../assets/about-portrait.jpg';
@@ -109,6 +110,11 @@ export function AboutSection() {
                 href="mailto:parindrachameekara@gmail.com"
                 className={styles.ctaSecondary}
               >
+                {/* Owner-requested 2026-08-29. The prototype's label is
+                    bare text; the envelope is an addition, and
+                    `.ctaSecondary` already carries the inline-flex row
+                    and 10px gap it needs, so no CSS changed here. */}
+                <MailIcon />
                 EMAIL ME
               </a>
             </Reveal>

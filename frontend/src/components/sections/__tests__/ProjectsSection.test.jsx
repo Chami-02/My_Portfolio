@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MotionProvider } from '../../../providers/MotionProvider';
+import { leadsWithIcon } from '../../../test/leadsWithIcon';
 
 // vi.mock, not vi.spyOn on the module namespace — Vite's SSR transform
 // defines each export as a getter-only property, so spyOn cannot
@@ -374,6 +375,47 @@ describe('links', () => {
     ]);
   });
 
+  /*
+   * ⚠️ BOTH ADDITIONS ARE OWNER-REQUESTED (2026-08-29) AND ABSENT FROM
+   * THE PROTOTYPE, so both are guarded as presences — a fidelity pass
+   * diffing this row against the export sees two elements that "should
+   * not be there".
+   *
+   * The arrow assertions are the other half: the icon was added TO the
+   * label, not instead of its "→" / "↗", and trimming those to balance
+   * the row would be an unrequested transcription change.
+   */
+  it('fronts VIEW ON GITHUB with the GitHub mark, keeping the arrow', () => {
+    const { container } = render(withMotion(<ProjectsSection />));
+    const link = pick(container, 'featuredLinkRow').querySelector('a');
+    const svg = link.querySelector('svg');
+
+    expect(svg).not.toBeNull();
+    expect(leadsWithIcon(link, svg)).toBe(true);
+    expect(svg).toHaveAttribute('aria-hidden', 'true');
+    expect(svg.getAttribute('fill')).toBe('currentColor');
+    expect(link.textContent).toContain('VIEW ON GITHUB →');
+  });
+
+  it('fronts LIVE SITE with the pulsing green dot, keeping the arrow', () => {
+    const { container } = render(withMotion(<ProjectsSection />));
+    const link = [...pick(container, 'featuredLinkRow').querySelectorAll('a')][1];
+    const dot = link.querySelector('span');
+
+    // In FRONT of the label — and NOT via firstElementChild, which
+    // cannot see text nodes and so cannot see ordering at all.
+    expect(leadsWithIcon(link, dot)).toBe(true);
+    // A real <span> rather than a ::before, so `dot-ok` can animate it
+    // independently of the link's own hover treatment.
+    expect(dot.tagName).toBe('SPAN');
+    expect(has(dot, 'liveDot')).toBe(true);
+    // Decorative: "LIVE SITE" already carries the meaning.
+    expect(dot).toHaveAttribute('aria-hidden', 'true');
+    expect(link.textContent).toContain('LIVE SITE ↗');
+    // and it must not appear on a card with no liveUrl at all
+    expect(pickAll(container, 'linkRow')[0].querySelector('span')).toBeNull();
+  });
+
   it('omits LIVE SITE when liveUrl is null', () => {
     const { container } = render(withMotion(<ProjectsSection />));
     // Personal Portfolio (card 02) has liveUrl null.
@@ -500,12 +542,53 @@ describe('terminal panel', () => {
       expect(colourOf('.lineInfo')).toBe('#93a0b8');
     });
 
-    it('never reads --ok or --danger, which Contact and the splash do', () => {
+    /*
+     * ⚠️ SCOPED TO THE TERMINAL PANEL'S OWN RULES, not to the whole
+     * module — narrowed 2026-08-29 when `.liveDot` was added.
+     *
+     * The rule PF-91 settled is about a SURFACE, not about a file:
+     * `--ok` flips with the theme and the terminal panel deliberately
+     * does not, so `var(--ok)` there would paint #0B6446 on a fixed
+     * #0d1117 (2.82:1). `.liveDot` sits on the LIVE SITE link, which is
+     * ordinary themed page surface, so `var(--ok)` is exactly right
+     * there and PF-91 routed four other sites onto that token for the
+     * same reason. A whole-module walk conflated the two and would have
+     * pushed the live dot onto a literal — reintroducing the
+     * hardcoded-pair problem PF-91 removed.
+     *
+     * The scope assertion below is the important half: a selector list
+     * that stops matching reports "no offenders" in exactly the same
+     * words as a clean panel.
+     */
+    it('never reads --ok or --danger on the terminal panel, which does not theme', () => {
+      const TERMINAL = /^\.(terminal|terminalChrome|terminalLabel|terminalBody|trafficDot|dot(Red|Amber|Green)|line[A-Z]\w*|caret)\b/;
       const offenders = [];
-      root.walkDecls((decl) => {
-        if (/var\(\s*--(ok|danger)\b/.test(decl.value)) offenders.push(`${decl.prop}: ${decl.value}`);
+      let scanned = 0;
+      root.walkRules((rule) => {
+        if (!TERMINAL.test(rule.selector)) return;
+        scanned += 1;
+        rule.walkDecls((decl) => {
+          if (/var\(\s*--(ok|danger)\b/.test(decl.value)) {
+            offenders.push(`${rule.selector} { ${decl.prop}: ${decl.value} }`);
+          }
+        });
       });
+      expect(scanned, 'terminal selector list matched nothing').toBeGreaterThan(10);
       expect(offenders).toEqual([]);
+    });
+
+    /*
+     * The counterpart, so the narrowing above cannot be read as "this
+     * module may not use --ok". `.liveDot` MUST, for the same reason
+     * the terminal must not: it is on themed surface.
+     */
+    it('keeps --ok on the LIVE SITE dot, which IS on themed surface', () => {
+      let bg = null;
+      root.walkRules((rule) => {
+        if (rule.selector !== '.liveDot') return;
+        rule.walkDecls('background', (decl) => { bg = decl.value.trim(); });
+      });
+      expect(bg).toBe('var(--ok)');
     });
 
     it('keeps --shd on the DROP SHADOW, which should track the theme', () => {
