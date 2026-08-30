@@ -419,13 +419,18 @@ so found these:
    the "a fifteenth one was never written down" case the ticket warned
    about, and it turned out to be real.
 
-### Sprint 12 — Main Page Completion, IN PROGRESS
+### Sprint 12 — Main Page Completion, COMPLETE and MERGED
 
-Branch `sprint-12-main-page-complete`, cut from **local** `master` at
-`c5669e5`, upstream `origin/sprint-12-main-page-complete` (verified — not
-`refs/heads/master`, so the PF-75 trap is not in play). Scope: **Projects,
-Blog teaser, Contact, Footer, then the Phase 1 homepage cutover and a full
-responsive + a11y audit.** PF-85 → PF-92.
+**PR #6, merged into `master` on 2026-08-30, merge commit `79835e0`.**
+Verified with `gh pr view`, not assumed. Branch
+`sprint-12-main-page-complete`, cut from **local** `master` at `c5669e5`.
+Scope: **Projects, Blog teaser, Contact, Footer, then the Phase 1 homepage
+cutover and a full responsive + a11y audit.** PF-85 → PF-92, plus PF-94.
+
+**Sprint 13 branches from `master` at `79835e0` or later.** Confirm the
+merge before cutting — `gh pr view 6 --json state,mergedAt` — for the
+reason the Sprint 10 warning gives: branch too early and none of this
+sprint's primitives exist on the new branch.
 
 | Ticket | Work | Status |
 | --- | --- | --- |
@@ -437,7 +442,8 @@ responsive + a11y audit.** PF-85 → PF-92.
 | PF-89 | Homepage Phase 1 cutover | ✅ |
 | PF-90 | Responsive + **state** audit, both themes | ✅ |
 | PF-91 | Accessibility & contrast pass | ✅ |
-| PF-92 | Sprint gate, PR, close | not started |
+| PF-94 | `ScrollToHash` lands 115px low off-home — **found BY the gate** | ✅ |
+| PF-92 | Sprint gate, PR, close | ✅ |
 | — | **Sprint 13 prep — navbar rework + 2 removals** (2026-08-22) | ✅ |
 | — | **Link icons + live dot + band slowdown + hero de-mist** (2026-08-29) | ✅ |
 
@@ -951,11 +957,25 @@ than copied forward:
   over the light card's paper — pixel-differenced, not reasoned. It works
   in dark. The design's own value, so reported rather than adjusted; the
   failure mode is that the effect simply does not exist in one theme.
-- **`frontend/src/assets/about-portrait.heic` is untracked and has ZERO
-  consumers.** 1.2MB, file date May 2025, dropped into `src/assets/`
-  outside any ticket — grepping `heic` across `src/` and `e2e/` returns
-  nothing. Not PF-86's; noticed while checking the tree before hand-off.
-  Delete it or track it deliberately.
+- ~~**`frontend/src/assets/about-portrait.heic` is untracked**~~ —
+  **WRONG, AND THIS ENTRY CONTRADICTED A LOCKED DECISION FOR TEN DAYS.**
+  Reconciled 2026-08-30. It **is** tracked, and it went in with
+  **`de5505d`** — verified with `git ls-files` and
+  `git log --diff-filter=A`, not inferred. The Locked decision on the
+  About portrait is the correct one: the HEIC is **kept tracked as the
+  conversion source** for `about-portrait.jpg`.
+
+  The "ZERO consumers" half is still true and is not a defect — re-checked,
+  `grep -rn heic frontend/src frontend/e2e` returns nothing. A source
+  asset has no importer by design; ⚠️ **never point an import at it**, as
+  only Safari decodes HEIC and Vite emits it without complaint (see the
+  Locked decision). **Do not delete it**, which is what this entry used to
+  advise.
+
+  ⚠️ The generalisable bit: two entries in this file disagreed, and the
+  one in Outstanding work was the stale one. When a Locked decision and an
+  Outstanding-work item conflict, check the tree — do not assume the newer
+  prose wins.
 - **⚠️ The live database still holds the OLD LinkedIn URL.** Corrected
   in `seed.js` and the `About` model default on 2026-08-25
   (`gallege` → `gallage`), but neither reaches production: `seed.js`
@@ -965,11 +985,68 @@ than copied forward:
   and writes `social.linkedin`, so the panel still shows the broken URL.
   One field, fixable through the panel or by a migration.
 
-- **`migrations/004-skill-order.js` has still NOT been run.** Confirmed
-  live, not inferred: `GET /api/skills` returns LANGUAGES as
-  `JavaScript → Python → Java → HTML5 → CSS3`, so **Java is still third**
-  and the deployed order is the pre-migration one. Running it is a
-  production write and remains the owner's call.
+- ~~**`migrations/004-skill-order.js` has still NOT been run.**~~ —
+  **IT HAS. Confirmed live in PF-92 (2026-08-29)**, on the deployed API
+  and on the deployed page: `GET /api/skills` returns Java at
+  **`order: 5`**, and the production build renders LANGUAGES as
+  `JavaScript → Python → HTML5 → CSS3 → Java`. The entry below is the
+  pre-migration reading and is kept only to show what changed.
+
+  **The run, 2026-08-29:** `Updated: 9 · Already correct: 17 · Missing: 0
+  · Extra: 0` — matching the `--dry-run` this file recorded on 2026-08-18
+  exactly, which is the confirmation that nothing else had touched the
+  collection in between.
+
+  ⚠️ **Nobody recorded running it at the time**, which is why this file
+  asserted the opposite for eleven days. A production write performed
+  outside a ticket leaves no trace anywhere except the data — so re-read
+  the live API before trusting any "has not been run" claim in this file.
+  Original account: `GET /api/skills` returned LANGUAGES as
+  `JavaScript → Python → Java → HTML5 → CSS3`, Java third.
+- **⚠️ THE HERO'S `DOWNLOAD CV` IS UNWIRED, AND THE PROTOTYPE DRIVES
+  BOTH CV LINKS.** Found in PF-92's Step 4. `applyResume()` (prototype
+  line 675) is `document.querySelectorAll('[data-cv]')`, and there are
+  **two** such elements — the hero CTA (line 119) and Contact's
+  `↓ DOWNLOAD CV` (line 505). PF-87 wired only Contact's; the hero's is a
+  hardcoded `href="#contact"` with a comment deferring it.
+
+  Measured on the live page: both render `href="#contact"` with no
+  `download`, but only Contact's carries the prototype's explanatory
+  `title`. **Invisible today**, because `hasResume` is `false` and the two
+  hrefs agree — **and it bites the moment a résumé is uploaded**, when
+  Contact's becomes a real download and the hero's stays a dead anchor
+  pointing at the section below it. Goes with Sprint 14's admin upload UI.
+
+- **⚠️ THE DATABASE RESTRUCTURE IS QUEUED, NOT DONE**, and it was
+  deliberately deferred until after the Sprint 12 merge. Four moves:
+
+  1. **create `portfolio_dev`** and point local development at it
+  2. **rename `test` → `portfolio_prod`**
+  3. **drop `portfolio`, `portfolio_scratch`, `sample_mflix`** (all dead —
+     see the inventory in Silent failures)
+  4. leave `portfolio_e2e` and `portfolio_test` alone
+
+  **A full `mongodump` of every database was taken 2026-08-29** before any
+  of this.
+
+  **⚠️ THE REASON IT IS URGENT: LOCAL DEVELOPMENT STILL CONNECTS TO
+  PRODUCTION.** `backend/.env`'s `MONGO_URI` ends in `/test`, which the
+  inventory above confirms is the live database. Every `npm run dev`, every
+  admin-panel click, and every manual API call in development writes to the
+  same data the deployed site serves. **Sprint 13 hammers the admin panel**
+  — create, edit and delete across six panels — which is exactly the
+  workload that makes this dangerous.
+
+  ⚠️ Note `npm test` is already safe (its wrapper rewrites the URI to
+  `/portfolio_test`) and the E2E suite is already safe (`.env.e2e` names
+  `portfolio_e2e`). **It is the dev server, and only the dev server, that
+  has no isolation** — which is why this never showed up as a test problem.
+
+- **⚠️ ONE PRODUCTION CONTACT RECORD FROM THE PF-92 GATE**, marked
+  `PF-92 GATE TEST (safe to delete)`, `2026-08-29T17:49:25Z`. Delete it
+  through the admin panel. Step 4 and Step 6 both instruct a real form
+  submission, so each future run writes another one.
+
 - **About/Hero API re-wiring.** Schema decision made (`numericValue` +
   `suffix`), ticket not written. Touches the Mongoose schema,
   `AdminAboutPanel`, and the availability gate's public reader.
@@ -1015,10 +1092,16 @@ than copied forward:
   included any of the three in the graph, so their unreachability is
   measured rather than argued. Only CSS moved, 65.20 → 64.86 kB, from the
   `[id]` rule and the light-theme bridge.
-- **`.env.production`'s API host is the placeholder**
-  `https://your-railway-backend.up.railway.app/api`. Every fetch in a real
-  production build fails. This is why PF-84's live checks were served
-  through a proxy rather than `vite preview`.
+- ~~**`.env.production`'s API host is the placeholder**~~ — **FIXED**,
+  `f0978ac` + `9f45897` (2026-08-29). It now reads
+  `https://my-portfoliobackend-xi.vercel.app/api`, and PF-92 is the first
+  live verification in this project served from a real build rather than
+  through a proxy.
+
+  ⚠️ `f0978ac` set it with a **trailing period** — `…/api.` — which is
+  baked into the bundle and 404s every fetch; `9f45897` removed the one
+  character. Full account in the PF-92 gate entry, including why nothing
+  in the five-command gate can catch a wrong env value.
 - ~~**CORS allowlist is narrow by design**~~ — **RESOLVED in PF-85**
   (2026-08-19). A localhost dev-port range is now allowed in
   non-production only; production stays exact-match. See Locked decisions.
@@ -3439,6 +3522,197 @@ backend **242 / 242**.
 documented artefact of the suite's own repeated page loads. All 38
 passed; no spec depends on that data.
 
+### Built by PF-94 — the gate found a defect rather than confirming the work (2026-08-29)
+
+```
+frontend/src/
+  components/layout/ScrollToHash.jsx          scroll ONCE -> quiescence poll
+  components/layout/__tests__/ScrollToHash.test.jsx   11 -> 15 tests, + providers
+  pages/__tests__/HomePage.test.jsx           + QueryClientProvider
+frontend/e2e/navigation.spec.js               + 2 specs (38 -> 40)
+frontend/eslint.config.js                     + playwright-report/, test-results/
+```
+
+**⚠️ THIS WAS FOUND BY PF-92's STEP 3, NOT BY A BUG REPORT**, and it is
+the argument for that step existing. The checklist item is "all
+navigation works from `/`, from a 404 URL, and lands at 71px". From `/`
+everything landed at 71. From a 404, **`#blog` and `#contact` landed at
+186px** — a 115px overshoot, stable through 8 seconds, on every run.
+
+**The cause, measured on the production build rather than reasoned:**
+
+| t | `#projects` height | `#blog` absolute pos | scrollY |
+| --- | --- | --- | --- |
+| 95ms | **1150** | 3933 | 0 — the scroll starts here |
+| 693ms | **1264** | **4048** | 3636 — the scroll already finished |
+
+Projects' loading placeholder is **~114px shorter** than its real
+content, so everything below it drops when the query resolves.
+`ScrollToHash` scrolled once, one rAF after the route commit, against
+the placeholder layout, and nothing re-ran it. Only `#blog` and
+`#contact` are affected — `#about`, `#skills` and `#projects` sit at or
+above the shift.
+
+Proven three ways before any code changed: cold 404 arrival **186**;
+second click on the now-loaded page **71**; the same cold arrival with
+the API stubbed to respond instantly **71**.
+
+**Reach: two clicks from the home page.** PF-86 pointed five Blog-teaser
+links at `/blog`, which has no route, so every navbar and footer link
+from a 404 or `/blog` hit it.
+
+**⚠️ NOTHING COVERED IT, AND THE COVERAGE LOOKED COMPLETE.** Both
+pre-existing off-home specs — `navigation.spec.js:78` and
+`footer.spec.js:38` — measure **`#projects`**, the last section ABOVE
+the shifting grids. That is the one case that cannot fail. This is the
+PF-84 shape in a new costume: green, and not testing the thing.
+
+**The fix is a quiescence poll, not a timeout.** The loop stops when
+three things hold together for two consecutive frames:
+`useIsFetching() === 0` (covers the error path too — a failed query also
+stops fetching), the target's document-absolute position unchanged, and
+`scrollY` unchanged. A fixed delay would be a guess at the network, which
+is the code-side of this file's own "a positional assertion after a fixed
+wait is a timer, not a measurement".
+
+Four things about it are load-bearing:
+
+- **⚠️ IT RE-SCROLLS ON MOVEMENT, NOT ON BEING OFF-TARGET.** During a
+  smooth scroll the target is off-target on every intermediate frame, so
+  an off-target trigger re-issues `scrollIntoView()` each frame, restarts
+  the animation from wherever it reached, and converges slowly or not at
+  all. Movement-triggered means a page that never shifts is scrolled
+  **exactly once** — which is also what satisfies "no double-scroll when
+  the API is instant".
+- **⚠️ THE POLL BASELINE LIVES IN A REF, NOT A LOCAL.** `isFetching` is a
+  dependency, so the effect tears down and re-runs several times per
+  navigation. A local baseline resets to `null` on each restart, and a
+  null baseline means "first frame" — so every restart re-issued a
+  redundant scroll mid-animation. Caught by the unit test as 2 calls
+  where 1 was correct.
+- **Position polling, NOT a ResizeObserver.** The observer answers "did
+  something change SIZE"; what breaks the landing is the target changing
+  POSITION. They differ whenever a sibling above grows while another
+  shrinks equally — the document height never changes and the observer
+  never fires, yet the target has moved.
+- **A `done` flag is checked at the top of every frame**, not only
+  `cancelAnimationFrame`. A cancelled frame is not guaranteed not to run,
+  and a frame that runs after the user has taken over is exactly the yank
+  this must not produce.
+
+**The user outranks the anchor.** `wheel`/`touchstart`/`keydown` release
+the loop permanently for that navigation. ⚠️ Deliberately NOT `scroll` —
+the smooth scroll this component starts fires `scroll` every frame, so a
+scroll listener would cancel the very fix it protects.
+
+**PF-88's per-navigation guard survives unchanged in purpose**:
+`settledForKey` is now set when the page comes to rest or the user takes
+over, rather than after the single scroll.
+
+**Verified on the production build**, all ten cells at **71px** (two were
+186):
+
+| from | about | skills | projects | blog | contact |
+| --- | --- | --- | --- | --- | --- |
+| `/` | 71 | 71 | 71 | 71 | 71 |
+| a 404 | 71 | 71 | 71 | **71** | **71** |
+
+Plus the three required conditions and two regressions: API instant/cached
+**71** with a single uninterrupted scroll; API returning 500 on everything
+**71** (shorter page, error states rendering); reduced motion **71**,
+`data-motion=reduced`, 0 running animations against a 79 control; and a
+splash-gated cold load of `/#blog` held at scrollY 0 mid-splash then landed
+71, so PF-88's gate is intact.
+
+**⚠️ `ScrollToHash` NOW REQUIRES A `QueryClientProvider`.** It always had
+one in the app (`main.jsx` wraps `<App />`), but `ScrollToHash.test.jsx`
+and `HomePage.test.jsx` rendered it bare. Both now wrap it. A bare render
+throws "No QueryClient set", which reads like a data-layer bug and is not
+one — the same shape as the `MemoryRouter` requirement added 2026-08-22.
+
+**⚠️ `flushRaf` in the test harness had to become a DRAIN.** The component
+no longer scrolls once; it re-schedules until quiescent, so a one-shot
+flush leaves the loop suspended mid-poll and `settledForKey` never set.
+Every "does not re-scroll" assertion in that file depends on the settle
+having actually happened, and would report a **false PASS** against a
+component that merely stalled.
+
+**Mutation-tested, all caught by exactly the intended test:** drop
+`isFetching === 0` from the settle condition; re-scroll every frame;
+remove the release listeners; and the whole pre-PF-94 component, which
+fails the two tests describing the defect and nothing else.
+
+### PF-92 — the Sprint 12 gate
+
+**Run fresh, not aggregated from the ticket reports**, per the ticket's own
+instruction and PF-84's precedent.
+
+| Check | Result |
+| --- | --- |
+| Frontend (`npm test`) | **695 / 695**, 44 files |
+| Lint (`npm run lint -- --max-warnings=0`) | **exit 0**, 125 files |
+| Build (`npm run build`) | **222 modules**, 67.76 kB CSS / 416.90 kB JS (gzip 129.78) |
+| Backend (`npm test`) | **242 / 242**, 22 suites — none of the four failure shapes |
+| E2E (`npm run test:e2e`) | **40 / 40**, 0 flaky |
+| Commits ahead of `origin/master` | **22** |
+| Diff vs `origin/master` | 87 files, +16,913 / −1,652 |
+
+**⚠️ THE FIRST UNPROXIED PRODUCTION VERIFICATION IN THIS PROJECT'S
+HISTORY.** Every live check before this ran through a same-origin proxy
+because `.env.production` pointed at a Railway host that never existed.
+
+| Check | Result |
+| --- | --- |
+| All four API calls | **200**, real content, no CORS errors |
+| Skills LANGUAGES order | `JavaScript → Python → HTML5 → CSS3 → Java` — **Java last** |
+| Contact form vs deployed backend | **201**, success state, fields cleared |
+| Résumé link | inert empty state, `hasResume: false` live |
+
+**⚠️ `npm run preview` SERVES ON 4173, WHICH THE PRODUCTION BACKEND WILL
+NEVER ALLOW.** The ticket's Step 4 says to run `npm run build && npm run
+preview` and check for CORS errors; that fails every fetch, and it is
+**not** a site defect. `corsOptions.js`'s `ALLOWED_ORIGINS` is exact-match
+on 5173 / 5174 / the Vercel URL, and the dev-port range is
+non-production-only while the deployed backend runs `NODE_ENV=production`.
+Measured per origin against the live API:
+
+| origin | `access-control-allow-origin` |
+| --- | --- |
+| `http://localhost:4173` | **absent — blocked** |
+| `http://localhost:5173` | returned — allowed |
+| `https://my-portfoliofrontend-henna.vercel.app` | returned — allowed |
+
+`localhost:5173` is exact-matched **before** the `NODE_ENV` gate, so
+`npm run preview -- --port 5173` is the way to run this check. Amend the
+ticket rather than widening the allowlist.
+
+**⚠️ `.env.production` SHIPPED A TRAILING PERIOD.** `f0978ac` set
+`VITE_API_URL=…/api.` — one character, baked into the bundle, and every
+production fetch 404s (`/api./skills` → **404**, `/api/skills` → 200).
+Fixed in `9f45897`. Worth recognising as a class: a wrong env value cannot
+fail the build, cannot fail a test, and cannot fail lint — the only thing
+that catches it is a real cross-origin request.
+
+**⚠️ ONE PRODUCTION RECORD WAS WRITTEN BY THIS GATE.** The contact-form
+check is a real POST to the live database, marked
+`PF-92 GATE TEST (safe to delete)` and dated `2026-08-29T17:49:25Z`.
+Delete it through the admin panel. Any future run of Step 4 writes another.
+
+**Step 2's E2E audit.** Every spec's subject still exists and every locator
+is still unique — checked against the live page, not read. The ones that
+would have broken are already scoped: unscoped `getByText('Open to
+opportunities')` matches **19** elements (the badge plus the hero band's
+repeats) and the spec scopes to `#hero`; `a[href="#about"]` matches **2**
+and the spec asserts exactly 2.
+
+**Deployed state at the time of the gate:** the live bundle was
+`index-BSS7WisO.js` — Sprint 11 — and is now **`index-Cz0l0KZq.js`**,
+byte-identical to the local build containing PF-94. So Vercel has
+deployed this branch's work **before the PR was opened or merged**. Step
+6's "confirm the bundle hash changed" is therefore already satisfied, but
+not by the route the ticket assumes; the rest of Step 6 has not been run
+against it.
+
 ### Mobile pass — owner-requested, 2026-08-25
 
 *"whole ui mobile optimization should be fine as butter."* An audit at
@@ -4745,6 +5019,40 @@ error message:
   way. The owner decided on 2026-08-18 to leave the name alone rather than
   migrate a live cluster. Verified by document count, not by name;
   `backend/.env.example` carries the same warning.
+
+  **⚠️ RE-CONFIRMED 2026-08-29/30, AND THIS SHOULD NEED NO FOURTH CHECK.**
+  The question "which database is production?" has now been asked and
+  answered three separate times, so the evidence is written down rather
+  than re-derived. Full inventory of the cluster, non-system databases,
+  read live:
+
+  | database | collections | contacts | what it is |
+  | --- | --- | --- | --- |
+  | **`test`** | 7 | **3** | **PRODUCTION** — what the deployed API serves |
+  | `portfolio_e2e` | 7 | 52 | Playwright fixtures only |
+  | `portfolio_test` | 4 | 0 | the backend Jest suite's wipe target |
+  | `portfolio` | 5 | — | abandoned 2026-07-18 copy |
+  | `portfolio_scratch` | 6 | — | dead |
+  | `sample_mflix` | 6 | — | Atlas sample data, dead |
+
+  ⚠️ **Six databases, not five.** `portfolio_test` is easy to miss when
+  listing "the ones to deal with" because nothing but `npm test`'s URI
+  rewrite ever names it.
+
+  ⚠️ **`test`'s three contacts are all test submissions, and one is
+  MINE**: "Test person 1", "Test Recruiter", and
+  "PF-92 GATE TEST (safe to delete)" — the last written by PF-92's Step 4,
+  which instructs a real form submission against the deployed backend.
+  **There is no genuine visitor mail in production**, which is worth
+  knowing before anyone treats the collection as precious.
+
+  ⚠️ **"Test Recruiter" is the E2E fixture's name, and it is sitting in
+  PRODUCTION.** Reported rather than explained: it means that at some
+  point either the E2E suite or that fixture reached the live database.
+  Nothing in the current configuration can do that — `global-setup.js`
+  refuses any database whose name lacks `e2e`/`test`, and `test` matches
+  that pattern, which is itself worth noticing. **The guard would not stop
+  an E2E run pointed at `test`.**
 - **Inline custom property on `<html>`** → beats the `html[data-theme]` block in
   the cascade, so every subsequent edit to `tokens.css` becomes dead code. The
   page renders a stale value and nothing you change has any effect. Never write
@@ -5801,6 +6109,152 @@ error message:
   **zero** were gained. Every utility real components use — `flex`, `grid`,
   `min-h-screen`, `items-center`, `justify-center`, `animate-fade-in-up` —
   is still emitted.
+
+- **⚠️ PLAYWRIGHT REPORTS `flaky` IN A BUCKET SEPARATE FROM `passed`, SO A
+  SUITE THAT RAN EVERYTHING CAN READ AS ONE THAT SKIPPED TWO TESTS.**
+  Cost a full diagnostic pass in PF-92 (2026-08-29).
+
+  `playwright.config.js:9` sets `retries: 1`. A test that fails on the
+  first attempt and passes on the retry contributes to **neither** the
+  failed count nor the passed count — it is reported as `flaky`. So:
+
+  ```
+  npx playwright test --list | grep -c "›"   →  40
+  npm run test:e2e                           →  "38 passed"
+  ```
+
+  and the two missing tests **ran**. They were the two newest specs, which
+  made it read as "collected but never executed" — a config filter, a
+  `describe` scoped to another project, or a duplicate title dedup. It was
+  none of those; the summary line just does not put flaky tests where you
+  look.
+
+  ⚠️ **The count is the symptom; a flaky test is the defect.** Diagnose it
+  from the JSON reporter's per-attempt data, never from the summary:
+
+  ```bash
+  PLAYWRIGHT_JSON_OUTPUT_NAME=out.json npx playwright test --reporter=json > run.log
+  # then count tests whose `results` array has length > 1
+  ```
+
+  ⚠️ Redirect stdout to a **different** file than the reporter writes —
+  `global-setup.js` prints "✓ E2E backend verified…" to stdout, so
+  `--reporter=json > out.json` produces invalid JSON with a `✓` on line 1.
+
+  This file already recorded the shape once ("E2E **21 passed + 1 flaky**")
+  without naming what causes the arithmetic to look wrong.
+
+- **⚠️ A STABILITY CHECK THAT ACCEPTS THE FIRST PLATEAU IS A TIMER
+  WEARING A MEASUREMENT'S CLOTHES.** The defect behind the flake above,
+  and a trap this project has now hit twice in the same file.
+
+  PF-94's first E2E spec read the target's position until two readings
+  400ms apart agreed, then returned that value. It looks like the
+  principled fix to "a positional assertion after a fixed wait is a
+  timer" — it waits for the page to stop moving rather than for a clock.
+
+  **It is not, because under full-suite load the main thread stalls, and a
+  stall PAUSES the smooth-scroll animation.** Two readings then agree
+  *mid-scroll*, the helper mistakes the pause for a settle and returns
+  something like 310, the test fails, the retry passes, and the run
+  reports `flaky`. Exactly the load-dependent behaviour PF-88 documented
+  for the `#projects` poll two tests above it — **−355px under full-suite
+  load, 70.8 alone.**
+
+  **The fix is to retry the whole stability check rather than act on its
+  first answer** — `expect.poll` around three agreeing readings, so a
+  stalled-scroll plateau costs another iteration instead of deciding the
+  result.
+
+  ⚠️ **And retrying reintroduces the vacuity risk the plateau check
+  existed to avoid**, so the two have to be solved together: a bare
+  `expect.poll(...).toBe(71)` goes green on the broken build, which passes
+  *through* 71 on its way down before the late shift drops it to 186.
+  Waiting for `networkidle` first is what closes that — once the grids
+  have rendered, the broken build is parked at 186 and 71 is unreachable.
+  **Both halves are required; either alone is a bad test.** Verified by
+  mutation against the pre-PF-94 component: `Expected 71, Received 186`,
+  failing on the retry too.
+
+- **⚠️ `playwright-report/` AND `test-results/` ARE GIT-IGNORED AND WERE
+  NOT ESLINT-IGNORED, SO THE SPRINT GATE BROKE ITSELF.** Found in PF-92,
+  and it is the `dist-verify/` entry above repeating with different
+  directories.
+
+  `reporter: 'html'` writes `playwright-report/` on **every** E2E run and
+  `test-results/` on any failure or retry, both containing minified vendor
+  bundles. `frontend/.gitignore:37-38` covers both; `eslint.config.js`'s
+  `globalIgnores` did not. So after `npm run test:e2e`, `eslint .`
+  reported **642 errors** in someone else's code — `'process' is not
+  defined`, `'Buffer' is not defined`, unnecessary escapes.
+
+  **The gate's own five commands therefore fail whenever the E2E step runs
+  before the lint step**, which the PF-92 ticket's ordering does not
+  prevent. It had never surfaced because E2E had not completed in the same
+  working tree as a lint run before.
+
+  Fixed by adding both to `globalIgnores`, and verified **with both
+  directories present on disk** rather than after deleting them — the same
+  honesty the `dist-verify/` fix needed.
+
+- **⚠️ A PRODUCTION OUTAGE WHERE `/api/health` RETURNED 200 THROUGHOUT, AND
+  MONITORING WOULD HAVE REPORTED GREEN.** The deployed backend's
+  `MONGO_URI` was set with **no database path**, so `assertExplicitDatabase`
+  refused the connection and every data route returned **500** — while
+  `/api/health` stayed **200**. Three of the six sections rendered their
+  error states on the live site and nothing surfaced it.
+
+  **This is the existing "connection string with no database path" entry
+  firing correctly in a second environment** — the PF-66 guard doing
+  exactly its job, refusing rather than silently connecting to a database
+  called `test`. The guard is not the defect. **The monitoring blind spot
+  is**, and it is worth naming on its own.
+
+  **The mechanism, read out of `src/app.js` rather than reasoned:**
+
+  ```js
+  // the /api/health handler — connect failure is SWALLOWED
+  try { await connectDB(); database = mongoose.connection.name || null; }
+  catch (_err) { /* swallowed */ }
+  res.json({ status: 'ok', env, timestamp, database });
+
+  // ...and only THEN the connect middleware that guards the routes
+  app.use(async (_req, _res, next) => {
+    try { await connectDB(); next(); } catch (err) { next(err); }
+  });
+  // ── API Routes ── (everything below this line 500s)
+  ```
+
+  So health sits **in front of** the gate it is supposed to report on, and
+  answers `status: "ok"` with `database: null` while every route behind it
+  fails. Anything checking the status code, or even the `status` field,
+  sees a healthy service.
+
+  **⚠️ `database` IS THE ONLY FIELD THAT CARRIES THE TRUTH.** A health
+  check on this API must assert `database` is a non-null string — and,
+  better, the *expected* name. Healthy now reads
+  `{"status":"ok","env":"production","database":"test"}`; during the
+  incident the same endpoint returned the same `status: "ok"` with
+  `database: null`.
+
+  ⚠️ Note this is also the **fourth** backend failure shape's cause seen
+  from the other side: because `connectDB()` is awaited ahead of the
+  router, a connection problem converts into a *wrong status code* rather
+  than a connection error — including a 500 where a 404 belongs, which is
+  what makes it indistinguishable from a logic bug by shape alone.
+
+- **⚠️ THE E2E CONTACT SPEC WRITES A ROW PER RUN AND NEVER CLEANS UP.**
+  `portfolio_e2e.contacts` holds **52** documents as of 2026-08-30 —
+  **51 identical "Test Recruiter"** fixtures plus one "E2E Visitor".
+  Counted, not estimated.
+
+  It is harmless where it lives — that database exists to be disposable,
+  and no spec asserts a count — but it grows monotonically and it is the
+  reason a `contacts` count is not a usable signal there. It also
+  quantifies its own rate: the collection went **44 → 52 during a single
+  session** of PF-92/PF-94 verification, i.e. one row per full-suite run.
+  `global-setup.js` wipes and reseeds the fixture collections; contacts are
+  written *by the tests*, after that point, so nothing removes them.
 
 Where a mistake would be silent, add a test that would catch it.
 
