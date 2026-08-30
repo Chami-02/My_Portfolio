@@ -19,6 +19,17 @@ export default defineConfig([
     // Without the glob, `eslint .` lints a 410 kB minified bundle and
     // fails on `process is not defined` in someone else's code.
     'dist-*/',
+    // Playwright's own output. `reporter: 'html'` writes
+    // playwright-report/ on EVERY e2e run and test-results/ on any
+    // failure or retry, and both contain minified vendor bundles — so
+    // after `npm run test:e2e`, `eslint .` reported 642 errors in
+    // someone else's code ('process' is not defined, 'Buffer' is not
+    // defined, unnecessary escapes). git already ignores both
+    // (frontend/.gitignore:37-38); ESLint did not, which made the
+    // sprint gate's own five commands fail whenever the e2e step ran
+    // before the lint step. Same shape as dist-*/ above.
+    'playwright-report/',
+    'test-results/',
     'build/',
     'coverage/',
     '**/*.min.js',

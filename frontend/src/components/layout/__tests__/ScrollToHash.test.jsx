@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { render, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { ScrollToHash } from '../ScrollToHash';
 import { SplashProvider } from '../../../providers/SplashProvider';
 import { useSplashControls } from '../../../hooks/useSplashControls';
@@ -22,13 +23,50 @@ const motionCss = readFileSync(
   'utf8',
 ).replace(/\/\*[\s\S]*?\*\//g, '');
 
-/** rAF is queued, not synchronous — the component schedules one frame
- *  so the newly-committed route has laid out before it measures. */
+/**
+ * rAF is queued, not synchronous — the component schedules a frame so
+ * the newly-committed route has laid out before it measures.
+ *
+ * ⚠️ PF-94: this DRAINS, it does not flush once. The component no
+ * longer scrolls a single time — it re-schedules itself until the page
+ * stops moving, so a one-shot flush would leave the loop suspended
+ * mid-poll and `settledForKey` never set. Every "does not re-scroll"
+ * assertion in this file depends on the settle having actually
+ * happened, and would report a false PASS against a component that
+ * simply stalled.
+ *
+ * In jsdom nothing has layout — `getBoundingClientRect()` is all zeros
+ * and `scrollY` is 0 — so the target never appears to move and the
+ * loop reaches quiescence in three frames. The cap is a runaway guard,
+ * not a timing assumption.
+ */
 let rafQueue = [];
-const flushRaf = () => {
+const flushRaf = (maxFrames = 20) => {
+  for (let i = 0; i < maxFrames && rafQueue.length; i += 1) {
+    const q = rafQueue;
+    rafQueue = [];
+    q.forEach((cb) => cb(0));
+  }
+};
+
+/** Exactly one animation frame, for asserting what happens BETWEEN
+ *  frames — a drain would collapse a shift and its correction into one
+ *  indistinguishable step. */
+const stepRaf = () => {
   const q = rafQueue;
   rafQueue = [];
   q.forEach((cb) => cb(0));
+};
+
+/**
+ * Give a target a controllable document position. jsdom has no layout,
+ * so every rect is zeros and nothing ever appears to move — which is
+ * precisely the shift PF-94 is about, and it has to be simulated.
+ */
+const positionAt = (el, get) => {
+  el.getBoundingClientRect = () => ({
+    top: get(), left: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0,
+  });
 };
 
 const mountTarget = (id) => {
@@ -39,12 +77,23 @@ const mountTarget = (id) => {
   return el;
 };
 
+/**
+ * ⚠️ ScrollToHash reads `useIsFetching()`, so it requires a
+ * QueryClientProvider. In the app it has always had one — main.jsx
+ * wraps <App /> — but this suite rendered it bare until PF-94, and a
+ * bare render now throws "No QueryClient set", which reads like a
+ * routing bug and is not one.
+ */
+const withProviders = (ui, { splashReady = true } = {}) => (
+  <QueryClientProvider client={new QueryClient()}>
+    <SplashProvider initialReady={splashReady}>{ui}</SplashProvider>
+  </QueryClientProvider>
+);
+
 const at = (path, { splashReady = true } = {}) =>
   render(
     <MemoryRouter initialEntries={[path]}>
-      <SplashProvider initialReady={splashReady}>
-        <ScrollToHash />
-      </SplashProvider>
+      {withProviders(<ScrollToHash />, { splashReady })}
     </MemoryRouter>,
   );
 
@@ -120,10 +169,13 @@ describe('ScrollToHash', () => {
 
     render(
       <MemoryRouter initialEntries={['/#projects']}>
-        <SplashProvider initialReady={false}>
-          <Releaser />
-          <ScrollToHash />
-        </SplashProvider>
+        {withProviders(
+          <>
+            <Releaser />
+            <ScrollToHash />
+          </>,
+          { splashReady: false },
+        )}
       </MemoryRouter>,
     );
     flushRaf();
@@ -192,10 +244,12 @@ describe('ScrollToHash', () => {
 
     render(
       <MemoryRouter initialEntries={['/#projects']}>
-        <SplashProvider initialReady>
-          <Releaser />
-          <ScrollToHash />
-        </SplashProvider>
+        {withProviders(
+          <>
+            <Releaser />
+            <ScrollToHash />
+          </>,
+        )}
       </MemoryRouter>,
     );
     flushRaf();
@@ -226,10 +280,13 @@ describe('ScrollToHash', () => {
 
     render(
       <MemoryRouter initialEntries={['/#projects']}>
-        <SplashProvider initialReady={false}>
-          <Releaser />
-          <ScrollToHash />
-        </SplashProvider>
+        {withProviders(
+          <>
+            <Releaser />
+            <ScrollToHash />
+          </>,
+          { splashReady: false },
+        )}
       </MemoryRouter>,
     );
     flushRaf();
@@ -238,6 +295,126 @@ describe('ScrollToHash', () => {
     act(() => release(true));
     flushRaf();
     expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  // ══ PF-94: the page keeps moving after the first scroll ══════════
+
+  /**
+   * ⚠️ THE DEFECT THIS EXISTS FOR. Measured on the production build,
+   * cold arrival at a 404 → click BLOG:
+   *
+   *     t=95ms   #projects 1150px   #blog at 3933   ← scroll ran here
+   *     t=693ms  #projects 1264px   #blog at 4048   ← content arrived
+   *
+   * Projects' loading placeholder is ~114px shorter than its real
+   * content, so #blog and #contact were left at 186px instead of 71px,
+   * permanently. The numbers below are those measurements.
+   *
+   * Mutation-tested against the pre-PF-94 component (scroll once in a
+   * rAF, then mark handled): this fails with 1 call where 2 are needed,
+   * and it is the only test in the file that does.
+   */
+  it('re-scrolls when a late layout shift moves the target under it', () => {
+    const el = mountTarget('blog');
+    let top = 3933;
+    positionAt(el, () => top);
+
+    at('/#blog');
+    stepRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+
+    // Projects' query resolves and its real content pushes #blog down.
+    top = 4048;
+    stepRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(2);
+  });
+
+  /**
+   * The counterweight, and the reason the loop keys on MOVEMENT rather
+   * than on being off-target: a page that never shifts — an instant or
+   * already-cached API — must be scrolled exactly once. A component
+   * that re-issued scrollIntoView() every frame would also land in the
+   * right place, and would restart the browser's smooth animation on
+   * each of those frames.
+   */
+  it('scrolls exactly once when the layout never moves', () => {
+    const el = mountTarget('blog');
+    positionAt(el, () => 4048);
+
+    at('/#blog');
+    flushRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * ⚠️ The user outranks the anchor. Once someone scrolls, a late
+   * correction is a yank rather than a fix.
+   *
+   * Note the listener is on INPUT (wheel/touch/key) and never on
+   * `scroll`: the smooth scroll this component starts fires `scroll` on
+   * every frame, so a scroll listener would cancel the very fix it is
+   * meant to protect.
+   */
+  it('stops correcting once the user takes over', () => {
+    const el = mountTarget('blog');
+    let top = 3933;
+    positionAt(el, () => top);
+
+    at('/#blog');
+    stepRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      window.dispatchEvent(new Event('wheel'));
+    });
+
+    top = 4048;
+    flushRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * ⚠️ `useIsFetching() === 0` is part of the settle condition, not
+   * decoration. Without it the loop reaches quiescence during the gap
+   * between the placeholder rendering and the response arriving —
+   * nothing is moving yet — and settles before the shift it exists to
+   * catch. jsdom reaches that quiet state in three frames, which is
+   * well inside a real network round trip.
+   *
+   * Mutation-tested by dropping `isFetching === 0` from the settle
+   * condition: this fails, and nothing else does.
+   */
+  it('does not settle while a query is still in flight', () => {
+    const el = mountTarget('blog');
+    let top = 3933;
+    positionAt(el, () => top);
+
+    const client = new QueryClient();
+    // A query that never resolves, so useIsFetching() stays at 1.
+    function Pending() {
+      useQuery({ queryKey: ['pf94'], queryFn: () => new Promise(() => {}) });
+      return null;
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/#blog']}>
+        <QueryClientProvider client={client}>
+          <SplashProvider initialReady>
+            <Pending />
+            <ScrollToHash />
+          </SplashProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    // Long past the three frames it would take to go quiet.
+    flushRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(1);
+
+    // The response finally lands and shifts the page.
+    top = 4048;
+    stepRaf();
+    expect(el.scrollIntoView).toHaveBeenCalledTimes(2);
   });
 
   it('cancels its pending frame on unmount', () => {

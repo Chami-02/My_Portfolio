@@ -110,6 +110,88 @@ test.describe('Navbar off the home page', () => {
       .toBe(71);
   });
 
+  /**
+   * ⚠️ PF-94 — THE SECTIONS BELOW THE API-DRIVEN GRIDS, WHICH NOTHING
+   * COVERED.
+   *
+   * The spec above this one, and footer.spec.js's equivalent, both
+   * measure #projects — the last section ABOVE the content that shifts.
+   * The coverage looked complete and tested the one case that cannot
+   * fail. #blog and #contact sit BELOW Projects, whose loading
+   * placeholder is ~114px shorter than its real content, and they were
+   * landing at 186px instead of 71px on every off-home navigation:
+   *
+   *     t=95ms   #projects 1150px   #blog at 3933   ← the scroll ran here
+   *     t=693ms  #projects 1264px   #blog at 4048   ← content arrived
+   *
+   * Reach: PF-86 pointed five Blog-teaser links at /blog, which has no
+   * route, so this was two clicks from the home page.
+   */
+  for (const section of ['blog', 'contact']) {
+    test(`a nav link from a 404 lands #${section} under the header`, async ({ page }) => {
+      await page.goto('/this-page-does-not-exist');
+      await page
+        .locator('header')
+        .getByRole('link', { name: new RegExp(`^${section}$`, 'i') })
+        .click();
+
+      // The home page has to mount before there is anything to measure —
+      // the click only commits the route.
+      await page.locator(`#${section}`).waitFor();
+
+      // ⚠️ WAIT FOR THE QUERIES FIRST, AND THIS IS WHAT KEEPS THE
+      // ASSERTION HONEST rather than being mere hygiene.
+      //
+      // A bare expect.poll(...).toBe(71) is VACUOUS on this page: the
+      // BROKEN build passes through 71 on its way down — the smooth
+      // scroll is still animating toward the pre-shift position when
+      // the real content arrives and drops the target to 186 — so a
+      // poll can return on that transient and go green on the exact
+      // defect this test exists for. Once the grids have rendered, the
+      // broken build is parked at 186 permanently and 71 is
+      // unreachable, so the poll below cannot be satisfied by a
+      // transient. Mutation-tested: both specs go red against the
+      // pre-PF-94 component.
+      await page.waitForLoadState('networkidle');
+
+      // ⚠️ AND THE STABILITY CHECK MUST BE RETRIED, NOT TAKEN ONCE.
+      //
+      // The first version of this test read until two readings 400ms
+      // apart agreed and returned that value. Under full-suite load the
+      // main thread stalls, which PAUSES the smooth-scroll animation —
+      // so two readings agree mid-scroll, the helper mistakes the pause
+      // for a settle, and returns a number like 310. The test then
+      // failed on the first attempt and passed on retry, which
+      // playwright.config.js's `retries: 1` reports as `flaky` in a
+      // bucket SEPARATE from `passed`: the run reads "38 passed" with
+      // 40 collected, which looks exactly like two tests never running.
+      // This is the same load-dependent shape as the #projects poll two
+      // tests up (-355px under load, 70.8 alone).
+      //
+      // Retrying the whole three-reading check means a stalled-scroll
+      // plateau just costs another iteration instead of deciding the
+      // result.
+      await expect
+        .poll(
+          async () => {
+            const read = () =>
+              page
+                .locator(`#${section}`)
+                .evaluate((el) => Math.round(el.getBoundingClientRect().top));
+            const a = await read();
+            await page.waitForTimeout(300);
+            const b = await read();
+            await page.waitForTimeout(300);
+            const c = await read();
+            return a === b && b === c ? c : null;
+          },
+          { timeout: 20000 },
+        )
+        // --header-h is 71px.
+        .toBe(71);
+    });
+  }
+
   test('the 404 page navbar links home rather than nowhere', async ({ page }) => {
     await page.goto('/this-page-does-not-exist');
     const about = page.locator('header').getByRole('link', { name: 'ABOUT' });

@@ -32,6 +32,7 @@ vi.mock('../../components/sections/ContactSection', () => ({
 }));
 
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HomePage } from '../HomePage';
 import { ThemeProvider } from '../../providers/ThemeProvider';
 import { MotionProvider } from '../../providers/MotionProvider';
@@ -62,14 +63,20 @@ describe('HomePage', () => {
    * in HomePage.jsx and it fails, because the throw escapes render.
    */
   it('keeps the rest of the page alive when Hero throws', () => {
-    // MemoryRouter as of 2026-08-22: HomePage mounts <ScrollToHash />,
-    // which calls useLocation(). Every section here is stubbed, so this
-    // file needed no router before — in the real app HomePage is always
-    // inside App.jsx's <BrowserRouter>, so this is the test catching up
-    // with the component rather than a new coupling.
+    // MemoryRouter as of 2026-08-22, QueryClientProvider as of PF-94:
+    // HomePage mounts <ScrollToHash />, which calls useLocation() and
+    // now useIsFetching() too. Every section here is stubbed, so this
+    // file needed neither before — in the real app HomePage is always
+    // inside App.jsx's <BrowserRouter> and main.jsx's
+    // <QueryClientProvider>, so this is the test catching up with the
+    // component rather than a new coupling. Without the provider the
+    // render throws "No QueryClient set", which reads like a data-layer
+    // bug and is not one.
     expect(() => render(
       <MemoryRouter>
-        <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>
+        </QueryClientProvider>
       </MemoryRouter>,
     )).not.toThrow();
 
@@ -91,7 +98,9 @@ describe('HomePage', () => {
 
     expect(() => render(
       <MemoryRouter>
-        <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>
+        </QueryClientProvider>
       </MemoryRouter>,
     )).not.toThrow();
 
