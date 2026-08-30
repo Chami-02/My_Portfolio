@@ -4,6 +4,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import postcss from 'postcss';
 import { HeroSection } from '../HeroSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
@@ -163,8 +164,22 @@ describe('HeroSection (PF-80)', () => {
     // single edit can quietly collapse them back onto each other.
     expect(screen.getByAltText('Portrait of Parindra Gallage')).toBeInTheDocument();
     expect(screen.queryByAltText('Parindra Gallage')).toBeNull();
-    // Marquee duplicates its children, so both copies match.
-    expect(pickAll(container, 'marqueeText')).toHaveLength(2);
+    // ⚠️ SIX copies, not the prototype's two, and the count is
+    // arithmetic rather than taste. `marq` translates the track by -50%
+    // of its own width, so one cycle slides it by only HALF the copies:
+    // the requirement is `copies >= 2 * band / copy`, not
+    // `copy >= band`. One copy of this strip is 1297px against a 1484px
+    // band, so two left 187px of the band empty at the wrap. Measured in
+    // Chromium; owner-approved 2026-08-24 and applied to the footer's
+    // band in the same pass. See Marquee.jsx.
+    const strips = pickAll(container, 'marqueeText');
+    // ⚠️ EIGHT since 2026-08-27, up from 6. The Option A font drop shrank
+    // one copy 1297px -> 1050.6px, which RAISES the seamlessness
+    // requirement (`copies >= 2 * band / copy`) — a thinner band needs
+    // MORE copies. Six covered 3891px and sat on the limit at 3440;
+    // eight covers 4202px.
+    expect(strips).toHaveLength(8);
+    expect(strips.length % 2).toBe(0);
   });
 
   // The marquee follows </section> in the prototype. Nested inside a
@@ -190,6 +205,66 @@ describe('HeroSection (PF-80)', () => {
     expect(blobs).toHaveLength(4);
     const stage = pick(container, 'portraitStage');
     blobs.forEach((b) => expect(stage.contains(b)).toBe(true));
+  });
+
+  /*
+   * ⚠️ OWNER-REQUESTED 2026-08-29, and it OVERRIDES THE PROTOTYPE —
+   * which is exactly why it needs a guard rather than just a comment.
+   *
+   * `.blobC` shipped at the prototype's z-index 4, the only blob above
+   * `.portraitFrame`'s 3, so a blur(9px) haze drifted across the FRONT
+   * of the portrait on a 19s loop. The owner reported the image looking
+   * misty and asked for it to be "always clear and perfect".
+   *
+   * Two halves, and the second is the one that stops an over-correction:
+   * nothing may paint above the frame, AND all four blobs must survive.
+   * Deleting blobC would also satisfy "the image is clear" while quietly
+   * reducing the design by a quarter of its ambient cluster.
+   *
+   * jsdom applies no stylesheet, so this reads the module as text —
+   * parsed with postcss, never a raw search, because the rule documents
+   * the retired `z-index: 4` in prose immediately above itself and a
+   * text match would find the comment.
+   */
+  it('keeps every drift blob BEHIND the portrait, so the image stays clear', async () => {
+    const postcss = (await import('postcss')).default;
+    const { readFileSync } = await import('fs');
+    const { resolve, dirname } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const here = dirname(fileURLToPath(import.meta.url));
+    const root = postcss.parse(
+      readFileSync(resolve(here, '../HeroSection.module.css'), 'utf8'),
+    );
+
+    const z = (sel) => {
+      let v = null;
+      root.walkRules((rule) => {
+        if (rule.selector !== sel) return;
+        rule.walkDecls('z-index', (d) => { v = Number(d.value.trim()); });
+      });
+      return v;
+    };
+
+    const frame = z('.portraitFrame');
+    expect(frame).toBe(3);
+
+    // The shared base rule puts blobs at 2; only blobC ever overrode it.
+    expect(z('.blob')).toBe(2);
+    expect(z('.blobC')).toBe(2);
+    expect(z('.blobC')).toBeLessThan(frame);
+
+    // ...and the cluster is still four. Moved behind, not removed.
+    const { container } = render(withMotion(<HeroSection />));
+    expect(pickAll(container, 'blob')).toHaveLength(4);
+
+    // blobC keeps everything else the prototype gave it — this is a
+    // stacking change, not a redesign of the blob.
+    let body = '';
+    root.walkRules((rule) => {
+      if (rule.selector === '.blobC') body = rule.toString();
+    });
+    expect(body).toContain('blur(9px)');
+    expect(body).toContain('19s');
   });
 
   // The light-theme reveal of this element is a global rule in
@@ -242,6 +317,52 @@ describe('HeroSection (PF-80)', () => {
       expect(ruleBody('.loudCta')).toContain('animation-duration: 3s');
     });
 
+    /**
+     * PF-93, 2026-08-21. Both of these were `[data-reveal='in']
+     * [data-type='pop']` gates until this ticket; both are now deleted
+     * outright, because the gate matches at the entrance's START
+     * (Reveal.jsx:57) and therefore animated the entrance on the 0.25s
+     * hover values. Measured on the production build — opacity reached 1
+     * at 0ms for both, and the pop settled at 448ms (.rolePill) and
+     * 301ms (.loudCta) instead of ~900ms.
+     *
+     * `.rolePill` is the sharper case. The prototype's line 102 really
+     * does declare `transition:border-color .25s,background .25s,
+     * transform .25s` in its style attribute, and PF-80 transcribed it
+     * faithfully — but hideReveals() writes el.style.transition into the
+     * SAME declaration block, so the design never renders that value.
+     * This guard is what stops a future fidelity pass reading line 102
+     * and putting it back.
+     *
+     * `animation` longhands are untouched by this: both elements keep
+     * their `composes: kf-glowpulse` and its timing, asserted above.
+     * Only `transition*` is forbidden.
+     */
+    it('declares no transition on .rolePill or .loudCta, at any selector', () => {
+      const offenders = [];
+      postcss.parse(css).walkRules((rule) => {
+        if (!/\.(rolePill|loudCta)(?![\w-])/.test(rule.selector)) return;
+        rule.walkDecls(/^transition/, (d) => {
+          offenders.push(`${rule.selector} { ${d.prop}: ${d.value} }`);
+        });
+      });
+      expect(offenders).toEqual([]);
+    });
+
+    // The hover END STATES stay — .rolePill's are the prototype's
+    // (line 102's style-hover). Asserted so the deletion above cannot be
+    // over-applied into removing the hover treatment itself.
+    it('keeps the hover end states the transitions used to animate', () => {
+      const pill = ruleBody('.rolePill:hover');
+      expect(pill).toContain('border-color: var(--acc');
+      expect(pill).toContain('background: rgba(252, 163, 17, .12)');
+      expect(pill).toContain('transform: translateY(-2px)');
+
+      const cta = ruleBody('.loudCta:hover');
+      expect(cta).toContain('border-color: var(--acc');
+      expect(cta).toContain('transform: translateY(-2px)');
+    });
+
     it('floats every chip out of phase with the others', () => {
       const durations = [...css.matchAll(/\.chip[A-Z]\w*\s*{[^}]*animation-duration:\s*([\d.]+)s/g)]
         .map((m) => m[1]);
@@ -273,9 +394,32 @@ describe('HeroSection (PF-80)', () => {
     // Owner-requested slimming. Both halves matter — dropping the padding
     // alone barely moves the band, because the line box dominates it.
     it('slims the marquee band below the prototype\'s values', () => {
-      expect(ruleBody('.marqueeInner')).toContain('padding: 8px 0');
-      expect(ruleBody('.marqueeText')).toContain('font-size: clamp(13px, 1.6vw, 21px)');
-      expect(ruleBody('.marqueeText')).toContain('padding-right: 24px');
+      // ⚠️ Slimmed TWICE. 2026-08-17 took the prototype's 14px/34px band
+      // to 8px + clamp(13px,1.6vw,21px); 2026-08-27 ("Option A") took it
+      // again to 6px + clamp(11px,1.25vw,17px). Measured offsetHeight
+      // 50px -> 39px.
+      //
+      // Option B (clamp(10px,1.0vw,14px), 32px) was measured and
+      // REJECTED: thin enough to read as a hairline rule rather than a
+      // band, with the type no longer registering as text at a glance.
+      //
+      // Both halves are pinned because padding alone barely moves the
+      // band — the line box is 33.6 of the 49.6px interior.
+      expect(ruleBody('.marqueeInner')).toContain('padding: 6px 0');
+      expect(ruleBody('.marqueeText')).toContain('font-size: clamp(11px, 1.25vw, 17px)');
+      expect(ruleBody('.marqueeText')).toContain('padding-right: 20px');
+      // and NOT the values either slimming replaced.
+      // ⚠️ Comments stripped first: both rules name the prototype's own
+      // values in prose directly above themselves, so a raw negative
+      // matches the comment explaining the change rather than the
+      // declaration. This assertion failed against correct code before
+      // the strip was added — the trap CLAUDE.md documents, hit while
+      // writing a guard against it.
+      const noComments = (sel) => ruleBody(sel).replace(/\/\*[\s\S]*?\*\//g, '');
+      expect(noComments('.marqueeInner')).not.toContain('padding: 14px 0');
+      expect(noComments('.marqueeInner')).not.toContain('padding: 8px 0');
+      expect(noComments('.marqueeText')).not.toContain('clamp(20px, 2.6vw, 34px)');
+      expect(noComments('.marqueeText')).not.toContain('clamp(13px, 1.6vw, 21px)');
     });
 
     // The strip stays edge to edge — only its thickness came down. A
@@ -394,5 +538,44 @@ describe('HeroSection (PF-80)', () => {
     unmount();
 
     expect(removeSpy).toHaveBeenCalledWith('pointermove', expect.any(Function));
+  });
+});
+
+/*
+ * ── PF-91 · Group B — the SCROLL label ─────────────────────────────────
+ *
+ * `--faint` measured 3.56 against the page ground; 10px needs 4.5.
+ * `--muted` measures 7.68.
+ *
+ * ⚠️ DARK ONLY. Light's --faint already measures 4.97 here, and moving a
+ * compliant value for symmetry is what PF-83 refused to do — so the base
+ * rule must keep --faint and the fix must be scoped on SPECIFICITY,
+ * (0,2,1) against (0,1,0), never a second bare rule resolving on
+ * emission order.
+ *
+ * Two steps rather than one because --muted2 would have cleared this at
+ * 4.55, and 0.05 of headroom does not survive a backdrop change — the
+ * footer copyright went 4.97 -> 4.28 from a surface tint that touched
+ * none of its own colours.
+ */
+describe('PF-91 SCROLL label contrast', () => {
+  const declsOf = (sel) => {
+    let out = null;
+    postcss.parse(css).walkRules((rule) => {
+      if (rule.selector !== sel) return;
+      out = {};
+      rule.walkDecls((d) => { out[d.prop] = d.value; });
+    });
+    return out;
+  };
+
+  it('keeps --faint as the base colour, so light is unmoved at 4.97', () => {
+    expect(declsOf('.scrollLabel').color).toBe('var(--faint)');
+  });
+
+  it('raises it to --muted in DARK, scoped on specificity', () => {
+    const d = declsOf(":global(html[data-theme='dark']) .scrollLabel");
+    expect(d).not.toBeNull();
+    expect(d.color).toBe('var(--muted)');
   });
 });

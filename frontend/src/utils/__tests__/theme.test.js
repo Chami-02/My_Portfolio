@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   normalise, readTheme, writeTheme, readAppliedTheme,
-  applyTheme, toggleLabel, themeModeLabel, THEME_KEY, DEFAULT_THEME,
+  applyTheme, toggleLabel, THEME_KEY, DEFAULT_THEME,
 } from '../theme';
 
 describe('theme utilities (PF-72)', () => {
@@ -103,11 +103,12 @@ describe('theme utilities (PF-72)', () => {
     });
   });
 
-  describe('themeModeLabel', () => {
-    it('matches the prototype themeLabel verbatim (line 1113)', () => {
-      expect(themeModeLabel('light')).toBe('DARK MODE');
-      expect(themeModeLabel('dark')).toBe('LIGHT MODE');
-    });
-  });
+  /* ⚠️ themeModeLabel's two tests were DELETED with the function on
+     2026-08-22. The icon-only ThemeToggle renders no caption, so it had
+     zero consumers — and these tests would have kept passing forever
+     regardless, because a unit test imports the module directly. That is
+     the useTypewriter shape CLAUDE.md documents: a green suite reporting
+     "alive" about code nothing in the app reaches. Deleting the tests
+     with the function is the point, not an oversight. */
 
 });

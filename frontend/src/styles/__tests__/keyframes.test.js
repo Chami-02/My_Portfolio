@@ -39,6 +39,19 @@ const VARIANTS = [
   'auroraA', 'auroraB',
 ];
 
+/**
+ * ⚠️ KEYFRAMES THIS PROJECT ADDED THAT THE PROTOTYPE DOES NOT HAVE.
+ *
+ * Kept as a THIRD list rather than folded into BASE so the 32-count
+ * assertion below keeps meaning what it meant: BASE + VARIANTS is still
+ * exactly the design's own set, and this list is the explicit, reviewed
+ * exception budget. Growing BASE instead would have let the next
+ * addition hide inside a number nobody reads.
+ */
+const ADDITIONS = [
+  'dot-ok',   // owner-requested 2026-08-29 — the LIVE SITE green dot
+];
+
 // FIX 2 — anchor to line start with the m flag, so a mention in
 // prose can't satisfy the match.
 const defines = (css, name) =>
@@ -54,9 +67,20 @@ describe('Keyframe library (PF-69)', () => {
     expect(defines(screens, name)).toBe(true);
   });
 
-  it('defines 32 keyframes in total', () => {
+  it.each(ADDITIONS)('base defines the added @keyframes %s', (name) => {
+    expect(defines(base, name)).toBe(true);
+  });
+
+  it('defines the prototype\'s 32 keyframes plus exactly the listed additions', () => {
     const found = [...all.matchAll(/@keyframes\s+([a-zA-Z0-9_-]+)/g)].map(m => m[1]);
-    expect(found).toHaveLength(BASE.length + VARIANTS.length);
+
+    // The design's own set is still 32 and still asserted as such.
+    expect(BASE.length + VARIANTS.length).toBe(32);
+
+    // Anything defined that is in none of the three lists is drift.
+    const known = new Set([...BASE, ...VARIANTS, ...ADDITIONS]);
+    expect(found.filter((n) => !known.has(n))).toEqual([]);
+    expect(found).toHaveLength(BASE.length + VARIANTS.length + ADDITIONS.length);
   });
 
   it('defines no keyframe name twice', () => {
@@ -90,6 +114,37 @@ describe('Keyframe library (PF-69)', () => {
   it('keeps the orbdot counter-rotation', () => {
     const block = base.slice(base.indexOf('@keyframes orbdot'));
     expect(block.slice(0, 300)).toMatch(/rotate\(-360deg\)/);
+  });
+
+  /**
+   * PF-85 corrected this to the prototype's own form (line 29).
+   *
+   * It used to read `0%,100%{opacity:1} 50%{opacity:0}`. Under
+   * `step-end` — the only way the prototype and PF-85's terminal caret
+   * use it — the two are identical: step-end holds each keyframe's value
+   * across the interval starting at it, so both give opacity 1 across
+   * [0,50) and 0 across [50,100).
+   *
+   * They diverge under any INTERPOLATING timing function. With `linear`
+   * the prototype's form holds 1 until 49% then snaps across one
+   * percent, while the old one cross-faded over both halves. `blink` is
+   * a shared library keyframe, so the next consumer may not pass
+   * step-end — this pins the form rather than the equivalence.
+   */
+  it('defines blink in the prototype form, not the normalised one', () => {
+    const block = base.slice(base.indexOf('@keyframes blink'));
+    // Take whole lines up to the rule's own closing brace at column 0.
+    // `indexOf('}')` would stop at the first INNER block's brace and
+    // silently assert against only the first keyframe step.
+    const lines = block.split('\n');
+    const body  = lines.slice(0, lines.indexOf('}') + 1).join('\n');
+    expect(body).toMatch(/0%,\s*49%\s*\{\s*opacity:\s*1/);
+    expect(body).toMatch(/50%,\s*100%\s*\{\s*opacity:\s*0/);
+    // The normalised shape must not come back. Line-anchored: an
+    // unanchored /0%,\s*100%/ matches the "0%, 100%" sitting INSIDE
+    // "50%, 100%" and fails against the correct file — the same
+    // anchoring lesson as FIX 2 at the top of this file.
+    expect(body).not.toMatch(/^\s*0%,\s*100%/m);
   });
 
 });

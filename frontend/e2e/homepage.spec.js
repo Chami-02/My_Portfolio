@@ -20,17 +20,28 @@ test.describe('Homepage', () => {
     // `getByRole(...{ name })` matches the accessible name, hence `\s+`.
     await expect(page.getByRole('heading', { name: /Parindra\s+Gallage/i })).toBeVisible();
 
-    // Availability badge. The content is uppercase ("OPEN TO OPPORTUNITIES");
-    // `getByText` with a string is case-insensitive, so this still matches.
-    await expect(page.getByText('Open to opportunities')).toBeVisible();
+    // ⚠️ SCOPED TO THE HERO SINCE PF-88. The footer's marquee band
+    // repeats "OPEN TO OPPORTUNITIES ✦ LET'S BUILD SOMETHING LOUD ✦"
+    // twelve times, so an unscoped `getByText` now resolves to THIRTEEN
+    // elements and a strict locator throws. `aria-hidden` does not help:
+    // getByText ignores it, only getByRole respects it. The failure
+    // reads as the badge having disappeared, which is the opposite of
+    // what happened — see the duplicate-anchor entry in CLAUDE.md.
+    //
+    // The content is uppercase ("OPEN TO OPPORTUNITIES"); `getByText`
+    // with a string is case-insensitive, so this still matches.
+    await expect(
+      page.locator('#hero').getByText('Open to opportunities'),
+    ).toBeVisible();
     await expect(page.getByText('HEY — I AM')).toBeVisible();
   });
 
   // Replaces two Phase 1 tests that asserted features PF-80 deliberately
   // removed: the typewriter's `.animate-blink` cursor and TerminalWindow's
-  // "$ docker compose up --build". Both components are now orphaned (zero
-  // consumers) and the Phase 2 hero has no typewriter at all, so those
-  // assertions could only ever fail. These cover what replaced them.
+  // "$ docker compose up --build". PF-89 deleted both components outright
+  // — they had sat at zero consumers since PF-80 — and the Phase 2 hero
+  // has no typewriter at all, so those assertions could only ever fail.
+  // These cover what replaced them.
   test('hero renders its Phase 2 role pills and the LOUD CTA', async ({ page }) => {
     await expect(page.getByText('Full-Stack Web Developer')).toBeVisible();
     await expect(page.getByText('Cloud & DevOps Enthusiast')).toBeVisible();
@@ -70,10 +81,59 @@ test.describe('Homepage', () => {
     await expect(page.locator('#projects')).toBeInViewport();
   });
 
-  test('"Get In Touch" CTA scrolls to contact section', async ({ page }) => {
-    await page.click('text=Get In Touch');
-    await page.waitForTimeout(800);
+  /**
+   * Replaces `"Get In Touch" CTA scrolls to contact section`, which was
+   * vacuous and had been since PF-80. Phase 1's hero had
+   * `<a href="#contact">Get In Touch</a>`; PF-80 deleted it, so
+   * `text=Get In Touch` resolved to the Contact <h2> — href null, never
+   * inside an <a>. Measured during PF-84: `location.hash` stayed "" and
+   * the same assertion PASSED with no click at all, because Playwright
+   * scrolls an element into view before clicking it. It asserted
+   * Playwright's own documented behaviour, so it could not fail for a
+   * product reason, and it reported `flaky` rather than failing once
+   * `?nosplash` removed the incidental delay that let the hero images
+   * settle first.
+   *
+   * The fix is to assert NAVIGATION, not viewport position: `location.hash`
+   * distinguishes a real anchor from an auto-scroll, and auto-scroll
+   * cannot set it.
+   */
+  test('the hero LOUD CTA navigates to the contact section', async ({ page }) => {
+    // Baseline — if the hash were already #contact the assertion below
+    // would pass without the click doing anything.
+    expect(await page.evaluate(() => window.location.hash)).toBe('');
+
+    // getByRole('link'), not text=. The Contact <h2> reads "Let's build
+    // something loud" too, so a text locator matches two elements and a
+    // strict locator throws; filtering by role excludes the heading.
+    await page.getByRole('link', { name: /build something LOUD/i }).click();
+
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe('#contact');
     await expect(page.locator('#contact')).toBeInViewport();
+  });
+
+  /**
+   * PF-87's headline fix, asserted where it is actually observable.
+   * `global.css:338` carries `[id] { scroll-margin-top: 5rem }` at
+   * (0,1,0) — a tie with a bare class, broken by stylesheet order — so
+   * Contact computed 80px against a 71px header and every jump landed
+   * 9px low. Contact was the last section still on Phase 1 markup and so
+   * the only one still exhibiting it. `section.contact` is (0,1,1) and
+   * settles it.
+   */
+  test('every section clears the fixed header by exactly --header-h', async ({ page }) => {
+    const headerHeight = await page.evaluate(
+      () => document.querySelector('header').getBoundingClientRect().height,
+    );
+    expect(headerHeight).toBe(71);
+
+    for (const id of ['hero', 'about', 'skills', 'projects', 'blog', 'contact']) {
+      const margin = await page.evaluate(
+        (sectionId) => getComputedStyle(document.getElementById(sectionId)).scrollMarginTop,
+        id,
+      );
+      expect(margin, `#${id} scroll-margin-top`).toBe(`${headerHeight}px`);
+    }
   });
 
   test('scroll-to-top button appears after scrolling down', async ({ page }) => {

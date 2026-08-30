@@ -174,7 +174,25 @@ export function HeroSection() {
       </section>
 
       <div className={styles.marqueeWrap}>
-        <Marquee duration={26} className={styles.marqueeInner}>
+        {/* `copies={6}`, not the prototype's 2 (lines 188-189). One
+            copy is 1297px against a 1484px band, and `marq` slides the
+            track by only HALF its width per cycle, so the requirement
+            is `copies ≥ 2 × band / copy` — two left 187px of the band
+            empty at the wrap. Six covers a band up to 3891px. The
+            footer's band has the same defect, worse. Pre-existing since
+            PF-80, fixed with the footer's on 2026-08-24,
+            owner-approved. Arithmetic and measurements in Marquee.jsx.
+
+            ⚠️ NOT part of this hero's 2026-08-17 slimming deviation —
+            that one is font-size and padding, and lives in the module.
+
+            ⚠️ `duration={84}`, slowed from 60 on 2026-08-29 at the
+            owner's request. It is NOT a free-standing preference: the
+            two bands are matched on SPEED, not on time, and 84s is what
+            puts this one at 50 px/s at 1440 (4 × 1050.6 = 4202.2px).
+            The footer's 70.7s is the same 50 px/s over its own shorter
+            distance. Change one and Marquee.test.jsx fails by name. */}
+        <Marquee duration={84} copies={8} className={styles.marqueeInner}>
           <span className={styles.marqueeText}>{MARQUEE_TEXT}</span>
         </Marquee>
       </div>
@@ -241,7 +259,7 @@ function HeroPortrait() {
               information. Described instead, for two reasons: the
               portrait is this section's primary visual content rather
               than an ornament, and AboutSection's portrait has read
-              "Parindra Gallage in the visor" since PF-81, so describing
+              as a description since PF-81, so describing
               is already this repo's answer for a portrait. Worth a pass
               with a real screen reader at some point; it is a judgment
               call, not a settled fact. */}

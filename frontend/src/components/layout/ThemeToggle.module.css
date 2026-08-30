@@ -1,88 +1,127 @@
 /* frontend/src/components/layout/ThemeToggle.module.css
  *
- * Visual treatment transcribed from the prototype's theme-toggle
- * button, lines 69-72 of docs/design/Portfolio Revolution.dc.html.
+ * ⚠️ SANCTIONED DEVIATION, owner-requested 2026-08-22. The prototype
+ * (lines 69-72 of "Portfolio Revolution.dc.html", and lines 55-58 of
+ * "Blog.dc.html") renders a 30x15 pill-switch with a sliding 10px knob
+ * and a shouted "LIGHT MODE" caption. This is a 44x44 icon button
+ * instead. docs/design/ is frozen as of 2026-08-22, so a later fidelity
+ * pass WILL see a difference here — CLAUDE.md's Locked decisions is the
+ * only record that it is intentional.
  *
- * PF-72 shipped this file as a structural placeholder and left a note
- * saying the exact styling "lands with the navbar rebuild in Sprint
- * 11". PF-79 is that rebuild — this is the deferred work, not a
- * re-styling of something already correct.
+ * Removed with the switch: `.track`, `.knob`, the
+ * `:global(html[data-theme='light']) .knob` 13px slide, and `.label`.
+ * Their values are preserved in the git history of this file and in the
+ * prototype, which is frozen rather than deleted.
  *
- * This is the only component using --acc2 / --acc2rgb, the steel-blue
- * pair, deliberately distinct from --acc's orange.
+ * This is no longer the only consumer of --acc2 / --acc2rgb — it is now
+ * the consumer of NONE of it. The steel-blue pair is unused by any
+ * component as of this change; it stays declared in tokens.css because
+ * the prototype still uses it and the Blog/Admin screens are unbuilt.
  */
 
+/* ⚠️ 44x44 is load-bearing, not a touch-target rounding.
+ *
+ * The header's height is set by its tallest child. The logo is 44px and
+ *   12px padding + 44px + 12px padding + 2px progress track + 1px border
+ *   = 71px = --header-h
+ * which every section's `scroll-margin-top` reads. Making this 48px
+ * moves --header-h and therefore every anchor jump on the site. It is
+ * exactly equal to the logo, so the header height does not change.
+ *
+ * `flex: none` so the flex row cannot compress it below 44px, which
+ * would shrink the hit area silently while the icon kept its size. */
 .toggle {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
   margin-left: 2px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
-  letter-spacing: .14em;
-  padding: 8px 13px 8px 10px;
+  padding: 0;
+  border: none;
+  background: none;
   border-radius: 999px;
-  background: rgba(var(--srf), .5);
-  border: 1px solid var(--acc2);
-  color: var(--acc2);
+  color: var(--muted);
   cursor: pointer;
-  transition: color .25s, border-color .25s, background .25s, box-shadow .25s;
+  transition: color .25s, background .25s, filter .25s;
 }
 
-.toggle:hover {
+/* ── The sun glow — owner-requested, 2026-08-22, second pass ─────────
+ *
+ * ⚠️ THEME-SCOPED, and that is the whole of it. `--acc` is amber
+ * #FCA311 in dark and BROWN #7E4800 in light, so a single unscoped glow
+ * rule would paint a brown smudge behind the moon in light theme —
+ * valid CSS, no error, and it reads as a rendering artefact. Same trap
+ * as the terminal caret, which had to become a literal for this reason.
+ *
+ * Scoped with :global(html[data-theme='…']) rather than by source order.
+ * These are (0,2,0) against the base rule's (0,1,0), so they win on
+ * SPECIFICITY. Equal-specificity rules resolving on emission order is
+ * the tie that has bitten this project six times; this does not add a
+ * seventh. Both themes are named explicitly — dark is a real attribute
+ * (index.html:31 and theme.js:63 both write it), never an absent
+ * default, so `[data-theme='dark']` genuinely matches.
+ *
+ * DARK — the sun is lit at rest and flares on hover.
+ * LIGHT — the moon is quiet at rest and DARKENS on hover, no glow.
+ * ──────────────────────────────────────────────────────────────────── */
+
+/* drop-shadow, not box-shadow: box-shadow would halo the 44px round
+   BUTTON, which is a circle of empty space around the icon. drop-shadow
+   follows the rendered alpha of the SVG itself, so the light comes off
+   the sun's rays rather than off a hidden 44px disc. */
+:global(html[data-theme='dark']) .toggle {
+  color: var(--acc, #FCA311);
+  filter: drop-shadow(0 0 6px rgba(252, 163, 17, .55));
+}
+
+:global(html[data-theme='dark']) .toggle:hover {
+  color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .12);
+  filter: drop-shadow(0 0 11px rgba(252, 163, 17, .85));
+}
+
+/* Light theme: no glow at any state. The moon goes to --strong
+   (#0B1220) on hover — the darkest ink the palette has — which is the
+   requested "gets dark on hover" and also the highest-contrast state
+   the control can reach. */
+:global(html[data-theme='light']) .toggle:hover {
   color: var(--strong);
-  background: rgba(var(--acc2rgb), .16);
-  box-shadow: 0 0 20px rgba(var(--acc2rgb), .35);
+  background: rgba(20, 33, 61, .08);
+}
+
+/* Base hover, for the case no data-theme attribute is set at all —
+   which the FOUC guard makes unreachable in the app, but is the state
+   every jsdom test renders in. */
+.toggle:hover {
+  color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .10);
 }
 
 /* Not in the prototype — it has no focus styling at all. Kept from
    PF-72 because motion.css's policy table lists focus indicators as
    ALWAYS kept, and removing a focus ring to match a design tool's
-   export would be a real accessibility regression rather than
-   fidelity. */
+   export would be a real accessibility regression rather than fidelity.
+
+   ⚠️ The 2px offset is deliberate and beats the global ring on
+   SPECIFICITY, not source order: `.toggle:focus-visible` is (0,2,0)
+   against tokens.css's (0,1,1). A 30px-class control wants a tighter
+   ring than a text link. Do not "de-duplicate" it into the global rule.
+
+   ⚠️ No `border-radius` here. An outline already follows the element's
+   own curve in every current engine, so a radius in a :focus-visible
+   rule reshapes the ELEMENT while focused rather than the ring — the
+   trap PF-83 documented against this project's 999px pills. */
 .toggle:focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: 2px;
 }
 
-.track {
-  position: relative;
-  display: inline-block;
-  flex: none;
-  width: 30px;
-  height: 15px;
-  border-radius: 999px;
-  background: rgba(var(--acc2rgb), .16);
-  border: 1px solid var(--acc2);
-}
-
-.knob {
-  position: absolute;
-  top: 1.5px;
-  left: 1.5px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--acc2);
-  box-shadow: 0 0 10px rgba(var(--acc2rgb), .9);
-  transition: transform .4s cubic-bezier(.34, 1.56, .4, 1);
-}
-
-/* Prototype line 866: translateX(13px) when light, none when dark.
-   Scoped to the document attribute rather than a prop, so it follows
-   whatever applyTheme() set — including a cross-tab change.
-
-   The knob keeps var(--acc2) in both themes; --acc2 itself flips
-   (#7AA6D6 dark / #2F5D8C light), so the colour change is the token's
-   job, not this rule's. */
-:global(html[data-theme='light']) .knob {
-  transform: translateX(13px);
-}
-
-.label {
-  /* "LIGHT MODE" and "DARK MODE" differ in width, and the pill is in
-     a flex row that would visibly jump on every toggle. Sized to the
-     wider of the two rather than a guess. */
-  min-width: 76px;
-  text-align: left;
+/* The 18px icon inside the 44px hit area. `display: block` so the
+   inline baseline gap cannot push it off-centre. */
+.icon {
+  display: block;
+  width: 18px;
+  height: 18px;
 }

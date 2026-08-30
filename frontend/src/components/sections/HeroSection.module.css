@@ -153,19 +153,28 @@ section.hero {
   color: var(--text);
 }
 
-/* The pill is itself a Reveal, so two `transition` declarations compete
-   on one element: Reveal's entrance and the pill's own hover. They
-   cannot merge — one wins outright — so this hands the element over
-   deliberately once the entrance has finished.
-   [data-reveal='in'] is set by Reveal at that exact moment, and the
-   doubled attribute selector clears .reveal[data-type='pop']'s
-   specificity (0,2,0) rather than tying with it and depending on
-   stylesheet order. During the entrance the pop transition still owns
-   the element; afterwards the hover values do. */
-.rolePill[data-reveal='in'][data-type='pop'] {
-  transition: border-color .25s, background .25s, transform .25s;
-}
+/* ⚠️ NO `transition` HERE — not gated, not at all. PF-93, 2026-08-21.
 
+   This pill is `type="pop"`, so `.reveal[data-type='pop']` owns the
+   property for the life of the element: opacity .5s ease / transform .9s
+   cubic-bezier(.34,1.56,.4,1). Different values from the `up` cards in
+   About and Skills, and deliberately so — those inherit the base
+   `.reveal`. Both sets are the prototype's, from hideReveals() lines 954
+   and 962.
+
+   ⚠️ THE PROTOTYPE'S OWN `.25s` DECLARATION IS DEAD CODE, and PF-80
+   transcribed it faithfully. Line 102 really does carry
+   `transition:border-color .25s,background .25s,transform .25s` in its
+   style attribute — but the element is also `data-reveal="pop"`, and
+   hideReveals() writes `el.style.transition` into the SAME declaration
+   block, overwriting it before it can ever apply. So the design never
+   renders that value, and it eases `border-color` and `background`,
+   which the design snaps. Do not put it back by reading line 102.
+
+   The gate that used to be here also broke the entrance: data-reveal="in"
+   is set at the entrance's START, not its end (Reveal.jsx:57). Measured
+   on the production build — opacity reached 1 at 0ms and the pop settled
+   at 448ms instead of ~900ms. */
 .rolePill:hover {
   border-color: var(--acc, #FCA311);
   background: rgba(252, 163, 17, .12);
@@ -207,14 +216,16 @@ section.hero {
   animation-iteration-count: infinite;
 }
 
-/* Same specificity trick as .rolePill: this element is a Reveal, so
-   Reveal's pop transition owns it during the entrance and hands over
-   afterwards. Without the doubled attribute selector the two `transition`
-   declarations tie at (0,2,0) and stylesheet order decides. */
-.loudCta[data-reveal='in'][data-type='pop'] {
-  transition: border-color .25s, background .25s, box-shadow .25s, transform .25s;
-}
+/* ⚠️ NO `transition` HERE — not gated, not at all. PF-93, 2026-08-21.
+   `.reveal[data-type='pop']` owns the property, same as .rolePill above.
 
+   This element is the one of the four with NO prototype counterpart — it
+   is an owner-requested addition (2026-08-17), so there is nothing to be
+   faithful to and the deletion is a consistency call, not a transcription
+   fix. Its three siblings now let Reveal own the hover ease; a CTA sitting
+   in the same pill row and easing on a different curve would read as a
+   bug. `border-color`, `background` and `box-shadow` snap, as they do on
+   .rolePill. */
 .loudCta:hover {
   border-color: var(--acc, #FCA311);
   background: rgba(252, 163, 17, .18);
@@ -500,10 +511,30 @@ section.hero {
   animation-direction: reverse;
 }
 
-/* z-index 4 is the prototype's, and it is the only blob above the
-   portrait frame's 3 — this one drifts in FRONT of the image. */
+/* ⚠️ z-index 2, NOT the prototype's 4 — owner-requested 2026-08-29:
+   "the image in the hero section, it seems like a mist or blurry thing
+   in front of the image; it should be always clear and perfect".
+
+   This was the only blob above the portrait frame's z-index 3, so it
+   was the one layer that drifted in FRONT of the picture: a blur(9px)
+   pale-blue haze, animated over 19s, passing across the lower-left of
+   the portrait. That is the mist — and it being animated is why it read
+   as an image-animation problem rather than as a static overlay.
+
+   MOVED BEHIND, NOT DELETED, and the distinction is deliberate. The
+   request is about the portrait being clear, not about losing a blob:
+   the ambient cluster is still four blobs, blobC keeps its size,
+   position, gradient, blur, 19s duration and 1.5s delay, and it still
+   drifts — just behind the frame with its three siblings. Deleting it
+   would have reduced the design further than was asked, which is the
+   over-deletion trap this project has hit with .scanTexture and
+   .portraitFade.
+
+   ⚠️ The prototype's own value is 4, and CLAUDE.md's PF-80 entry
+   records that as intentional depth. This overrides it on the owner's
+   direct instruction; a fidelity pass WILL flag this line. */
 .blobC {
-  z-index: 4;
+  z-index: 2;
   bottom: 14%;
   left: 2%;
   width: clamp(100px, 18vw, 210px);
@@ -679,6 +710,23 @@ section.hero {
   color: var(--faint);
 }
 
+/* ── PF-91 · Group B — `--faint` fails AA in DARK ────────────────────
+   3.56 against the page ground rgb(5,6,9); 10px needs 4.5. `--muted`
+   measures 7.68.
+
+   ⚠️ DARK ONLY. Light's `--faint` (#55637C) already measures 4.97 here
+   and is left alone — moving a compliant value for symmetry is the thing
+   PF-83 refused to do. Scoped on SPECIFICITY, (0,2,1) against (0,1,0),
+   never on emission order.
+
+   Worth knowing WHY the two steps: `--muted2` would have cleared this
+   node at 4.55, and 0.05 of headroom does not survive a backdrop change.
+   The footer copyright went 4.97 -> 4.28 from a surface tint that touched
+   none of its own colours. */
+:global(html[data-theme='dark']) .scrollLabel {
+  color: var(--muted);
+}
+
 .scrollLine {
   composes: kf-nudge from global;
   width: 1px;
@@ -708,21 +756,84 @@ section.hero {
    track is the only thing inside it, so the painted result is identical.
 
    Owner-requested slimming, 2026-08-17: the prototype's 14px. The strip
-   stays full-bleed; only the band's thickness comes down. */
+   stays full-bleed; only the band's thickness comes down.
+
+   ⚠️ Slimmed AGAIN 2026-08-27 (owner "Option A"): 8px -> 6px, alongside
+   the font drop below. Band height 50px -> 39px, measured offsetHeight.
+   Padding alone would barely have moved it — the line box is 33.6 of the
+   49.6px interior — which is why both halves change together. */
 .marqueeInner {
-  padding: 8px 0;
+  padding: 6px 0;
 }
 
 .marqueeText {
   font-family: var(--font-display);
   /* Prototype: clamp(20px, 2.6vw, 34px). Scaled down with the padding
      above — this is the larger half of the height reduction, since the
-     line box dominates. */
-  font-size: clamp(13px, 1.6vw, 21px);
+     line box dominates.
+
+     ⚠️ 2026-08-27, owner "Option A": clamp(13px,1.6vw,21px) -> this.
+     Option B (clamp(10px,1.0vw,14px)) was measured at 32px and rejected
+     — thin enough to read as a hairline rule rather than a band, and the
+     type stops registering as text at a glance. */
+  font-size: clamp(11px, 1.25vw, 17px);
   text-transform: uppercase;
   color: var(--accInk);
   white-space: nowrap;
   /* Prototype: 34px. Scaled with the type so the gap between repeats
-     stays proportionally the same rather than opening up. */
-  padding-right: 24px;
+     stays proportionally the same rather than opening up.
+     ⚠️ 24px -> 20px with the 2026-08-27 font drop, same reason. */
+  padding-right: 20px;
+}
+
+/* ⚠️ TAP TARGET, mobile only — 2026-08-25, owner-requested "whole ui
+   mobile optimization should be fine as butter".
+
+   The prototype's padding renders this CTA 36px tall, under the 44px
+   minimum every touch guideline uses. Desktop is untouched — this is
+   the only visible deviation from the prototype's own value in the
+   mobile pass, and it is scoped so a pointer user never sees it.
+
+   ⚠️ `min-height`, not more padding. 12px top and bottom looked like it
+   made exactly 44 and measured 43.6: the line box is 19.6px, not the
+   whole 20 it appears to be, so the arithmetic was off by less than a
+   pixel and still under the floor. A min-height cannot be wrong by a
+   rounding error. The pill's 999px radius is unaffected either way.
+
+   Measured before: 277x36. After: 277x44. */
+@media (max-width: 768px) {
+  .loudCta {
+    min-height: 44px;
+  }
+}
+
+/* ⚠️ THE TWO OVERHANGING CHIPS, PULLED BACK IN BELOW 1024px —
+   2026-08-25, mobile pass.
+
+   `.chipFastapi` sits at `right: -6%` and `.chipNext` at `left: -5%`,
+   deliberately: they hang off the portrait stage so the cluster reads as
+   surrounding the frame rather than sitting inside it. That works while
+   the stage is narrower than the viewport, which it is at 1024px and up.
+
+   Below that the stage IS the full column, so the negative offsets land
+   the chips past the viewport edge and they are clipped MID-WORD.
+   Measured before: FastAPI cut by 5px at 375, 9px at 600, 14px at 900;
+   Next.js by 1 / 4 / 5px. Both are clean at 1024, which is why the
+   breakpoint is there and not at a phone width.
+
+   ⚠️ It never showed as a layout bug. The page has no horizontal scroll
+   at any width — an ancestor clips — so every automated check passed
+   while two of the ten chips were visibly sliced. Found by looking at a
+   screenshot, not by measuring.
+
+   0 rather than a positive inset: the chips still touch the stage edge,
+   which keeps the cluster's shape. Only the overhang goes. */
+@media (max-width: 1023px) {
+  .chipFastapi {
+    right: 0;
+  }
+
+  .chipNext {
+    left: 0;
+  }
 }

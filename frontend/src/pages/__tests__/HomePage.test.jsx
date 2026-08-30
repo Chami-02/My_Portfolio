@@ -20,10 +20,19 @@ vi.mock('../../components/sections/ProjectsSection', () => ({
 vi.mock('../../components/sections/BlogSection', () => ({
   BlogSection: () => <div data-testid="blog" />,
 }));
+// Conditionally explosive, unlike the others: PF-87 wraps Contact in an
+// ErrorBoundary and the guard for that needs a throw it can turn on for
+// one test without breaking every other assertion in the file.
+const contactThrows = vi.hoisted(() => ({ value: false }));
 vi.mock('../../components/sections/ContactSection', () => ({
-  ContactSection: () => <div data-testid="contact" />,
+  ContactSection: () => {
+    if (contactThrows.value) throw new Error('contact exploded');
+    return <div data-testid="contact" />;
+  },
 }));
 
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HomePage } from '../HomePage';
 import { ThemeProvider } from '../../providers/ThemeProvider';
 import { MotionProvider } from '../../providers/MotionProvider';
@@ -37,6 +46,7 @@ describe('HomePage', () => {
     })));
     // ErrorBoundary logs the caught error; keep the run readable.
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    contactThrows.value = false;
   });
 
   afterEach(() => {
@@ -53,11 +63,51 @@ describe('HomePage', () => {
    * in HomePage.jsx and it fails, because the throw escapes render.
    */
   it('keeps the rest of the page alive when Hero throws', () => {
+    // MemoryRouter as of 2026-08-22, QueryClientProvider as of PF-94:
+    // HomePage mounts <ScrollToHash />, which calls useLocation() and
+    // now useIsFetching() too. Every section here is stubbed, so this
+    // file needed neither before — in the real app HomePage is always
+    // inside App.jsx's <BrowserRouter> and main.jsx's
+    // <QueryClientProvider>, so this is the test catching up with the
+    // component rather than a new coupling. Without the provider the
+    // render throws "No QueryClient set", which reads like a data-layer
+    // bug and is not one.
     expect(() => render(
-      <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     )).not.toThrow();
 
     ['about', 'skills', 'projects', 'blog', 'contact'].forEach((id) =>
+      expect(screen.getByTestId(id)).toBeInTheDocument());
+  });
+
+  /**
+   * PF-87. Contact was the LAST bare section — Hero got its boundary in
+   * PF-80 and the middle four in PF-80/82 — so until this ticket a throw
+   * here had the same whole-root consequence Hero's did: App.jsx uses
+   * React Router's legacy component API, which has no errorElement, and
+   * there is no boundary around <App /> in main.jsx either. Unwrap
+   * <ContactSection /> in HomePage.jsx and this fails, because the throw
+   * escapes render() entirely rather than being caught one level down.
+   */
+  it('keeps the rest of the page alive when Contact throws', () => {
+    contactThrows.value = true;
+
+    expect(() => render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <ThemeProvider><MotionProvider><HomePage /></MotionProvider></ThemeProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    )).not.toThrow();
+
+    // Contact itself is gone — it is the section that threw — but every
+    // other section is still standing, which is the whole point.
+    expect(screen.queryByTestId('contact')).toBeNull();
+    ['about', 'skills', 'projects', 'blog'].forEach((id) =>
       expect(screen.getByTestId(id)).toBeInTheDocument());
   });
 });

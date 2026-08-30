@@ -45,6 +45,29 @@
   70%      { box-shadow: 0 0 0 10px rgba(252,163,17,0);   }
 }
 
+/* ⚠️ NOT A PROTOTYPE KEYFRAME — owner-requested 2026-08-29, the only
+   addition to this library. It is the green counterpart of `dot` above,
+   for the LIVE SITE link's "this is deployed right now" indicator.
+
+   It cannot be expressed by reusing `dot`: that keyframe hardcodes
+   `rgba(252,163,17,...)` in its own box-shadow, and a rule cannot
+   override a colour an animation is writing. Hence a second keyframe
+   rather than a colour override.
+
+   Green is literal `52,211,153` (`--ok`'s dark value) in BOTH themes,
+   deliberately, exactly as `dot` uses literal amber in both. The DOT's
+   own fill is `var(--ok)` and does flip; only the glow around it is
+   fixed. A glow needs to be lighter than what it blooms against, and
+   light theme's `--ok` (#0B6446) glowing would paint a dark smudge —
+   the ScrollToTop trap in CLAUDE.md.
+
+   Carries the ring expansion of `dot` AND a soft halo, because the
+   request was for a glowing dot rather than only a pulse. */
+@keyframes dot-ok {
+  0%, 100% { box-shadow: 0 0 6px 1px rgba(52,211,153,.65), 0 0 0 0   rgba(52,211,153,.55); }
+  70%      { box-shadow: 0 0 9px 2px rgba(52,211,153,.9),  0 0 0 8px rgba(52,211,153,0);   }
+}
+
 /* Pulsing lead dot on hero role pills */
 @keyframes glowdot {
   0%, 100% { box-shadow: 0 0 8px  rgba(252,163,17,.7); transform: scale(1);    }
@@ -147,8 +170,19 @@
   to   { transform: translateX(-50%); }
 }
 
-/* Terminal cursor */
+/* Terminal cursor.
+   The prototype's own form (line 29), transcribed exactly rather than
+   normalised. Under `step-end` — the only way the prototype uses it, and
+   the only way PF-85's caret uses it — this is identical to the
+   `0%,100%{1} 50%{0}` shape that used to be here: step-end holds each
+   keyframe's value across the interval starting at it, so both give
+   opacity 1 across [0,50) and 0 across [50,100).
+   They diverge under any INTERPOLATING timing function. With `linear`
+   this form holds 1 until 49% then snaps across one percent, while the
+   old one cross-faded over both halves. `blink` is a shared library
+   keyframe, so the next consumer may not pass step-end — carrying the
+   prototype's form removes the trap rather than relying on the caller. */
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0; }
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }

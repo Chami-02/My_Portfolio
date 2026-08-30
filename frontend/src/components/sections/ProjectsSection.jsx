@@ -1,302 +1,313 @@
-import { useInView }  from '../../hooks/useInView';
+// frontend/src/components/sections/ProjectsSection.jsx
+import { useEffect } from 'react';
+import { Reveal } from '../motion';
+import { GitHubIcon } from '../icons';
 import { useProjects } from '../../hooks/useProjects';
+import styles from './ProjectsSection.module.css';
 
-/* ── Individual project card ── */
-function ProjectCard({ project, index }) {
-  const [ref, inView] = useInView();
+/** Schema default for `backgroundImage.opacity` (models/Project.js). */
+const BG_DEFAULT_OPACITY = 0.75;
 
+/**
+ * Scrim opacity as a function of the background image's own opacity —
+ * the prototype's formula (line 695), transcribed rather than rounded.
+ *
+ * ⚠️ At the schema default 0.75 this yields 0.8999999999999999, not a
+ * clean 0.9 — 0.45 + 0.75 * 0.6 is not exactly representable in IEEE
+ * 754. Left alone deliberately: the prototype's own
+ * `String(Math.min(1, 0.45 + vis * 0.6))` writes the same string, so
+ * rounding here would be a deviation from the design dressed up as
+ * tidiness. The difference is ~1e-16 of an alpha channel.
+ */
+const scrimOpacity = (visibility) => Math.min(1, 0.45 + visibility * 0.6);
+
+/**
+ * How many placeholder cards the loading state shows in row 2.
+ *
+ * Unlike Skills — where the five category cards are a fixed design
+ * decision — the project count is data. Three matches today's four
+ * projects (one takes the big slot), and it only affects a cold load,
+ * since main.jsx sets a global 5-minute staleTime. It is a guess about
+ * count, not about layout: the grid is `auto-fit`, so a wrong guess
+ * reflows rather than breaking.
+ */
+const PLACEHOLDER_CARDS = 3;
+
+/**
+ * The terminal mockup, transcribed from the prototype (lines 336-353).
+ *
+ * ⚠️ NOT a port of `components/common/TerminalWindow.jsx`, which PF-89
+ * DELETED. That Phase 1 component shared the concept and almost nothing
+ * else: it TYPED its lines in over ~4.3s and dropped the caret when it
+ * finished, where this is a static snapshot with a permanently blinking
+ * caret. Every property governing how it felt differed too — radius 22px
+ * vs 0.875rem, 8 lines vs 9, 12.5px/2 vs 0.8rem/1.8, literal hexes vs
+ * Phase 1 tokens. Kept here as a note because "reuse the existing
+ * terminal component" is the obvious-looking move, and it was wrong.
+ *
+ * Renders unconditionally, including while projects are loading: it is
+ * hardcoded content with no dependency on the API, so gating it behind
+ * the query would blank it out for no reason.
+ */
+function TerminalPanel() {
   return (
-    <div
-      ref={ref}
-      className={`reveal ${inView ? 'revealed' : ''}`}
-      style={{ transitionDelay: `${index * 0.08}s` }}
-    >
+    <div className={styles.terminal} data-terminal="">
+      <div className={styles.terminalChrome} aria-hidden="true">
+        <span className={`${styles.trafficDot} ${styles.dotRed}`} />
+        <span className={`${styles.trafficDot} ${styles.dotAmber}`} />
+        <span className={`${styles.trafficDot} ${styles.dotGreen}`} />
+        <span className={styles.terminalLabel}>terminal — portfolio</span>
+      </div>
+
+      {/* A picture of a terminal, not a live log — so it is one image to
+          a screen reader rather than eight unlabelled lines. */}
       <div
-        className="glass"
-        style={{
-          borderRadius: '1rem',
-          padding: '1.75rem',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem',
-          transition: 'border-color 0.25s, transform 0.25s, box-shadow 0.25s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor  = 'rgba(129,140,248,0.45)';
-          e.currentTarget.style.transform    = 'translateY(-5px)';
-          e.currentTarget.style.boxShadow    =
-            '0 24px 48px rgba(0,0,0,0.35), 0 0 0 1px rgba(129,140,248,0.12)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = 'var(--border)';
-          e.currentTarget.style.transform   = 'none';
-          e.currentTarget.style.boxShadow   = 'none';
-        }}
+        className={styles.terminalBody}
+        role="img"
+        aria-label="Terminal showing the portfolio stack starting up: MongoDB connected, Express API and React app running."
       >
-        {/* Top row: folder icon + featured badge + link icons */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {/* Folder icon */}
-            <div
-              style={{
-                width: '2.5rem',
-                height: '2.5rem',
-                borderRadius: '0.625rem',
-                background: 'var(--accent-glow)',
-                border: '1px solid rgba(129,140,248,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                style={{ width: 18, height: 18, color: 'var(--accent)' }}
-              >
-                <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-              </svg>
-            </div>
-
-            {project.featured && (
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.65rem',
-                  color: 'var(--accent)',
-                  letterSpacing: '0.1em',
-                  textTransform: 'uppercase',
-                  border: '1px solid rgba(129,140,248,0.3)',
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: '9999px',
-                  background: 'var(--accent-glow)',
-                }}
-              >
-                ★ Featured
-              </span>
-            )}
-          </div>
-
-          {/* GitHub + live link */}
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <a
-              href={project.githubUrl}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="View source on GitHub"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '2rem',
-                height: '2rem',
-                borderRadius: '0.375rem',
-                border: '1px solid var(--border)',
-                color: 'var(--text-muted)',
-                transition: 'all 0.2s',
-                textDecoration: 'none',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--accent)';
-                e.currentTarget.style.color       = 'var(--accent)';
-                e.currentTarget.style.background  = 'var(--accent-glow)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)';
-                e.currentTarget.style.color       = 'var(--text-muted)';
-                e.currentTarget.style.background  = 'transparent';
-              }}
-            >
-              {/* GitHub icon */}
-              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 15, height: 15 }}>
-                <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-              </svg>
-            </a>
-
-            {project.liveUrl && (
-              <a
-                href={project.liveUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-label="View live demo"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '2rem',
-                  height: '2rem',
-                  borderRadius: '0.375rem',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-muted)',
-                  transition: 'all 0.2s',
-                  textDecoration: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--accent)';
-                  e.currentTarget.style.color       = 'var(--accent)';
-                  e.currentTarget.style.background  = 'var(--accent-glow)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                  e.currentTarget.style.color       = 'var(--text-muted)';
-                  e.currentTarget.style.background  = 'transparent';
-                }}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  style={{ width: 14, height: 14 }}
-                >
-                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-            )}
-          </div>
-        </div>
-
-        {/* Title & description */}
-        <div style={{ flexGrow: 1 }}>
-          <h3
-            style={{
-              fontSize: '1.1rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              marginBottom: '0.5rem',
-            }}
-          >
-            {project.title}
-          </h3>
-          <p
-            style={{
-              color: 'var(--text-body)',
-              fontSize: '0.875rem',
-              lineHeight: 1.75,
-            }}
-          >
-            {project.description}
-          </p>
-        </div>
-
-        {/* Tech stack tags */}
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '0.4rem',
-            paddingTop: '0.875rem',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          {project.tech.map((t) => (
-            <span key={t} className="tech-tag">
-              {t}
-            </span>
-          ))}
+        <div className={styles.lineCommand}>$ docker compose up --build</div>
+        <div className={styles.lineInfo}>[+] Building frontend...</div>
+        <div className={styles.lineInfo}>[+] Building backend...</div>
+        <div className={styles.lineSuccess}>✓ MongoDB connected</div>
+        <div className={styles.lineSuccess}>✓ Express API on :5000</div>
+        <div className={styles.lineSuccess}>✓ React app on :5173</div>
+        <div className={styles.lineAccent}>● VITE v8 ready in 420ms</div>
+        <div className={styles.lineMuted}>
+          ➜ http://localhost:5173 <span className={styles.caret}>▌</span>
         </div>
       </div>
     </div>
   );
 }
 
-export function ProjectsSection() {
-  const [ref, inView] = useInView();
-  const { data: projects, isLoading, isError, error } = useProjects();
+/**
+ * Card background layers — ports the prototype's applyProjectBgs()
+ * localStorage bridge (line 684) onto PF-52's schema field.
+ *
+ * ⚠️ `backgroundImage` is an OBJECT, `{ src, opacity }`, not a string.
+ * Guarding on the object itself is always truthy and would emit
+ * `url("[object Object]")` on every card.
+ *
+ * Returns null when there is no src, which is the prototype's else
+ * branch — it sets both layers to opacity 0. Rendering nothing is the
+ * same picture with two fewer elements. Every project's src is '' today
+ * (seed.js sets it explicitly), so this is the live path.
+ */
+function CardLayers({ project }) {
+  const src = project.backgroundImage?.src;
+  if (!src) return null;
+
+  const visibility = project.backgroundImage?.opacity ?? BG_DEFAULT_OPACITY;
 
   return (
-    <section id="projects" style={{ padding: 'var(--section-y) var(--content-px)' }}>
-      <div
-        ref={ref}
-        className={`reveal ${inView ? 'revealed' : ''}`}
-        style={{ maxWidth: 'var(--content-max)', margin: '0 auto' }}
+    <>
+      <span
+        aria-hidden="true"
+        className={styles.cardBg}
+        style={{ backgroundImage: `url("${src}")`, opacity: visibility }}
+      />
+      <span
+        aria-hidden="true"
+        className={styles.cardScrim}
+        style={{ opacity: scrimOpacity(visibility) }}
+      />
+    </>
+  );
+}
+
+/**
+ * The two action links. `noreferrer` implies `noopener`, so the
+ * reverse-tabnabbing hole is closed — the prototype has both.
+ *
+ * ⚠️ TWO OWNER-REQUESTED ADDITIONS HERE (2026-08-29), neither in the
+ * prototype, both recorded in CLAUDE.md's Locked decisions:
+ *
+ *   - the GitHub mark in front of VIEW ON GITHUB;
+ *   - a pulsing green dot in front of LIVE SITE, so a deployed project
+ *     reads as live at a glance.
+ *
+ * The trailing "→" and "↗" are the prototype's and STAY. The icon is an
+ * addition to the label, not a replacement for its arrow — deleting
+ * either character to "balance" the row would be an unrequested
+ * transcription change.
+ *
+ * The dot is `aria-hidden`: "LIVE SITE" already says what it means, and
+ * an exposed decorative span would add nothing a screen reader can use.
+ * It is a <span>, not a ::before, so `dot-ok` can animate it
+ * independently of the link's own hover treatment.
+ */
+function ProjectLinks({ project, className }) {
+  return (
+    <div className={className}>
+      <a
+        className={styles.githubLink}
+        href={project.githubUrl}
+        target="_blank"
+        rel="noreferrer"
       >
-        <span className="section-label">03 / Projects</span>
-        <h2 className="section-title">Things I've Built</h2>
-        <div className="section-divider" />
+        <GitHubIcon size={15} />
+        VIEW ON GITHUB →
+      </a>
+      {project.liveUrl && (
+        <a
+          className={styles.liveLink}
+          href={project.liveUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <span aria-hidden="true" className={styles.liveDot} />
+          LIVE SITE ↗
+        </a>
+      )}
+    </div>
+  );
+}
 
-        {/* ── Loading skeletons ── */}
-        {isLoading && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '1.25rem',
-          }}>
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className="skeleton"
-                style={{ height: '260px', borderRadius: '1rem' }}
-              />
-            ))}
-          </div>
+/**
+ * Projects — PF-85. Full replacement of the Phase 1 component.
+ *
+ * Wired to `useProjects()`, like Skills and unlike About. The API
+ * already sorts `{ order: 1, createdAt: -1 }` (projectController.js:8),
+ * so display order is an admin field rather than a code constant.
+ *
+ * ── Which project gets the big card ──────────────────────────────────
+ * The FIRST by `order`, regardless of its `featured` flag. Owner
+ * decision, 2026-08-19: two projects are genuinely featured, but the
+ * prototype's numeral series starts at 02 precisely because the big card
+ * does not participate in it — the FEATURED badge occupies that slot
+ * instead. So `featured` controls the BADGE and `order` controls the
+ * SLOT, which keeps reordering an admin action rather than a code
+ * change.
+ *
+ * When `projects[0].featured` is false, that slot renders NOTHING — not
+ * a "01". The prototype has no 01 anywhere, and inventing one means
+ * inventing type styling with no design source (the small-card numeral
+ * is Anton 44px above a 21px heading; the big card's heading is up to
+ * 42px). The card is a flex column, so an absent child collapses its own
+ * gap cleanly. Reachable state — one untick in the admin panel.
+ */
+export function ProjectsSection() {
+  const { data: projects, isLoading, isError, error } = useProjects();
+
+  // Logged from an effect, not from render. A render-phase console.error
+  // fires again on every unrelated re-render — a theme toggle, a parent
+  // state change — and turns one failed fetch into a console full of
+  // duplicates. Keyed on the error itself so it logs once per failure.
+  useEffect(() => {
+    if (isError) console.error('ProjectsSection: useProjects() failed', error);
+  }, [isError, error]);
+
+  // Destructuring, not sort/filter — the API already ordered these, and
+  // re-sorting here would mutate the array TanStack Query is caching.
+  const [featured, ...rest] = projects ?? [];
+
+  // No visible failure UI, deliberately. One section failing to load
+  // should not announce the whole site as broken on a portfolio page —
+  // but the section, its heading and its `#projects` anchor stay,
+  // because Navbar.jsx links to it and returning null here would turn
+  // that link into a dead anchor with no feedback at all. Only the grids
+  // go; the cause is in the console.
+  const showGrids = !isError;
+  const hasData   = !isLoading && !!featured;
+
+  return (
+    <section id="projects" className={styles.projects}>
+      <div className={styles.inner}>
+        <Reveal type="up" className={styles.eyebrow}>
+          <span className={styles.eyebrowLabel}>03 / PROJECTS</span>
+          <span aria-hidden="true" className={styles.eyebrowLine} />
+        </Reveal>
+
+        <Reveal as="h2" type="up" delay={60} className={styles.heading}>
+          Things I&apos;ve <span className={styles.outlined}>Built</span>
+        </Reveal>
+
+        {showGrids && (
+          <>
+            {/* ONE Reveal around both children, matching the prototype
+                (line 317) — the card and terminal enter as a unit. */}
+            <Reveal type="up" className={styles.featuredRow}>
+              {hasData ? (
+                <div className={styles.bigCard} data-projectcard="">
+                  <CardLayers project={featured} />
+                  {featured.featured && (
+                    <span className={styles.featuredBadge}>FEATURED</span>
+                  )}
+                  <h3 className={styles.bigTitle}>{featured.title}</h3>
+                  <p className={styles.bigDesc}>{featured.description}</p>
+                  <div className={styles.pillRow}>
+                    {featured.tech.map((t) => (
+                      <span key={t} className={styles.techPill}>{t}</span>
+                    ))}
+                  </div>
+                  <ProjectLinks
+                    project={featured}
+                    className={styles.featuredLinkRow}
+                  />
+                </div>
+              ) : (
+                // Bare div, not a Reveal: a placeholder that animates in
+                // and is then replaced animates the same slot twice.
+                <div className={styles.bigCardPlaceholder} aria-hidden="true" />
+              )}
+
+              <TerminalPanel />
+            </Reveal>
+
+            <div className={styles.grid}>
+              {hasData
+                ? rest.map((project, i) => (
+                    // 80 + i*70 → 80/150/220, the prototype's data-delay
+                    // values exactly, continuing at 290 for a 5th card
+                    // rather than special-casing the first three.
+                    <Reveal
+                      key={project._id}
+                      type="up"
+                      delay={80 + i * 70}
+                      className={styles.card}
+                      data-projectcard=""
+                    >
+                      <CardLayers project={project} />
+                      {/* Numerals continue the series the big card
+                          started, so four projects read 02·03·04 exactly
+                          as the prototype does and a fifth reads 05.
+
+                          aria-hidden because they are decorative counters
+                          with no semantic content — the card's heading
+                          carries the identity. Left audible they announce
+                          as "02" before every project title, which is
+                          noise, and they measure 1.75:1 dark / 1.19:1
+                          light so they are not reliably visible either. */}
+                      <p className={styles.numeral} aria-hidden="true">
+                        {String(i + 2).padStart(2, '0')}
+                      </p>
+                      <h3 className={styles.cardTitle}>{project.title}</h3>
+                      <p className={styles.cardDesc}>{project.description}</p>
+                      <div className={styles.pillRow}>
+                        {project.tech.map((t) => (
+                          <span key={t} className={styles.techPill}>{t}</span>
+                        ))}
+                      </div>
+                      <ProjectLinks
+                        project={project}
+                        className={styles.linkRow}
+                      />
+                    </Reveal>
+                  ))
+                : Array.from({ length: PLACEHOLDER_CARDS }, (_, i) => (
+                    <div
+                      key={i}
+                      className={styles.cardPlaceholder}
+                      aria-hidden="true"
+                    />
+                  ))}
+            </div>
+          </>
         )}
-
-        {/* ── Error state ── */}
-        {isError && (
-          <div style={{
-            padding: '2.5rem',
-            textAlign: 'center',
-            background: 'rgba(239,68,68,0.05)',
-            border: '1px solid rgba(239,68,68,0.2)',
-            borderRadius: '1rem',
-          }}>
-            <p style={{ color: '#f87171', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Failed to load projects
-            </p>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontFamily: 'var(--font-mono)' }}>
-              {error?.message || 'Unable to connect to the API'}
-            </p>
-          </div>
-        )}
-
-        {/* ── Empty state ── */}
-        {!isLoading && !isError && projects?.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '0.9rem' }}>
-              No projects yet — add some from the admin panel.
-            </p>
-          </div>
-        )}
-
-        {/* ── Success: project cards ── */}
-        {!isLoading && !isError && projects?.length > 0 && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '1.25rem',
-          }}>
-            {projects.map((project, i) => (
-              
-              <ProjectCard key={project._id} project={project} index={i} />
-            ))}
-          </div>
-        )}
-
-        <div style={{ textAlign: 'center', marginTop: '3rem' }}>
-          <a
-            href="https://github.com/Chami-02"
-            target="_blank"
-            rel="noreferrer"
-            className="btn-outline"
-          >
-            View All on GitHub
-            <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 16, height: 16 }}>
-              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
-            </svg>
-          </a>
-        </div>
       </div>
     </section>
   );
 }
+
+export default ProjectsSection;

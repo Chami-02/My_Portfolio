@@ -1,5 +1,6 @@
 // frontend/src/styles/__tests__/tokens.test.js
 import { readFileSync } from 'fs';
+import postcss from 'postcss';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { describe, it, expect } from 'vitest';
@@ -73,56 +74,42 @@ describe('Design tokens (PF-67)', () => {
     expect(css).toMatch(/--header-h:\s*71px/);
   });
 
-  /* ── Phase 1 light-theme bridge (2026-08-18) ────────────────────────
-   * Temporary block that re-points Phase 1's never-flipping text tokens
-   * for the three sections still using them. Its correctness is entirely
-   * in the SCOPE: the same tokens are read by every admin panel, whose
-   * surfaces are the un-flipped dark --bg-surface, so widening this to
-   * `html[data-theme="light"]` would put dark text on dark panels and
-   * break /admin — the identical bug, moved. Nothing in the stylesheet
-   * looks wrong if that happens, which is why it is pinned here. */
-  describe('Phase 1 light-theme bridge', () => {
-    // Comments stripped — the rule documents the #818cf8 / #7E4800 it is
-    // replacing, and a raw hex check matches the explanation rather than
-    // a declaration. Third time this file pattern has bitten; strip first.
-    const bridge = css
-      .slice(
-        css.indexOf('html[data-theme="light"] #projects'),
-        css.indexOf('}', css.indexOf('html[data-theme="light"] #projects')),
-      )
-      .replace(/\/\*[\s\S]*?\*\//g, '');
+  /* ── The Phase 1 light-theme bridge is GONE — PF-89 (2026-08-26) ────
+   * Three guards went with it: that the block existed, that it covered
+   * all three sections, and that it mapped onto Phase 2 tokens. All
+   * three asserted the shape of a rule that no longer exists.
+   *
+   * ⚠️ THE FOURTH ONE STAYS, and the PF-89 ticket was wrong to bundle it
+   * with the other three. It never asserted anything ABOUT the bridge —
+   * it asserts that tokens.css's `html[data-theme="light"]` block does
+   * NOT redefine Phase 1's property names. That hazard is untouched by
+   * the bridge's removal, because /admin still reads global.css's `:root`
+   * for every one of them. Anyone "simplifying" the removed bridge by
+   * hoisting its declarations into the unscoped light block would put
+   * near-paper text on the admin panels' un-flipped dark surfaces — the
+   * identical bug, moved to a page with no test coverage.
+   *
+   * If anything, it is worth MORE now: PF-89 measured /admin and
+   * /admin/login rendering at 1.11:1 in light theme already, because
+   * `--bg` is the one Phase 1 name tokens.css also declares, so the
+   * ground under those pages flips while the ink on it does not.
+   */
+  describe('Phase 1 tokens are never redefined unscoped (protects /admin)', () => {
+    // Comments stripped. tokens.css now documents the REMOVED bridge in
+    // prose, naming every one of these properties, so a raw-text search
+    // matches the epitaph instead of a declaration and reports PASS.
+    // See CLAUDE.md's Silent-failures entry on comment-matching.
+    const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
-    it('exists and covers all three Phase 1 sections', () => {
-      expect(bridge).toContain('#projects');
-      expect(bridge).toContain('#blog');
-      expect(bridge).toContain('#contact');
-    });
-
-    it('rescopes the tokens that never flip on their own', () => {
-      ['--text-primary', '--text-body', '--text-muted', '--bg-surface', '--accent']
-        .forEach((t) => expect(bridge).toContain(t));
-    });
-
-    it('maps onto Phase 2 tokens rather than a second hardcoded palette', () => {
-      expect(bridge).toContain('--text-primary:  var(--strong)');
-      expect(bridge).toContain('--text-body:     var(--text)');
-      expect(bridge).toContain('--text-muted:    var(--muted2)');
-      // Phase 1's indigo #818cf8 is 2.44:1 on the paper ground; --acc was
-      // deepened to #7E4800 (6.12:1) for exactly this reason, so the
-      // bridge points at the token rather than picking a third colour.
-      expect(bridge).toContain('--accent:        var(--acc)');
-      // No fresh hex — every colour resolves through a Phase 2 token, so
-      // these sections track the palette until Sprint 12 replaces them.
-      expect(bridge).not.toMatch(/#[0-9a-f]{3,8}\b/i);
-    });
-
-    // The load-bearing assertion. A bare html[data-theme="light"] rule
-    // redefining --text-primary would reach every admin panel.
-    it('never redefines these tokens unscoped, which would break /admin', () => {
-      const unscoped = css.match(/html\[data-theme="light"\]\s*\{[\s\S]*?\n\}/);
+    it('the light theme block redefines no Phase 1 property name', () => {
+      const unscoped = stripped.match(/html\[data-theme="light"\]\s*\{[\s\S]*?\n\}/);
       expect(unscoped).not.toBeNull();
       ['--text-primary', '--text-body', '--text-muted', '--bg-surface', '--accent', '--border']
         .forEach((t) => expect(unscoped[0]).not.toContain(t));
+    });
+
+    it('no bridge rule survives anywhere in the file', () => {
+      expect(stripped).not.toMatch(/html\[data-theme="light"\]\s*#(projects|blog|contact)/);
     });
   });
 
@@ -153,7 +140,57 @@ describe('Design tokens (PF-67)', () => {
     it('rings links, buttons and anything explicitly tabbable', () => {
       expect(rule).toContain('a:focus-visible');
       expect(rule).toContain('button:focus-visible');
-      expect(rule).toContain('[tabindex]:focus-visible');
+      expect(rule).toContain('[tabindex]');
+      expect(rule).toContain(':focus-visible');
+    });
+
+    /**
+     * PF-91. A negative tabindex means "programmatically focusable,
+     * NEVER a tab stop", so such an element is only ever focused as a
+     * scroll/reading-position target — <main>, focused by the skip link,
+     * is the one case in this repo. A bare `[tabindex]:focus-visible`
+     * matches it and drew a 2px accent ring around the ENTIRE page the
+     * moment the skip link was activated.
+     *
+     * ⚠️ The obvious-looking cause is wrong and worth recording: the
+     * ring is NOT because :focus-visible fails to distinguish
+     * programmatic focus. Chromium keys the heuristic on the most recent
+     * input MODALITY, and the link is activated with Enter — so a
+     * programmatic .focus() following a keypress does match. Measured in
+     * Chromium: main.matches(':focus-visible') === true.
+     */
+    it('excludes tabindex="-1" so the skip link does not ring the whole page', () => {
+      expect(rule).toContain('[tabindex]:not([tabindex="-1"]):focus-visible');
+      // the ring rule itself must never reach for outline:none
+      expect(rule).not.toMatch(/outline:\s*none/);
+    });
+
+    /**
+     * PF-91. Excluding tabindex="-1" above stops OUR ring, not
+     * Chromium's: measured, <main> then took `outline: auto 1px
+     * rgb(0, 95, 204)`, the UA default, so the skip link drew a blue box
+     * around the whole page. Only an explicit suppression removes it.
+     *
+     * This is the repo's first `outline: none` and the selector is what
+     * keeps it safe — it must stay pinned to <main>, which a negative
+     * tabindex keeps out of the tab order entirely. A widened selector
+     * would start stripping indicators off real controls, silently.
+     */
+    it('suppresses the UA ring on <main> ONLY, never on a control', () => {
+      const decls = stripped.replace(/\s+/g, ' ');
+
+      // Exactly ONE suppression in the whole file...
+      const all = decls.match(/outline:\s*(none|0)\b/g) || [];
+      expect(all).toHaveLength(1);
+
+      // ...and it belongs to exactly this selector. Extracting the
+      // selector is what makes this un-foolable: a `not.toMatch` for
+      // element names is not, because `main` contains an `a` and a
+      // naive /(a|button|...)/ alternation matches its own rule. That
+      // false positive is how this guard was written the first time.
+      const owner = decls.match(/([^{};]+)\{[^{}]*outline:\s*(?:none|0)\b/);
+      expect(owner).not.toBeNull();
+      expect(owner[1].trim()).toBe('main[tabindex="-1"]:focus');
     });
 
     it('draws an accent outline offset outward', () => {
@@ -191,6 +228,50 @@ describe('Design tokens (PF-67)', () => {
       // ":focus-visible, not :focus" in the comment cannot satisfy it.
       expect(rule).not.toMatch(/(^|[^-])\ba:focus\s*[,{]/);
       expect(rule).not.toMatch(/\bbutton:focus\s*[,{]/);
+    });
+  });
+
+
+  /*
+   * ── PF-91 · --ok and --danger ──────────────────────────────────────
+   *
+   * Both were declared in PF-67 and read by NOTHING but Tailwind's alias
+   * for three sprints, while four sites hardcoded the same pair of hexes
+   * — and two of those shipped a light-theme failure the token would
+   * have prevented. PF-91 gave them their first consumers.
+   *
+   * --ok's light value is #0B6446, not the prototype's #0E7A55, and the
+   * framing matters: applyTheme() line 868 ALREADY recolours [data-ok]
+   * from #34d399 to #0E7A55 in light. The design saw this and moved the
+   * value; it just landed short — 3.67 on the AVAILABLE FOR WORK badge,
+   * 4.43 on the status dot, against 4.5. This extends a fix the design
+   * started rather than correcting an oversight.
+   *
+   * --danger is UNCHANGED. #B4231F is the prototype's own light value
+   * and measures 5.88 on the Contact form; it was failing only because
+   * the literal #f87171 bypassed it.
+   */
+  describe('status tokens (PF-91)', () => {
+    const valuesOf = (name) => {
+      const out = [];
+      postcss.parse(css).walkDecls(name, (d) => out.push(d.value.trim()));
+      return out;
+    };
+
+    it('declares --ok once per theme, with DIFFERENT values', () => {
+      const ok = valuesOf('--ok');
+      expect(ok).toEqual(['#34d399', '#0B6446']);
+    });
+
+    it('keeps --danger on the prototype\'s own pair', () => {
+      expect(valuesOf('--danger')).toEqual(['#f87171', '#B4231F']);
+    });
+
+    it('does not leave --ok light on #0E7A55, which measured 3.67', () => {
+      // The design's own value, and short of AA on the badge. Pinned so
+      // a fidelity pass "restoring" it fails loudly rather than
+      // reintroducing the failure it looks like it is fixing.
+      expect(valuesOf('--ok')).not.toContain('#0E7A55');
     });
   });
 

@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
 import { AboutSection } from '../AboutSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
+import { leadsWithIcon } from '../../../test/leadsWithIcon';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(resolve(here, '../AboutSection.module.css'), 'utf8');
@@ -59,7 +60,13 @@ function mockRect(el, rect) {
 const withMotion = (ui) => <MotionProvider>{ui}</MotionProvider>;
 const pick = (container, name) => container.querySelector(`[class*="${name}"]`);
 const pickAll = (container, name) => container.querySelectorAll(`[class*="${name}"]`);
-const portrait = (container) => container.querySelector('img[alt*="visor"]');
+// Selected by class, not by alt text. The four parallax tests below only
+// need "the portrait <img>", and coupling them to the alt copy meant a
+// change to that copy failed them for a reason unrelated to what they
+// assert. The `img` qualifier disambiguates from .portraitFrame/.portraitFade/
+// .portraitSweep, which the [class*=] substring form would otherwise match
+// (see CLAUDE.md on [class*="name"] matching longer class names).
+const portrait = (container) => container.querySelector('img[class*="portraitImg"]');
 
 describe('AboutSection (PF-81)', () => {
   beforeEach(() => {
@@ -139,11 +146,35 @@ describe('AboutSection (PF-81)', () => {
       .toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
   });
 
+  /*
+   * ⚠️ NOT IN THE PROTOTYPE — owner-requested 2026-08-29. Guarded
+   * because the icon is exactly the kind of addition a later fidelity
+   * pass deletes to "match the export", and because nothing else here
+   * would notice: the link keeps its href, its label and its accessible
+   * name whether the <svg> is there or not.
+   */
+  it('puts the envelope mark in front of EMAIL ME, and keeps it silent', () => {
+    render(withMotion(<AboutSection />));
+    const link = screen.getByText('EMAIL ME').closest('a');
+    const svg = link.querySelector('svg');
+
+    expect(svg).not.toBeNull();
+    // In FRONT of the label, not after it.
+    expect(leadsWithIcon(link)).toBe(true);
+    // aria-hidden, so the link's accessible name is still just its text.
+    expect(svg).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByRole('link', { name: 'EMAIL ME' })).toBe(link);
+    // currentColor, so it tracks theme and hover with no extra rule.
+    expect(svg.getAttribute('fill')).toBe('currentColor');
+  });
+
   it('renders the portrait with its alt text', () => {
     mockMatchMedia(false);
     const { container } = render(withMotion(<AboutSection />));
 
-    expect(screen.getByAltText('Parindra Gallage in the visor')).toBeInTheDocument();
+    expect(
+      screen.getByAltText('Parindra Gallage leaning against a classic green Mini')
+    ).toBeInTheDocument();
     // The sweep and the fade are decoration, not content.
     expect(pick(container, 'portraitSweep')).toHaveAttribute('aria-hidden', 'true');
   });
@@ -223,17 +254,48 @@ describe('AboutSection (PF-81)', () => {
       expect(second).toContain('margin-bottom: 20px');
     });
 
-    // The card is a Reveal, so its own hover transition and Reveal's
-    // entrance transition compete for one element. Declared bare, this
-    // ties with `.reveal` at (0,1,0) and wins on order — replacing the
-    // 1.05s entrance ease with a 0.25s hover transition. Gating on
-    // [data-reveal='in'] makes it (0,2,0) and hands over only once the
-    // entrance has finished.
-    it('gates the stat-card hover transition behind a finished reveal', () => {
-      expect(css).toContain("\n.statCard[data-reveal='in'] {");
-      expect(ruleBody('.statCard')).not.toContain('transition');
-      expect(ruleBody(".statCard[data-reveal='in']"))
-        .toContain('transition: border-color .25s, transform .25s');
+    /**
+     * PF-93, 2026-08-21 — the inverse of the guard that stood here.
+     *
+     * It used to assert that `.statCard[data-reveal='in']` EXISTS,
+     * gating the hover transition behind a "finished" entrance. The
+     * premise was wrong: Reveal sets data-reveal="in" from the
+     * IntersectionObserver callback at the entrance's START
+     * (Reveal.jsx:57), so the gate matched immediately and handed the
+     * card its 0.25s hover transition for the whole entrance. Measured
+     * on the production build — opacity reached 1 at 0ms (no fade at
+     * all, since opacity is not in the hover list) and the slide
+     * finished at 283ms instead of ~1050ms.
+     *
+     * The remedy is deletion, not a better gate: `.reveal` owns
+     * `transition` for the life of the element and covers the hover lift
+     * too, exactly as the prototype's inline write from hideReveals()
+     * does. So this is now an ABSENCE guard, kept rather than deleted so
+     * the pattern cannot come back via a pre-PF-93 ticket.
+     *
+     * postcss, not ruleBody(): the comment above the deleted rule spells
+     * out both "transition" and ".statCard[data-reveal='in']" while
+     * explaining why they are gone, so a raw-text search matches the
+     * prose and passes while asserting nothing.
+     */
+    it('declares no transition on .statCard, at any selector', () => {
+      const offenders = [];
+      postcss.parse(css).walkRules((rule) => {
+        if (!/\.statCard(?![\w-])/.test(rule.selector)) return;
+        rule.walkDecls(/^transition/, (d) => {
+          offenders.push(`${rule.selector} { ${d.prop}: ${d.value} }`);
+        });
+      });
+      expect(offenders).toEqual([]);
+    });
+
+    // The hover END STATE stays — it is the prototype's (line 216) and
+    // is not a transition. Asserted so the deletion above cannot be
+    // over-applied into removing the lift itself.
+    it('keeps the hover end state the transition used to animate', () => {
+      const hover = ruleBody('.statCard:hover');
+      expect(hover).toContain('border-color: var(--acc');
+      expect(hover).toContain('transform: translateY(-4px)');
     });
 
     // The resting scale must stay inline in the JSX. Declared here it

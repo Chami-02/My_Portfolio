@@ -111,7 +111,7 @@ const aboutSchema = new mongoose.Schema(
     // Social links
     social: {
       github:    { type: String, default: 'https://github.com/Chami-02', validate: urlValidator },
-      linkedin:  { type: String, default: 'https://www.linkedin.com/in/chamikara-gallege-3b0861295/', validate: urlValidator },
+      linkedin:  { type: String, default: 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/', validate: urlValidator },
       facebook:  { type: String, default: 'https://web.facebook.com/parindra.chameekara', validate: urlValidator },
       instagram: { type: String, default: 'https://www.instagram.com/__pc_02/', validate: urlValidator },
 

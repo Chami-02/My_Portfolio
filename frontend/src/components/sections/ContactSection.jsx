@@ -1,274 +1,350 @@
-import { useState } from 'react';
-import { useInView } from '../../hooks/useInView';
+// frontend/src/components/sections/ContactSection.jsx
+import { useEffect, useState } from 'react';
+import { Reveal } from '../motion';
+import { MailIcon, GitHubIcon, LinkedInIcon } from '../icons';
+import { useAbout } from '../../hooks/useAbout';
 import { contactService } from '../../services/contactService';
+import { apiUrl } from '../../services/api';
+import styles from './ContactSection.module.css';
 
+/**
+ * Where `↓ DOWNLOAD CV` points when there is no résumé to download.
+ *
+ * ⚠️ This is the PROTOTYPE'S OWN empty state, not a fallback invented
+ * here. The markup's `href="#contact" download` (line 505) looks like the
+ * same dead-anchor artefact as PF-86's `href="#blog"`, and it is not —
+ * `applyResume()` (line 676) rewrites it at runtime:
+ *
+ *   résumé present → href = the file, download = its name, title removed
+ *   résumé absent  → href = '#contact', download removed,
+ *                    title = 'Upload a résumé in the admin panel to enable this'
+ *
+ * So the design does answer the empty-state question: always show the
+ * button, leave it inert, and explain why on hover. The localStorage hop
+ * is a design-tool affordance — the same shape as `applyProjectBgs()`,
+ * which PF-85 mapped one-to-one onto `Project.backgroundImage` — and the
+ * visual contract maps just as cleanly onto `About.hasResume` here.
+ */
+const CV_EMPTY_HREF = '#contact';
+const CV_EMPTY_TITLE = 'Upload a résumé in the admin panel to enable this';
+
+/**
+ * The public download endpoint — `GET /api/resume`, a 302 to the forced-
+ * download URL. Its own mount rather than `/api/about/resume` so the URL
+ * is short and survives every replacement (resumeRoutes.js).
+ *
+ * Built with `apiUrl()` rather than a literal `/api/resume`, because the
+ * backend is on a different origin in production: a hardcoded path in an
+ * href would 404 on the live site while working fine behind the dev
+ * proxy. `apiUrl` has been an orphan since PF-81 removed its last
+ * consumer, and its own doc comment names this exact case — this section
+ * is the first caller the résumé subsystem has ever had.
+ */
+const CV_HREF = apiUrl('/resume');
+
+const EMAIL = 'parindrachameekara@gmail.com';
+const GITHUB_URL = 'https://github.com/Chami-02';
+const LINKEDIN_URL = 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/';
+
+const EMPTY_FORM = { name: '', email: '', message: '' };
+
+/**
+ * The prototype's own validation, transcribed rather than rewritten —
+ * both the checks and the copy (lines 1138-1139).
+ *
+ * The email pattern is deliberately loose. `type="email"` is NOT used
+ * (see the input below), so this is the only client-side shape check,
+ * and it is the prototype's: something, an @, something, a dot,
+ * something. Anything stricter starts rejecting addresses that work.
+ *
+ * ⚠️ It is not the whole contract. The backend additionally requires a
+ * message of at least 10 characters and caps name/message length
+ * (contactController.js's `contactRules`). A 5-character message passes
+ * here and comes back 400 with the server's own sentence, which is what
+ * the catch below surfaces. Duplicating the server's rules here would be
+ * a second source of truth that drifts silently; letting the server
+ * answer keeps one.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validate({ name, email, message }) {
+  if (!name.trim() || !email.trim() || !message.trim()) {
+    return 'All three fields are required.';
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    return 'That email address looks off.';
+  }
+  return '';
+}
+
+/**
+ * Contact — PF-87. Full replacement of the Phase 1 component,
+ * transcribed from `docs/design/Portfolio Revolution.dc.html` lines
+ * 489-541.
+ *
+ * The last section of the main page rebuild, and the last one that was
+ * still Phase 1. Three things that had been waiting on it land here: the
+ * `scroll-margin-top` fix (see the module's own note — `#contact` has
+ * been landing 9px low since PF-80), the résumé subsystem's first
+ * frontend caller, and the form focus styling PF-83 left alone so this
+ * ticket could transcribe the prototype's own treatment.
+ *
+ * Posts through the existing `contactService.submit` — there is no second
+ * service and no new hook. The submission is a one-off command rather
+ * than cached server state, so it stays a plain async call with local
+ * state, exactly as Phase 1 had it; TanStack Query is for the reads.
+ */
 export function ContactSection() {
-  const [ref, inView] = useInView();
-  const [form,   setForm]   = useState({ name: '', email: '', message: '' });
-  const [status, setStatus] = useState('idle'); // idle | sending | success | error
-  const [errMsg, setErrMsg] = useState('');
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [formError, setFormError] = useState('');
+  const [formSent, setFormSent] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  const handleChange = (e) =>
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  // Read only for `hasResume` — a schema virtual (models/About.js:148)
+  // that exists so "a résumé exists if and only if it has a url" is one
+  // rule rather than one per consumer. `useAbout()` is the existing hook,
+  // already used by AdminAboutPanel, so this adds no new query key and
+  // TanStack Query caches it for the page.
+  //
+  // Note this does NOT re-wire About's copy to the API — PF-81 took that
+  // off deliberately and re-wiring it is still its own ticket. This is
+  // one boolean, for one link.
+  const { data: about, isError: aboutFailed, error: aboutError } = useAbout();
 
-  const handleSubmit = async (e) => {
+  // Fail closed: a failed or in-flight About fetch renders the inert CV
+  // link rather than one pointing at a download that may not exist. Also
+  // the prototype's own error path — its try/catch around the
+  // localStorage read falls through to `r = null`, i.e. the empty state.
+  const hasResume = Boolean(about?.hasResume);
+
+  // Logged from an effect keyed on the error, not from the render body: a
+  // render-phase console.error fires again on every unrelated re-render.
+  //
+  // ⚠️ Both `isError` and `error` are destructured, and the pair matters.
+  // Logging the boolean prints "ContactSection: useAbout() failed true",
+  // which names the symptom and drops the cause — caught in PF-87's E2E
+  // run, where that exact line appeared and said nothing about why.
+  useEffect(() => {
+    if (aboutFailed) console.error('ContactSection: useAbout() failed', aboutError);
+  }, [aboutFailed, aboutError]);
+
+  // Transcribed from the prototype's `onField` (line 1130): typing clears
+  // BOTH status messages, so a stale error or a stale "sent" never sits
+  // above a form the visitor has started editing again.
+  const onField = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    setFormError('');
+    setFormSent(false);
+  };
+
+  const onSubmit = async (e) => {
     e.preventDefault();
-    setStatus('sending');
-    setErrMsg('');
+
+    // Guard against a double submit that beats the disabled attribute —
+    // a second Enter keypress in the same tick, or a synthetic event.
+    if (sending) return;
+
+    const message = validate(form);
+    if (message) {
+      setFormError(message);
+      setFormSent(false);
+      return;
+    }
+
+    setSending(true);
+    setFormError('');
+    setFormSent(false);
 
     try {
       await contactService.submit(form);
-      setStatus('success');
-      setForm({ name: '', email: '', message: '' });
+      setFormSent(true);
+      // Cleared on success ONLY. On failure the visitor's typed message
+      // survives, so a network blip does not cost them the thing they
+      // came here to write. No design source — the prototype's submit
+      // cannot fail, because it is a 900ms setTimeout.
+      setForm(EMPTY_FORM);
     } catch (err) {
-      setStatus('error');
-      // Show the server's validation error message if available
-      setErrMsg(
+      // The server's own sentence when there is one: it carries the rules
+      // the client does not duplicate (message length, field caps). The
+      // fallback covers the no-response case — a backend that is down
+      // produces no `err.response` at all, and `loginError.js` exists
+      // because that case once rendered as a credential rejection.
+      setFormError(
         err.response?.data?.message ||
-        'Failed to send message. Please check your connection and try again.'
+        'Could not send that — check your connection and try again.'
       );
+    } finally {
+      setSending(false);
     }
   };
 
-  /* Shared input style — avoids repeating inline styles */
-  const INPUT = {
-    width: '100%',
-    background: 'var(--bg-surface)',
-    border: '1px solid var(--border)',
-    borderRadius: '0.625rem',
-    padding: '0.875rem 1rem',
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-sans)',
-    fontSize: '0.9rem',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-  };
-
-  const focusInput  = (e) => { e.target.style.borderColor = 'var(--accent)'; };
-  const blurInput   = (e) => { e.target.style.borderColor = 'var(--border)'; };
+  // The prototype's own three labels (line 1129).
+  const submitLabel = sending ? 'SENDING…' : formSent ? 'SENT ✓' : 'SEND MESSAGE';
 
   return (
-    <section
-      id="contact"
-      style={{
-        padding: 'var(--section-y) var(--content-px)',
-        // Section wash removed 2026-08-18, owner-requested. Worth noting
-        // this one was also a light-theme bug: var(--bg-surface) is a
-        // Phase 1 token that does not follow html[data-theme], so it
-        // painted a dark navy block across the bottom of the page in
-        // light mode. Phase 1 component; replaced in Sprint 12.
-      }}
-    >
-      <div
-        ref={ref}
-        className={`reveal ${inView ? 'revealed' : ''}`}
-        style={{ maxWidth: '640px', margin: '0 auto' }}
-      >
-        <span className="section-label">04 / Contact</span>
-        <h2 className="section-title">Get In Touch</h2>
-        <div className="section-divider" />
+    <section id="contact" className={styles.contact}>
+      <div className={styles.inner}>
+        <Reveal type="up" className={styles.eyebrow}>
+          <span className={styles.eyebrowLabel}>05 / CONTACT</span>
+          <span aria-hidden="true" className={styles.eyebrowLine} />
+        </Reveal>
 
-        <p style={{ color: 'var(--text-body)', marginBottom: '2.5rem', lineHeight: 1.8 }}>
-          I'm actively looking for junior developer opportunities. If you have a role,
-          a project, or just want to connect — send me a message. I respond within 24 hours.
-        </p>
+        <Reveal as="h2" type="up" delay={60} className={styles.heading}>
+          Let&apos;s build <span className={styles.outlined}>something loud!</span>
+        </Reveal>
 
-        {/* ── Success state ── */}
-        {status === 'success' ? (
-          <div
-            style={{
-              background: 'rgba(52,211,153,0.06)',
-              border: '1px solid rgba(52,211,153,0.3)',
-              borderRadius: '1rem',
-              padding: '3rem 2rem',
-              textAlign: 'center',
-            }}
-          >
-            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>✓</div>
-            <p
-              style={{
-                color: 'var(--green)',
-                fontWeight: 600,
-                fontSize: '1.1rem',
-                marginBottom: '0.5rem',
-              }}
-            >
-              Message received!
-            </p>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              I'll get back to you within 24 hours.
-            </p>
-            <button
-              onClick={() => setStatus('idle')}
-              className="btn-outline"
-              style={{ fontSize: '0.85rem', padding: '0.5rem 1.25rem' }}
-            >
-              Send another message
-            </button>
-          </div>
-        ) : (
-          /* ── Form ── */
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}
-          >
-            {/* Error banner */}
-            {status === 'error' && (
-              <div
-                style={{
-                  background: 'rgba(239,68,68,0.06)',
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  borderRadius: '0.625rem',
-                  padding: '0.875rem 1rem',
-                }}
+        <div className={styles.grid}>
+          <div>
+            <Reveal as="p" type="up" delay={120} className={styles.intro}>
+              I&apos;m actively looking for junior developer and Software Engineering
+              internship opportunities. If you have a role, a project, or just want to
+              connect — send me a message. I respond within 24 hours.
+            </Reveal>
+
+            <Reveal type="up" delay={180} className={styles.ctaRow}>
+              {/* Icons added 2026-08-29 at the owner's request; the
+                  prototype labels all three of these links with bare
+                  text. `.emailLink` and `.cvLink` were already
+                  inline-flex rows with a 10px gap, so only `.socialLink`
+                  needed a CSS change. */}
+              <a href={`mailto:${EMAIL}`} className={styles.emailLink}>
+                <MailIcon />
+                {EMAIL}
+              </a>
+            </Reveal>
+
+            <Reveal type="up" delay={200} className={styles.ctaRow}>
+              {/* Both branches of the prototype's `applyResume()`, as
+                  markup rather than as a post-render attribute sweep.
+                  `download` is a boolean attribute, so React omits it
+                  entirely when false — which is what the empty branch
+                  needs, since a `download` on an inert `#contact` href
+                  would try to download the page itself. */}
+              <a
+                href={hasResume ? CV_HREF : CV_EMPTY_HREF}
+                download={hasResume}
+                title={hasResume ? undefined : CV_EMPTY_TITLE}
+                className={styles.cvLink}
               >
-                <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{errMsg}</p>
-              </div>
-            )}
+                ↓ DOWNLOAD CV
+              </a>
+            </Reveal>
 
-            {/* Name + Email side-by-side on tablet+ */}
-            <div style={{ display: 'grid', gap: '1.25rem' }} className="form-row">
-              <div>
-                <label
-                  htmlFor="contact-name"
-                  style={{
-                    display: 'block',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.75rem',
-                    fontFamily: 'var(--font-mono)',
-                    marginBottom: '0.5rem',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Name
-                </label>
+            <Reveal type="up" delay={220} className={styles.socialRow}>
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noreferrer"
+                className={styles.socialLink}
+              >
+                <GitHubIcon />
+                GITHUB
+              </a>
+              <a
+                href={LINKEDIN_URL}
+                target="_blank"
+                rel="noreferrer"
+                className={styles.socialLink}
+              >
+                <LinkedInIcon />
+                LINKEDIN
+              </a>
+            </Reveal>
+
+            {/* Same delay as the social row above — 220 twice, the
+                prototype's own choice (lines 508 and 512), so the two
+                arrive together rather than in sequence. Not a slip. */}
+            <Reveal as="p" type="up" delay={220} className={styles.location}>
+              GALLE, SRI LANKA · UTC+5:30
+            </Reveal>
+          </div>
+
+          <Reveal
+            as="form"
+            type="up"
+            delay={160}
+            className={styles.form}
+            onSubmit={onSubmit}
+            noValidate
+          >
+            <div className={styles.nameEmailRow}>
+              {/* The prototype wraps each input in its <label>, which is
+                  an implicit association — no htmlFor/id pair needed, and
+                  it keeps working if two forms ever share a page. */}
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>NAME</span>
                 <input
-                  id="contact-name"
                   name="name"
                   type="text"
-                  required
-                  placeholder="Parindra Chameekara"
                   value={form.name}
-                  onChange={handleChange}
-                  onFocus={focusInput}
-                  onBlur={blurInput}
-                  style={INPUT}
+                  placeholder="Parindra Gallage"
+                  onChange={onField}
+                  className={styles.input}
                 />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="contact-email"
-                  style={{
-                    display: 'block',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.75rem',
-                    fontFamily: 'var(--font-mono)',
-                    marginBottom: '0.5rem',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Email
-                </label>
-                <input
-                  id="contact-email"
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="you@company.com"
-                  value={form.email}
-                  onChange={handleChange}
-                  onFocus={focusInput}
-                  onBlur={blurInput}
-                  style={INPUT}
-                />
-              </div>
-            </div>
-
-            {/* Message */}
-            <div>
-              <label
-                htmlFor="contact-message"
-                style={{
-                  display: 'block',
-                  color: 'var(--text-muted)',
-                  fontSize: '0.75rem',
-                  fontFamily: 'var(--font-mono)',
-                  marginBottom: '0.5rem',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Message
               </label>
-              <textarea
-                id="contact-message"
-                name="message"
-                required
-                rows={6}
-                placeholder="Tell me about the role, project, or just say hi..."
-                value={form.message}
-                onChange={handleChange}
-                onFocus={focusInput}
-                onBlur={blurInput}
-                style={{ ...INPUT, resize: 'vertical', minHeight: '140px' }}
-              />
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>EMAIL</span>
+                {/* ⚠️ `type="text" inputmode="email"`, not `type="email"`
+                    — the prototype's own choice, and it changes behaviour
+                    rather than just semantics. `type="email"` triggers
+                    native browser validation, whose bubble is
+                    browser-styled and has no treatment anywhere in this
+                    design. `inputmode` still gets the right mobile
+                    keyboard. Validated in JS instead, with the
+                    prototype's own pattern and copy. `noValidate` on the
+                    form above keeps the two consistent if a `type` ever
+                    changes. */}
+                <input
+                  name="email"
+                  type="text"
+                  inputMode="email"
+                  value={form.email}
+                  placeholder="you@company.com"
+                  onChange={onField}
+                  className={styles.input}
+                />
+              </label>
             </div>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={status === 'sending'}
-              className="btn-primary"
-              style={{
-                width: '100%',
-                justifyContent: 'center',
-                opacity: status === 'sending' ? 0.7 : 1,
-                cursor: status === 'sending' ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {status === 'sending' ? (
-                <>
-                  <span
-                    style={{
-                      width: 16,
-                      height: 16,
-                      border: '2px solid currentColor',
-                      borderTopColor: 'transparent',
-                      borderRadius: '50%',
-                      display: 'inline-block',
-                      animation: 'spin 0.6s linear infinite',
-                    }}
-                  />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  Send Message
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    style={{ width: 16, height: 16 }}
-                  >
-                    <path d="M22 2L11 13M22 2l-7 18-4-8-8-4 18-7z" />
-                  </svg>
-                </>
-              )}
-            </button>
-          </form>
-        )}
-      </div>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>MESSAGE</span>
+              <textarea
+                name="message"
+                rows={4}
+                value={form.message}
+                placeholder="Tell me about the role, project, or just say hi…"
+                onChange={onField}
+                className={styles.textarea}
+              />
+            </label>
 
-      <style>{`
-        @media (min-width: 540px) {
-          .form-row { grid-template-columns: 1fr 1fr !important; }
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
+            {/* Live regions, which the prototype has no equivalent of.
+                Invisible to a sighted visitor — no layout, no colour, no
+                timing change — so this is an implementation choice under
+                CLAUDE.md's test rather than a design change. Without
+                them a screen-reader user submits the form and hears
+                nothing at all, because neither paragraph takes focus.
+                `alert` is assertive for the failure, `status` polite for
+                the success. */}
+            {formError && (
+              <p role="alert" className={styles.errorText}>{formError}</p>
+            )}
+            {formSent && (
+              <p role="status" className={styles.sentText}>
+                ✓ Message sent — I&apos;ll reply within 24 hours.
+              </p>
+            )}
+
+            <button type="submit" disabled={sending} className={styles.submit}>
+              {submitLabel}
+            </button>
+          </Reveal>
+        </div>
+      </div>
     </section>
   );
 }
+
+export default ContactSection;

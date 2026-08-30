@@ -22,13 +22,42 @@
   right: 0;
   z-index: 60;
   background: rgba(var(--ftr), .86);
-  backdrop-filter: blur(16px);
+  /* ⚠️ -webkit- FIRST, standard LAST — order is load-bearing.
+     esbuild's CSS minifier drops whichever of the pair comes first,
+     so `backdrop-filter` before `-webkit-backdrop-filter` shipped
+     webkit-only, and Chrome no longer honours the prefixed form —
+     the blur silently did not render at all. PF-90. */
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(var(--ln), .08);
 }
 
+/* ⚠️ FULL-BLEED, and this REVERSED an earlier decision the same day.
+   Read both halves before changing it again.
+
+   2026-08-22, first pass: `.inner` was given
+   `max-width: calc(1240px + 2 * clamp(16px, 4vw, 40px))` so the header's
+   content box matched every section's 1240px column exactly — the logo
+   lined up with the hero's left edge at all nine widths measured.
+
+   2026-08-22, second pass (owner, after seeing it live): the logo should
+   sit FURTHER LEFT and ADMIN FURTHER RIGHT than that column allows. So
+   the max-width is gone and the header spans the viewport, with the
+   padding alone holding the inset.
+
+   ⚠️ THE CONSEQUENCE, ACCEPTED: above ~1320px the header no longer
+   aligns with section content. At 1920px the logo sits at 40px where the
+   hero's text starts at 340px — a 300px difference, by design. This is
+   the full-bleed-chrome-over-centred-content pattern, not a regression,
+   and it is the OPPOSITE of what the first pass was for. Do not
+   "restore" the max-width to fix the alignment; that is the thing that
+   was rejected.
+
+   The padding still uses the sections' own `clamp(16px, 4vw, 40px)`, so
+   below ~1320px — where the column is viewport-bound anyway — the logo
+   and the hero still line up exactly. The divergence only opens on wide
+   screens. */
 .inner {
-  max-width: 1240px;
   margin: 0 auto;
   padding: 12px clamp(16px, 4vw, 40px);
   display: flex;
@@ -128,8 +157,48 @@
   background: rgba(var(--ln), .16);
 }
 
+/* ── ADMIN, isolated as chrome — owner-requested 2026-08-22 ──────────
+ *
+ * A sanctioned deviation from the prototype (line 79), which renders
+ * this as a second loud accent pill beside CONTACT. ADMIN is an
+ * owner-only entrance with no value to a visitor, so it reads as
+ * chrome rather than navigation.
+ *
+ * ⚠️ The isolation comes from FORM, not from darker ink. The request
+ * was `--muted2`; that measures 4.15:1 on the dark header ground —
+ * the identical failure PF-83 measured on About's stat labels and
+ * fixed by moving to `--muted` (7.0:1). This link is 11.5px BOLD,
+ * below the 18.66px large-text threshold, so AA wants 4.5:1. PF-83
+ * closed the site at zero AA failures in both themes; `--muted2`
+ * here would have authored a new one rather than inherited one.
+ *
+ * ⚠️ There is deliberately NO `margin-left: auto` here, though it was
+ * requested. It is a silent no-op in this layout: `.inner` is
+ * `justify-content: space-between` with two children and `.nav` is
+ * content-sized, so there is no free space inside `.nav` for `auto`
+ * to absorb. `.adminDivider` and its 20px gap are what actually
+ * separate it. Do not add it back believing it is load-bearing.
+ *
+ * Hover is UNCHANGED from the prototype — it returns to the accent
+ * fill, so the control still announces itself on approach.
+ * ──────────────────────────────────────────────────────────────────── */
+
+/* ⚠️ `.adminDivider` was REMOVED (owner, 2026-08-22, second pass). A
+   1px rule at rgba(var(--ln),.16) with `margin: 0 16px` used to sit
+   between the toggle and ADMIN. Asked for, built, then judged one
+   separator too many — the row read as [nav] | [toggle] | [ADMIN],
+   which boxed the toggle in rather than setting ADMIN apart.
+
+   ⚠️ `.divider` ABOVE STAYS. It is the PROTOTYPE'S own (line 74), sits
+   on the LEFT of the toggle, and is not the one that was removed. The
+   two are easy to conflate — check which side of the toggle you are
+   looking at before deleting one.
+
+   The isolation is now pure whitespace: 32px of margin, against the
+   row's own 4px gap. Larger than the divider version's effective 21px
+   per side, so ADMIN reads as MORE separated with one less element. */
 .adminLink {
-  margin-left: 8px;
+  margin-left: 32px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -139,27 +208,31 @@
   letter-spacing: .12em;
   padding: 10px 16px;
   border-radius: 999px;
-  color: var(--acc, #FCA311);
-  border: 1px solid rgba(252, 163, 17, .45);
-  background: rgba(252, 163, 17, .08);
-  text-shadow: 0 0 14px rgba(252, 163, 17, .55);
+  color: var(--muted);
+  border: 1px solid rgba(var(--ln), .18);
+  background: none;
   text-decoration: none;
-  transition: color .25s, background .25s;
+  transition: color .25s, background .25s, border-color .25s;
 }
 
 .adminLink:hover {
   color: var(--accInk);
   background: var(--acc, #FCA311);
   border-color: var(--acc, #FCA311);
-  text-shadow: none;
 }
 
 .adminDot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--acc, #FCA311);
-  box-shadow: 0 0 9px rgba(252, 163, 17, .9);
+  background: var(--muted);
+  transition: background .25s;
+}
+
+/* The dot follows the label into accent ink on hover, so the pill
+   reads as one object rather than a lit dot on a filled ground. */
+.adminLink:hover .adminDot {
+  background: var(--accInk);
 }
 
 .progressTrack {
@@ -182,17 +255,32 @@
  * `md:` default rather than anything prototype-derived.
  * ──────────────────────────────────────────────────────────────────── */
 
+/* ⚠️ 44x44 HIT AREA, 32px BARS — the visual is unchanged, the tap
+   target is not. Measured 2026-08-25 at 32x32, which is below the 44px
+   minimum every touch guideline uses and the smallest target on the
+   site.
+
+   The 6px padding is what does it: the content box stays 32px, so the
+   bars below (`width: 100%`) stay 32px wide and the translateY(7px)
+   rotation math is untouched — `justify-content: center` positions them
+   relative to the content box, which did not move.
+
+   ⚠️ 44 is also the number that keeps --header-h at 71px. The header's
+   height is set by its tallest child and the logo and theme toggle are
+   both 44px; anything larger here moves --header-h, which every
+   section's scroll-margin-top reads. Re-measured after: 71px. */
 .hamburger {
   display: none;
   flex-direction: column;
   justify-content: center;
   gap: 5px;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
+  flex: none;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 6px;
 }
 
 /* 2px bar + 5px gap + 2px + 5px + 2px = 16px tall. The top bar's
@@ -254,16 +342,24 @@
   justify-content: center;
   gap: 28px;
   background: rgba(var(--ftr), .86);
-  backdrop-filter: blur(16px);
+  /* ⚠️ -webkit- FIRST, standard LAST — order is load-bearing.
+     esbuild's CSS minifier drops whichever of the pair comes first,
+     so `backdrop-filter` before `-webkit-backdrop-filter` shipped
+     webkit-only, and Chrome no longer honours the prefixed form —
+     the blur silently did not render at all. PF-90. */
   -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
 }
 
+/* ⚠️ 44px, not 40 — 2026-08-25 mobile pass. Four pixels short of the
+   touch minimum, and it is the control a visitor reaches for to get OUT
+   of a full-screen overlay. */
 .overlayClose {
   position: absolute;
   top: 20px;
   right: 20px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   font-size: 28px;
   line-height: 1;
   color: var(--strong);
@@ -276,15 +372,40 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  /* 8px, not 20. The links' boxes grew from 32px to 44px above, so the
+     gap shrinks by the same 12px and the SPACE BETWEEN LABELS stays at
+     the 20px this was tuned to. Changing one without the other is what
+     turns a tap-target fix into a visible layout change. */
+  gap: 8px;
 }
 
+/* ⚠️ THE MOST IMPORTANT TOUCH TARGETS ON THE SITE, and they measured
+   32px tall — 2026-08-25 mobile pass.
+   
+   At 20px with no padding the line box is 32px. These are the ONLY way
+   to navigate on a phone, they sit 20px apart, and a missed tap lands on
+   the neighbouring section rather than nothing.
+   
+   ⚠️ They were missed by the first two audit passes because the overlay
+   was CLOSED — an automated sweep over the page never opens it. Every
+   other tap target on the site was already measured and fixed while
+   these, the ones that matter most, were not. Open the menu before
+   trusting a mobile audit.
+   
+   `min-height` plus flex centring rather than padding: the links are
+   centred in a flex column, and vertical padding would push the visual
+   spacing to 20 + 12 + 12 = 44px between labels while the gap already
+   reads correctly at 20. This grows the BOX, not the rhythm. */
 .overlayLink {
   font-family: 'JetBrains Mono', monospace;
   font-size: 20px;
   letter-spacing: .1em;
   color: var(--strong);
   text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
 }
 
 /* composes: the element carries both classes, and these rules win on
@@ -299,4 +420,38 @@
   composes: adminLink;
   font-size: 14px;
   padding: 14px 28px;
+  /* ⚠️ Resets .adminLink's 32px. That margin isolates ADMIN in the
+     DESKTOP header row; inherited here it shoves the overlay's centred
+     [toggle, ADMIN] pair 32px off-centre — a layout bug with nothing
+     wrong in either rule read alone. Wins on source order, which is
+     deterministic because both rules are in this one file (same pattern
+     .overlayContactPill above already uses). */
+  margin-left: 0;
+}
+
+/* ── Overlay chrome row — owner-requested 2026-08-22 ──────────────────
+ *
+ * The desktop's three-group rhythm restated vertically: the links and
+ * CONTACT stack as before, then a rule, then the toggle and ADMIN
+ * side by side as one chrome cluster.
+ *
+ * ⚠️ DOM order is unchanged — links → CONTACT → toggle → ADMIN, with
+ * ADMIN still last. PF-83 specified and verified that Tab sequence,
+ * and the focus trap reads document order from
+ * `querySelectorAll('a[href], button:not([disabled])')`, so wrapping
+ * the last two in a row moves them on screen without moving them in
+ * the sequence.
+ * ──────────────────────────────────────────────────────────────────── */
+
+.overlayDivider {
+  width: 120px;
+  height: 1px;
+  margin-top: 8px;
+  background: rgba(var(--ln), .16);
+}
+
+.overlayChrome {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }

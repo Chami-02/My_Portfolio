@@ -10,6 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# CLAUDE.md's live-verification recipe builds here (PF-88). eslint
+# already ignores dist-*/ via globalIgnores; git did not, so a `git add
+# -A` would have staged a 410 kB bundle.
+dist-*/
 *.local
 
 # Editor directories and files

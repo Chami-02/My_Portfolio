@@ -1,8 +1,12 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
-// Mock IntersectionObserver (used by useInView hook)
-// jsdom doesn't implement it — we need to fake it
+// Mock IntersectionObserver. jsdom doesn't implement it, so it has to be faked.
+//
+// ⚠️ This used to say "used by useInView hook". PF-89 deleted that hook — its
+// last three consumers were replaced by PF-85/86/87. The real consumers now
+// are the motion primitives: Reveal and CountUp, whose observer effects are
+// additionally gated on useSplashReady(), which useInView never was.
 globalThis.IntersectionObserver = class IntersectionObserver {
   constructor(callback) {
     this.callback = callback;

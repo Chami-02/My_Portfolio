@@ -308,7 +308,7 @@ const ABOUT_DATA = {
   // twitter is omitted deliberately: no account yet, schema default is ''.
   social: {
     github: 'https://github.com/Chami-02',
-    linkedin: 'https://www.linkedin.com/in/chamikara-gallege-3b0861295/',
+    linkedin: 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/',
     facebook: 'https://web.facebook.com/parindra.chameekara',
     instagram: 'https://www.instagram.com/__pc_02/',
   },

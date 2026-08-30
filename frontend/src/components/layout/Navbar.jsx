@@ -1,16 +1,38 @@
 // frontend/src/components/layout/Navbar.jsx
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
 import logo from '../../assets/logo.png';
 import styles from './Navbar.module.css';
+import { navModel } from '../../utils/nav';
 
-const NAV_LINKS = [
-  { href: '#about', label: 'ABOUT' },
-  { href: '#skills', label: 'SKILLS' },
-  { href: '#projects', label: 'PROJECTS' },
-  { href: '#blog', label: 'BLOG' },
-];
+/**
+ * A hash target on the current page is a plain <a> — the browser's own
+ * fragment navigation, which inherits html{scroll-behavior} and its
+ * reduced-motion override for free. An in-app path is a react-router
+ * <Link>, so it does not discard the TanStack Query cache or re-fetch
+ * the two unoptimised hero images (1.4MB + 2.3MB) that a full document
+ * load would.
+ */
+function NavAnchor({ href, className, onClick, ref, children }) {
+  // `ref` as an ordinary prop, not forwardRef — React 19 passes it
+  // straight through, and react-router v7's <Link> forwards it to the
+  // <a> it renders (the same property PF-86 relies on for
+  // `<Reveal as={Link}>`). Both branches therefore hand back a
+  // focusable anchor, which is what the overlay's open effect needs.
+  if (href.startsWith('#')) {
+    return (
+      <a href={href} className={className} onClick={onClick} ref={ref}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link to={href} className={className} onClick={onClick} ref={ref}>
+      {children}
+    </Link>
+  );
+}
 
 /**
  * Navbar — PF-79. Full replacement of the Phase 1 component.
@@ -44,6 +66,8 @@ const NAV_LINKS = [
 export function Navbar() {
   const progressRef = useRef(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { pathname } = useLocation();
+  const model = navModel(pathname);
 
   useEffect(() => {
     let raf = null;
@@ -105,7 +129,7 @@ export function Navbar() {
     <>
       <header className={styles.header}>
         <div className={styles.inner}>
-          <a href="#hero" className={styles.brand}>
+          <NavAnchor href={model.brandHref} className={styles.brand}>
             <img
               src={logo}
               /* PF-83. Was "Parindra Gallage", identical to the hero
@@ -120,19 +144,25 @@ export function Navbar() {
             <span className={styles.brandText}>
               PARINDRA<span className={styles.brandDot}>.</span>DEV
             </span>
-          </a>
+          </NavAnchor>
 
           <nav className={styles.nav}>
-            {NAV_LINKS.map((link) => (
-              <a key={link.href} href={link.href} className={styles.navLink}>
+            {model.links.map((link) => (
+              <NavAnchor key={link.href} href={link.href} className={styles.navLink}>
                 {link.label}
-              </a>
+              </NavAnchor>
             ))}
-            <a href="#contact" className={styles.contactPill}>
-              CONTACT
-            </a>
+            <NavAnchor href={model.pillHref} className={styles.contactPill}>
+              {model.pillLabel}
+            </NavAnchor>
             <span aria-hidden="true" className={styles.divider} />
             <ThemeToggle />
+            {/* ⚠️ LAST in the DOM, and that is not cosmetic: PF-83
+                specified and verified skip → logo → nav links → CONTACT
+                → toggle → ADMIN. Moving it in markup to change where it
+                sits on screen breaks a tested contract — .adminLink's
+                own 32px margin is what separates it visually, since the
+                divider that used to do it was removed. */}
             <Link to="/admin/login" className={styles.adminLink}>
               <span aria-hidden="true" className={styles.adminDot} />
               ADMIN
@@ -158,7 +188,7 @@ export function Navbar() {
         </div>
       </header>
 
-      {mobileOpen && <MobileOverlay onClose={closeMobile} />}
+      {mobileOpen && <MobileOverlay model={model} onClose={closeMobile} />}
     </>
   );
 }
@@ -175,7 +205,7 @@ export function Navbar() {
  * when the overlay unmounts. Escape, backdrop-click and link-click
  * close were already correct in PF-79 and are untouched.
  */
-function MobileOverlay({ onClose }) {
+function MobileOverlay({ model, onClose }) {
   const firstLinkRef = useRef(null);
   const overlayRef = useRef(null);
   const triggerRef = useRef(null);
@@ -283,8 +313,8 @@ function MobileOverlay({ onClose }) {
           only prevents the theme toggle, and the gaps between items,
           from dismissing the menu. */}
       <nav className={styles.overlayNav} onClick={(e) => e.stopPropagation()}>
-        {NAV_LINKS.map((link, i) => (
-          <a
+        {model.links.map((link, i) => (
+          <NavAnchor
             key={link.href}
             href={link.href}
             ref={i === 0 ? firstLinkRef : undefined}
@@ -292,23 +322,31 @@ function MobileOverlay({ onClose }) {
             onClick={onClose}
           >
             {link.label}
-          </a>
+          </NavAnchor>
         ))}
-        <a
-          href="#contact"
+        <NavAnchor
+          href={model.pillHref}
           className={styles.overlayContactPill}
           onClick={onClose}
         >
-          CONTACT
-        </a>
-        <ThemeToggle />
-        <Link
-          to="/admin/login"
-          className={styles.overlayAdminLink}
-          onClick={onClose}
-        >
-          ADMIN
-        </Link>
+          {model.pillLabel}
+        </NavAnchor>
+
+        {/* ⚠️ DOM order unchanged — links → CONTACT → toggle → ADMIN,
+            ADMIN still last. The wrapper moves the last two onto one
+            row on screen; the focus trap reads document order from
+            querySelectorAll, so the tested Tab sequence is unaffected. */}
+        <span aria-hidden="true" className={styles.overlayDivider} />
+        <div className={styles.overlayChrome}>
+          <ThemeToggle />
+          <Link
+            to="/admin/login"
+            className={styles.overlayAdminLink}
+            onClick={onClose}
+          >
+            ADMIN
+          </Link>
+        </div>
       </nav>
     </div>
   );

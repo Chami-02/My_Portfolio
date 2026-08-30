@@ -1,6 +1,9 @@
 import { render, act } from '@testing-library/react';
 import { createRef } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import StarfieldCanvas from '../StarfieldCanvas';
 import { ThemeProvider } from '../../../providers/ThemeProvider';
 import { MotionProvider } from '../../../providers/MotionProvider';
@@ -300,5 +303,69 @@ describe('StarfieldCanvas (PF-76)', () => {
     // The animated branch only draws inside frame(), and no rAF has been
     // ticked — so any increase here is a torn-down closure being invoked.
     expect(ctx.arc.mock.calls.length).toBe(callsAfterSwitch);
+  });
+
+  /**
+   * The three owner-requested tuning constants, guarded as SOURCE TEXT.
+   *
+   * Every one of them deviates from the Portfolio prototype on purpose,
+   * which makes them the exact shape a fidelity pass "corrects" back:
+   * diffing this file against the prototype shows 105 vs 150, 0.065 vs
+   * 0.14 and 0.16 vs 0.09, and all three read as transcription slips
+   * unless you already know they are not. Reverting any of them is
+   * silent — the canvas still paints, nothing errors, no other test
+   * moves — so the deviation itself is what needs pinning.
+   *
+   * Asserted against the file's text rather than by driving the canvas:
+   * the values are baked into `Math.random()`-seeded per-star fields,
+   * so recovering them from a rendered frame means stubbing randomness
+   * and inverting the seeding arithmetic — a test that would break on
+   * any refactor of how stars are built, while proving less.
+   */
+  it('pins the owner-requested tuning constants against a fidelity revert', () => {
+    // fileURLToPath + join, matching styles/__tests__/animations.test.js.
+    // Passing the URL object straight to readFileSync throws
+    // "The URL must be of scheme file" under this environment.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const src = readFileSync(join(here, '..', 'StarfieldCanvas.jsx'), 'utf8')
+      // Comments stripped first: all three values appear in the prose
+      // explaining them, so a raw search matches the comment and passes
+      // while the constant says anything at all. See CLAUDE.md on
+      // raw-text assertions matching comments.
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+
+    // ⚠️ Asserted as "not the prototype's value", NOT as an exact
+    // number. These are look-and-feel dials the owner re-tunes by eye —
+    // STAR_DRIFT went 0.09 → 0.16 → 0.35 in a single session. A test
+    // pinning the exact figure turns every one of those adjustments
+    // into a red suite, which trains people to edit the test without
+    // reading it and kills the guard's real job. What must never happen
+    // is a silent revert TO the prototype during a fidelity pass, and
+    // that is exactly what these assert.
+    const num = (name) => {
+      const m = src.match(new RegExp(`const ${name} = ([0-9.]+);`));
+      expect(m, `${name} must be declared as a numeric literal`).not.toBeNull();
+      return Number(m[1]);
+    };
+
+    // Web mesh: toned DOWN from the prototype, so smaller is the
+    // sanctioned direction.
+    expect(num('WEB_LINK_PX')).toBeLessThan(150); // prototype
+    expect(num('WEB_ALPHA')).toBeLessThan(0.14); // prototype
+
+    // Star drift: toned UP, so larger is the sanctioned direction.
+    // 0.09 is the Portfolio prototype's and 0.08 is the Blog's — either
+    // appearing here means the deviation was reverted.
+    expect(num('STAR_DRIFT')).toBeGreaterThan(0.09);
+
+    // STAR_DRIFT must actually reach both axes — a constant that is
+    // declared and then not used is the same silent revert by a
+    // different route.
+    expect(src).toMatch(/vx: \(Math\.random\(\) - 0\.5\) \* STAR_DRIFT,/);
+    expect(src).toMatch(/vy: \(Math\.random\(\) - 0\.5\) \* STAR_DRIFT,/);
+
+    // Twinkle was deliberately left at the prototype's rate.
+    expect(src).toMatch(/s\.t \+= 0\.02 \* s\.ts;/);
   });
 });
