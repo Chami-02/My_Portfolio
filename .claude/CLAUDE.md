@@ -539,6 +539,180 @@ allowlist question was **decided and shipped in PF-85** (see below).
 There is **no separate Sprint 11 retrospective document**, matching Sprint
 10's rule. That section is the record; do not link to one.
 
+### Infrastructure — databases, credentials, Cloudinary (2026-08-31)
+
+Three pieces of work with no ticket between them, done after the Sprint
+12 merge and recorded here because nothing else will lead anyone to
+them. All of it verified by document count and live API response rather
+than by name — the discipline the database entry in Silent failures has
+been insisting on since 2026-08-18.
+
+The database half closes the "QUEUED, NOT DONE" item in Outstanding
+work. The Cloudinary half found a **production defect nobody was looking
+for**, while investigating something else entirely.
+
+**The four-database convention.**
+
+| database | who reads it | set in |
+| --- | --- | --- |
+| `portfolio_prod` | the live site | Vercel's `MONGO_URI` (Production + Preview) |
+| `portfolio_dev` | local development | `backend/.env` |
+| `portfolio_test` | the Jest suite | `npm test`'s URI rewrite — **unchanged** |
+| `portfolio_e2e` | the Playwright suite | `.env.e2e` — **unchanged** |
+
+**No staging database — considered and rejected.** It would need a second
+frontend deploy, a second backend deploy, a third set of environment
+variables and a data copy kept in sync; for a solo portfolio that is
+ceremony, and the kind that drifts out of date until it is actively
+misleading.
+
+**The moves, in order — and the order is the point, because two of them
+were verified before anything downstream was touched:**
+
+1. **`portfolio_dev` created** by `mongorestore` from the 2026-08-29
+   22:48 backup (`~/mongo-backups/20260829-2248`), then counted: abouts 1 ·
+   blogs 4 · contacts 2 · projects 4 · skills 26 · users 1 ·
+   vocabularies 32 = **70**. `backend/.env` repointed `/test` →
+   `/portfolio_dev`, confirmed live: `GET /api/health` →
+   `database: "portfolio_dev"`, `GET /api/skills` → 26 with **Java last**,
+   which also proves migration 004's ordering came across with the data.
+2. **`test` renamed to `portfolio_prod`** via a **fresh** `mongodump` of
+   `test` taken 2026-08-31 15:06 — deliberately not the 08-29 backup,
+   since production may have moved since — plus `mongorestore` with
+   `--nsFrom`/`--nsTo`. Verified collection by collection across **both**
+   databases **before Vercel was touched**: abouts 1=1 · blogs 4=4 ·
+   contacts 3=3 · projects 4=4 · skills 26=26 · users 1=1 ·
+   vocabularies 32=32 = **71**.
+3. **Vercel's `MONGO_URI` updated** (`my-portfolio_backend`, Production
+   and Preview scope) `/test` → `/portfolio_prod`, redeployed with the
+   build cache cleared. ⚠️ **Verified against the DEPLOYED backend, not
+   localhost** — `GET /api/health` → `database: "portfolio_prod"`,
+   `GET /api/skills` → 26, Java last. A localhost check proves nothing
+   here: it reads `backend/.env`, which step 1 had already repointed, so
+   it would have come back green with Vercel untouched.
+4. **`test` LEFT IN PLACE**, untouched, as a two-week rollback. Nothing
+   reads it as of the rename. **Drop after ~2026-09-14** — dated reminder
+   in Outstanding work.
+5. **`portfolio`, `portfolio_scratch` and `sample_mflix` DROPPED**
+   through the Atlas UI's type-to-confirm. Confirmed gone with
+   `db.adminCommand("listDatabases")`: exactly **seven** remain — `admin`,
+   `local`, `portfolio_dev`, `portfolio_e2e`, `portfolio_prod`,
+   `portfolio_test`, `test`.
+
+⚠️ **`contacts` went 2 → 3 between the 08-29 backup and the 08-31 dump,
+and the new row is a GENUINE VISITOR SUBMISSION.** That retires this
+file's own "there is no genuine visitor mail in production" note — true
+when written on 08-29/30, false now. `portfolio_dev` therefore carries
+70 documents against production's 71, and **that difference is real data,
+not drift to be reconciled**: dev is a snapshot, and re-syncing it should
+never run in the other direction.
+
+`backend/.env.example`'s comment block was rewritten in the same session.
+The old one named `test` as production and warned against repointing to
+`portfolio` — which no longer exists to repoint to, so the warning had
+become a pointer at nothing.
+
+**Credential rotation.**
+
+The `portfolio_admin` Atlas user's password was **rotated 2026-08-31**,
+because the connection string — password included — was pasted into a
+chat session during this work. **Third incident of this shape**; it is
+also the reason the Working agreement now carries a written rule about
+it, which it did not before.
+
+Rotated through Atlas Database Access, then propagated to all three
+consumers and **re-verified with a live health check after each one**
+rather than assumed from the edit: `backend/.env` (`portfolio_dev`),
+`backend/.env.e2e` (`portfolio_e2e`), and Vercel's `MONGO_URI`
+(`portfolio_prod`).
+
+**⚠️ CLOUDINARY WAS NEVER CONFIGURED IN PRODUCTION.**
+
+~~The deployed backend carries **zero** `CLOUDINARY_*` environment
+variables, so every upload path is non-functional in production.~~ —
+**FIXED 2026-08-31.** The diagnosis is kept in full rather than trimmed
+to the verdict, because **how** it was found is the transferable part:
+nobody reported it, no test could fail on it, and it was found while
+looking for something else.
+
+**It surfaced sideways.** The question being asked was the orphan one
+below — whether replacing a project or blog image leaves stale files in
+Cloudinary, given that the résumé subsystem already handles its own
+replacement correctly. That question turned out to have a much larger
+one sitting in front of it: **there was nothing in the bucket to
+orphan.**
+
+`my-portfolio_backend` on Vercel carried four environment variables —
+`MONGO_URI`, `JWT_SECRET`, `NODE_ENV`, `JWT_EXPIRES_IN` — and **no
+`CLOUDINARY_*` row of any kind.** Not the cloud name, not the key, not
+the secret, not the folder.
+
+**⚠️ THE CAUSE IS A PLATFORM MIGRATION, NOT A MISTAKE IN ANY TICKET.**
+The PF-63 ticket doc (`E5_PF63_Upload_Cloudinary.md`, in the owner's
+external ticket folder — **not in this repo**; per-ticket guides are
+pasted into chat, per the Working agreement) carries a step titled **"Add the Cloudinary
+Vars to Railway."** This backend ran on Railway before it moved to
+Vercel, and that one platform-specific step was never redone after the
+move.
+
+Every other PF-63 step is repo work and survived intact —
+`config/cloudinary.js`, `services/storage.js`, the routes, the tests,
+all present and all passing. **Only the step whose target was a hosting
+dashboard was lost, and a hosting dashboard is the one place no test,
+no lint and no build can look.** Same class as `.env.production`'s
+trailing period in PF-92: a wrong value outside the repo cannot fail
+anything the gate runs.
+
+**Four independent lines of evidence, which is what made it safe to
+call rather than merely suspect:**
+
+| probe | reading |
+| --- | --- |
+| Vercel's env var list | `MONGO_URI`, `JWT_SECRET`, `NODE_ENV`, `JWT_EXPIRES_IN` — **no `CLOUDINARY_*`** |
+| Cloudinary Admin API, `GET /resources/image` and `/resources/raw`, `prefix=portfolio` | **0 assets**, of any type, ever |
+| `portfolio_prod`'s own data | `avatarUrl` empty · `resume.url` and `resume.publicId` both empty · every post's `coverImage` null |
+| `config/cloudinary.js` | `cloudinary.config()` reads exactly those vars; `isConfigured()` is false without them |
+
+⚠️ **Any one alone is explainable** — an empty bucket only means nobody
+uploaded, and empty fields only mean nobody filled them. The four
+together fit one story and no other, which is the whole reason to
+collect four.
+
+**⚠️ THE TWO UPLOAD PATHS FAIL DIFFERENTLY, AND NEITHER FAILURE WAS
+VISIBLE FROM OUTSIDE.** Worth knowing before anyone tests the repair:
+
+| route | guard | what a visitor to the admin panel would have seen |
+| --- | --- | --- |
+| résumé (`aboutController.js:133`) | `isConfigured()` | a clean **503 "File storage is not configured on this server"** |
+| **`POST /api/upload`** (`uploadController.js`) | **none** | whatever the SDK throws — no `isConfigured()` check anywhere in that path |
+
+So "silently non-functional" is right about the outcome and wrong about
+the mechanism. The résumé path was **designed to fail loudly** and would
+have, into an admin panel nobody had used; the generic path — the one
+project images go through — has no such guard and would have produced
+an opaque error. Grepped: `isConfigured` has exactly two non-test
+consumers, `storage.js`'s re-export and that one `aboutController` line.
+
+⚠️ **`CLOUDINARY_FOLDER` is OPTIONAL, despite reading like a fourth
+requirement.** `isConfigured()` checks only cloud name, key and secret;
+`storage.js:14`'s `defaultFolder()` falls back to `'portfolio'`. It was
+set anyway, to match `.env.example` and keep the deployed folder
+explicit rather than implicit — but a future audit should not treat its
+absence as a fault.
+
+**FIXED 2026-08-31.** All four vars added to Vercel at **Production and
+Preview** scope, matching `MONGO_URI`, and redeployed. **Verified with a
+real end-to-end upload against the deployed backend, not a dry run:**
+`POST /api/upload` with a valid admin JWT and a real PNG returned
+**201** with a genuine `https://res.cloudinary.com/<cloud-name>/…` URL,
+`publicId` `portfolio/projects/…`, and matching dimensions. On this
+session's evidence that is **the first confirmed-working upload through
+the deployed backend in this project's history.**
+
+⚠️ **This does NOT close the orphan question that started it** — see the
+`publicId` item in Outstanding work. Cloudinary working is what makes
+that gap start mattering.
+
 ### Outstanding work — deferred deliberately, not lost
 
 - ~~**⚠️ `ScrollToTop` covers the end of the copyright at ≤600px**~~ —
@@ -1017,7 +1191,17 @@ than copied forward:
   Contact's becomes a real download and the hero's stays a dead anchor
   pointing at the section below it. Goes with Sprint 14's admin upload UI.
 
-- **⚠️ THE DATABASE RESTRUCTURE IS QUEUED, NOT DONE**, and it was
+- ~~**⚠️ THE DATABASE RESTRUCTURE IS QUEUED, NOT DONE**~~ — **DONE
+  2026-08-31.** All four moves executed and verified by document count
+  and live API response; full account in Infrastructure above. Local
+  development no longer touches production, which was the urgent half.
+  Original account below.
+
+  **⚠️ ONE MOVE IS DELIBERATELY INCOMPLETE: `test` still exists.** It is
+  the frozen pre-rename production database, kept as a rollback. See the
+  dated reminder below.
+
+- **⚠️ THE DATABASE RESTRUCTURE WAS QUEUED, NOT DONE**, and it was
   deliberately deferred until after the Sprint 12 merge. Four moves:
 
   1. **create `portfolio_dev`** and point local development at it
@@ -1029,18 +1213,74 @@ than copied forward:
   **A full `mongodump` of every database was taken 2026-08-29** before any
   of this.
 
-  **⚠️ THE REASON IT IS URGENT: LOCAL DEVELOPMENT STILL CONNECTS TO
-  PRODUCTION.** `backend/.env`'s `MONGO_URI` ends in `/test`, which the
-  inventory above confirms is the live database. Every `npm run dev`, every
-  admin-panel click, and every manual API call in development writes to the
+  **⚠️ THE REASON IT WAS URGENT: LOCAL DEVELOPMENT STILL CONNECTED TO
+  PRODUCTION.** `backend/.env`'s `MONGO_URI` ended in `/test`, which the
+  inventory above confirms was the live database. Every `npm run dev`, every
+  admin-panel click, and every manual API call in development wrote to the
   same data the deployed site serves. **Sprint 13 hammers the admin panel**
   — create, edit and delete across six panels — which is exactly the
   workload that makes this dangerous.
 
-  ⚠️ Note `npm test` is already safe (its wrapper rewrites the URI to
-  `/portfolio_test`) and the E2E suite is already safe (`.env.e2e` names
-  `portfolio_e2e`). **It is the dev server, and only the dev server, that
-  has no isolation** — which is why this never showed up as a test problem.
+  ⚠️ Note `npm test` was already safe (its wrapper rewrites the URI to
+  `/portfolio_test`) and the E2E suite was already safe (`.env.e2e` names
+  `portfolio_e2e`). **It was the dev server, and only the dev server, that
+  had no isolation** — which is why this never showed up as a test problem.
+
+- **⚠️ DROP THE `test` DATABASE AFTER ~2026-09-14.** It is the frozen
+  pre-rename production data, kept for two weeks as a rollback after the
+  2026-08-31 restructure. **Nothing reads it** — `backend/.env` names
+  `portfolio_dev`, Vercel names `portfolio_prod`, `.env.e2e` names
+  `portfolio_e2e`, and `npm test` rewrites to `portfolio_test`. Drop it
+  through the Atlas UI once the two weeks pass with nothing surfaced;
+  until then, leaving it costs nothing but a confusing seventh row in
+  `listDatabases`.
+
+  ⚠️ It is also the last database on this cluster whose name matches
+  `global-setup.js`'s `/e2e|test/i` guard without being a test database.
+  Dropping it removes the one remaining way an E2E run could be pointed
+  at real data.
+
+- **⚠️ IMAGE UPLOADS LEAK ORPHANS IN CLOUDINARY — THREE FIELDS STORE A
+  URL WITH NO `publicId`.** Found 2026-08-31 while auditing the same
+  subsystem that turned up the missing production config above.
+  **Reported, not fixed — this is a schema change and wants its own
+  ticket.**
+
+  | model | field | stores |
+  | --- | --- | --- |
+  | `Project.js:35` | `imageUrl` | bare `String` |
+  | `Project.js:52` | `backgroundImage.src` | bare `String` |
+  | `Blog.js:107` | `coverImage` | bare `String` |
+  | `About.js:69` | `avatarUrl` | bare `String` |
+  | `About.js:94` | **`resume`** | `{ url, publicId, … }` — **the correct pattern** |
+
+  Cloudinary can only delete by `public_id`. None of the first four
+  records one, so replacing a project image, a blog cover or the avatar
+  through the admin panel leaves the old file in the bucket **forever**,
+  with nothing anywhere that could later identify it. `About.resume` is
+  the same problem already solved correctly — `aboutController.js`
+  uploads the new file first, deletes the old `publicId` only after that
+  lands, and logs a warning rather than failing if the delete does
+  (Locked decisions: *"a new upload hard-deletes the old"*).
+
+  **⚠️ Zero accumulated risk TODAY, and that is a timing accident rather
+  than a design.** All four fields are empty or null in `portfolio_prod`,
+  and the bucket holds **0 assets** — because Cloudinary was never
+  configured in production until 2026-08-31. The gap starts accruing the
+  first time anyone uses the feature that was just repaired.
+
+  **The fix is to follow `resume{}` exactly** on all four — a
+  `publicId` beside each URL, plus the upload-then-delete ordering in
+  whichever controller writes it. Do NOT fold it into an unrelated pass;
+  it touches three schemas, their controllers, the admin panels that
+  write them, and needs a decision about existing documents (there are
+  none today, which makes now the cheapest possible moment).
+
+  ⚠️ `Blog.coverImage` is worth a separate line: it is **leftover from an
+  abandoned feature attempt** — added, then not pursued. Every live post
+  has it `null` and `deletePost` never touches Cloudinary either way. If
+  the ticket concludes it should be deleted rather than given a
+  `publicId`, that is a legitimate outcome; it is not load-bearing.
 
 - **⚠️ ONE PRODUCTION CONTACT RECORD FROM THE PF-92 GATE**, marked
   `PF-92 GATE TEST (safe to delete)`, `2026-08-29T17:49:25Z`. Delete it
@@ -5008,51 +5248,88 @@ error message:
 - **Redefined `@keyframes` of the same name** → later definition wins by
   document order
 - **Connection string with no database path** → driver silently defaults to a
-  database named `test`. **This already happened here, and the resolution is
-  counter-intuitive — read before "fixing" it.** `backend/.env`'s `MONGO_URI`
-  ends in `/test`, and that database is the **live, correct one**: 7
-  collections, newest docs 2026-08-09. A `portfolio` database also sits on the
-  same cluster and is an abandoned copy from 2026-07-18 with only 5
-  collections — no `vocabularies` (32 docs), no `contacts`. Repointing the URI
-  at `/portfolio` to make the name look right therefore rolls the site back
-  three weeks and drops two collections, and the app reports nothing either
-  way. The owner decided on 2026-08-18 to leave the name alone rather than
-  migrate a live cluster. Verified by document count, not by name;
-  `backend/.env.example` carries the same warning.
+  database named `test`. **This already happened here**, and it is the
+  reason this project's live database was called `test` for six weeks.
+  The mechanism is unchanged, and is still why `assertExplicitDatabase`
+  exists (PF-66) — but **this project's inventory has moved, and every
+  name below the mechanism changed on 2026-08-31.**
 
-  **⚠️ RE-CONFIRMED 2026-08-29/30, AND THIS SHOULD NEED NO FOURTH CHECK.**
-  The question "which database is production?" has now been asked and
-  answered three separate times, so the evidence is written down rather
-  than re-derived. Full inventory of the cluster, non-system databases,
-  read live:
+  **⚠️ CORRECTED 2026-08-31 — PRODUCTION IS `portfolio_prod`, LOCAL
+  DEVELOPMENT IS `portfolio_dev`, AND `portfolio` NO LONGER EXISTS.**
+  Full account in Infrastructure above. The current inventory, read live
+  with `db.adminCommand("listDatabases")` after the drops:
 
-  | database | collections | contacts | what it is |
-  | --- | --- | --- | --- |
-  | **`test`** | 7 | **3** | **PRODUCTION** — what the deployed API serves |
-  | `portfolio_e2e` | 7 | 52 | Playwright fixtures only |
-  | `portfolio_test` | 4 | 0 | the backend Jest suite's wipe target |
-  | `portfolio` | 5 | — | abandoned 2026-07-18 copy |
-  | `portfolio_scratch` | 6 | — | dead |
-  | `sample_mflix` | 6 | — | Atlas sample data, dead |
+  | database | what it is |
+  | --- | --- |
+  | **`portfolio_prod`** | **PRODUCTION** — what the deployed API serves |
+  | `portfolio_dev` | local development (`backend/.env`) |
+  | `portfolio_test` | the backend Jest suite's wipe target |
+  | `portfolio_e2e` | Playwright fixtures only |
+  | `test` | **the pre-rename production database**, frozen, kept as a rollback until ~2026-09-14 |
+  | `admin` · `local` | Atlas system databases |
 
-  ⚠️ **Six databases, not five.** `portfolio_test` is easy to miss when
-  listing "the ones to deal with" because nothing but `npm test`'s URI
-  rewrite ever names it.
+  **Seven, not six.** `portfolio`, `portfolio_scratch` and `sample_mflix`
+  were dropped on 2026-08-31 and are gone.
 
-  ⚠️ **`test`'s three contacts are all test submissions, and one is
-  MINE**: "Test person 1", "Test Recruiter", and
-  "PF-92 GATE TEST (safe to delete)" — the last written by PF-92's Step 4,
-  which instructs a real form submission against the deployed backend.
-  **There is no genuine visitor mail in production**, which is worth
-  knowing before anyone treats the collection as precious.
+  ⚠️ **`test` still exists and is no longer production.** Anything
+  pointed at it reads a frozen 2026-08-31 snapshot that silently stops
+  matching the live site the moment anyone edits anything. That is the
+  exact inverse of what the original entry warned about, so the warning
+  has to be **re-read rather than remembered** — a session recalling
+  "`/test` is the correct one" from this file is recalling something that
+  was true and is now the bug.
 
-  ⚠️ **"Test Recruiter" is the E2E fixture's name, and it is sitting in
-  PRODUCTION.** Reported rather than explained: it means that at some
-  point either the E2E suite or that fixture reached the live database.
-  Nothing in the current configuration can do that — `global-setup.js`
-  refuses any database whose name lacks `e2e`/`test`, and `test` matches
-  that pattern, which is itself worth noticing. **The guard would not stop
-  an E2E run pointed at `test`.**
+  ~~**⚠️ RE-CONFIRMED 2026-08-29/30, AND THIS SHOULD NEED NO FOURTH
+  CHECK.**~~ — **superseded 2026-08-31, one day later.** Kept visible
+  rather than deleted, because the framing is the instructive part: it
+  declared a question permanently closed on the strength of having
+  answered it three times, and what actually closed it was **changing the
+  answer**. "Asked and answered repeatedly" is evidence about how
+  confusing a question is, never about how settled it is. The original
+  account, accurate as of 08-29/30:
+
+  > `backend/.env`'s `MONGO_URI` ends in `/test`, and that database is the
+  > **live, correct one**: 7 collections, newest docs 2026-08-09. A
+  > `portfolio` database also sits on the same cluster and is an abandoned
+  > copy from 2026-07-18 with only 5 collections — no `vocabularies` (32
+  > docs), no `contacts`. Repointing the URI at `/portfolio` to make the
+  > name look right therefore rolls the site back three weeks and drops
+  > two collections, and the app reports nothing either way. The owner
+  > decided on 2026-08-18 to leave the name alone rather than migrate a
+  > live cluster.
+  >
+  > | database | collections | contacts | what it is |
+  > | --- | --- | --- | --- |
+  > | **`test`** | 7 | **3** | **PRODUCTION** — what the deployed API serves |
+  > | `portfolio_e2e` | 7 | 52 | Playwright fixtures only |
+  > | `portfolio_test` | 4 | 0 | the backend Jest suite's wipe target |
+  > | `portfolio` | 5 | — | abandoned 2026-07-18 copy |
+  > | `portfolio_scratch` | 6 | — | dead |
+  > | `sample_mflix` | 6 | — | Atlas sample data, dead |
+
+  **Two things from that account SURVIVE the restructure**, so do not
+  discard them with the rest:
+
+  - ⚠️ **`portfolio_test` is still the easy one to miss** when listing
+    "the databases to deal with", because nothing but `npm test`'s URI
+    rewrite ever names it.
+  - ⚠️ **"Test Recruiter" — the E2E fixture's name — reached the
+    production data at some point**, and that row is now in
+    `portfolio_prod`. The old entry noted the guard could not have
+    prevented it: `global-setup.js:16` tests
+    `/e2e|test/i.test(database)`, and **`test` matched that pattern.**
+    ⚠️ **The rename incidentally closed the hole** — `portfolio_prod`
+    does **not** match, so the guard that would have waved an E2E run
+    through against `test` now refuses one against `portfolio_prod`.
+    Verified by reading the regex, not inferred from the name.
+
+  ⚠️ **And one claim from it is now FALSE: "there is no genuine visitor
+  mail in production."** `contacts` went **2 → 3** between the 2026-08-29
+  backup and the 2026-08-31 dump, and the new row is a real submission.
+  **Production mail is no longer disposable**, and anything written on
+  the old assumption — including "delete the PF-92 gate row through the
+  admin panel" — now needs to distinguish the rows rather than clear the
+  collection.
 - **Inline custom property on `<html>`** → beats the `html[data-theme]` block in
   the cascade, so every subsequent edit to `tokens.css` becomes dead code. The
   page renders a stale value and nothing you change has any effect. Never write
@@ -8009,6 +8286,35 @@ The mechanism differs from the first two: staging *drift* on an already-tracked
 file, not new files appearing. `git status --short` catches both, but only as
 the last thing run before handing off. Check content as well as the file list —
 confirm the staged diffstat still matches what was actually reviewed.
+
+**Never paste a credential into chat — not a connection string, not a
+`.env` line, not a token.** Read the value's *shape* if you must
+(`does MONGO_URI end in a database path?`), or have the tool print only
+what is being asked about; never the whole line. A conversation is not a
+secure channel, and the only remedy afterwards is rotation.
+
+Written down on **2026-08-31**, after the third incident, because it had
+been a habit rather than a rule and habits do not survive a session that
+is busy with something else:
+
+- **PF-49 (2026-07-19)**, found 2026-08-07 — real Atlas password and JWT
+  secret committed to `backend/.env.example` in a **public** repo. Both
+  rotated, the file restored to placeholders, `.env` added to
+  `.gitignore`, GitHub's secret-scanning alert closed as *Revoked*.
+  History was never rewritten; the dead credential is still visible in
+  `88c9e2c` and is inert.
+- A second occurrence, remediated the same way.
+- **2026-08-31**, during the database restructure — the full
+  `mongodb+srv://` string, password included, pasted while working out
+  which database was production. `portfolio_admin`'s password rotated in
+  Atlas and propagated to `backend/.env`, `backend/.env.e2e` and
+  Vercel's `MONGO_URI`, each **re-verified live** rather than assumed
+  from the edit.
+
+⚠️ The rotation is the cheap part. What makes this worth a standing rule
+is that the *third* one happened while doing careful, well-verified work
+— the leak was incidental to a task that was otherwise going well, which
+is exactly when nobody is watching for it.
 
 **Never document something as existing until it does.** This file is read as
 fact by every session. A pointer to a file that was never written, or a hook
