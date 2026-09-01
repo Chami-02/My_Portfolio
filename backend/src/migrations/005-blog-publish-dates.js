@@ -34,21 +34,17 @@
 // validators over fields it has no opinion about. That reasoning is sound
 // and this file departs from it on purpose, for a reason 004 did not have:
 //
-// `save()` routes through Blog.js's `pre('validate')` hook — the very hook
-// PF-95 changed. Because this script touches neither `content` nor
-// `sections`, `contentChanged` is false, so the hook must leave the
-// explicit `readingTimeMinutes` alone. If the PF-95 fix were wrong, save()
-// would rewrite it back to a computed value and this migration would
-// report `Updated: 4` on every re-run instead of settling to
-// `Already correct: 4` — a loud, detectable symptom. `updateOne` runs no
-// document middleware at all, so it would mask a broken fix rather than
-// expose one.
-//
-// ⚠️ Note this is NOT the reason the PF-95 ticket gives ("pre('validate')
-// needs to see readingTimeMinutes as modified so it does NOT recompute").
-// That is inverted: `updateOne` would not recompute either, because it
-// runs no middleware whatsoever. The recompute is gated on `contentChanged`,
-// which is false on this path regardless of which write method is used.
+// `save()` gives full-document validation instead of only the touched
+// paths, and keeps this migration consistent with how the rest of the app
+// writes to this model. It does NOT double as a regression check for the
+// PF-95 hook fix, and an earlier version of this comment claimed it did —
+// wrong, corrected here. This migration only ever touches `publishedAt`
+// and `readingTimeMinutes`, never `content` or `sections`, so
+// `contentChanged` is false on this path under either version of the
+// hook. Confirmed: the same edit against the pre-PF-95 hook also
+// preserves the explicit value and would settle to `Already correct: 4`
+// exactly the same, silently. blogReadingTime.test.js's hook tests are
+// the actual guard against a reverted fix — not this migration.
 //
 // The accepted cost is 004's stated one: a live post that is invalid for
 // some unrelated reason will fail this migration loudly rather than being

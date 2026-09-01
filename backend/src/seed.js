@@ -119,8 +119,10 @@ const SKILLS = [
 // `publishedAt` and `readingTimeMinutes` ARE set explicitly below, per post.
 // They used to fall through entirely to the auto-compute path, which is why
 // every post read `AUG 2026 · 1 MIN READ` in production before this ticket:
-// one `insertMany` stamps an identical `createdAt` on all four, and all four
-// are short enough to round to 1 minute. Values match
+// production's one `insertMany` happened to stamp all four identically —
+// that is NOT a guaranteed property of `insertMany` itself, see CLAUDE.md's
+// `insertMany`/`createdAt` entry — and all four are short enough to round to
+// 1 minute regardless. Values match
 // docs/design/Blog.dc.html's own POSTS array exactly (grepped, not eyeballed).
 //
 // ⚠️ `slug` and `readingTimeMinutes` are derived by TWO hooks working
