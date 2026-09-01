@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Portfolio Revolution — Phase 2
 
 ## The design is the authority
@@ -5176,6 +5180,166 @@ documented trap, triggered by the suite's own repeated page loads. All 37
 passed regardless; no spec depends on that data.
 
 **PF-90 created no orphans and removed none.**
+
+## Commands
+
+Everything runs from `frontend/` or `backend/` — there is **no root
+package.json**.
+
+### Frontend (`frontend/`)
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Vite dev server on :5173; proxies `/api` + `/uploads` → `backend:5000` |
+| `npm run build` | Production build → `dist/` |
+| `npm run lint` | ESLint over the whole package (flat config, `eslint.config.js`) |
+| `npm run test` | Vitest **watch** |
+| `npm run test:run` | Vitest once — this is what the gate and CI run |
+| `npm run test:coverage` | Vitest once + v8 coverage (thresholds enforced in `vite.config.js`) |
+| `npm run test:e2e` | Playwright; `e2e/global-setup.js` refuses to run unless the backend's DB name matches `/e2e\|test/i` |
+| `npm run preview` | Serve `dist/` on :4173 — the production backend blocks this origin (CORS is exact-match); use `-- --port 5173` to verify against it |
+
+Single test: `npx vitest run src/components/sections/__tests__/HeroSection.test.jsx`
+or `npx vitest run -t "renders the marquee"`.
+
+### Backend (`backend/`)
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | nodemon `src/server.js` on :5050 (macOS AirPlay owns 5000) |
+| `npm run dev:e2e` | same, env from `.env.e2e` — port 5055, `portfolio_e2e` |
+| `npm start` | `node src/server.js` |
+| `npm run seed` | **wipes** Project/Skill/Blog/About/**User** then reseeds from `src/seed.js` |
+| `npm test` | Jest via `scripts/run-jest.js` — **never `npx jest`** |
+| `npm run test:coverage` | Jest + coverage (thresholds in `package.json`) |
+
+`scripts/run-jest.js` forces `NODE_ENV=test` and rewrites `MONGO_URI`'s
+database name to `portfolio_test` (or `TEST_MONGO_URI`). That rewrite is the
+only thing making `clearDB`'s wipe safe — bypassing the wrapper points the
+suite at whatever `backend/.env` names.
+
+Single test: `npm test -- src/__tests__/blog.test.js` or
+`npm test -- -t "increments views by one"`.
+
+### Migrations (`backend/src/migrations/`)
+
+Numbered, idempotent, run in order, read `MONGO_URI` **directly** — point it
+at the target database deliberately. `--dry-run` first (reports, writes
+nothing), then a real run. Never edit one that has run in production; write
+the next number.
+
+```bash
+node src/migrations/005-blog-publish-dates.js --dry-run
+```
+
+### The gate — run all five, in this order
+
+`npm test` does **not** chain to E2E and CI runs it, so a green
+four-command gate can still land a red CI. Frontend and backend suites are
+separate.
+
+```bash
+cd frontend && npm run test:run
+cd frontend && npm run lint -- --max-warnings=0     # CI's exact invocation
+cd frontend && npm run build
+cd backend  && npm test
+cd frontend && npm run test:e2e
+```
+
+### Docker & CI
+
+`docker compose up` — frontend :5173, backend :5050→:5000, mongo :27017,
+mongo-express :8081. Dev convenience only; production is Vercel + MongoDB
+Atlas + Cloudinary.
+
+CI (`.github/workflows/ci.yml`, Node 20): `credential-scan` (greps
+`Admin@1234!` outside `seed.js` / `e2e/admin.spec.js` / `postman/`),
+`frontend` (lint → test:run → coverage → build), `backend` (Mongo 7
+service, `test:coverage`), `e2e` (needs both; seeds `portfolio_e2e`, starts
+both servers, runs Playwright).
+
+## Architecture
+
+Two independent packages. The frontend reaches the backend only over
+`/api/*` — dev via the Vite proxy, prod via `VITE_API_URL` on a **different
+origin**.
+
+### Backend — Express 5 + Mongoose, serverless-shaped
+
+`src/server.js` (local `listen`) and Vercel both import `src/app.js`.
+Middleware order in `app.js` is load-bearing:
+
+`helmet` → `cors(corsOptions)` → `globalLimiter` (100 req / 15 min / IP) →
+`morgan` → JSON/urlencoded parsers (10 kb cap) → `/uploads` static →
+`GET /api/health` → **`connectDB()` middleware** → routes → `notFound` →
+multer-error translation → `errorHandler`.
+
+- **`connectDB()` runs on every request**, ahead of all routes, caching the
+  connection on `global` across warm invocations. `config/db.js`'s
+  `assertExplicitDatabase()` throws if `MONGO_URI` has no database path —
+  the driver would otherwise silently use a DB literally named `test`
+  (PF-66). It never calls `process.exit`; a failed connect throws and the
+  middleware turns it into a 500.
+- **`/api/health` sits IN FRONT of that middleware** and swallows connect
+  errors, returning 200 with `database: null`. A status-code monitor reads
+  green during a DB outage — assert the `database` field instead.
+- **Route → controller → model.** `routes/*Routes.js` wire
+  `router.<verb>(path, [rules, validate], [protect], handler)`; controller
+  functions and their express-validator rule arrays (e.g. `blogRules`) live
+  together in `controllers/*Controller.js`.
+- **`middleware/auth.js` `protect`** verifies the `Bearer` JWT and sets
+  `req.user`. Public GETs are open; writes need `protect`. Admin list
+  endpoints are `GET /<resource>/admin/all`.
+- **`middleware/validate.js`** runs the rule array and 400s on failure.
+- **`errorHandler` + `utils/AppError.js`** are the one funnel — throw
+  `new AppError(msg, status)` or `next(err)`; never respond from a catch.
+  Per-route rate limiters layer on top (blog view counter is 30/min).
+- **Models** (`models/*.js`): User (bcrypt), Project, Skill (`order`), Blog
+  (`sections[]`; `slug`, `readingTimeMinutes`, `publishedAt` derived in
+  **two** hooks — `pre('insertMany')` on raw POJOs, then `pre('validate')`;
+  read the PF-95 / PF-86 entries before touching them), About (a **single**
+  document — bio, stats, `resume{url,publicId}`), Contact, Vocabulary.
+- **Uploads**: `middleware/upload.js` (multer, 5 MB, memory) →
+  `services/storage.js` → `config/cloudinary.js`. `isConfigured()` gates
+  the résumé route with a clean 503; `POST /api/upload` has no such guard.
+- **Four databases by convention** (see `.env.example`): `portfolio_prod`
+  (Vercel), `portfolio_dev` (`backend/.env`), `portfolio_test` (`npm test`
+  rewrite), `portfolio_e2e` (`.env.e2e`).
+
+### Frontend — React 19 + Vite SPA
+
+Provider nest in `main.jsx`: `QueryClientProvider` (staleTime 5 min, retry
+1, no refetch-on-focus) → `ThemeProvider` → `MotionProvider` → `App`.
+`SplashProvider` is mounted lower, inside `HomePage`, so `/admin` and future
+Blog routes never carry it.
+
+Stylesheet import order in `main.jsx` is locked and breaks **silently** if
+disturbed: `global.css` → `tokens.css` → `keyframes/index.css` →
+`animations.css` → `motion.css` (last).
+
+`App.jsx` — `BrowserRouter` with **three separate `<Routes>` blocks** so
+chrome can be excluded per route: navbar (all routes except `/admin/*`),
+`<main id="main-content">` (`/`, `/admin/login`, `/admin` + `/admin/*`
+behind `ProtectedRoute`, `*` → `NotFoundPage`), footer (same exclusion).
+`SkipLink` is the first child; `ScrollToTop` is last.
+
+Data flow: component → `hooks/use*.js` (TanStack Query) →
+`services/*Service.js` → `services/api.js` (one axios instance). The request
+interceptor attaches `localStorage.portfolio_token`; the response
+interceptor clears it and redirects to `/admin/login` on a 401 for admin
+paths. `apiUrl()` is for URLs the browser fetches itself (anchor hrefs,
+`<img src>`), which must be absolute in prod.
+
+`HomePage` is the Phase 2 rebuild: ambient layer (`StarfieldCanvas`,
+`CursorGlow`, `GrainOverlay`) + `Splash` gate + sections Hero → About →
+Skills → Projects → Blog teaser → Contact, each wrapped in
+`<ErrorBoundary>`. API-wired sections: Skills, Projects, Blog, Contact.
+About and Hero are transcribed static (PF-81). `/admin/*` is still the
+Phase 1 UI.
+
+Everything below is the authority on visual work, the design prototype, and
+the accumulated silent-failure / locked-decision record — read the relevant
+entry before changing anything it covers.
 
 ## Stack
 
