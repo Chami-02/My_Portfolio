@@ -111,9 +111,30 @@ const SKILLS = [
 // Blog.dc.html renders. Copy is taken verbatim from that design file.
 //
 // Fields deliberately NOT set here:
-//   slug               — generated from `title` by the pre-insertMany hook
-//   readingTimeMinutes — calculated from `sections` by the same hook
-//   views              — schema default of 0
+//   slug   — generated from `title` by the hooks below
+//   views  — schema default of 0
+// ───────────────────────────────────────────────────────────────────────────
+//
+// ── CHANGED IN PF-95 ───────────────────────────────────────────────────────
+// `publishedAt` and `readingTimeMinutes` ARE set explicitly below, per post.
+// They used to fall through entirely to the auto-compute path, which is why
+// every post read `AUG 2026 · 1 MIN READ` in production before this ticket:
+// one `insertMany` stamps an identical `createdAt` on all four, and all four
+// are short enough to round to 1 minute. Values match
+// docs/design/Blog.dc.html's own POSTS array exactly (grepped, not eyeballed).
+//
+// ⚠️ `slug` and `readingTimeMinutes` are derived by TWO hooks working
+// together, not one — the old comment above said "the pre-insertMany hook"
+// and that is why this bug survived. `pre('insertMany')` runs first on these
+// raw objects, then Mongoose constructs each into a Document and runs
+// `pre('validate')` on it. Blog.js's `pre('validate')` now respects an
+// explicit `readingTimeMinutes` supplied in the same operation instead of
+// always recomputing over it — see the matching comment there.
+//
+// Day-of-month and time-of-day are arbitrary; only month and year are
+// asserted anywhere. `createdAt` is untouched — still Mongoose's own
+// record-creation timestamp, still identical across all four, and nothing
+// reads it for display once `publishedAt` exists.
 // ───────────────────────────────────────────────────────────────────────────
 
 const BLOG_POSTS = [
@@ -123,6 +144,8 @@ const BLOG_POSTS = [
       'How I designed and developed my portfolio using professional software engineering practices including Jira, Docker, GitHub Actions, and CI/CD.',
     tags: ['React', 'MERN', 'Docker', 'GitHub Actions'],
     published: true,
+    publishedAt: new Date('2026-07-14T09:00:00.000Z'),
+    readingTimeMinutes: 6,
     sections: [
       {
         heading: 'Introduction',
@@ -171,6 +194,8 @@ const BLOG_POSTS = [
       'A look into building a scalable vehicle import platform using FastAPI, PostgreSQL, Docker, Redis, and Agile development practices.',
     tags: ['FastAPI', 'Python', 'Docker', 'PostgreSQL', 'Agile'],
     published: true,
+    publishedAt: new Date('2026-06-09T09:00:00.000Z'),
+    readingTimeMinutes: 7,
     sections: [
       {
         heading: 'Project Overview',
@@ -220,6 +245,8 @@ const BLOG_POSTS = [
       'Everything I learned while using Docker Compose to manage multi-container applications for my projects.',
     tags: ['Docker', 'DevOps'],
     published: true,
+    publishedAt: new Date('2026-05-04T09:00:00.000Z'),
+    readingTimeMinutes: 4,
     sections: [
       {
         heading: 'Why Docker?',
@@ -260,6 +287,8 @@ const BLOG_POSTS = [
       'Key concepts I learned while developing my Smart Campus REST API using Java and JAX-RS.',
     tags: ['Java', 'REST API', 'JAX-RS'],
     published: true,
+    publishedAt: new Date('2026-04-02T09:00:00.000Z'),
+    readingTimeMinutes: 5,
     sections: [
       {
         heading: 'Overview',

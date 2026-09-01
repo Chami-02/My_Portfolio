@@ -63,6 +63,16 @@ function byRecency(a, b) {
 /**
  * `JUL 2026` — the prototype's meta format.
  *
+ * ── CHANGED IN PF-95 ──────────────────────────────────────────────
+ * Callers now pass `publishedAt || createdAt`, not `createdAt`.
+ * `publishedAt` is the post's own publish date; `createdAt` is
+ * Mongoose's record-creation stamp, which `insertMany` writes
+ * identically across a whole batch — so before PF-95 all four seeded
+ * posts rendered the same month. The fallback covers a post written
+ * before the field existed, and the `NaN` guard below already covers
+ * neither being present, returning `''` rather than `INVALID DATE`.
+ * ──────────────────────────────────────────────────────────────────
+ *
  * The locale is pinned to `en-GB` rather than the visitor's. A Sinhala
  * or Japanese locale renders a month name the design has no styling
  * for, and this label is uppercase mono at .12em tracking, which only
@@ -78,8 +88,15 @@ function formatMonth(iso) {
 
 /**
  * `6 MIN READ` — `readingTimeMinutes` is a real schema field
- * (models/Blog.js), derived from a word count across `sections[]` by
- * the model's own pre-validate hook. Nothing is computed here.
+ * (models/Blog.js). Nothing is computed here, and PF-95 needed no
+ * change to this function at all: once the field holds real values it
+ * renders them.
+ *
+ * ⚠️ It is derived by TWO hooks working together, not the one this
+ * comment used to name — `pre('insertMany')` on the raw seed objects,
+ * then `pre('validate')` on the constructed Document. An explicitly
+ * supplied value now survives both; before PF-95 the second hook
+ * overwrote it, which is why every post read `1 MIN READ`.
  */
 function formatReadTime(minutes) {
   return `${minutes} MIN READ`;
@@ -209,7 +226,7 @@ export function BlogSection() {
                 <span className={styles.badge}>LATEST POST</span>
 
                 <span className={styles.featuredMeta}>
-                  <span>{formatMonth(featured.createdAt)}</span>
+                  <span>{formatMonth(featured.publishedAt || featured.createdAt)}</span>
                   <span className={styles.featuredSep}>·</span>
                   <span>{formatReadTime(featured.readingTimeMinutes)}</span>
                 </span>
@@ -251,7 +268,7 @@ export function BlogSection() {
 
                       <span className={styles.rowBody}>
                         <span className={styles.rowMeta}>
-                          <span>{formatMonth(post.createdAt)}</span>
+                          <span>{formatMonth(post.publishedAt || post.createdAt)}</span>
                           <span className={styles.rowSep}>·</span>
                           <span>{formatReadTime(post.readingTimeMinutes)}</span>
                         </span>

@@ -24,8 +24,14 @@ function calculateReadingTimeMinutes(doc) {
   if (doc.sections && doc.sections.length > 0) {
     for (const section of doc.sections) {
       wordCount += countWords(section.heading);
-      for (const para   of section.body)    wordCount += countWords(para);
-      for (const bullet of section.bullets) wordCount += countWords(bullet);
+      // ── CHANGED IN PF-95 ──────────────────────────────────────
+      // Guarded against a missing key. `pre('insertMany')` receives raw
+      // POJOs BEFORE `sectionSchema`'s own `default: []` is applied, so a
+      // seed section that omits `body` or `bullets` reaches this loop as
+      // `undefined` and throws `TypeError: section.bullets is not
+      // iterable`. Reproduced through the real hook, not reasoned about.
+      for (const para   of (section.body    || [])) wordCount += countWords(para);
+      for (const bullet of (section.bullets || [])) wordCount += countWords(bullet);
     }
   } else if (doc.content) {
     wordCount = countWords(doc.content);
@@ -120,6 +126,26 @@ const blogSchema = new mongoose.Schema(
       type:    Number,
       default: 1,
     },
+
+    // ── NEW IN PF-95 ────────────────────────────────────────────
+    // The app's own publish date, independent of `createdAt` (which
+    // Mongoose owns and stamps identically for every document in the
+    // same insertMany batch — see docs/design/Blog.dc.html's
+    // JUL/JUN/MAY/APR 2026 teaser dates, unreproducible from `createdAt`
+    // alone once more than one post shares an insert).
+    //
+    // `default: null` rather than omitting the field, so it is always
+    // present in API responses instead of sometimes-there-sometimes-not
+    // — one less edge case for the frontend fallback and for tests.
+    //
+    // Nothing SORTS by this yet: `byRecency()` still ties on `createdAt`
+    // and falls back to `_id`. Wiring sort to `publishedAt` is PF-96.
+    publishedAt: {
+      type:    Date,
+      default: null,
+    },
+    // ─────────────────────────────────────────────────────────────
+
     views: {
       type:    Number,
       default: 0,
@@ -143,10 +169,40 @@ function applyDerivedFields(doc, options = {}) {
 }
 
 // Auto-generate fields before validation so required slug validation passes.
+//
+// ── CHANGED IN PF-95 ────────────────────────────────────────────
+// `forceReadingTime` used to fire on any content change alone, which
+// silently overwrote an explicitly-supplied `readingTimeMinutes` on the
+// SAME operation — it never checked whether `readingTimeMinutes` itself
+// had been touched.
+//
+// Not hypothetical, and not only a save()-path concern: BOTH hooks run
+// for `insertMany`. `pre('insertMany')` fires first on the raw POJOs
+// (mongoose/lib/model.js:3055), then each is constructed via
+// `new ThisModel(doc)` and `.$validate()`d (model.js:3085-3096 →
+// document.js:2972 → document.js:2765-2769), which fires THIS hook. On a
+// freshly-constructed post `sections` is always "modified", so the old
+// condition recomputed unconditionally and `pre('insertMany')`'s own
+// null-check — which correctly left an explicit value alone — was undone
+// one step later. Measured before the fix: an explicit
+// `readingTimeMinutes: 6` came back as 3.
+//
+// The fix adds one condition: skip the recompute if THIS operation also
+// explicitly set `readingTimeMinutes`. An edit that changes `sections`
+// without supplying a new reading time still recomputes.
+//
+// `pre('insertMany')` is deliberately UNCHANGED — it was never the bug.
+// A second `pre('validate')` hook would not work either: it would run
+// after this one and see `isModified('readingTimeMinutes')` already true
+// from this hook's own overwrite.
+// ───────────────────────────────────────────────────────────────
 blogSchema.pre('validate', function () {
+  const contentChanged = this.isModified('content') || this.isModified('sections');
+  const readingTimeGivenThisOperation = this.isModified('readingTimeMinutes');
+
   applyDerivedFields(this, {
     forceSlug:        this.isModified('title'),
-    forceReadingTime: this.isModified('content') || this.isModified('sections'),
+    forceReadingTime: contentChanged && !readingTimeGivenThisOperation,
   });
 });
 

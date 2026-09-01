@@ -500,6 +500,119 @@ describe('date and read time', () => {
   });
 });
 
+// ══ PF-95 — publishedAt, with a createdAt fallback ════════════════════
+/**
+ * The live shape this ticket fixes: ONE `createdAt` shared by all four
+ * posts, because `seed.js` writes them in a single `insertMany` and
+ * `timestamps: true` stamps the batch identically — and four DISTINCT
+ * `publishedAt` values carrying the prototype's real dates.
+ *
+ * ⚠️ The shared `createdAt` is load-bearing, not incidental. It is the
+ * only arrangement in which reading the wrong field is observable: with
+ * the file's main POSTS fixture (distinct createdAt, ascending in step
+ * with publishedAt) a component that still read `createdAt` would render
+ * plausible months and pass. This fixture makes the two fields disagree.
+ *
+ * Order is unchanged by any of this. `byRecency()` still sorts on
+ * `createdAt` and, with all four tied, still falls back to `_id`
+ * ascending — recovering p1·p2·p3·p4, the design's own sequence.
+ * Wiring sort to `publishedAt` is PF-96's job, not this ticket's.
+ */
+const LIVE_CREATED_AT = '2026-08-09T05:56:05.288Z';
+const PUBLISHED = Object.freeze({
+  p1: '2026-07-14T09:00:00.000Z',   // MERN          JUL 2026 · 6 MIN
+  p2: '2026-06-09T09:00:00.000Z',   // ClearDrive    JUN 2026 · 7 MIN
+  p3: '2026-05-04T09:00:00.000Z',   // Docker        MAY 2026 · 4 MIN
+  p4: '2026-04-02T09:00:00.000Z',   // JAX-RS        APR 2026 · 5 MIN
+});
+const LIVE_POSTS = Object.freeze(
+  POSTS.map((p) => Object.freeze({
+    ...p,
+    createdAt: LIVE_CREATED_AT,
+    publishedAt: PUBLISHED[p._id],
+  })),
+);
+
+/** Every meta row on the page, featured first, as one string per post. */
+function metaText(c) {
+  return [pick(c, 'featuredMeta').textContent, ...pickAll(c, 'rowMeta').map((n) => n.textContent)];
+}
+
+describe('PF-95 — publishedAt', () => {
+  it('renders each post\'s own publish month, not the shared createdAt', () => {
+    const metas = metaText(draw(ok(LIVE_POSTS)));
+    expect(metas).toHaveLength(4);
+    expect(metas[0]).toContain('JUL 2026');
+    expect(metas[1]).toContain('JUN 2026');
+    expect(metas[2]).toContain('MAY 2026');
+    expect(metas[3]).toContain('APR 2026');
+  });
+
+  it('renders AUG 2026 nowhere, which is what the bug looked like', () => {
+    // Before PF-95 every one of the four read AUG 2026 — the month of
+    // the shared createdAt. This is the assertion that fails if either
+    // call site is reverted to `createdAt`.
+    const metas = metaText(draw(ok(LIVE_POSTS)));
+    for (const meta of metas) expect(meta).not.toMatch(/AUG 2026/);
+  });
+
+  it('renders four distinct reading times, not a uniform 1 MIN READ', () => {
+    // No frontend change was needed for this half — `formatReadTime` was
+    // always correct and the field was always rendered. It is asserted
+    // here because "6/7/4/5 MIN" is half of what the ticket promises on
+    // screen, and nothing else in this file would notice it regressing
+    // to a uniform value.
+    const metas = metaText(draw(ok(LIVE_POSTS)));
+    expect(metas[0]).toContain('6 MIN READ');
+    expect(metas[1]).toContain('7 MIN READ');
+    expect(metas[2]).toContain('4 MIN READ');
+    expect(metas[3]).toContain('5 MIN READ');
+  });
+
+  it('falls back to createdAt when publishedAt is null', () => {
+    // `null` is the schema default, so this is what every post written
+    // before PF-95 looks like coming off the API — not a hypothetical.
+    const nulled = LIVE_POSTS.map((p) => ({ ...p, publishedAt: null }));
+    const metas = metaText(draw(ok(nulled)));
+    for (const meta of metas) expect(meta).toContain('AUG 2026');
+  });
+
+  it('falls back to createdAt when publishedAt is absent entirely', () => {
+    // Distinct from null: a cached response from before the field
+    // existed has no key at all.
+    const metas = metaText(draw(ok(POSTS)));
+    expect(metas[0]).toContain('JUL 2026');   // POSTS' own createdAt
+    expect(metas[3]).toContain('APR 2026');
+  });
+
+  it('renders nothing rather than "INVALID DATE" when neither field parses', () => {
+    const c = draw(ok([{ ...POSTS[3], createdAt: undefined, publishedAt: undefined }]));
+    expect(pick(c, 'featuredMeta').textContent).not.toMatch(/INVALID/i);
+  });
+
+  it('prefers publishedAt over a createdAt that would sort the same', () => {
+    // The discriminating case, deliberately contradictory: createdAt
+    // says JAN, publishedAt says JUL. Only reading the right field can
+    // produce JUL, and no plausible fallback ordering produces both.
+    const one = [{ ...POSTS[3], createdAt: '2026-01-20T10:00:00.000Z', publishedAt: PUBLISHED.p1 }];
+    const meta = pick(draw(ok(one)), 'featuredMeta').textContent;
+    expect(meta).toContain('JUL 2026');
+    expect(meta).not.toMatch(/JAN 2026/);
+  });
+
+  it('leaves post order alone — publishedAt is not wired to sort yet', () => {
+    // PF-96's job. Asserted as an ABSENCE so that wiring it later is a
+    // deliberate change with a failing test attached, rather than
+    // something that quietly happens.
+    const c = draw(ok(LIVE_POSTS));
+    expect(pick(c, 'featuredTitle').textContent).toMatch(/MERN/i);
+    const rows = pickAll(c, 'rowTitle').map((n) => n.textContent);
+    expect(rows[0]).toMatch(/ClearDrive/i);
+    expect(rows[1]).toMatch(/Docker Compose/i);
+    expect(rows[2]).toMatch(/JAX-RS/i);
+  });
+});
+
 // ══ 13. links resolve to a real route ═════════════════════════════════
 describe('links', () => {
   it('points all five at /blog, never at the prototype\'s dead #blog anchor', () => {
