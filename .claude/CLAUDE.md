@@ -579,6 +579,121 @@ allowlist question was **decided and shipped in PF-85** (see below).
 There is **no separate Sprint 11 retrospective document**, matching Sprint
 10's rule. That section is the record; do not link to one.
 
+### Sprint 13 — Epic E8, Blog. Branch `sprint-13-blog`, cut from local `master` at `23aa76c`
+
+PR #6 confirmed merged before cutting (`gh pr view 6` → `MERGED`,
+`79835e0`), per the standing rule.
+
+**Built by PF-95 — `publishedAt`, real reading times, and a seed that
+stops lying (2026-09-01):**
+
+```
+backend/src/
+  models/Blog.js                       + publishedAt; pre('validate') fixed;
+                                         body/bullets iteration guarded
+  seed.js                              4 posts get explicit publishedAt +
+                                         readingTimeMinutes; header comment
+                                         corrected (it named one hook)
+  migrations/005-blog-publish-dates.js NEW  idempotent, --dry-run first,
+                                         prints the target database
+  __tests__/005-blog-publish-dates.test.js  NEW  17 cases
+  __tests__/blogReadingTime.test.js         NEW  13 cases
+frontend/src/components/sections/
+  BlogSection.jsx                      2 call sites → publishedAt || createdAt;
+                                         both formatter doc comments corrected
+  __tests__/BlogSection.test.jsx       + 8 cases  (53 → 61)
+```
+
+**Two bugs, one root cause each, and neither was a design bug.**
+`publishedAt` did not exist, so the teaser rendered `createdAt` — one
+batch stamp shared by all four posts. And `pre('validate')` overwrote any
+explicitly-supplied `readingTimeMinutes`, so seeding the prototype's
+6/7/4/5 could not have worked even if someone had tried. Full mechanism,
+including the Mongoose source trace, in the corrected PF-86 entry above.
+
+**Three places where the ticket was wrong, and the file won:**
+
+1. **Its Step 5 bullets test is VACUOUS.** It drives `new Blog({...})`,
+   which applies `sectionSchema`'s `default: []` at construction — so the
+   missing-key case never reaches the guard and the test passes against
+   unfixed code. Verified, not assumed. Rewritten to call the registered
+   `pre('insertMany')` function directly, which is the only path where a
+   raw POJO is observable; it fails correctly against the unguarded
+   version.
+2. **Its Step 5 recompute test asserts against correct code.** It
+   validates ONE fresh document twice — but the hook's own first write
+   marks `readingTimeMinutes` modified, so the second validate correctly
+   declines to recompute. That is not the edit path. Rewritten with
+   `Blog.hydrate()`, Mongoose's documented way to build a document as if
+   loaded from the database (`modifiedPaths()` is `[]`), which is what a
+   real find-then-edit-then-save looks like: 3 → 21.
+3. **Its stated reason for using `.save()` in the migration is
+   inverted.** It says `pre('validate')` "needs to see
+   readingTimeMinutes as modified so it does NOT recompute"; in fact
+   `updateOne` would not recompute either, because it runs no document
+   middleware at all, and the recompute is gated on `contentChanged`,
+   which is false on this path regardless. `.save()` is still the right
+   call, for the opposite reason — recorded in the migration's own header.
+
+Also corrected: the ticket's "an explicit `6` came back as `1`" is `3`
+with its own fixture. The mechanism reproduces exactly; only the
+illustrative number was off.
+
+**Verification.** Migration dry-run AND live run against `portfolio_dev`
+— `Updated: 4`, then `Already correct: 4` on re-run. That second number
+is the real check: `.save()` routes through the fixed hook, so a broken
+fix would report `Updated: 4` forever instead of settling. Fresh seed,
+then read back out of Mongo: all four carry the right `publishedAt` and
+reading time. Live `GET /api/blog` returns `publishedAt` on all four
+(`.select('-content')` is an exclusion projection, so nothing drops it).
+`POST /api/blog` with neither field → **201**, `publishedAt: null`,
+`readingTimeMinutes: 3` auto-computed, slug generated — the fallback for
+genuinely new content is intact. Browser at 1280px, `?nosplash=1`: each
+post paired correctly with its own month and read time.
+
+⚠️ **The ORDER is wrong on screen and PF-95 neither caused nor fixed
+it** — see the `insertMany` timestamp entry in Outstanding work.
+
+⚠️ **`POST /api/blog` still requires Phase 1's `content` field.**
+`middleware/validate.js` rejects a sections-only body with
+`400 "Blog content is required"`, even though PF-59/PF-65 moved the
+schema to `sections[]`. Found while running PF-95's own checklist; the
+probe above had to send a placeholder `content` to get a 201. Unrelated
+to anything PF-95 touches, and almost certainly part of what PF-97
+("posts editable again") is pointing at. Reported, not fixed.
+
+⚠️ **`updatePost` bypasses document middleware entirely** —
+`findByIdAndUpdate` with `runValidators: true` runs schema-constraint
+validators but no `pre('validate')`, so editing a title through the admin
+panel does not regenerate the slug and editing sections does not
+recompute the reading time. Confirmed in the ticket's Step 0 and left
+alone deliberately: it is a different Mongoose middleware category from
+anything here, and nothing in PF-95 helps or hurts it. PF-96's.
+
+**The gate:** backend **272 / 272** (24 suites, 165s; the trailing
+`ReferenceError` from `health.test.js` is the known post-teardown
+artifact, printed after the pass line) · frontend **703 / 703** (44
+files) · lint **exit 0** · build **220 modules**, 67.76 kB CSS /
+416.93 kB JS.
+
+**11 mutations, all caught**, restored from copies rather than the index
+— per the documented trap where `git checkout` silently reverted a real
+edit in the same file:
+
+| mutation | caught by |
+| --- | --- |
+| revert the `pre('validate')` fix | 4 cases in `blogReadingTime` |
+| revert the bullets guard | its `pre('insertMany')` case |
+| revert the body guard | its `pre('insertMany')` case |
+| delete the `publishedAt` field | 4 cases |
+| seed's MERN reading time 6 → 5 | `005` test |
+| seed's Docker month MAY → MAR | `005` test |
+| restore the old (wrong) seed header comment | `005` test |
+| featured call site back to `createdAt` | 3 frontend cases |
+| compact-row call site back to `createdAt` | 2 frontend cases |
+| drop the `createdAt` fallback | 4 frontend cases |
+| `formatReadTime` hardcoded to 1 | 2 frontend cases |
+
 ### Infrastructure — databases, credentials, Cloudinary (2026-08-31)
 
 Three pieces of work with no ticket between them, done after the Sprint
@@ -1072,17 +1187,78 @@ than copied forward:
   The two remaining differences are both the design's: `pop` reveals get a
   different curve from `up` ones, and `.bigCard` carries no `data-reveal`
   at all so nothing eases it. Nothing left undecided here.
-- **⚠️ The seeded blog posts have ONE `createdAt` and all read "1 MIN
-  READ".** `seed.js` writes them with a single `insertMany`, so
-  `timestamps: true` stamps all four identically
-  (`2026-08-09T05:56:05.288Z`, read off the live API), and they are short
-  enough that `readingTimeMinutes` rounds to 1 on every one. The design
-  wants JUL/JUN/MAY/APR 2026 and 6/7/4/5 MIN. PF-86 renders both fields
-  honestly, so the teaser currently reads `AUG 2026 · 1 MIN READ` four
-  times, and the post ORDER is a four-way tie that PF-86 breaks on `_id`
-  ascending purely to keep it deterministic. Fixing it is a seed change
-  plus, against the live cluster, a production write like migration 004 —
-  the owner's call. Details in the PF-86 entry.
+- ~~**⚠️ The seeded blog posts have ONE `createdAt` and all read "1 MIN
+  READ"**~~ — **FIXED in PF-95 (2026-09-01).** `Blog.js` gained a
+  `publishedAt` field (`Date`, `default: null`), `seed.js` sets it and
+  `readingTimeMinutes` explicitly per post from the prototype's own
+  values, `migrations/005-blog-publish-dates.js` backfills an existing
+  database, and `BlogSection.jsx`'s two call sites read
+  `publishedAt || createdAt`. Verified in a browser against
+  `portfolio_dev`: the four posts render **JUL/6 · JUN/7 · MAY/4 ·
+  APR/5**, each paired correctly with its own post.
+
+  ⚠️ **NOT run against production.** The migration is the owner's call,
+  as `004` was — and it now needs `MONGO_URI` deliberately pointed at
+  `portfolio_prod` first, which is the opposite of `004`'s situation.
+  Dry-run and live run both verified against `portfolio_dev`; the live
+  run is idempotent (`Updated: 4` then `Already correct: 4`).
+
+  ⚠️ **The ORDER half of this entry is NOT fixed and got worse when
+  looked at properly — see the new Outstanding-work entry below.** The
+  old claim that the four share one `createdAt` is true of production's
+  particular insert and **false as a property of `insertMany`**.
+
+- **⚠️ `insertMany` DOES NOT STAMP AN IDENTICAL `createdAt`, AND THE BLOG
+  TEASER'S ORDER DEPENDS ON IT DOING SO.** Found 2026-09-01 by PF-95's
+  own verification step — the ticket scoped ordering to PF-96 and the
+  gate turned this up anyway, the same shape as PF-94.
+
+  **This file has asserted the opposite in two places since PF-86**, and
+  both are now corrected in place. The claim was that
+  `timestamps: true` stamps a whole `insertMany` batch identically, so
+  `byRecency()`'s `_id` tiebreak always engages and always recovers the
+  design's order. That is a property of **one lucky production insert**,
+  not of `insertMany`. Measured, five trials against `portfolio_dev`
+  with a throwaway model:
+
+  | trial | distinct `createdAt` across a 4-doc batch |
+  | --- | --- |
+  | 1 · 2 · 3 | **2** — the batch straddled a millisecond |
+  | 4 · 5 | 1 |
+
+  **Three of five batches did not tie.** The stamps land in two groups
+  (e.g. `…836, …836, …837, …837`), so the date comparison decides, the
+  `_id` branch never runs, and the order is neither the design's nor
+  `publishedAt`'s — it is whichever pair happened to land on the later
+  millisecond, newest-first.
+
+  **What it looks like on screen, measured after a fresh seed** (not
+  reasoned — screenshotted and read out of the DOM):
+
+  | | design | rendered |
+  | --- | --- | --- |
+  | featured | MERN | **Getting Started with Docker Compose** |
+  | rows | ClearDrive · Docker · JAX-RS | **JAX-RS · MERN · ClearDrive** |
+
+  ⚠️ **The `LATEST POST` badge is the part that makes this more than
+  cosmetic** — it sits on the featured card, so the page actively claims
+  the third-oldest post is the newest. Each post's own month and read
+  time are correct beside it (PF-95's work), which makes the wrongness
+  legible rather than hidden: the badge says LATEST above `MAY 2026`
+  while `JUL 2026` sits in a row below it.
+
+  **PF-95 did not cause this and does not fix it.** The ordering path
+  reads only `createdAt` and `_id`, neither of which PF-95 touches;
+  production is currently in the lucky state and renders correctly
+  today. It is latent there and live in dev the moment anyone re-seeds.
+
+  **The fix is PF-96's, and PF-95 is what makes it available**: sort on
+  `publishedAt`, which is now real per-post data with a month's
+  separation between values rather than a millisecond's. Explicitly left
+  alone here — PF-95's scope names `byRecency()` and the `_id` tiebreak
+  as not-touched, and a `BlogSection.test.jsx` guard asserts the order is
+  still `createdAt`-driven so that changing it is a deliberate act with a
+  failing test attached.
 - ~~**⚠️ Two inherited contrast failures in the Blog teaser**~~ —
   **CLOSED in PF-91** (Groups A and E). ⚠️ Note the compact-row meta was
   **4.30 dark**, and the separator pair turned out to be one mark
@@ -2534,9 +2710,19 @@ Three things worth knowing about that:
 
 **⚠️ The live seed makes the design's own ordering unreproducible, and
 this is data rather than code.** `seed.js` writes all four posts with one
-`insertMany`, so `timestamps: true` stamps them with an IDENTICAL
-`createdAt` — `2026-08-09T05:56:05.288Z`, read off the live API, not
+`insertMany`, and in production `timestamps: true` stamped them
+identically — `2026-08-09T05:56:05.288Z`, read off the live API, not
 inferred. Two consequences:
+
+⚠️ **CORRECTED 2026-09-01 (PF-95): "identical" is what THAT insert did,
+not what `insertMany` guarantees.** Measured over five fresh batches,
+three straddled a millisecond and produced two distinct stamps — which
+defeats the `_id` tiebreak described below and renders the teaser in the
+wrong order. The dates/read-times half of this entry is FIXED by PF-95;
+the ordering half is live and is PF-96's. Full measurements in the
+Outstanding-work entry on `insertMany` timestamps. The paragraph below
+about the tiebreak "recovering" the design order holds ONLY while all
+four genuinely tie.
 
 | | prototype | live data |
 | --- | --- | --- |
@@ -2544,10 +2730,45 @@ inferred. Two consequences:
 | read times | 6 · 7 · 4 · 5 MIN | **1 MIN** ×4 |
 | order | MERN, ClearDrive, Docker, JAX-RS | **undefined** — a four-way tie |
 
-`readingTimeMinutes` is a real schema field, derived by `Blog.js`'s
-pre-validate hook from a word count across `sections[]`; the seeded posts
-are simply short enough to round to 1. Nothing is computed in the
-component.
+`readingTimeMinutes` is a real schema field, derived from a word count
+across `sections[]`; the seeded posts are simply short enough to round to
+1. Nothing is computed in the component.
+
+⚠️ **CORRECTED 2026-09-01 (PF-95): it is derived by TWO hooks, not "the
+pre-validate hook".** This single-hook phrasing — repeated in `seed.js`'s
+own header comment and in `BlogSection.jsx`'s — is what let PF-95's bug
+survive, and it sent two independent investigations down different paths
+before the ticket was written. Traced through the installed library
+rather than from memory:
+
+```
+mongoose/lib/model.js:3055        pre('insertMany') fires FIRST, on the
+                                  raw POJOs, BEFORE any schema default
+mongoose/lib/model.js:3085-3096   if (!(doc instanceof ThisModel))
+                                    doc = new ThisModel(doc);
+                                  return doc.$validate(...)
+mongoose/lib/document.js:2972     $validate === validate
+mongoose/lib/document.js:2765-69  hasHooks('validate') → runs pre('validate')
+```
+
+Both hooks run, in that order, for every seeded post. The bug lived in
+the handoff: `pre('insertMany')`'s own `readingTimeMinutes == null` check
+correctly left an explicit value alone, and then `pre('validate')`
+overwrote it one step later, because its `forceReadingTime` asked only
+whether `sections`/`content` had changed — always true for a freshly
+constructed document — and never whether a reading time had been supplied
+in the same operation. Measured before the fix: an explicit `6` came back
+as `3`.
+
+⚠️ Two consequences worth carrying forward. **A raw POJO reaches
+`pre('insertMany')` before `sectionSchema`'s `default: []` applies**, so
+`calculateReadingTimeMinutes` iterating `section.bullets` unguarded threw
+`TypeError: section.bullets is not iterable` on any seed section that
+omitted the key — latent, now guarded. And **a test for that guard
+written against `new Blog({...})` is VACUOUS**: the constructor applies
+the default, so the guard is never exercised and the test passes against
+unfixed code. Verified, then rewritten to drive the registered
+`pre('insertMany')` function directly.
 
 The tie is the part that bites: `sort({ createdAt: -1 })` over four equal
 values is free to return any order, and the live API currently hands back
