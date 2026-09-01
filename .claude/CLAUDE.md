@@ -633,18 +633,23 @@ including the Mongoose source trace, in the corrected PF-86 entry above.
    `updateOne` would not recompute either, because it runs no document
    middleware at all, and the recompute is gated on `contentChanged`,
    which is false on this path regardless. `.save()` is still the right
-   call, for the opposite reason — recorded in the migration's own header.
+   call, but not for a reason that detects a broken fix — that claim was
+   also wrong, and is corrected in the migration's header and here.
 
 Also corrected: the ticket's "an explicit `6` came back as `1`" is `3`
 with its own fixture. The mechanism reproduces exactly; only the
 illustrative number was off.
 
 **Verification.** Migration dry-run AND live run against `portfolio_dev`
-— `Updated: 4`, then `Already correct: 4` on re-run. That second number
-is the real check: `.save()` routes through the fixed hook, so a broken
-fix would report `Updated: 4` forever instead of settling. Fresh seed,
-then read back out of Mongo: all four carry the right `publishedAt` and
-reading time. Live `GET /api/blog` returns `publishedAt` on all four
+— `Updated: 4`, then `Already correct: 4` on re-run. That confirms the
+migration is idempotent, not that it detects a broken hook fix — this
+migration only touches publishedAt/readingTimeMinutes, never
+sections/content, so it would settle the same way under the pre-PF-95
+hook too (verified). blogReadingTime.test.js's hook tests are the actual
+guard against a reverted fix.
+
+Fresh seed, then read back out of Mongo: all four carry the right
+`publishedAt` and reading time. Live `GET /api/blog` returns `publishedAt` on all four
 (`.select('-content')` is an exclusion projection, so nothing drops it).
 `POST /api/blog` with neither field → **201**, `publishedAt: null`,
 `readingTimeMinutes: 3` auto-computed, slug generated — the fallback for
