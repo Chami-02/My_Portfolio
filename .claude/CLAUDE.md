@@ -120,6 +120,46 @@ regardless of how it's motivated or how minor it seems. If the only difference
 is in code nobody sees without opening dev tools, it's an implementation
 choice. Go ahead.
 
+## Engineering discipline: the real fix, not a plausible one
+
+Added 2026-09-01, after PF-95's Step 0 turned up two different-shaped
+mistakes worth naming so they don't recur.
+
+**Trace before you write.** A ticket's proposed diff is a hypothesis about
+what the code does, not a fact. PF-95 proposed a second `pre('validate')`
+hook on `Blog.js` because it assumed the schema had one gate; the schema
+actually has two (`pre('validate')` and `pre('insertMany')`, sharing
+`applyDerivedFields()`), and a second hook bolted on next to the real one
+would have left both in place, fighting — with the *existing* hook still
+winning. The correct fix turned out to be two lines inside the function
+that already existed, not a new one beside it. Before adding a hook,
+function, file, or config knob: find out what the real file does today. If
+a ticket's assumption is wrong, the file wins and the diff gets rewritten
+against it, not layered on top of it.
+
+**No speculative surface.** Don't create a function, hook, file, or
+abstraction because it might be needed, because a pattern elsewhere
+suggests it, or because reconciling with what exists is more work than
+writing something parallel. PF-95 also proposed a new
+`frontend/src/utils/blog.js` for a date formatter that already existed,
+two lines away, inside `BlogSection.jsx` — same mistake, smaller stakes.
+If the real fix is a two-line change to an existing function, ship the
+two lines.
+
+**Delete what stops earning its place.** Code that becomes dead,
+redundant, or superseded by a ticket's own work does not get left behind
+"in case." Remove it in the same ticket and say so in the commit message —
+the same way a Locked-decision reversal gets recorded rather than
+silently swapped.
+
+**A green test suite is not proof the mechanism is right.** Tests can pass
+against a plausible-but-wrong fix if they don't exercise the real call
+path. A migration test that regex-pins `seed.js`'s source text against a
+`TARGET_DATA` object would pass even if the seeded value never survived a
+real `insertMany()` — it never touches the database or the hook. Before
+trusting a green run as verification, trace whether the test actually
+goes through the code path the bug lives in, not a stand-in for it.
+
 ### Reading `.dc.html` files
 
 They use a custom DSL compiled by the Claude Design runtime: `<x-dc>` root,
