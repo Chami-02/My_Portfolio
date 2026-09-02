@@ -35,27 +35,41 @@ const BLOG_ROUTE = '/blog';
 /**
  * Most recent first, with a deterministic tiebreak.
  *
- * ⚠️ The tiebreak is not decoration — it is load-bearing against today's
- * data. `seed.js` inserts all four posts with one `insertMany`, so
- * `timestamps: true` stamps them with an IDENTICAL `createdAt`
- * (2026-08-09T05:56:05.288Z, verified against the live API). A pure
- * date sort therefore leaves all four tied, and both Mongo's
- * `sort({ createdAt: -1 })` and `Array.prototype.sort` are free to
- * return them in any order — the live API currently hands back
- * Java/JAX-RS first, which would put it in the LATEST POST slot.
+ * ⚠️ CHANGED IN PF-96 — the key is `publishedAt` with a `createdAt`
+ * fallback, mirroring the API's own sort in
+ * `backend/src/utils/blogQuery.js` (`$ifNull: [publishedAt, createdAt]`,
+ * then `_id` ascending). The two must agree: this list is re-sorted on
+ * the client, so if the rules diverge the teaser silently contradicts
+ * every other view of the same posts.
  *
- * `_id` ascending breaks the tie by insertion order, because an
- * ObjectId's trailing counter increments within a single insertMany.
- * With today's seed that reproduces the prototype's own 01·02·03·04
- * exactly — MERN, ClearDrive, Docker Compose, JAX-RS.
+ * ⚠️ The previous version sorted on `createdAt` alone, and the reasoning
+ * recorded here for it was WRONG in a way worth keeping. It claimed
+ * `insertMany` stamps a batch with an IDENTICAL `createdAt`, so the
+ * `_id` tiebreak always engaged and always recovered the design's
+ * 01·02·03·04. That is a property of one lucky production insert, not of
+ * `insertMany`: measured over five fresh seeds, THREE straddled a
+ * millisecond boundary and produced two distinct stamps. The date
+ * comparison then decided, the `_id` branch never ran, and the LATEST
+ * POST badge landed on the third-oldest post.
  *
- * It is a degenerate-case fallback and nothing more: the moment two
- * posts have different `createdAt` values the date comparison decides
- * and the `_id` branch never runs. Sorting the array is done on a COPY;
- * mutating in place would reorder the array TanStack Query is caching.
+ * `publishedAt` is real per-post data with a month between values
+ * (PF-95), so the tiebreak returns to being what it was always described
+ * as — a degenerate-case fallback that only runs on a genuine tie.
+ *
+ * The fallback matches how the date is DISPLAYED further down
+ * (`post.publishedAt || post.createdAt`). Order and printed date must
+ * read the same field, or a card appears in a position its own date
+ * contradicts. `??` here rather than `||` because it mirrors the
+ * backend's `$ifNull`, which is null/undefined semantics; for a Date
+ * field serialised to JSON — an ISO string or `null`, never `0` or `''`
+ * — the two operators cannot disagree.
+ *
+ * Sorting is done on a COPY; mutating in place would reorder the array
+ * TanStack Query is caching.
  */
 function byRecency(a, b) {
-  const delta = new Date(b.createdAt) - new Date(a.createdAt);
+  const delta = new Date(b.publishedAt ?? b.createdAt)
+              - new Date(a.publishedAt ?? a.createdAt);
   if (delta !== 0) return delta;
   return a._id < b._id ? -1 : a._id > b._id ? 1 : 0;
 }

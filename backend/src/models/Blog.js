@@ -138,8 +138,12 @@ const blogSchema = new mongoose.Schema(
     // present in API responses instead of sometimes-there-sometimes-not
     // — one less edge case for the frontend fallback and for tests.
     //
-    // Nothing SORTS by this yet: `byRecency()` still ties on `createdAt`
-    // and falls back to `_id`. Wiring sort to `publishedAt` is PF-96.
+    // ⚠️ UPDATED IN PF-96: this IS the sort key now, on both sides.
+    // `utils/blogQuery.js` orders every list by `$ifNull: [publishedAt,
+    // createdAt]` and `BlogSection.jsx`'s `byRecency()` mirrors it. The
+    // `default: null` above is exactly why the sort is an aggregation and
+    // not a plain `.sort()` — MongoDB orders null BELOW every real date,
+    // so a newly created post would otherwise sort last.
     publishedAt: {
       type:    Date,
       default: null,
@@ -214,6 +218,14 @@ blogSchema.pre('insertMany', function (docs) {
 
 // Index for fast slug lookups
 blogSchema.index({ slug: 1 }, { unique: true });
-blogSchema.index({ published: 1, createdAt: -1 });
+
+// ⚠️ PF-96: was `{ published: 1, createdAt: -1 }`, which backed the old
+// `.sort({ createdAt: -1 })`. That sort is gone. This index now serves
+// the `$match` stage only — the `$sort` runs on a COMPUTED field
+// (`$ifNull: [publishedAt, createdAt]`) and no index can back it.
+// `publishedAt` is kept in the key so the index still covers the common
+// "published posts by publish date" access pattern if the fallback is
+// ever dropped in favour of a backfill. See utils/blogQuery.js.
+blogSchema.index({ published: 1, publishedAt: -1 });
 
 module.exports = mongoose.model('Blog', blogSchema);

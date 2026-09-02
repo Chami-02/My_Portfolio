@@ -600,16 +600,69 @@ describe('PF-95 — publishedAt', () => {
     expect(meta).not.toMatch(/JAN 2026/);
   });
 
-  it('leaves post order alone — publishedAt is not wired to sort yet', () => {
-    // PF-96's job. Asserted as an ABSENCE so that wiring it later is a
-    // deliberate change with a failing test attached, rather than
-    // something that quietly happens.
+  it('orders by publishedAt, which for the live data matches the design', () => {
+    // ⚠️ REWRITTEN IN PF-96, and the reason matters more than the change.
+    //
+    // This was an ABSENCE assertion — "leaves post order alone" — written
+    // so that wiring publishedAt to the sort would arrive with a failing
+    // test attached. It could never have done that job. LIVE_POSTS gives
+    // p1..p4 publish dates in DESCENDING order, which is the same
+    // sequence as the _id-ascending tiebreak it was pinning, so both the
+    // old rule and the new one produce MERN · ClearDrive · Docker · JAX-RS
+    // and the test passes either way.
+    //
+    // `.claude/sprint-log.md` recorded that guard as the safety net for
+    // this exact change. It was not one. The real discriminating case is
+    // the test below, which this fixture cannot express.
     const c = draw(ok(LIVE_POSTS));
     expect(pick(c, 'featuredTitle').textContent).toMatch(/MERN/i);
     const rows = pickAll(c, 'rowTitle').map((n) => n.textContent);
     expect(rows[0]).toMatch(/ClearDrive/i);
     expect(rows[1]).toMatch(/Docker Compose/i);
     expect(rows[2]).toMatch(/JAX-RS/i);
+  });
+
+  it('sorts on publishedAt even when createdAt disagrees', () => {
+    // THE discriminating fixture, and the only one in this file that can
+    // tell the two rules apart.
+    //
+    // createdAt is DISTINCT and ascending in step with _id, so the old
+    // rule (createdAt desc, then _id asc) yields JAX-RS · Docker ·
+    // ClearDrive · MERN. publishedAt is deliberately the OPPOSITE order,
+    // so the new rule yields MERN · ClearDrive · Docker · JAX-RS. No
+    // tiebreak can rescue a component that reads the wrong field: the two
+    // orders are exact reverses of each other.
+    const contradictory = POSTS.map((p, i) => ({
+      ...p,
+      // POSTS is ordered p4, p3, p2, p1 — so index 0 is JAX-RS.
+      createdAt:   `2026-0${i + 1}-01T10:00:00.000Z`,  // JAX-RS oldest → MERN newest
+      publishedAt: `2026-0${4 - i}-01T09:00:00.000Z`,  // JAX-RS newest → MERN oldest
+    }));
+
+    const c = draw(ok(contradictory));
+    expect(pick(c, 'featuredTitle').textContent).toMatch(/JAX-RS/i);
+    expect(pickAll(c, 'rowTitle').map((n) => n.textContent)).toEqual([
+      'Getting Started with Docker Compose',
+      'Developing ClearDrive.lk with FastAPI and Docker',
+      'Building a production-style MERN portfolio',
+    ]);
+  });
+
+  it('falls back to createdAt for a post with no publishedAt, and interleaves', () => {
+    // The admin panel creates posts with publishedAt null, so a list is
+    // routinely MIXED. The fallback has to place an undated post among
+    // the dated ones by its createdAt — not bunch every undated post at
+    // one end, which is what a plain date sort does with nulls.
+    const mixed = [
+      { ...POSTS[3], _id: 'm1', title: 'Dated newest',  publishedAt: '2026-07-01T09:00:00.000Z', createdAt: '2020-01-01T00:00:00.000Z' },
+      { ...POSTS[2], _id: 'm2', title: 'Undated middle', publishedAt: null,                       createdAt: '2026-06-01T09:00:00.000Z' },
+      { ...POSTS[1], _id: 'm3', title: 'Dated oldest',  publishedAt: '2026-05-01T09:00:00.000Z', createdAt: '2030-01-01T00:00:00.000Z' },
+    ];
+
+    const c = draw(ok(mixed));
+    expect(pick(c, 'featuredTitle').textContent).toBe('Dated newest');
+    expect(pickAll(c, 'rowTitle').map((n) => n.textContent))
+      .toEqual(['Undated middle', 'Dated oldest']);
   });
 });
 

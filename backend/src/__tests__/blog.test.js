@@ -55,8 +55,10 @@ describe('GET /api/blog/:slug', () => {
     const res = await request(app).get(`/api/blog/${post.slug}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.title).toBe(PUBLISHED_POST.title);
-    expect(res.body.data.content).toBeDefined();
+    // ⚠️ PF-96 changed this shape: `data` is now the compound
+    // { post, prev, next } the reading view needs, not the bare post.
+    expect(res.body.data.post.title).toBe(PUBLISHED_POST.title);
+    expect(res.body.data.post.content).toBeDefined();
   });
 
   it('returns 404 for draft posts', async () => {
