@@ -1162,11 +1162,36 @@ than copied forward:
   `portfolio_dev`: the four posts render **JUL/6 · JUN/7 · MAY/4 ·
   APR/5**, each paired correctly with its own post.
 
-  ⚠️ **NOT run against production.** The migration is the owner's call,
-  as `004` was — and it now needs `MONGO_URI` deliberately pointed at
-  `portfolio_prod` first, which is the opposite of `004`'s situation.
-  Dry-run and live run both verified against `portfolio_dev`; the live
-  run is idempotent (`Updated: 4` then `Already correct: 4`).
+  ⚠️ ~~**NOT run against production.**~~ — **RUN AGAINST PRODUCTION
+  2026-09-02**, on the owner's instruction, immediately after PF-96 was
+  built. `MONGO_URI` was pointed at `portfolio_prod` by swapping only the
+  database path of `backend/.env`'s value in the command environment
+  (never printed; dotenv does not override an existing `process.env`
+  entry, and the script's own unconditional `Target database:` line is
+  what confirmed the override took).
+
+  Dry run: `Updated: 4  Already correct: 0  Missing: 0  Extra: 0`.
+  ⚠️ `Missing: 0` is the self-validating part — all four titles matched,
+  which is what proves the right cluster AND the right database, since a
+  wrong cluster would have produced an empty `portfolio_prod` and
+  reported `Missing: 4`. Live run: identical counts. Read back
+  independently afterwards rather than trusting the script's own report:
+  4 published posts, JUL/6 · JUN/7 · MAY/4 · APR/5, `publishedAt` null
+  on **zero** documents, `distinct createdAt: 1`.
+
+  ⚠️ **The live site is now in a deliberate HALF state, and this is
+  expected, not a defect.** Production runs Sprint 12 code, which reads
+  `createdAt` for display and does not know `publishedAt` exists — so the
+  four posts now show correct per-post reading times (6/7/4/5) while
+  every date still reads **AUG 2026**. The date half lands when Sprint 13
+  merges and deploys. Verified in a browser against the live site.
+
+  ⚠️ **Also confirmed live: the deployed API returns the four posts in
+  SCRAMBLED order** — `ClearDrive · JAX-RS · MERN · Docker` — because the
+  Sprint 12 backend still sorts `createdAt: -1` across four tied stamps
+  with no tiebreak. The page renders correctly only because the client's
+  `_id` tiebreak rescues it. That is the ordering bug visible in
+  production today, and PF-96's backend fix is what removes the luck.
 
   ⚠️ **The ORDER half of this entry is NOT fixed and got worse when
   looked at properly — see the new Outstanding-work entry below.** The
