@@ -303,7 +303,7 @@ to PF-59 is intentional.
 | Ticket | Title | Pts | State |
 | --- | --- | --- | --- |
 | PF-95 | Migration 005 — distinct blog publish dates | 3 | ✅ built 2026-09-01 |
-| PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next, one shared sort spec | 8 | to do |
+| PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next, one shared sort spec | 8 | ✅ built 2026-09-02 |
 | PF-97 | Admin Blog panel repair — posts editable again | 5 | to do |
 | PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | to do |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed | 8 | to do |
@@ -318,11 +318,14 @@ verified and recorded on 2026-09-01. Moving the board is the owner's.
 written up** — read `.claude/sprint-log.md` → **Sprint 13 → The plan**
 before starting any of them. It is the starting point, not background:
 
-- **PF-96** inherits the `insertMany` ordering bug (`byRecency()`'s `_id`
-  tiebreak only engages when all four posts tie — measured, it fails in 2
-  of 5 batches) *and* `updatePost`'s `findByIdAndUpdate` running no
-  document middleware. ⚠️ A `BlogSection.test.jsx` guard pins the order to
-  `createdAt` on purpose, so changing it fails a test by design.
+- ~~**PF-96**~~ — **BUILT 2026-09-02.** Both inherited defects fixed: the
+  ordering bug (now `$ifNull: [publishedAt, createdAt]` desc, `_id` asc,
+  defined once in `backend/src/utils/blogQuery.js`) and `updatePost`'s
+  `findByIdAndUpdate` (now load → assign → `save()`, so `pre('validate')`
+  runs). ⚠️ **The claim that a `BlogSection.test.jsx` guard "fails by
+  design" was FALSE** — measured, 61 of 63 passed against the old rule.
+  PF-96 built the discriminating fixture that was missing. Report:
+  `new mds/E8/PF-96-blog-api-ordering-search-and-update-fix.md`.
 - **PF-97** inherits `POST /api/blog` still requiring Phase 1's `content`
   field, which rejects a sections-only body with a 400.
 - **PF-99**'s EMAIL ME removal is an existing **locked decision**
@@ -704,6 +707,19 @@ concluding "this is fine, I read the source".
   `pill`/`pillRow` and `card`/`cardPlaceholder` both exist; the substring
   form counted 31 pills where there were 26. `[class~=]` does not fix it
   (the token is `_pill_f5cf21`). Unwrap the local name and compare exactly.
+- **⚠️ A guard against a FUTURE change is vacuous unless its fixture can
+  tell the two outcomes apart.** PF-95's "publishedAt is not wired to
+  sort yet" absence-assertion was recorded as PF-96's safety net and was
+  not one — its fixture's publish-date order coincided with the `_id`
+  order it pinned, so **61 of 63 tests passed against the reverted
+  rule**. Any "X is what decides" assertion needs a fixture where X-order
+  and Y-order DIFFER. Mutation-test a guard when you write it.
+- **⚠️ `insertMany` does NOT stamp one identical `createdAt`** — a batch
+  routinely straddles a millisecond (measured: 3 of 5, then 1 of 3). A
+  test asserting the stamps tie passes alone and in three consecutive
+  runs, then fails in the full suite. Corollary: **assert the weakest
+  property the test depends on**; a stronger one imports assumptions that
+  are not yours to make.
 - **A shared mutable test fixture disarms the guard watching it.** A
   "does not mutate" test passed because an earlier test in the same file
   had already sorted the fixture. `Object.freeze` it — the same mutant then
@@ -1198,9 +1214,21 @@ learning**, so it is written to teach, not to summarise. A report that
 proves the work happened but leaves the owner unable to explain the change
 to someone else has failed, however accurate it is.
 
-**Where:** `docs/tickets/PF-NN.md` — one file per ticket, named for it.
-Human-facing documentation, so `docs/`, not `.claude/` (which is my own
-context). Say where it was written when handing over.
+**Where:** OUTSIDE this repo, in the owner's own notes tree, one folder
+per Jira epic:
+
+```
+/Users/chami02/Documents/Personal/Projects/Portfolio/new mds/E<N>/PF-NN-short-description.md
+```
+
+Sprint 13 is Epic 8, so `new mds/E8/`. Say where it was written when
+handing over.
+
+⚠️ **This said `docs/tickets/PF-NN.md` until 2026-09-02 and that was
+wrong** — corrected by the owner during PF-96. `docs/tickets/` has never
+existed; PF-95's report was in `new mds/E8/` all along
+(`PF-95-blog-publish-dates-and-reading-time.md`, the template to follow
+for depth). Do not create `docs/tickets/`.
 
 **It must answer three questions, in this order and separately:**
 

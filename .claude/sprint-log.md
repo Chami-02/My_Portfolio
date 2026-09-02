@@ -1173,8 +1173,9 @@ than copied forward:
   old claim that the four share one `createdAt` is true of production's
   particular insert and **false as a property of `insertMany`**.
 
-- **⚠️ `insertMany` DOES NOT STAMP AN IDENTICAL `createdAt`, AND THE BLOG
-  TEASER'S ORDER DEPENDS ON IT DOING SO.** Found 2026-09-01 by PF-95's
+- ~~**⚠️ `insertMany` DOES NOT STAMP AN IDENTICAL `createdAt`, AND THE BLOG
+  TEASER'S ORDER DEPENDS ON IT DOING SO.**~~ — **FIXED in PF-96 (2026-09-02)**;
+  the correction at the end of this entry is the part worth reading. Found 2026-09-01 by PF-95's
   own verification step — the ticket scoped ordering to PF-96 and the
   gate turned this up anyway, the same shape as PF-94.
 
@@ -1224,6 +1225,31 @@ than copied forward:
   as not-touched, and a `BlogSection.test.jsx` guard asserts the order is
   still `createdAt`-driven so that changing it is a deliberate act with a
   failing test attached.
+
+  ⚠️ **FIXED IN PF-96 (2026-09-02)** — and the last sentence above was
+  **WRONG**, which is the more useful half of this entry. There was no
+  failing test attached. Three ordering guards were checked directly:
+  `BlogSection.test.jsx`'s main `POSTS` fixture carries **no
+  `publishedAt` key at all**, so a `publishedAt ?? createdAt` comparator
+  falls straight back to `createdAt` and behaves identically; and
+  `LIVE_POSTS` assigns p1..p4 publish dates in **descending** order,
+  which is the same sequence as the `_id`-ascending tiebreak it was
+  pinning. Both rules produce MERN · ClearDrive · Docker · JAX-RS.
+  Measured by reverting the comparator: **61 of 63 tests passed against
+  the old rule**, and the two that failed were the ones PF-96 added.
+
+  The safety net this entry promised did not exist, and believing it did
+  is exactly what would have let the change ship unverified. PF-96 built
+  the real one — a fixture whose `createdAt` order is the exact reverse
+  of its `publishedAt` order, so no tiebreak can rescue a component
+  reading the wrong field.
+
+  **Shipped:** `backend/src/utils/blogQuery.js` (NEW) holds the one sort
+  spec — `$ifNull: [publishedAt, createdAt]` desc, then `_id` asc — used
+  by `getAllPosts`, `getAllPostsAdmin` and the prev/next lookup;
+  `BlogSection.jsx`'s `byRecency()` mirrors it. Verified across three
+  fresh seeds, one of which produced **2 distinct `createdAt` stamps**
+  (the failing condition) and still ordered correctly.
 - ~~**⚠️ Two inherited contrast failures in the Blog teaser**~~ —
   **CLOSED in PF-91** (Groups A and E). ⚠️ Note the compact-row meta was
   **4.30 dark**, and the separator pair turned out to be one mark

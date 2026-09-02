@@ -571,6 +571,50 @@ error message:
   it either: the token is `_pill_f5cf21`, not `pill`. `SkillsSection.test.jsx`
   unwraps the local name and compares it exactly, handling both Vitest's
   template and `vite.config.js`'s own `[name]__[local]`.
+- **⚠️ A guard against a FUTURE change is vacuous unless its fixture can
+  tell the two outcomes apart — and "we will notice when it breaks" is
+  the belief that stops anyone checking.** PF-95 left an explicit
+  absence-assertion in `BlogSection.test.jsx` — `it('leaves post order
+  alone — publishedAt is not wired to sort yet')` — and `sprint-log.md`
+  recorded it as making PF-96's sort change "a deliberate act with a
+  failing test attached". It could never have done that. The fixture,
+  `LIVE_POSTS`, gives p1..p4 `publishedAt` values in DESCENDING order,
+  which is the identical sequence to the `_id`-ascending tiebreak it was
+  pinning; and the file's main `POSTS` fixture has **no `publishedAt` key
+  at all**, so a `publishedAt ?? createdAt` comparator falls back to
+  `createdAt` and behaves the same. Measured in PF-96 by reverting the
+  comparator: **61 of 63 passed**, the two failures being tests PF-96 had
+  just added.
+
+  **The tell is structural, not statistical**: a guard pinning "field A
+  decides" needs a fixture where ordering by A and by B give DIFFERENT
+  answers. If A-order and B-order coincide — even incidentally, as they
+  did here because the seed's publish dates descend in insertion order —
+  the test passes under both rules and is decoration. **Fix: build the
+  discriminating fixture, where the two orders are exact reverses, and
+  mutation-test the guard when you write it, not when you rely on it.**
+  ⚠️ Generalises past ordering: any assertion of the form "X is what
+  decides" is vacuous if the fixture's X and Y agree.
+
+- **⚠️ `insertMany` does NOT stamp a batch with one identical
+  `createdAt`, and a test asserting it does will pass most of the time.**
+  `timestamps: true` stamps from the driver's clock as the batch is
+  built, so a 4-document insert routinely straddles a millisecond and
+  produces two distinct values. Measured twice here: five trials in PF-95
+  (three straddled), and again in PF-96's own dev seeds (one of three
+  straddled). PF-96 wrote `expect(new Set(stamps).size).toBe(1)` as a
+  fixture guard — repeating the exact belief PF-95 had already corrected
+  as false — and it passed alone and in three consecutive file runs
+  before failing inside the full suite. **A flaky assertion whose failure
+  rate is ~40% still looks deterministic across three runs.**
+
+  ⚠️ The deeper error was choosing a property STRONGER than the one
+  needed. The fixture only required that `createdAt` order differ from
+  `publishedAt` order — true whether or not the stamps tie. Asserting
+  identity imported an unrelated, false assumption about Mongoose.
+  **Rule: assert the weakest property the test actually depends on**; a
+  stronger one adds failure modes without adding coverage.
+
 - **A shared mutable test fixture disarms the guard that watches it.**
   `SkillsSection.test.jsx` had a module-level `SKILLS` array and a test
   asserting the component does not sort its input in place. Mutation testing
