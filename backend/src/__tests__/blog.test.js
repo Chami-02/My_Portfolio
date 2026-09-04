@@ -108,6 +108,97 @@ describe('POST /api/blog', () => {
     expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/already exists/i);
   });
+
+  // ── PF-97 ────────────────────────────────────────────────────────────
+  // `blogRules` required Phase 1's `content`, so the shape every post has
+  // actually had since PF-59 was rejected outright. These pin the rule to
+  // "a post needs A body" rather than "a post needs THAT field".
+  describe('body validation (PF-97)', () => {
+
+    it('creates a sections-only post — the shape the admin panel sends', async () => {
+      const res = await request(app)
+        .post('/api/blog')
+        .set(await authHeader())
+        .send({
+          title:    'Sections Only Post',
+          excerpt:  'A post whose body is sections, with no content field.',
+          sections: [
+            { heading: 'Introduction', body: ['A paragraph of real text.'], bullets: [] },
+            { heading: 'Details',      body: [], bullets: ['First point', 'Second point'] },
+          ],
+          published: true,
+        });
+
+      // Before PF-97 this was 400 "Blog content is required".
+      expect(res.status).toBe(201);
+      expect(res.body.data.slug).toBe('sections-only-post');
+      expect(res.body.data.sections).toHaveLength(2);
+      // The derived fields still run on this path.
+      expect(res.body.data.readingTimeMinutes).toBeGreaterThanOrEqual(1);
+    });
+
+    it('still accepts a content-only post while the field exists', async () => {
+      const res = await request(app)
+        .post('/api/blog')
+        .set(await authHeader())
+        .send({
+          title:   'Legacy Content Post',
+          excerpt: 'A post carrying the deprecated flat content field.',
+          content: 'Some legacy markdown body text.',
+        });
+
+      expect(res.status).toBe(201);
+    });
+
+    it('rejects a post with neither sections nor content', async () => {
+      const res = await request(app)
+        .post('/api/blog')
+        .set(await authHeader())
+        .send({ title: 'Bodyless Post', excerpt: 'This post has no body at all.' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/needs a body/i);
+    });
+
+    it('rejects an empty sections array as no body', async () => {
+      const res = await request(app)
+        .post('/api/blog')
+        .set(await authHeader())
+        .send({ title: 'Empty Sections', excerpt: 'Sections present but empty.', sections: [] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/needs a body/i);
+    });
+
+    // The model's own sectionSchema.pre('validate') owns this rule; the
+    // assertion is that it reaches the client as a readable 400 rather
+    // than a 500, which is what makes a second copy in blogRules
+    // unnecessary.
+    it('rejects a section with neither paragraphs nor bullets, as a 400', async () => {
+      const res = await request(app)
+        .post('/api/blog')
+        .set(await authHeader())
+        .send({
+          title:    'Hollow Section Post',
+          excerpt:  'One section that carries no text of any kind.',
+          sections: [{ heading: 'Empty', body: [], bullets: [] }],
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/at least one paragraph or bullet/i);
+    });
+
+    // Pins the middleware ORDER. With `blogRules, validate` ahead of
+    // `protect`, this returned 400 and described the schema to a caller
+    // holding no token at all.
+    it('answers 401, not 400, when an unauthenticated request sends a bad body', async () => {
+      const res = await request(app)
+        .post('/api/blog')
+        .send({ title: '', excerpt: '' });
+
+      expect(res.status).toBe(401);
+    });
+  });
 });
 
 describe('PUT /api/blog/:id', () => {

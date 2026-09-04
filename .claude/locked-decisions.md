@@ -1592,3 +1592,111 @@ fidelity pass must not undo.
 - Cloudinary for file storage, behind a provider interface.
 - Résumé is PDF only; a new upload hard-deletes the old.
 - Blog content is `sections[]`, not a flat string.
+
+### PF-97 — the admin Blog editor is a SECTIONS editor, not a markdown box (2026-09-04)
+
+**Owner-requested, and it is a deliberate deviation from a frozen design
+file.** `docs/design/Admin.dc.html:478-481` shows the blog editor as one
+`required` textarea labelled *"Content \* (Markdown supported)"*. The
+shipped panel no longer has that field at all. It has a repeatable
+sections editor: per section a heading, a paragraph list and a bullet
+list, with add / remove / reorder.
+
+⚠️ **Do NOT "restore" the textarea to match the export.** That is what a
+fidelity pass will want to do, and it re-breaks the panel completely.
+
+**Why the prototype loses here, when it normally wins.** The prototype's
+admin form is not a design decision that Phase 2 overrode — it is
+*older than the schema*. `Admin.dc.html` was exported against Phase 1,
+where a post's body genuinely was one Markdown string. PF-59 replaced
+that with `sections[]` and the design file, frozen since 2026-08-22, was
+never re-exported. So the textarea is not the design's judgement about
+how a post should be authored; it is a field that no longer exists.
+Transcribing it faithfully produced an editor bound to a dead column,
+which is exactly the state PF-97 found and repaired.
+
+This is narrower than it sounds and does not loosen the rule. The
+prototype still wins on every value it actually expresses — the form's
+other fields, their labels, their order, the copy, the checkbox
+wording. What it cannot be the authority on is the shape of data it
+predates.
+
+**Considered and rejected: keep the single textarea and translate.**
+Serialise `sections[]` down to `## heading` / paragraphs / `- bullets`
+on open, parse it back on save. It was the recommended option precisely
+because it needed no deviation — the form would have looked identical
+to the export. Rejected by the owner in favour of editing the real
+structure. Worth recording *why it was tempting*: it is the only option
+that keeps a frozen design file honest without an entry like this one.
+The cost that made it lose is that a Markdown box labelled "Markdown
+supported" would not have supported Markdown — anything outside the
+three transcribed forms (numbered lists, code blocks, sub-headings)
+would silently flatten into a paragraph, and a lossy translation sitting
+between the author and the database is a bug generator.
+
+**Sanctioned scope, so this does not sprawl:**
+- The **tag chip picker** in the same prototype form (click to add, `×`
+  to remove, `+ ADD TAG`) was deferred to Sprint 14 and then **REVERSED
+  THE SAME DAY — it is BUILT in PF-97.** ⚠️ The deferral was made on my
+  mischaracterisation of it as "a look-and-feel improvement"; it is not.
+  The `×` performs a **cascading delete across every blog post**, which
+  is why the backend ships a dedicated impact-count endpoint and why the
+  entry below on vocabulary deletion exists at all. The owner spotted the
+  gap from the design and asked. **The comma-separated input STAYS
+  alongside it** — it is how a one-off tag gets typed; the picker is how
+  the shared pool gets used. Both, not either.
+- The **`tech` chip picker for the Projects panel** remains deferred —
+  same `Vocabulary` API, different form, different ticket.
+
+⚠️ **The `/blog` filter-chip row is driven by the tag pool, but only its
+IN-USE half (owner decision, 2026-09-04).**
+
+A chip appears on `/blog` when a vocabulary tag is carried by **at least one
+PUBLISHED post**. `GET /api/vocabulary/tag?inUse=true` is that list; PF-98
+consumes it and prepends `'All'` client-side (`utils/blogQuery.js`'s
+`buildMatch` already treats `'All'` as no filter).
+
+**Two alternatives were considered and rejected:**
+
+- **The whole pool as the chip row** — the literal reading of the request,
+  and zero backend work. Rejected because a pool value with no published
+  post behind it renders a chip returning *"no posts found"*, and that is
+  trivial to produce: add a tag then cancel the post, tag only a draft, or
+  delete the last post using a tag (the cascade runs one way only, so the
+  row survives). A filter guaranteed to fail is worse than an absent one —
+  a visitor cannot tell a stale pool entry from a broken site.
+- **Deriving the row from the posts, as the design does**
+  (`Blog.dc.html:327`, `ALL_TAGS = ['All', ...new Set(POSTS.flatMap(p =>
+  p.tags))]`). Rejected because the admin panel would then have no influence
+  on the public row, which is the thing that was asked for. ⚠️ It is also no
+  longer *possible* the way the design does it: PF-96 made `?q=`/`?tag=`
+  server-side, so the list response is already filtered and chips derived
+  from it would shrink as you filter. The row needs a source independent of
+  the current filter.
+
+⚠️ **`?inUse=true` and the impact count must NOT share a filter.** `impact`
+counts **every** document including drafts, because the delete cascade
+really does strip drafts and the confirm must not understate the damage.
+`?inUse=true` counts **published only**, because a draft-only tag must never
+become a public chip. They look like duplicated logic that ought to be
+unified; unifying them breaks one or the other.
+
+⚠️ **Omitting the param must keep returning the full pool.** The admin
+picker depends on it — a tag has to be pickable *before* anything uses it,
+or a newly created tag could never reach a first post. Guarded by a test.
+
+**Not built, decided:** a vocabulary row is NOT removed when its last post
+is deleted. Keeping the tag is useful for the next post, and `?inUse=true`
+already stops it reaching the public page.
+- PF-97 changed the panel's **function and structure only**. `/admin`'s
+  palette, its light theme, `global.css`'s `:root` deletion and the font
+  cutover remain **one** Sprint 14 job. The new editor deliberately
+  reuses `AdminAboutPanel`'s existing bio-paragraph idiom (glass card,
+  mono uppercase labels, numbered gutter, `×` remove, `+ Add` outline
+  button) rather than inventing a look, so that restyle stays one job
+  and not two.
+
+⚠️ **Section order is meaningful, which is why reorder exists.** The
+reading view numbers sections 01·02·03 in array order, so without ↑/↓ a
+mis-ordered post could only be fixed by retyping it. The arrows are not
+decoration.

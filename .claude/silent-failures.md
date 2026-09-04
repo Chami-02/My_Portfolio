@@ -1612,3 +1612,80 @@ error message:
   written *by the tests*, after that point, so nothing removes them.
 
 Where a mistake would be silent, add a test that would catch it.
+
+## A `<button>` with no `type` inside a `<form>` submits it (PF-97, 2026-09-04)
+
+**Where it fired.** `AdminBlogPanel.jsx`'s `ChipDeleteConfirm` — the
+confirm dialog for deleting a tag from the shared vocabulary. It renders
+inside the post `<form>`, because it hangs off `TagPicker`, which is a
+form field.
+
+**The mechanism.** HTML's default for `<button>` is `type="submit"`. A
+dialog is *visually* a separate surface, so nothing about the rendered
+result suggests its buttons belong to a form several hundred pixels up
+the tree. Clicking **"Yes, Remove"** therefore did two things: ran its
+`onClick`, and submitted the enclosing form.
+
+**Why it survived a manual check.** The visible outcome looked correct.
+The tag really was deleted. The chip really did disappear. The post was
+*also* saved and the editor closed — but "returned to the list after an
+action" is exactly what the panel does after a legitimate save, so the
+extra behaviour was camouflaged by a plausible one.
+
+**How it was actually found.** A component test asserted the tags field
+still existed after confirming. The debug run:
+
+```
+mutateAsync calls: 1        ← the delete fired
+TAGS AFTER: <element gone>  ← the editor had unmounted
+```
+
+**The fix.** `type="button"` on both dialog buttons, plus two regression
+guards asserting `updateMutation.mutateAsync` was NOT called on either
+confirm or cancel.
+
+⚠️ **The sibling dialog in the same file is fine purely by accident** —
+the Delete-Post modal is rendered outside the `<form>`, so its untyped
+buttons never mattered. Do not read its existence as proof the pattern is
+safe.
+
+**Rule: any `<button>` that is not the form's submit gets an explicit
+`type="button"`.** Cheap, and the failure mode is invisible.
+
+## A mutation restore is only as good as WHEN the snapshot was taken (PF-97, 2026-09-04)
+
+**The existing rule** — "mutate, then restore from a **copy**, never `git
+checkout`, while unstaged work is in the tree" — is in this file because
+`git checkout` once silently reverted a real edit. PF-97 found its blind
+spot.
+
+**What happened.** The copy was made at the top of the same command that
+*wrote* the feature, so it captured the state **before** the
+implementation. Restoring from it after the first mutation therefore
+reverted the entire feature. The three remaining mutations then ran
+against code that did not contain the thing they were supposed to be
+testing, and dutifully reported failures — which read exactly like
+"mutation caught".
+
+**The only tell.** The **control run** at the end came back `4 failed, 25
+passed` where it should have been `29 passed`, with the file reported as
+"restored". Confirmed by:
+
+```
+$ grep -c "inUse" src/controllers/vocabularyController.js
+0            ← the implementation, gone
+```
+
+**Two rules, and the second is what actually saves you:**
+
+1. Take the snapshot **after** the edit under test, and name it for what
+   it contains (`vc.WITH-INUSE`), not for what it replaces (`vc.orig`).
+   An `.orig` name invites exactly this mistake.
+2. **Always end a mutation pass with a control run.** Without one, four
+   meaningless failures get recorded as evidence for code that was not
+   present. A failing control means the harness is broken, not the fix —
+   diagnose the harness before believing any result in the batch.
+
+⚠️ Generalises past mutation testing: **any verification loop that
+mutates and restores can end up measuring a state nobody intended.** The
+control is the cheapest instrument that detects it.

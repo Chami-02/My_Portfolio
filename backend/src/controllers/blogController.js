@@ -13,9 +13,41 @@ const blogRules = [
     .trim()
     .notEmpty().withMessage('Excerpt is required')
     .isLength({ max: 300 }).withMessage('Excerpt cannot exceed 300 characters'),
-  body('content')
-    .trim()
-    .notEmpty().withMessage('Blog content is required'),
+  // ── CHANGED IN PF-97 ──────────────────────────────────────────────────
+  // Was `body('content').trim().notEmpty()`, which rejected every
+  // sections-shaped post with `400 "Blog content is required"`. PF-59 moved
+  // the body from a flat `content` string to `sections[]` and this rule was
+  // never moved with it, so the API demanded a field that no post has had
+  // since — `seed.js` writes zero of them. The admin panel could not create
+  // a post at all.
+  //
+  // The rule is now "a post needs A body", not "a post needs THAT field".
+  // `content` still satisfies it because the column still exists
+  // (`models/Blog.js` marks it DEPRECATED, awaiting its own removal ticket)
+  // and legacy rows may still carry it.
+  //
+  // ⚠️ Hung off `sections` rather than a bare `body()` because a custom
+  // validator on a named field runs even when that field is ABSENT —
+  // measured across all five shapes (missing / `[]` / populated / content
+  // only / blank content) before being written this way. A rule that only
+  // fired when `sections` was present would wave through the exact request
+  // this ticket exists to reject.
+  //
+  // ⚠️ Section SHAPE is deliberately not validated here. `sectionSchema`'s
+  // own `pre('validate')` already rejects a section with neither paragraphs
+  // nor bullets, and it arrives as a Mongoose ValidationError that
+  // `createPost` below already converts into a readable 400. Verified by
+  // probe, not assumed. A second copy of that rule here would be a second
+  // source of truth for it.
+  body('sections').custom((sections, { req }) => {
+    const hasSections = Array.isArray(sections) && sections.length > 0;
+    const hasContent  = typeof req.body.content === 'string' && req.body.content.trim() !== '';
+
+    if (!hasSections && !hasContent) {
+      throw new Error('A post needs a body — add at least one section');
+    }
+    return true;
+  }),
 ];
 
 // ── GET /api/blog ─────────────────────────────────────────────────────────────

@@ -488,8 +488,8 @@ Transcribed from the Jira backlog board on 2026-09-02.
 | Ticket | Title | Pts | Board | Real |
 | --- | --- | --- | --- | --- |
 | PF-95 | Migration 005 — distinct blog publish dates | 3 | To Do | ✅ **built 2026-09-01** |
-| PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next in `GET /:slug`, one shared sort spec | 8 | To Do | — |
-| PF-97 | Admin Blog panel repair — posts editable again | 5 | To Do | — |
+| PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next in `GET /:slug`, one shared sort spec | 8 | To Do | ✅ **built 2026-09-02** |
+| PF-97 | Admin Blog panel repair — posts editable again | 5 | To Do | ✅ **built 2026-09-04** (really ~8 pts) |
 | PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | To Do | — |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed | 8 | To Do | — |
 | PF-100 | 404 page — Phase 2 treatment | 3 | To Do | — |
@@ -510,7 +510,7 @@ reading:
 | --- | --- |
 | **PF-96** | the `insertMany` ordering entry in Outstanding work — `byRecency()` sorts on `createdAt` + an `_id` tiebreak that only engages when all four posts tie, which measurement showed happens in **2 of 5** batches. Production renders correctly by luck; dev is wrong after any re-seed, with `LATEST POST` on the third-oldest. PF-95 made `publishedAt` real so this sort can move onto it. **A `BlogSection.test.jsx` guard asserts the order is still `createdAt`-driven, so changing it is a deliberate act with a failing test attached.** |
 | **PF-96** | `updatePost` uses `findByIdAndUpdate`, which runs **no document middleware** — so editing a title does not regenerate the slug and editing sections does not recompute the reading time. Confirmed in PF-95's Step 0 and left alone deliberately. |
-| **PF-97** | `POST /api/blog` still requires Phase 1's `content` field — `middleware/validate.js` rejects a sections-only body with `400 "Blog content is required"` even though PF-59/PF-65 moved the schema to `sections[]`. Found while running PF-95's checklist; the probe had to send a placeholder to get a 201. |
+| ~~**PF-97**~~ | **FIXED 2026-09-04.** `POST /api/blog` required Phase 1's `content` field — `blogRules` rejected a sections-only body with `400 "Blog content is required"` even though PF-59/PF-65 moved the schema to `sections[]`. Found while running PF-95's checklist; the probe had to send a placeholder to get a 201. ⚠️ **This turned out to be the smaller half of PF-97.** The admin panel's editor was bound to the same dead `content` field, so `Edit` on any post opened an empty `required` textarea the browser refused to submit — no post was editable at all. |
 
 **PF-99's "EMAIL ME removed" is already a locked decision**, taken
 2026-08-22 and never built because the reading view does not exist yet.
@@ -658,6 +658,243 @@ edit in the same file:
 | compact-row call site back to `createdAt` | 2 frontend cases |
 | drop the `createdAt` fallback | 4 frontend cases |
 | `formatReadTime` hardcoded to 1 | 2 frontend cases |
+
+### Built by PF-97 — the admin Blog panel edits `sections[]` (2026-09-04)
+
+```
+backend/src/
+  controllers/blogController.js   blogRules: content-required → body-required
+                                    (sections[] OR content)
+  routes/blogRoutes.js            POST: protect moved AHEAD of blogRules/validate
+  __tests__/blog.test.js          + 6 cases  (14 → 20)
+frontend/src/
+  utils/blogForm.js               NEW  postToForm / formToPayload / formErrors
+                                    + emptyForm / emptySection factories
+  utils/__tests__/blogForm.test.js            NEW  31 cases
+  components/admin/panels/AdminBlogPanel.jsx  content textarea REMOVED,
+                                    sections editor added, error banner,
+                                    list date → publishedAt || createdAt
+  components/admin/panels/__tests__/AdminBlogPanel.test.jsx  NEW  21 cases
+                                    — the FIRST admin component test
+```
+
+**Two defects, one root cause: the panel and the validator both still
+believed in `content`.** PF-59 moved a post's body to `sections[]` in
+Sprint 9 and neither was migrated with it. `grep -c "content:"
+backend/src/seed.js` returns **0** — no post has ever carried the field
+this code demanded.
+
+- **`blogRules` required `content`**, so every sections-shaped POST was
+  rejected with `400 "Blog content is required"`. This was the half
+  already written up for PF-97.
+- **The panel's editor was bound to `content` too**, and this half was
+  not recorded anywhere. `getAllPostsAdmin` projects `{ content: 0 }` and
+  the field is empty regardless, so `startEdit`'s `setForm({ ...post })`
+  left `form.content` as `undefined`. The textarea rendered blank, was
+  `required`, and the browser refused to submit. **No post was editable
+  from the admin panel at all**, and the post's real body was never shown.
+
+⚠️ **The owner chose the structured sections editor over a
+markdown-round-trip textarea**, which is a deviation from a frozen design
+file — `Admin.dc.html` still shows the Phase 1 markdown box. Recorded in
+`locked-decisions.md`; a fidelity pass that "restores" it re-breaks the
+panel.
+
+**Also fixed, found while tracing:**
+
+- **`POST /api/blog` validated the body BEFORE checking auth**
+  (`blogRules, validate, protect`), so an unauthenticated caller got a 400
+  describing the schema instead of a 401. Reordered to match
+  `projectRoutes.js` and `skillRoutes.js`. Pinned by a test.
+- **`setForm({ ...post })` PUT every server-owned field back** — `slug`,
+  `views`, `publishedAt`, `createdAt` and `readingTimeMinutes`.
+  `postToForm` is an explicit pick instead. The `readingTimeMinutes` echo
+  is the one that mattered: PF-95 made `pre('validate')` skip its
+  recompute when that field is modified in the same operation, so
+  returning the old figure alongside rewritten sections asks the server
+  not to update it. Not sending it removes the question rather than
+  answering it. Guarded by six `it.each` cases.
+- **A rejected save was an unhandled promise rejection.** `handleSubmit`
+  awaited `mutateAsync` with no `catch`, so the form simply sat there.
+  **That is why the inherited 400 went unnoticed for two sprints — the
+  server was refusing every post and the panel said nothing.** Now an
+  error banner, following `AdminSkillsPanel`'s existing inline idiom, and
+  distinguishing an unreachable server from a rejected post per the
+  lesson in `utils/loginError.js`.
+- **The panel printed `createdAt` where the site prints `publishedAt ||
+  createdAt`** (PF-95). Migration 005 set publish dates months before the
+  seed's insert stamp, so the same post showed two different dates
+  depending on where you looked.
+
+**Three things the ticket got right only because the code was traced
+first:**
+
+1. **No section-shape rule was added to `blogRules`.** A probe showed
+   `sectionSchema`'s own `pre('validate')` already surfaces as
+   `name = 'ValidationError'`, which `createPost`'s existing handler
+   converts to a readable 400. A second copy of that rule in the
+   controller would have been a second source of truth for it.
+2. **The body rule is hung off `body('sections')`, not a bare `body()`.**
+   Measured across all five shapes first: a custom validator on a *named*
+   field runs even when that field is absent. A rule that only fired when
+   `sections` was present would have waved through the exact request the
+   ticket exists to reject.
+3. **`PUT /:id` deliberately got NO rule array.** `blog.test.js:120` sends
+   a partial body (`{ title: ... }`); adding `blogRules` there would have
+   400'd it. PF-96 already made `save()` run full document validation on
+   that path, so the model is the correct gate.
+
+**`emptySection()` is a factory, not a constant, and that is load-bearing.**
+A module-level `const EMPTY_SECTION = { body: [] }` hands the same array
+instances to every section on the form, so typing a paragraph into section
+3 appends it to sections 1 and 2 — a spread copies the object but not the
+arrays inside it. Guarded directly.
+
+**Second half, same day — the tag vocabulary picker.** The owner spotted
+from the design that the chip picker was missing and asked whether it
+belonged to this ticket. It did: it sits inside the blog edit form
+(`Admin.dc.html:486-497`), no other ticket owned it (PF-98's "tag chips"
+are the PUBLIC index filter), and the API behind it — `Vocabulary`, list,
+create, cascading delete, impact count — was built by **PF-61/PF-62 in
+Sprint 9 and had ZERO frontend consumers** ever since.
+
+```
+frontend/src/
+  services/vocabularyService.js         NEW  list / impact / create / remove
+  hooks/useVocabulary.js                NEW  + useVocabularyImpact
+  hooks/__tests__/useVocabulary.test.jsx NEW  7 cases — the FIRST test under
+                                          src/hooks/__tests__/
+  utils/blogForm.js                     + tagList / hasTag / toggleTag / removeTag
+  utils/__tests__/blogForm.test.js      + 14 cases  (31 → 45)
+  components/admin/panels/AdminBlogPanel.jsx
+                                        + TagPicker + ChipDeleteConfirm
+  components/admin/panels/__tests__/AdminBlogPanel.test.jsx
+                                        + 20 cases  (21 → 41)
+```
+
+⚠️ **A real bug was found by a test, and it was invisible on screen.**
+`ChipDeleteConfirm` renders INSIDE the post `<form>` (it hangs off the tag
+picker, which is a form field), and a `<button>` with no `type` defaults
+to `type="submit"`. So confirming a tag deletion **also saved the whole
+post and closed the editor**. The tag really was deleted, so the action
+looked like it had worked — it just silently did something twice as large.
+Caught only because a test asserted the tags field still existed
+afterwards. The existing Delete-Post modal escapes this purely by being
+rendered outside the form. **Fix: `type="button"` on both buttons**, with
+two regression guards.
+
+⚠️ **`useDeleteVocabulary` invalidates the BLOG caches, not just the
+vocabulary list.** The delete cascades server-side (`$pull` across every
+post), so invalidating only the chip list would leave the admin list and
+the public site rendering tags that no longer exist in the database — a
+staleness that surfaces much later and reads as "the delete didn't work".
+That contract is unobservable from the component, so it is pinned in
+`hooks/__tests__/useVocabulary.test.jsx`.
+
+**Third piece — `?inUse=true`, so the tag pool can drive the public chip
+row (2026-09-04).** The owner asked that a tag added in admin appear in
+`Blog.dc.html`'s search-bar chip row, and a deleted one vanish from both the
+posts and that row. The delete half already worked (the cascade). The add
+half needed a decision, because the design does not store a chip list — it
+derives one (`Blog.dc.html:327`).
+
+```
+backend/src/
+  controllers/vocabularyController.js   TARGETS + publicFilter per type;
+                                          getVocabulary accepts ?inUse=true
+  __tests__/vocabulary.test.js          + 10 cases  (19 → 29)
+```
+
+**The rule, owner-decided:** a chip appears when a vocabulary tag is on at
+least one **PUBLISHED** post. Full reasoning and both rejected alternatives
+are in `locked-decisions.md`. The short version: the whole pool would render
+chips that return "no posts found", and deriving from the fetched posts is
+no longer possible because PF-96 made filtering server-side — the response is
+already filtered, so derived chips would shrink as you filter.
+
+⚠️ **`impact` and `?inUse=true` deliberately use DIFFERENT filters** —
+impact counts every post including drafts (the cascade really does strip
+drafts; the confirm must not understate it), inUse counts published only (a
+draft-only tag must not become a public chip). They read like duplicated
+logic. Unifying them breaks one or the other, and there is a comment in the
+controller saying so.
+
+⚠️ **Omitting the param must return the FULL pool** — the admin picker needs
+to offer a tag before anything uses it, or a new tag could never reach a
+first post. That is the regression most likely to bite and it has its own
+test.
+
+**4 more mutations, all caught** (control 29/29): `publicFilter` → `{}` (2
+fail) · case-sensitive compare (1) · `inUse` ignored (4) · `inUse` applied
+unconditionally (3).
+
+⚠️ **A restore-from-copy mistake happened here and the CONTROL RUN caught
+it.** The snapshot used for restoring between mutations was taken *before*
+the `inUse` implementation, so the first restore silently reverted the
+feature and every later mutation ran against code that no longer had it —
+reporting failures that meant nothing. The tell was the control run failing
+4 tests with the controller "restored". **Take the snapshot AFTER the edit
+being tested, and treat a failing control as a broken harness, not a broken
+fix.** This is the same family as the documented `git checkout` trap; the
+copy discipline does not help if the copy is of the wrong state.
+
+**Live against `portfolio_dev`**, baseline recorded first and re-verified
+after:
+
+```
+BASELINE  vocab: 12 | posts: 4
+0. plain / inUse          → 12 / 12
+1. after adding unused tag→ 13 / 12    (plain grows, inUse must NOT)
+2. tag on a DRAFT only    → 13 / 12    (inUse must STILL not count it)
+3. after publishing       → 13 / 13    (now inUse counts it)
+RESTORED  vocab: 12 | posts: 4 — identical to baseline, no residue
+```
+
+**⚠️ PF-98 note:** the chip row calls `GET /api/vocabulary/tag?inUse=true`
+and prepends `'All'` itself. No server change is needed for `'All'` —
+`buildMatch` in `utils/blogQuery.js` already treats it as no filter.
+
+**7 more mutations, all caught** (control 93/93): case-sensitive
+`toggleTag` · dropped blog-cache invalidation · `onRemoved` not stripping
+the open form · confirm rendering its count before impact resolves ·
+`type="button"` removed · ADD TAG posting a duplicate instead of picking ·
+Enter no longer prevented from submitting.
+
+**Live browser, `portfolio_dev`:** 12 chips render · click picks
+(`aria-pressed` flips) · click again unpicks · Enter in the tag box adds
+AND selects without submitting the post · the confirm reported the true
+"No blog posts currently use it" for a fresh tag · removal stripped it
+from the open form without submitting. ⚠️ The probe added and deleted a
+real vocabulary row; verified afterwards that the collection is back to
+**exactly** its original 12 values.
+
+**The gate, after ALL THREE pieces:** frontend **798 / 798** (47 files) · lint
+**exit 0** · build **225 modules**, 67.76 kB CSS (unchanged throughout —
+the new test files sit under `__tests__/` and are excluded from Tailwind's
+scan) / 428.83 kB JS. The first half alone measured 757 / 757 and 223
+modules.
+
+⚠️ **The first full backend run reported 2 failures — `auth.test.js` and
+`skills.test.js`, neither touched by this ticket. Not real.** `auth.test.js`
+alone took **915 s** against a normal whole-suite time of ~165 s: the
+documented **timeout** shape. Re-run together they passed in **39 s**, and
+the full suite then passed clean. Reproducibility is the discriminator, as
+the Silent-failures entry says; the failure did not reproduce.
+
+**9 mutations, all caught**, restored from copies and then `diff`-ed
+against the originals to confirm the files actually came back:
+
+| mutation | caught by |
+| --- | --- |
+| `blogRules` requires `content` again | 4 backend cases |
+| validation back in front of `protect` | the 401 case |
+| empty `sections: []` counts as a body | its own case |
+| `postToForm` spreads the whole post again | 7 frontend cases |
+| `formToPayload` keeps blank paragraphs | 5 cases |
+| `emptySection` becomes a shared constant | 4 cases |
+| list date reverts to `createdAt` | its own case |
+| save error swallowed again (no catch) | its own case |
+| client-side validation gate removed | its own case |
 
 ### Infrastructure — databases, credentials, Cloudinary (2026-08-31)
 
@@ -834,6 +1071,78 @@ the deployed backend in this project's history.**
 that gap start mattering.
 
 ### Outstanding work — deferred deliberately, not lost
+
+- **⚠️ EDITING A SEEDED POST IN THE ADMIN PANEL DROPS ITS "MIN READ" TO 1,
+  AND THAT IS THE CORRECT COMPUTATION — the seeded figures are the
+  fiction. Found during PF-97's browser recheck, 2026-09-04. NEEDS AN
+  OWNER DECISION.**
+
+  The panel deliberately does not send `readingTimeMinutes` (PF-97's
+  explicit pick), so `pre('validate')` sees `sections` modified with no
+  explicit value and recomputes from the real word count. For post 1 that
+  is **152 words → 1 min**, where the seed declares **6**.
+
+  Measured on the four posts: the seed declares 6 / 7 / 4 / 5, transcribed
+  from the design. The bodies in `seed.js` are short excerpts, roughly
+  150 words each, so every one of them really computes to **1**. The
+  declared figures only survive because nothing has ever edited a post —
+  and PF-95 went to deliberate trouble to let them survive `insertMany`.
+
+  ⚠️ **So the first real edit of any post silently changes what the public
+  site shows**, from the design's 6 MIN READ to 1 MIN READ. Nothing is
+  broken; the number simply becomes honest, and honest disagrees with
+  `docs/design/Blog.dc.html`.
+
+  ⚠️ **Do NOT "fix" this by having the panel send `readingTimeMinutes`
+  back.** That is precisely the defect PF-97 removed — it freezes the
+  figure forever, so a genuinely rewritten post keeps a stale reading
+  time. The two behaviours are mutually exclusive and this is a product
+  decision, not a code one.
+
+  Three ways out, none taken:
+  1. **Accept it.** The computed value is true; the seeded ones were
+     transcribed for a design that assumed full-length posts.
+  2. **Write real full-length bodies** into `seed.js` so the computation
+     naturally lands near 6 / 7 / 4 / 5.
+  3. **Add an optional reading-time override** to the admin form, so an
+     author can pin a figure; blank means compute.
+
+  ⚠️ The dev database was restored to the seeded values after the probe
+  (`updateOne`, not `save()`, so the hook did not recompute it straight
+  back). Verified: all four match `seed.js` exactly. **Production has
+  never been edited through the panel and is unaffected — for now.**
+
+- ~~**The admin Blog form's TAG CHIP PICKER is not built**~~ — **BUILT IN
+  PF-97, 2026-09-04.** It was deferred to Sprint 14 earlier the same day
+  and the deferral was reversed within hours, because the reasoning behind
+  it was wrong: I described the picker as "a look-and-feel improvement"
+  and the owner deferred it on that description. It is not. The `×`
+  performs a **cascading delete across every blog post**, backed by
+  `Vocabulary` plus a dedicated impact-count endpoint that PF-61/PF-62
+  built in Sprint 9 and that had **zero frontend consumers** until now.
+  ⚠️ **The lesson worth keeping is not about tags.** A feature was nearly
+  lost to Sprint 14 because I summarised it by how it LOOKS rather than
+  by what it DOES. When describing a deferral to the owner, describe the
+  consequence, not the appearance.
+
+- **The `tech` chip picker for the Projects panel is still not built.**
+  Same `Vocabulary` API (`type: 'tech'`, cascading onto `Project.tech`),
+  same endpoints, zero frontend consumers. PF-97 deliberately did not
+  build it: different form, different panel, and folding it in would have
+  dragged Projects into a Blog ticket. `useDeleteVocabulary` handles the
+  `tag` cache invalidation only, and its test pins that `tech` does NOT
+  invalidate the blog caches — whoever builds the Projects picker must add
+  the project-key invalidation there.
+
+- **The admin Blog form has NO `publishedAt` control, and that was a
+  decision (2026-09-04).** A post created from the panel gets
+  `publishedAt: null` and sorts by `$ifNull` fallback to `createdAt`,
+  which for a new post is "now" — correct, and the reason no control was
+  needed. **But there is no way to back-date or correct a publish date
+  from the UI**; migration 005 is the only thing that has ever set one.
+  The moment a second post needs a date that is not its creation time,
+  this becomes a real gap. Not built because nothing required it and the
+  design has no such field.
 
 - ~~**⚠️ `ScrollToTop` covers the end of the copyright at ≤600px**~~ —
   **FIXED 2026-08-27**, owner chose hiding the button while the footer's

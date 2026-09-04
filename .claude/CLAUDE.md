@@ -304,7 +304,7 @@ to PF-59 is intentional.
 | --- | --- | --- | --- |
 | PF-95 | Migration 005 — distinct blog publish dates | 3 | ✅ built 2026-09-01 |
 | PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next, one shared sort spec | 8 | ✅ built 2026-09-02 |
-| PF-97 | Admin Blog panel repair — posts editable again | 5 | to do |
+| PF-97 | Admin Blog panel repair — posts editable again | 5 | ✅ built 2026-09-04 (really ~8) |
 | PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | to do |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed | 8 | to do |
 | PF-100 | 404 page — Phase 2 treatment | 3 | to do |
@@ -326,8 +326,14 @@ before starting any of them. It is the starting point, not background:
   design" was FALSE** — measured, 61 of 63 passed against the old rule.
   PF-96 built the discriminating fixture that was missing. Report:
   `new mds/E8/PF-96-blog-api-ordering-search-and-update-fix.md`.
-- **PF-97** inherits `POST /api/blog` still requiring Phase 1's `content`
-  field, which rejects a sections-only body with a 400.
+- ~~**PF-97**~~ — **BUILT 2026-09-04.** The inherited `content`-required
+  400 was the SMALLER half. The admin editor was bound to the same dead
+  field, so **no post was editable at all**: `Edit` opened a blank
+  `required` textarea the browser refused to submit, and the post's real
+  `sections[]` body was never shown. Now a structured sections editor
+  (owner-approved deviation — `Admin.dc.html` still shows the Phase 1
+  markdown box), plus the tag vocabulary picker and `?inUse=true`. Report:
+  `new mds/E8/PF-97-admin-blog-panel-sections-editor.md`.
 - **PF-99**'s EMAIL ME removal is an existing **locked decision**
   (2026-08-22, never built because the reading view does not exist).
 - **PF-100** inherits three measured contrast failures raised in PF-91.
@@ -335,7 +341,15 @@ before starting any of them. It is the starting point, not background:
 
 **`/blog` and `/blog/:slug` have no routes yet.** PF-86's five teaser links
 point at `/blog` and render `NotFoundPage` today. `Blog.dc.html` is PF-98
-and PF-99's design source. **Sprint 14, not 13**, owns `/admin`'s light
+and PF-99's design source.
+
+⚠️ **PF-98's tag-chip row is already decided and half-built.** It calls
+`GET /api/vocabulary/tag?inUse=true` (PF-97) and prepends `'All'` itself —
+`buildMatch` in `utils/blogQuery.js` already treats `'All'` as no filter.
+**Do NOT derive the chips from the fetched posts** the way
+`Blog.dc.html:327` does: PF-96 made `?q=`/`?tag=` server-side, so the list
+response is already filtered and derived chips would shrink as you filter.
+Full reasoning and both rejected alternatives in `locked-decisions.md`. **Sprint 14, not 13**, owns `/admin`'s light
 theme, `global.css`'s `:root` deletion and the font cutover — one piece of
 work, don't pull it forward.
 
@@ -375,6 +389,9 @@ frontend/
                                  each with its context in a SEPARATE module
     hooks/                       useTheme  useReducedMotion  useSplashReady
                                  useSplashControls  useAbout/useBlog/useProjects/useSkills
+                                 useVocabulary — PF-97: the tag/tech pool.
+                                 ⚠️ useDeleteVocabulary invalidates the BLOG
+                                 caches too; the delete cascades server-side
     components/
       motion/                    index.js barrel — Reveal, CountUp, Marquee
       ambient/                   index.js barrel — PageShell, StarfieldCanvas,
@@ -390,7 +407,16 @@ frontend/
       splash.js                  shouldShowSplash()
       parallax.js                computeParallaxTransform()
       loginError.js              loginErrorMessage() — see Silent failures
+      blogForm.js                PF-97: postToForm/formToPayload/formErrors
+                                 + tagList/hasTag/toggleTag/removeTag.
+                                 ⚠️ emptySection()/emptyForm() are FACTORIES,
+                                 not constants — a shared object hands every
+                                 section the same arrays
 ```
+
+⚠️ **`src/hooks/__tests__/` now exists** (PF-97, `useVocabulary.test.jsx`),
+as does `src/components/admin/panels/__tests__/` (the first admin component
+test). Both follow the per-module convention; neither existed before.
 
 - **Motion primitives**: `import { Reveal, CountUp, Marquee } from
   '../components/motion'`. `Reveal` needs `type="up"|"pop"|"rise"|"left"`
@@ -887,6 +913,23 @@ concluding "this is fine, I read the source".
   sliced in half, the primary nav at 32px — all sat behind an ancestor that
   clips, a media query a sweep never fires, or a width band nobody tests.
   **Open the menus and look at the screenshots.**
+- **⚠️ A `<button>` inside a `<form>` with no `type` is a SUBMIT button,
+  so a dialog rendered inside a form saves the form.** PF-97's tag-delete
+  confirm sat inside the post `<form>`; "Yes, Remove" deleted the tag AND
+  silently saved and closed the post. **It looked like it worked** — the
+  tag really was gone. Caught only by a test asserting the editor was
+  still open. The sibling Delete-Post modal escapes it purely by being
+  rendered outside the form. **Always `type="button"` on any button that
+  is not the form's submit.**
+- **⚠️ Snapshot for a mutation restore AFTER the edit under test, and
+  ALWAYS run a control.** In PF-97 the copy was taken *before* the
+  feature was written, so the first restore silently reverted it and
+  four later mutations ran against code that no longer contained the
+  fix — reporting failures that meant nothing. The only tell was the
+  **control run** failing. A failing control means a broken harness,
+  not a broken fix. ⚠️ The documented "restore from a copy, not `git
+  checkout`" rule does NOT protect you if the copy is of the wrong
+  state.
 - **Mutate the code, then confirm the file actually changed.** Several
   mutations reported clean because the regex hit a *comment* naming the
   value, or did not match at all. ⚠️ And restore from a **copy**, never
@@ -1078,6 +1121,25 @@ omitted — keep the two straight.
 - **Cloudinary for file storage**, behind a provider interface.
 - **Résumé is PDF only; a new upload hard-deletes the old.**
 - **Blog content is `sections[]`**, not a flat string.
+- **The admin Blog editor is a STRUCTURED SECTIONS EDITOR, not the
+  prototype's markdown textarea** (PF-97, owner-approved 2026-09-04).
+  ⚠️ `Admin.dc.html:478-481` still shows the single "Content * (Markdown
+  supported)" box — it predates PF-59's schema change. **Restoring it to
+  match the export re-breaks the panel completely.**
+- **The admin Blog form has the design's TAG CHIP PICKER**, backed by the
+  `Vocabulary` API that PF-61/PF-62 built and nothing consumed until
+  PF-97. The comma-separated text input **stays alongside it** — one is
+  for a one-off tag, the other for the shared pool. ⚠️ The `×` is a
+  **cascading delete across every post**, behind an impact-count confirm.
+- **`/blog`'s chip row = pool tags carried by at least one PUBLISHED
+  post** — `GET /api/vocabulary/tag?inUse=true`, PF-98 prepends `'All'`.
+  ⚠️ Not the whole pool (dead chips) and NOT derived from the fetched
+  posts (PF-96 filters server-side, so they would shrink as you filter).
+- **`impact` and `?inUse=true` use DIFFERENT filters on purpose** — impact
+  counts every post including drafts, inUse counts published only.
+  Unifying them breaks one or the other.
+- **The `tech` chip picker for Projects is still NOT built** — same API,
+  different form, its own ticket.
 
 ## Environment
 
