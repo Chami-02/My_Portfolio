@@ -32,8 +32,24 @@ export const blogListParams = ({ q, tag } = {}) => {
   const query = typeof q === 'string' ? q.trim() : '';
   if (query) params.q = query;
 
-  const label = typeof tag === 'string' ? tag.trim() : '';
-  if (label && label.toLowerCase() !== 'all') params.tag = label;
+  // ── ⚠️ MULTI-TAG SINCE PF-105 ────────────────────────────────────────
+  // `tag` is a string for one and an array for several. Normalised to an
+  // array here so the service, the query key and the server see one shape.
+  const tags = (Array.isArray(tag) ? tag : [tag])
+    .filter((t) => typeof t === 'string')
+    .map((t) => t.trim())
+    .filter((t) => t && t.toLowerCase() !== 'all');
+
+  // ⚠️ SORTED, and that is not cosmetic. This object IS the React Query
+  // key (`[...BLOG_KEY, 'list', listParams]`), so ['Docker','DevOps'] and
+  // ['DevOps','Docker'] would be two cache entries for one identical
+  // result set — the same list fetched twice depending on the order the
+  // chips happened to be clicked in. Sorting collapses them to one.
+  //
+  // A COPY, not an in-place sort: `tag` may be the caller's own array — on
+  // /blog it is `searchParams.getAll('tag')` — and sorting it in place
+  // would reorder the caller's data as a side effect of building params.
+  if (tags.length) params.tag = [...tags].sort();
 
   return params;
 };

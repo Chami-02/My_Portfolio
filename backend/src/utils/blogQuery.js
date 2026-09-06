@@ -33,11 +33,15 @@
 // `publishedAt || createdAt`; this makes the order read the same value, so
 // a post can never appear in a position its printed date contradicts.
 //
-// Rejected: stamping `publishedAt` at publish time and keeping the plain
-// indexed sort. Better domain modelling, but it does not remove the need
-// for the fallback — every row already in the database still holds `null`
-// until it is edited, so reads would need `$ifNull` anyway and the app
-// would carry two mechanisms instead of one. Recorded, not built.
+// ⚠️ UPDATED IN PF-104: stamping `publishedAt` at publish time IS now
+// built (`applyDerivedFields` in models/Blog.js), because a draft created
+// in January and published in September otherwise fell back to its
+// January `createdAt` and appeared as an old post the moment it went
+// live. But it was NEVER an alternative to this fallback and the earlier
+// note here said so: every row already in the database still holds
+// `null` until it is next saved, so reads need `$ifNull` regardless.
+// Both mechanisms, deliberately — the stamp fixes new posts going
+// forward, the fallback covers everything written before it existed.
 //
 // ── COST, ACCEPTED ──────────────────────────────────────────────────────
 // A computed sort key cannot use an index, so the `$sort` is in-memory.
@@ -65,19 +69,40 @@ function escapeRegex(input) {
 /**
  * Build the `$match` for a post list.
  *
- * Search semantics are transcribed from the design's own filter,
- * `docs/design/Blog.dc.html:537-546`:
+ * Tag AND query. The query is a case-insensitive SUBSTRING match.
  *
- *     const tagOk = tag === 'All' || p.tags.includes(tag);
- *     if (!tagOk) return false;
- *     if (!q) return true;
+ * ── ⚠️ WIDENED IN PF-104 (owner-requested 2026-09-06) ─────────────────
+ * The query now covers the POST'S WHOLE TEXT — title, excerpt, tags AND
+ * every section's heading, paragraphs and bullets.
+ *
+ * This REVERSES PF-96, which deliberately matched the design's own filter
+ * (`docs/design/Blog.dc.html:537-546`):
+ *
  *     return (p.title + ' ' + p.excerpt + ' ' + p.tags.join(' '))
  *              .toLowerCase().includes(q);
  *
- * So: tag AND query; the query is a case-insensitive SUBSTRING over
- * title, excerpt and tags — deliberately NOT section body text, even
- * though the prototype's placeholder says "tools". The design is the
- * authority for behaviour a visitor can observe.
+ * — title, excerpt and tags only, on the reasoning that the design is the
+ * authority for behaviour a visitor can observe. The owner's requirement
+ * is that any word belonging to a post finds it, which the prototype's
+ * own placeholder ("Search posts, tags, tools…") already implies. Do NOT
+ * narrow this back to match the frozen export.
+ *
+ * `sections.body` and `sections.bullets` are arrays INSIDE an array of
+ * subdocuments; a dotted path reaches every element of every section, and
+ * an `$or` arm on an array field matches if ANY element matches. So one
+ * regex per path covers all of them.
+ *
+ * The deprecated `content` string is deliberately NOT searched. No row in
+ * this database has ever carried one (models/Blog.js marks it awaiting
+ * its own removal ticket), so an arm for it would be dead weight.
+ *
+ * ── COST, STATED RATHER THAN DISCOVERED LATER ────────────────────────
+ * There is no text index, and none on `sections` — this is a collection
+ * scan running a regex per array element. Irrelevant at four posts, the
+ * same reasoning as the in-memory `$sort` above. If this collection grows
+ * past a few hundred posts, move to a `$text` index (which also changes
+ * the semantics from substring to whole-word stemming — a visible
+ * behaviour change, not a drop-in).
  *
  * @param {object}  opts
  * @param {boolean} opts.publishedOnly  false for the admin list
@@ -88,22 +113,60 @@ function buildMatch({ publishedOnly = true, q, tag } = {}) {
   const match = {};
   if (publishedOnly) match.published = true;
 
-  const tagValue = typeof tag === 'string' ? tag.trim() : '';
-  // 'All' is the design's own "no filter" chip, and it is sent as a real
-  // query value rather than omitted — so it must be understood here.
-  if (tagValue && tagValue.toLowerCase() !== 'all') {
-    // Anchored: a tag filter is exact membership, not a substring, or
-    // selecting "React" would also match "React Native". Case-insensitive
-    // so a tag arriving from a URL does not have to match casing exactly.
-    match.tags = new RegExp(`^${escapeRegex(tagValue)}$`, 'i');
+  // ── ⚠️ MULTI-TAG SINCE PF-105 (owner-requested 2026-09-06) ───────────
+  // `tag` arrives as a STRING for one tag and an ARRAY for several —
+  // `?tag=Docker&tag=DevOps`, which Express's query parser turns into
+  // `['Docker', 'DevOps']`.
+  //
+  // ⚠️ THE OLD CODE FAILED SILENTLY ON AN ARRAY. It read
+  // `typeof tag === 'string' ? tag.trim() : ''`, so an array produced the
+  // empty string, the whole block was skipped, and the request came back
+  // UNFILTERED with a 200. Measured before this change:
+  // `?tag=Docker&tag=DevOps` returned all 4 posts. That is why every layer
+  // — serializer, params, page — had to move in one ticket: a half-done
+  // version reads as "the tag filter stopped working", not as an error.
+  const tagList = (Array.isArray(tag) ? tag : [tag])
+    .filter((t) => typeof t === 'string')
+    .map((t) => t.trim())
+    // 'All' is the design's own "no filter" chip, and it is sent as a real
+    // query value rather than omitted — so it must be understood here.
+    .filter((t) => t && t.toLowerCase() !== 'all');
+
+  if (tagList.length) {
+    // AND, not OR: selecting Docker + DevOps means a post carrying BOTH.
+    // Owner's decision, and the numbers behind it are in
+    // .claude/locked-decisions.md — on four posts OR returns 3 of 4 for
+    // that pair, which barely filters at all.
+    //
+    // ⚠️ `$and` of one condition per tag, NOT `$all`. `$all` reads shorter
+    // but its behaviour with REGEX elements is inconsistent across MongoDB
+    // versions, and each arm has to stay a regex to keep PF-96's property:
+    // anchored, so selecting "React" does not also match "React Native",
+    // and case-insensitive, so a tag arriving from a hand-typed URL does
+    // not have to match the pool's casing exactly.
+    //
+    // ⚠️ `$and` (tags) and `$or` (the `q` search below) are sibling
+    // top-level keys and Mongo ANDs them, so a query AND every tag must
+    // hold. Verified with a combined request, not assumed.
+    match.$and = tagList.map((t) => ({
+      tags: new RegExp(`^${escapeRegex(t)}$`, 'i'),
+    }));
   }
 
   const query = typeof q === 'string' ? q.trim() : '';
   if (query) {
     const rx = new RegExp(escapeRegex(query), 'i');
     // On an array field, an $or arm matches if ANY element matches, which
-    // is what makes `tags: rx` behave like the design's `tags.join(' ')`.
-    match.$or = [{ title: rx }, { excerpt: rx }, { tags: rx }];
+    // is what makes `tags: rx` behave like the design's `tags.join(' ')`
+    // and what makes the three `sections.*` arms cover every section.
+    match.$or = [
+      { title:              rx },
+      { excerpt:            rx },
+      { tags:               rx },
+      { 'sections.heading': rx },
+      { 'sections.body':    rx },
+      { 'sections.bullets': rx },
+    ];
   }
 
   return match;

@@ -205,6 +205,36 @@ function applyDerivedFields(doc, options = {}) {
   } else if ((doc.sections && doc.sections.length > 0) || doc.content) {
     doc.readingTimeMinutes = calculateReadingTimeMinutes(doc);
   }
+
+  // ── NEW IN PF-104 ─────────────────────────────────────────────
+  // Stamp the publish date the first time a post is published.
+  //
+  // THE DEFECT THIS FIXES: nothing on the server ever wrote
+  // `publishedAt`. `createPost` passes req.body straight through and
+  // `togglePublish` flipped only the boolean, so a post created as a
+  // draft in January and published in September kept `publishedAt:
+  // null` forever. The list sort falls back to `createdAt`
+  // (utils/blogQuery.js), so it appeared as a January post the moment
+  // it went live — below every post published in between.
+  //
+  // ⚠️ HERE, and not in a new pre('save'). This function already runs
+  // from BOTH pre('validate') and pre('insertMany'), so one line covers
+  // create-as-published, togglePublish's save() and updatePost. A second
+  // hook beside the existing gates is exactly the mistake PF-95's
+  // comment above describes — two hooks that can disagree.
+  //
+  // ⚠️ Unpublishing deliberately does NOT clear it. Re-publishing then
+  // keeps the ORIGINAL publish date, which is what a reader expects from
+  // a post that briefly went back to draft for an edit. Clearing it
+  // would silently move the post to the top of the list on every
+  // unpublish/republish cycle.
+  //
+  // `== null` catches null and undefined but not a real Date, so a
+  // seeded or migrated post with an explicit date is never overwritten —
+  // which is why seed.js's four transcribed dates survive this.
+  if (doc.published && doc.publishedAt == null) {
+    doc.publishedAt = new Date();
+  }
 }
 
 // Auto-generate fields before validation so required slug validation passes.

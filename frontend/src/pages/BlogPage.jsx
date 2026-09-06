@@ -9,7 +9,7 @@
 // immediately here — the documented, intended behaviour rather than an
 // omission. And every hash target on this site is a section of the home
 // page, so `ScrollToHash` would have nothing to do on this route.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   PageShell,
@@ -21,7 +21,8 @@ import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { Reveal } from '../components/motion';
 import { useBlogPosts } from '../hooks/useBlog';
 import { useVocabulary } from '../hooks/useVocabulary';
-import { formatMonth, formatReadTime } from '../utils/blogMeta';
+import { formatDate, formatReadTime } from '../utils/blogMeta';
+import { SearchIcon, CloseIcon } from '../components/icons/BrandIcons';
 import styles from './BlogPage.module.css';
 
 /**
@@ -75,7 +76,9 @@ export function BlogPage() {
   // because it is a single file with no router.
   const [searchParams, setSearchParams] = useSearchParams();
   const q   = searchParams.get('q')   ?? '';
-  const tag = searchParams.get('tag') ?? ALL_TAGS;
+  // ⚠️ getAll, not get — `?tag=Docker&tag=DevOps` is how a multi-tag
+  // filter is expressed, and `get` would silently return only the first.
+  const tags = searchParams.getAll('tag');
 
   // ── the search box's own value ───────────────────────────────────────
   //
@@ -88,6 +91,10 @@ export function BlogPage() {
   // the first time; the setState bails out when the values already agree.
   const [draft, setDraft]   = useState(q);
   const [lastQ, setLastQ]   = useState(q);
+  // The pending debounce timer, so a submit or a clear can cancel it, and
+  // the input itself, so clearing can hand focus back.
+  const timerRef = useRef(undefined);
+  const inputRef = useRef(null);
   if (q !== lastQ) {
     setLastQ(q);
     setDraft(q);
@@ -109,8 +116,44 @@ export function BlogPage() {
         // button steps through tag changes, which is the useful granularity.
       }, { replace: true });
     }, SEARCH_DEBOUNCE_MS);
+    timerRef.current = id;
     return () => clearTimeout(id);
   }, [draft, q, setSearchParams]);
+
+  /**
+   * Write the search term to the URL NOW, skipping the 300 ms wait.
+   *
+   * PF-104. The debounce above is what makes typing feel live; this is what
+   * makes the magnifier and the Enter key mean something. Without cancelling
+   * the pending timer the effect would fire again a moment later and write
+   * the same value a second time — harmless in result, but a second history
+   * entry and a second render for no reason.
+   */
+  const commitSearch = () => {
+    clearTimeout(timerRef.current);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      // Trimmed, unlike the debounced path — a submit is a deliberate act,
+      // so `docker ` should not land in the URL with its trailing space.
+      if (draft.trim()) next.set('q', draft.trim());
+      else next.delete('q');
+      return next;
+    }, { replace: true });
+  };
+
+  const clearSearch = () => {
+    clearTimeout(timerRef.current);
+    setDraft('');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('q');
+      return next;
+    }, { replace: true });
+    // Focus goes back to the field, not to the body — clearing a search is
+    // almost always followed by typing another one, and a keyboard user
+    // would otherwise have to tab back in from wherever the button sat.
+    inputRef.current?.focus();
+  };
 
   // ── data ─────────────────────────────────────────────────────────────
   //
@@ -121,7 +164,7 @@ export function BlogPage() {
   // calls, so while no filter is active the two produce an identical query
   // key and React Query issues exactly ONE request. A filter costs one extra
   // fetch, already cached from the unfiltered first paint in the common case.
-  const { data: posts, isLoading, isError, error } = useBlogPosts({ q, tag });
+  const { data: posts, isLoading, isError, error } = useBlogPosts({ q, tag: tags });
   const { data: everyPost } = useBlogPosts();
 
   // ⚠️ NOT derived from the fetched posts, which is what the prototype does
@@ -152,16 +195,83 @@ export function BlogPage() {
     ? `${total} POSTS · ALL TOPICS`
     : `${list.length} OF ${total} POSTS`;
 
+  /** Case-insensitive, because a tag can arrive from a hand-typed URL. */
+  const isSelected = (label) =>
+    tags.some((t) => t.toLowerCase() === label.toLowerCase());
+
   const pickTag = (label) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (label === ALL_TAGS) next.delete('tag');
-      else next.set('tag', label);
+
+      // ⚠️ delete-then-append, because `set` CANNOT express a repeated key.
+      // `next.set('tag', x)` collapses every existing `tag` to one value,
+      // which would silently turn a three-tag filter into a one-tag filter
+      // on the next click — and it would look like the click "worked".
+      next.delete('tag');
+      if (label !== ALL_TAGS) {
+        const kept = isSelected(label)
+          // PF-104's toggle-off, now removing one tag from a set rather
+          // than clearing the only one.
+          ? tags.filter((t) => t.toLowerCase() !== label.toLowerCase())
+          : [...tags, label];
+        kept.forEach((t) => next.append('tag', t));
+      }
       return next;
     });
   };
 
   const clearFilters = () => setSearchParams(new URLSearchParams());
+
+  // ── What is filtered, said once ──────────────────────────────────────
+  // Both the active-filter summary and the empty state read from these, so
+  // the message can never describe a filter different from the one the
+  // query actually used.
+  //
+  // ⚠️ Built from `q`/`tag` — the URL — and NOT from `draft`. `draft` is
+  // whatever is in the box this instant, including a half-typed word that
+  // has not been searched yet, so a message built from it would name a term
+  // nobody searched for.
+  const hasTagFilter = tags.length > 0;
+  const hasQuery     = q.trim() !== '';
+  const isFiltered   = hasQuery || hasTagFilter;
+
+  // Joined with "and", matching the AND semantics — "or" would describe a
+  // filter the server does not implement and send the reader looking for
+  // posts that were never going to appear.
+  const tagPhrase = tags.map((t) => t.toUpperCase()).join(' and ');
+
+  let notFoundMessage = 'Nothing matched that.';
+  if (hasQuery && hasTagFilter)  notFoundMessage = `No posts match "${q.trim()}" tagged ${tagPhrase}.`;
+  else if (hasQuery)             notFoundMessage = `No posts match "${q.trim()}".`;
+  else if (hasTagFilter)         notFoundMessage = `No posts tagged ${tagPhrase}.`;
+
+  // ── ⚠️ NO DEAD ENDS (PF-105) ─────────────────────────────────────────
+  // AND narrows fast: on four posts, Docker + Java carries zero. Rather
+  // than letting the chip row build an empty page, a chip that would
+  // produce no results in combination with the current selection is
+  // disabled.
+  //
+  // ⚠️ Derived during render from `everyPost` — the UNFILTERED list the
+  // count pill already fetches — so this costs no extra request and no new
+  // endpoint. It must NOT come from `list`, which is already filtered and
+  // would disable every chip the moment a filter narrowed the results.
+  //
+  // ⚠️ Not the same as PF-98's locked "the chip row must not SHRINK as you
+  // filter". Every chip stays present and readable; only its activation
+  // goes away. Removing chips is what that decision forbids.
+  const postHasTag = (post, label) =>
+    (post.tags ?? []).some((t) => t.toLowerCase() === label.toLowerCase());
+
+  const wouldMatch = (label) =>
+    (everyPost ?? []).some((post) =>
+      [...tags, label].every((t) => postHasTag(post, t)));
+
+  // A selected chip ALWAYS stays clickable — that is how it gets
+  // deselected. And while `everyPost` is still loading there is nothing to
+  // reason from, so nothing is disabled: dimming the whole row during a
+  // cold load would be worse than dimming none of it.
+  const isChipDisabled = (label) =>
+    label !== ALL_TAGS && !isSelected(label) && !!everyPost && !wouldMatch(label);
 
   return (
     <PageShell>
@@ -204,7 +314,24 @@ export function BlogPage() {
               </span>
             </Reveal>
 
-            <Reveal type="up" delay={240} className={styles.searchRow}>
+            {/* ⚠️ PF-104 wrapped this row in a <form>, and that makes the
+                `type="button"` on every chip below LOAD-BEARING rather than
+                merely correct. PF-98 wrote them that way on principle when
+                there was no form ("There is no form here today; the rule is
+                absolute anyway") — without it, clicking any tag would now
+                submit the search instead of filtering.
+
+                The form exists so Enter works natively and so the magnifier
+                can be a real submit button. `onSubmit` flushes the pending
+                debounce rather than duplicating its logic. */}
+            <Reveal
+              as="form"
+              type="up"
+              delay={240}
+              className={styles.searchRow}
+              onSubmit={(e) => { e.preventDefault(); commitSearch(); }}
+              role="search"
+            >
               <label className={styles.searchField}>
                 <span aria-hidden="true" className={styles.searchSlash}>/</span>
                 {/* The prototype's label has no text — its only child is the
@@ -213,6 +340,7 @@ export function BlogPage() {
                     name would be the slash, or nothing. Invisible on screen,
                     so an implementation choice rather than a design change. */}
                 <input
+                  ref={inputRef}
                   type="text"
                   className={styles.searchInput}
                   value={draft}
@@ -220,22 +348,65 @@ export function BlogPage() {
                   placeholder="Search posts, tags, tools…"
                   aria-label="Search posts, tags and tools"
                 />
+
+                {/* Only while there is something to clear — a permanently
+                    visible × on an empty field is a dead control. */}
+                {draft !== '' && (
+                  <button
+                    type="button"
+                    className={styles.searchClear}
+                    onClick={clearSearch}
+                    aria-label="Clear search"
+                  >
+                    <CloseIcon size={14} />
+                  </button>
+                )}
+
+                {/* ⚠️ The icon is aria-hidden and the BUTTON carries the
+                    name — the inverse of every other icon call site in this
+                    repo, where the glyph sits beside a text label. There is
+                    no label here, so without this the button announces as
+                    "button". */}
+                <button
+                  type="submit"
+                  className={styles.searchSubmit}
+                  aria-label="Search"
+                >
+                  <SearchIcon size={16} />
+                </button>
               </label>
 
               {chips.map((label) => {
-                const active = label === tag;
+                // `All` is active when nothing is selected — it is the
+                // absence of a filter, not a tag of its own.
+                const active   = label === ALL_TAGS ? tags.length === 0 : isSelected(label);
+                const disabled = isChipDisabled(label);
                 return (
                   <button
                     key={label}
                     // ⚠️ ALWAYS explicit. A <button> with no type inside a
                     // <form> is a SUBMIT button — the trap that made PF-97's
-                    // tag-delete confirm silently save the post. There is no
-                    // form here today; the rule is absolute anyway.
+                    // tag-delete confirm silently save the post, and since
+                    // PF-104 this row IS inside a form, so it is now doing
+                    // real work rather than holding a line.
                     type="button"
                     // The prototype signals the active chip with colour only.
-                    // `aria-pressed` conveys the same state non-visually.
+                    // `aria-pressed` conveys the same state non-visually, and
+                    // it is what makes a MULTI-select row legible: several
+                    // chips can read as pressed at once.
                     aria-pressed={active}
-                    className={`${styles.chip} ${active ? styles.chipActive : ''}`}
+                    // ⚠️ The real `disabled` attribute, not `aria-disabled`.
+                    // The control is genuinely inert and announces as
+                    // unavailable. Accepted cost: it leaves the tab order, so
+                    // a keyboard user tabs past dead options instead of
+                    // hearing them — better than focusing a control that
+                    // does nothing when activated.
+                    disabled={disabled}
+                    className={[
+                      styles.chip,
+                      active   ? styles.chipActive   : '',
+                      disabled ? styles.chipDisabled : '',
+                    ].filter(Boolean).join(' ')}
                     onClick={() => pickTag(label)}
                   >
                     {label}
@@ -243,6 +414,60 @@ export function BlogPage() {
                 );
               })}
             </Reveal>
+
+            {/* ── The active-filter summary (PF-104) ────────────────────
+                Until now `clearFilters` existed but was reachable ONLY from
+                inside the empty state, so a visitor looking at results had
+                no visible way to clear anything — the search text had to be
+                selected and deleted by hand, and the tag needed the `All`
+                chip. This is the always-available route back.
+
+                Rendered outside the <form> deliberately: CLEAR ALL is not a
+                search action, and inside the form it would need its own
+                type="button" to avoid submitting. Keeping it out removes
+                the question. */}
+            {isFiltered && (
+              <div className={styles.activeFilters}>
+                <span className={styles.activeFiltersLabel}>FILTERING BY</span>
+
+                {hasQuery && (
+                  <button
+                    type="button"
+                    className={styles.activeFilterPill}
+                    onClick={clearSearch}
+                    aria-label={`Clear the search for ${q.trim()}`}
+                  >
+                    <span>“{q.trim()}”</span>
+                    <CloseIcon size={12} />
+                  </button>
+                )}
+
+                {/* ⚠️ ONE pill per selected tag, each clearing only its
+                    own — `pickTag(t)` toggles that tag off and leaves the
+                    rest standing. A single pill wired to `pickTag(ALL_TAGS)`
+                    would look right and drop the whole selection. */}
+                {tags.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={styles.activeFilterPill}
+                    onClick={() => pickTag(t)}
+                    aria-label={`Clear the ${t} tag filter`}
+                  >
+                    <span>{t.toUpperCase()}</span>
+                    <CloseIcon size={12} />
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  className={styles.clearAll}
+                  onClick={clearFilters}
+                >
+                  CLEAR ALL
+                </button>
+              </div>
+            )}
           </div>
         </section>
 
@@ -264,7 +489,7 @@ export function BlogPage() {
                 <span className={styles.featuredBadgeRow}>
                   <span className={styles.badge}>LATEST POST</span>
                   <span className={styles.featuredMeta}>
-                    {formatMonth(featured.publishedAt || featured.createdAt)}
+                    {formatDate(featured.publishedAt || featured.createdAt)}
                     {' · '}
                     {formatReadTime(featured.readingTimeMinutes)}
                   </span>
@@ -304,7 +529,7 @@ export function BlogPage() {
                       </span>
 
                       <span className={styles.cardMeta}>
-                        <span>{formatMonth(post.publishedAt || post.createdAt)}</span>
+                        <span>{formatDate(post.publishedAt || post.createdAt)}</span>
                         <span className={styles.cardMetaSep}>·</span>
                         <span>{formatReadTime(post.readingTimeMinutes)}</span>
                       </span>
@@ -339,8 +564,20 @@ export function BlogPage() {
                 </p>
               </div>
             ) : (
-              <div className={styles.empty}>
+              <div className={styles.empty} role="status">
                 <p className={styles.emptyHeading}>Nothing filed under that</p>
+                {/* ⚠️ PF-104 names the term. The copy used to read "Try
+                    another keyword or clear the filters" — true, but it
+                    never told you WHAT had been searched, so a stale tag
+                    left over from an earlier click looked like a site with
+                    no posts. `role="status"` announces the change to a
+                    screen reader without stealing focus.
+
+                    Deliberately NOT a modal, despite the request for a
+                    pop-up: search is live, so typing "docker" passes
+                    through "d", "do", "doc"… and several of those match
+                    nothing. A dialog would fire on almost every keystroke. */}
+                <p className={styles.emptyTerm}>{notFoundMessage}</p>
                 <p className={styles.emptyBody}>
                   Try another keyword or clear the filters.
                 </p>

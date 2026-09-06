@@ -337,6 +337,282 @@ describe('BlogPage — search', () => {
   });
 });
 
+// ══════════════════════════════════════════════════════════════════════
+describe('BlogPage — submitting and clearing (PF-104)', () => {
+  const type = (input, value) => {
+    const setValue = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype, 'value',
+    ).set;
+    act(() => {
+      setValue.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+
+  it('gives the search button an accessible name, since it has no label', () => {
+    draw();
+    // ⚠️ The icon inside is aria-hidden, so WITHOUT the button's own
+    // aria-label this query finds nothing and the control announces as
+    // "button". That inversion is the trap the icon module documents.
+    expect(screen.getByRole('button', { name: 'Search' })).toBeInTheDocument();
+  });
+
+  /**
+   * ⚠️ The whole point of the magnifier: it must SKIP the 300 ms wait, not
+   * merely do what the timer was going to do anyway. Fake timers are never
+   * advanced here — if submitting relied on the debounce, `location.search`
+   * would still be empty and this fails.
+   */
+  it('writes the URL immediately on submit, without waiting for the debounce', () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const c = draw();
+      type(pick(c, 'searchInput'), 'docker');
+      expect(location.search).toBe('');            // debounce has not fired
+
+      act(() => { screen.getByRole('button', { name: 'Search' }).click(); });
+      expect(location.search).toBe('?q=docker');   // ...and we did not wait
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('trims the term on submit, where the debounced path does not', () => {
+    const c = draw();
+    type(pick(c, 'searchInput'), '  docker  ');
+    act(() => { screen.getByRole('button', { name: 'Search' }).click(); });
+    expect(location.search).toBe('?q=docker');
+  });
+
+  it('submits on Enter, because the field is inside a real form', () => {
+    const c = draw();
+    type(pick(c, 'searchInput'), 'docker');
+    act(() => {
+      pick(c, 'searchInput').closest('form')
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    expect(location.search).toBe('?q=docker');
+  });
+
+  /**
+   * ⚠️ THE TRAP THE FORM CREATED. Every chip is `type="button"`, written
+   * that way by PF-98 when there was no form at all. Adding one made that
+   * load-bearing: without it, clicking a tag would SUBMIT rather than
+   * filter, and it would look like it worked because the search term is
+   * usually empty.
+   */
+  it('gives every chip an explicit type, so a chip click never submits', () => {
+    const c = draw();
+    const form = pick(c, 'searchInput').closest('form');
+    const submits = [...form.querySelectorAll('button')]
+      .filter((b) => (b.getAttribute('type') ?? 'submit') === 'submit');
+    expect(submits.map((b) => b.getAttribute('aria-label'))).toEqual(['Search']);
+  });
+
+  it('shows the clear button only when there is something to clear', () => {
+    const c = draw();
+    expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+    type(pick(c, 'searchInput'), 'd');
+    expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument();
+  });
+
+  it('clears the field and the URL, and hands focus back to the input', () => {
+    const c = draw({ path: '/blog?q=docker' });
+    act(() => { screen.getByRole('button', { name: 'Clear search' }).click(); });
+
+    expect(pick(c, 'searchInput').value).toBe('');
+    expect(location.search).toBe('');
+    // Clearing is nearly always followed by typing again; a keyboard user
+    // would otherwise have to tab back in from the button.
+    expect(document.activeElement).toBe(pick(c, 'searchInput'));
+  });
+
+  it('toggles the active chip OFF instead of re-selecting it', () => {
+    // Before PF-104 the only route back to unfiltered was the separate
+    // `All` chip, which reads as a tag rather than as a reset.
+    draw({ path: '/blog?tag=Docker' });
+    act(() => { screen.getByRole('button', { name: 'Docker' }).click(); });
+    expect(location.search).toBe('');
+  });
+
+  it('ADDS a different chip to the selection rather than replacing it', () => {
+    // ⚠️ PF-105 changed this. It used to assert `?tag=React` — a second
+    // click replaced the first, because the filter held one tag. Multi-tag
+    // means the selection grows.
+    //
+    // It is still the control for the toggle test above: a toggle that
+    // fired on every chip would CLEAR the filter here rather than extend
+    // it, and the toggle test alone could not tell those apart.
+    //
+    // ⚠️ DevOps and not React, deliberately. Only p3 carries Docker AND
+    // DevOps, so it is a reachable combination; nothing carries Docker AND
+    // React, so that chip is correctly disabled and clicking it does
+    // nothing. The first draft of this test used React and failed for that
+    // reason — the dimming working, not the toggle broken.
+    draw({ path: '/blog?tag=Docker' });
+    act(() => { screen.getByRole('button', { name: 'DevOps' }).click(); });
+    expect(location.search).toBe('?tag=Docker&tag=DevOps');
+  });
+
+  it('removes ONE tag from a multi-tag selection, leaving the rest', () => {
+    draw({ path: '/blog?tag=Docker&tag=DevOps' });
+    act(() => { screen.getByRole('button', { name: 'DevOps' }).click(); });
+    expect(location.search).toBe('?tag=Docker');
+  });
+
+  it('marks every selected chip pressed, not just the last one', () => {
+    draw({ path: '/blog?tag=Docker&tag=DevOps' });
+    for (const label of ['Docker', 'DevOps']) {
+      expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true');
+    }
+    expect(screen.getByRole('button', { name: 'Java' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('shows one removable pill per selected tag', () => {
+    draw({ path: '/blog?tag=Docker&tag=DevOps' });
+    expect(screen.getByRole('button', { name: 'Clear the Docker tag filter' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear the DevOps tag filter' })).toBeInTheDocument();
+  });
+
+  it('All clears every tag at once', () => {
+    draw({ path: '/blog?tag=Docker&tag=DevOps' });
+    act(() => { screen.getByRole('button', { name: 'All' }).click(); });
+    expect(location.search).toBe('');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+describe('BlogPage — no dead-end chip combinations (PF-105)', () => {
+  /**
+   * AND narrows fast, so the row disables any chip that would return
+   * nothing with the current selection.
+   *
+   * ⚠️ Fixture tags: p1 React+MERN, p2 Docker, p3 Docker+DevOps, p4 Java.
+   * With Docker selected, DevOps is reachable (p3) and React is not —
+   * which is what makes these two assertions a real pair rather than one
+   * claim tested twice. A rule that disabled EVERYTHING, or NOTHING, would
+   * satisfy only one of them.
+   */
+  it('disables a chip whose combination has no posts, and only that chip', () => {
+    draw({ path: '/blog?tag=Docker' });
+    expect(screen.getByRole('button', { name: 'React' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'DevOps' })).toBeEnabled();
+  });
+
+  it('keeps a SELECTED chip clickable, since that is how it is removed', () => {
+    draw({ path: '/blog?tag=Docker' });
+    expect(screen.getByRole('button', { name: 'Docker' })).toBeEnabled();
+  });
+
+  /**
+   * ⚠️ THE TEST THAT ACTUALLY GUARDS `!isSelected(label)`, and the reason
+   * the one above is not enough.
+   *
+   * Mutation-tested: deleting `!isSelected(label)` from `isChipDisabled`
+   * leaves the whole suite GREEN except for this case. In any reachable
+   * state a selected chip trivially "would match" — asking whether
+   * [Docker, Docker] has posts is asking whether [Docker] has posts, and it
+   * does, or the filter would not be showing results. So the guard looks
+   * redundant and the obvious test cannot tell it is doing anything.
+   *
+   * It earns its place only for a combination the chip row can no longer
+   * build but a URL can still express. `?tag=Docker&tag=Java` matches
+   * nothing, so without the guard EVERY chip — including the two selected
+   * ones — is disabled, and the visitor cannot undo either half of their
+   * own filter. Recoverable through All / CLEAR ALL, but a dead end that
+   * should not exist.
+   */
+  it('leaves an impossible URL combination escapable, chip by chip', () => {
+    draw({ filtered: ok([]), total: ok(POSTS), path: '/blog?tag=Docker&tag=Java' });
+    expect(screen.getByRole('button', { name: 'Docker' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Java' })).toBeEnabled();
+    // And an unselected chip that cannot help is still correctly dimmed —
+    // otherwise this would pass against a rule that disabled nothing.
+    expect(screen.getByRole('button', { name: 'React' })).toBeDisabled();
+  });
+
+  it('never disables All, which is the way out', () => {
+    draw({ path: '/blog?tag=Docker' });
+    expect(screen.getByRole('button', { name: 'All' })).toBeEnabled();
+  });
+
+  it('disables nothing when no tag is selected', () => {
+    draw();
+    for (const label of ['React', 'MERN', 'Docker', 'DevOps', 'Java']) {
+      expect(screen.getByRole('button', { name: label })).toBeEnabled();
+    }
+  });
+
+  it('disables nothing while the unfiltered list is still loading', () => {
+    // ⚠️ Derived from `everyPost`. With no data yet there is nothing to
+    // reason from, and dimming the whole row during a cold load would be
+    // worse than dimming none of it.
+    draw({ filtered: loading(), total: loading(), path: '/blog?tag=Docker' });
+    expect(screen.getByRole('button', { name: 'React' })).toBeEnabled();
+  });
+
+  /**
+   * ⚠️ The dimming has to stay READABLE, and the value is measured rather
+   * than picked by eye.
+   *
+   * The first attempt was `opacity: .38` alone. Composited against the real
+   * page in Chrome that gave 1.86 in light and 1.21 in dark — the tag name
+   * was effectively invisible, which defeats the whole reason for dimming
+   * instead of removing (PF-98 locked that the row must not shrink because
+   * a visitor should not watch their options vanish; a chip nobody can read
+   * has vanished in every way that counts).
+   *
+   * `.72` with a transparent background and border measures 3.41 light /
+   * 4.36 dark, clearing WCAG's 3.0 bar for a user-interface component in
+   * the worse theme. Light sets the floor.
+   *
+   * ⚠️ WCAG 1.4.3 EXEMPTS inactive controls from the contrast minimum, so
+   * this is a deliberate choice to beat the standard, not a compliance fix
+   * — which is exactly why it needs pinning: nothing else would fail if it
+   * regressed.
+   */
+  it('keeps a dimmed chip legible, and gets its disabled look from shape', () => {
+    const d = decls('.chipDisabled');
+    expect(d.opacity).toBe('.72');
+    // The "disabled" read comes mostly from LOSING the chip shape, which is
+    // what allows the text to stay this legible.
+    expect(d.background).toBe('none');
+    expect(d['border-color']).toBe('transparent');
+    expect(d.cursor).toBe('not-allowed');
+  });
+
+  it('cancels the hover lift on a disabled chip', () => {
+    // `:hover` does not care about `disabled`, so `.chip:hover` still
+    // matches — without this the chip lifts and lights its border while
+    // being unclickable, which reads as "this works".
+    expect(decls('.chipDisabled:hover').transform).toBe('none');
+    expect(decls('.chipDisabled:hover')['border-color']).toBe('transparent');
+  });
+
+  it('reasons from the UNFILTERED list, not the filtered one', () => {
+    // ⚠️ The trap. `list` is already narrowed by the active filter, so a
+    // rule built on it would disable almost every chip the moment a filter
+    // matched one post. Here the filtered response is a single post
+    // carrying only Docker, while the unfiltered set still shows DevOps is
+    // reachable — the two lists disagree, which is what makes this
+    // discriminating.
+    draw({ filtered: ok([POSTS[1]]), total: ok(POSTS), path: '/blog?tag=Docker' });
+    expect(screen.getByRole('button', { name: 'DevOps' })).toBeEnabled();
+  });
+
+  it('surfaces the active filters with a CLEAR ALL, not only in the empty state', () => {
+    draw({ path: '/blog?q=docker&tag=React' });
+    expect(screen.getByText('“docker”')).toBeInTheDocument();
+    act(() => { screen.getByRole('button', { name: 'CLEAR ALL' }).click(); });
+    expect(location.search).toBe('');
+  });
+
+  it('shows no filter summary when nothing is filtered', () => {
+    draw();
+    expect(screen.queryByText('FILTERING BY')).toBeNull();
+  });
+});
+
 describe('BlogPage — the featured card', () => {
   it('is the FIRST item of the server-ordered list, with no client re-sort', () => {
     const c = draw();
@@ -358,7 +634,7 @@ describe('BlogPage — the featured card', () => {
   it('renders the badge, the meta line and the CTA verbatim', () => {
     const c = draw();
     expect(pick(c, 'badge').textContent).toBe('LATEST POST');
-    expect(pick(c, 'featuredMeta').textContent).toBe('JUL 2026 · 6 MIN READ');
+    expect(pick(c, 'featuredMeta').textContent).toBe('14 JUL 2026 · 6 MIN READ');
     expect(pick(c, 'featuredCta').textContent).toBe('READ THE POST →');
   });
 
@@ -429,12 +705,17 @@ describe('BlogPage — the grid', () => {
    * ⚠️ PF-103's sanctioned deviation, and the one value on this card a
    * fidelity pass WILL try to revert — Blog.dc.html:180 says `-18px`.
    *
-   * Measured in Chrome before the change: Anton at 86px puts the digit ink
-   * 4.42px below the span's box top, so `-18px` left the ink top 13.58px
-   * above the card edge and `overflow: hidden` sliced 13.58 of a 75.25px
-   * glyph. `-2px` puts the ink 2.42px inside the card.
+   * Measured in Chrome before PF-103: Anton's digit ink sits 4.42px below
+   * the span's box top at 86px — about 5.1% of the font size — so `-18px`
+   * left the ink top 13.58px above the card edge and `overflow: hidden`
+   * sliced 13.58 of a 75.25px glyph.
    *
-   * The two halves are asserted together deliberately: `overflow: hidden` is
+   * ⚠️ PF-104 then shrank it 86px → 56px (owner-requested 2026-09-06) so
+   * the numeral clears the TITLE, not just the card edge. At 56px the ink
+   * offset scales to ~2.9px, so `-2px` still seats it inside; the binding
+   * constraint is now the title below it, verified in the browser.
+   *
+   * The halves are asserted together deliberately: `overflow: hidden` is
    * the prototype's own and must STAY, so a later "fix" that deletes the
    * clip instead of moving the numeral fails here rather than silently
    * letting the digits bleed into the grid gutter.
@@ -442,7 +723,7 @@ describe('BlogPage — the grid', () => {
   it('seats the numeral fully inside the card, and keeps the card clipping', () => {
     expect(decls('.cardNumeral').top).toBe('-2px');
     expect(decls('.cardNumeral').right).toBe('6px');
-    expect(decls('.cardNumeral')['font-size']).toBe('86px');
+    expect(decls('.cardNumeral')['font-size']).toBe('56px');
     expect(decls('.cardNumeral')['line-height']).toBe('1');
     expect(decls('.card').overflow).toBe('hidden');
   });
@@ -455,7 +736,7 @@ describe('BlogPage — the grid', () => {
 
   it('renders each card\'s meta and CTA', () => {
     const c = draw();
-    expect(pick(c, 'cardMeta').textContent).toBe('JUN 2026·7 MIN READ');
+    expect(pick(c, 'cardMeta').textContent).toBe('14 JUN 2026·7 MIN READ');
     expect(pick(c, 'cardCta').textContent).toBe('READ →');
   });
 
@@ -487,6 +768,85 @@ describe('BlogPage — empty states', () => {
     expect(pick(c, 'emptyHeading').textContent).toBe('Nothing filed yet');
     expect(pick(c, 'emptyBodyLast').textContent).toBe('The first field note is still being written.');
     expect(pick(c, 'resetButton')).toBeNull();
+  });
+
+  /**
+   * ⚠️ PF-104. The copy above is true but never said WHAT was searched, so
+   * a stale tag left over from an earlier click looked like a site with no
+   * posts. All three shapes are asserted because the message is assembled
+   * from two independent flags and only one of the four combinations is
+   * unreachable (neither filter set cannot produce a filtered empty state).
+   */
+  it('names the search term when only a query is active', () => {
+    const c = draw({ filtered: ok([]), total: ok(POSTS), path: '/blog?q=kubernetes' });
+    expect(pick(c, 'emptyTerm').textContent).toBe('No posts match "kubernetes".');
+  });
+
+  it('names the tag when only a tag is active', () => {
+    const c = draw({ filtered: ok([]), total: ok(POSTS), path: '/blog?tag=Docker' });
+    expect(pick(c, 'emptyTerm').textContent).toBe('No posts tagged DOCKER.');
+  });
+
+  it('paints CLEAR ALL with the design system\'s only sanctioned red', () => {
+    // ⚠️ `var(--danger)`, not a literal. It is dual-theme (#f87171 dark /
+    // #B4231F light) and PF-91 measured the pair at 6.68 / 5.88; measured
+    // again on THIS surface it is 7.32 dark / 5.38 light, both clearing the
+    // 4.5 that 10.5px text needs.
+    //
+    // The admin panel's #dc2626 and rgba(239,68,68,…) are hardcoded Phase 1
+    // literals that do NOT flip with the theme — a light-theme failure
+    // waiting to happen, and PF-100's problem, not this page's.
+    expect(decls('.clearAll').color).toBe('var(--danger)');
+    // Hover keeps the red and thickens the rule instead of switching to the
+    // accent: losing the red at the moment of committing would read as the
+    // warning being withdrawn.
+    expect(decls('.clearAll:hover').color).toBeUndefined();
+    expect(decls('.clearAll:hover')['text-decoration-thickness']).toBe('2px');
+  });
+
+  it('joins several tags with "and", matching the AND semantics', () => {
+    // ⚠️ "and", not "or". The copy has to describe the filter the server
+    // actually runs — "or" would send the reader looking for posts that
+    // were never going to appear.
+    const c = draw({ filtered: ok([]), total: ok(POSTS), path: '/blog?tag=Docker&tag=Java' });
+    expect(pick(c, 'emptyTerm').textContent).toBe('No posts tagged DOCKER and JAVA.');
+  });
+
+  it('names both when both are active', () => {
+    const c = draw({ filtered: ok([]), total: ok(POSTS), path: '/blog?q=kubernetes&tag=Docker' });
+    expect(pick(c, 'emptyTerm').textContent)
+      .toBe('No posts match "kubernetes" tagged DOCKER.');
+  });
+
+  /**
+   * ⚠️ Built from the URL, never from the input's draft state. A message
+   * assembled from `draft` would name a half-typed word nobody searched
+   * for — the field holds "kuber" for 300 ms after the URL still says
+   * "kubernetes".
+   */
+  it('names the term the QUERY used, not whatever is in the box', () => {
+    const c = draw({ filtered: ok([]), total: ok(POSTS), path: '/blog?q=kubernetes' });
+    const setValue = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype, 'value',
+    ).set;
+    act(() => {
+      setValue.call(pick(c, 'searchInput'), 'something else entirely');
+      pick(c, 'searchInput').dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(pick(c, 'emptyTerm').textContent).toBe('No posts match "kubernetes".');
+  });
+
+  it('announces the empty state without stealing focus', () => {
+    // role="status" is polite — a live search that moved focus on every
+    // zero-result keystroke would trap a screen-reader user mid-word.
+    const c = draw({ filtered: ok([]), total: ok(POSTS), path: '/blog?q=zzz' });
+    expect(pick(c, 'empty').getAttribute('role')).toBe('status');
+  });
+
+  it('shows no term line in the nothing-published-yet state', () => {
+    // That state has no filter to name, and naming one would be a lie.
+    const c = draw({ filtered: ok([]), total: ok([]) });
+    expect(pick(c, 'emptyTerm')).toBeNull();
   });
 
   it('RESET FILTERS clears every param at once', async () => {
@@ -587,8 +947,26 @@ describe('BlogPage — the stylesheet', () => {
   );
 
   it('declares transitions ONLY on elements that are inside a reveal, never one', () => {
-    expect(transitions.map((t) => t.selector).sort())
-      .toEqual(['.chip', '.searchField']);
+    // ⚠️ A GROUPED rule (`.a, .b { transition: … }`) arrives here as ONE
+    // selector string containing a comma and a newline. Splitting is not
+    // cosmetic: without it `.searchClear, .searchSubmit` reads as a single
+    // unknown selector, and the whitelist below could be satisfied by
+    // grouping a genuinely-offending selector with an allowed one.
+    const named = transitions
+      .flatMap((t) => t.selector.split(','))
+      .map((sel) => sel.trim())
+      .sort();
+
+    // Every one of these is a child INSIDE the search Reveal, never the
+    // Reveal itself — `.searchRow` is covered by the it.each above.
+    expect(named).toEqual([
+      '.activeFilterPill',
+      '.chip',
+      '.clearAll',
+      '.searchClear',
+      '.searchField',
+      '.searchSubmit',
+    ]);
   });
 
   it('never gates a transition on [data-reveal], which does not work', () => {

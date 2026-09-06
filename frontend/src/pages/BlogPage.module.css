@@ -223,6 +223,43 @@
   outline-offset: 2px;
 }
 
+/* ── PF-104: the clear (×) and submit (magnifier) controls ─────────────
+   Both live INSIDE .searchField, which is the pill with the border, so
+   they sit within the rounded outline rather than beside it.
+
+   ⚠️ No `border-radius` in the :focus-visible rules. A radius declared
+   there reshapes the ELEMENT while focused — it squares off a 999px pill
+   for exactly as long as the ring is up — and the outline follows the
+   element's own curve for free. Documented trap, repo-wide. */
+.searchClear,
+.searchSubmit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color .25s;
+}
+
+.searchClear:hover,
+.searchSubmit:hover {
+  color: var(--acc, #FCA311);
+}
+
+/* The magnifier is the field's primary action, so it carries the accent
+   at rest where the × is muted until hovered. */
+.searchSubmit {
+  color: var(--acc, #FCA311);
+}
+
+.searchSubmit:hover {
+  color: var(--strong);
+}
+
 .chip {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -244,6 +281,50 @@
 /* The prototype expresses the active chip as three inline bindings
    (`chip.bg` / `chip.border` / `chip.color`, Blog.dc.html:575-583). Same
    three values, as a class. */
+/* ── PF-105: a chip whose combination would return nothing ────────────
+   AND narrows fast, so the row disables anything that cannot produce a
+   result rather than letting a click land on an empty page.
+
+   ⚠️ Not `display: none`. PF-98 locked that the chip row must not SHRINK
+   as you filter — a visitor watching their own options vanish. Dimming
+   keeps every tag present and readable; only activation goes away.
+
+   The hover lift is cancelled explicitly: `.chip:hover` still matches a
+   disabled button in CSS (`:hover` does not care about `disabled`), so
+   without this the chip would rise and light up its border while being
+   unclickable. */
+.chipDisabled {
+  /* ⚠️ The "disabled" read comes mostly from LOSING THE CHIP SHAPE — no
+     surface, no outline — not from fading the label away.
+
+     The first attempt was `opacity: .38` alone. Measured composited
+     against the real page: 1.86 in light and 1.21 in dark, i.e. the tag
+     name was effectively invisible. That defeats the entire reason for
+     dimming instead of removing: PF-98 locked that the row must not
+     shrink because a visitor should not watch their options vanish, and a
+     chip nobody can read has vanished in every way that matters.
+
+     ⚠️ WCAG exempts inactive controls from the contrast minimum (1.4.3),
+     so this is a deliberate choice to do better than the standard, not a
+     compliance fix. The measured value is in BlogPage.test.jsx. */
+  background: none;
+  border-color: transparent;
+  /* .72 is measured, not chosen by eye. Composited against the real page
+     it gives 3.41 in light and 4.03 in dark — clearing WCAG's 3.0 bar for
+     a user-interface component in the worse of the two themes, with the
+     light one setting the floor. .65 gave 2.96 light and just missed. */
+  opacity: .72;
+  cursor: not-allowed;
+}
+
+/* `:hover` does NOT care about `disabled`, so `.chip:hover` still matches
+   a disabled button — without this it would lift and light its border
+   while being unclickable, which reads as "this works". */
+.chipDisabled:hover {
+  transform: none;
+  border-color: transparent;
+}
+
 .chipActive {
   background: var(--acc, #FCA311);
   border-color: var(--acc, #FCA311);
@@ -462,7 +543,7 @@
   top: -2px;
   right: 6px;
   font-family: var(--font-display);
-  font-size: 86px;
+  font-size: 56px;
   line-height: 1;
   color: rgba(252, 163, 17, .09);
 }
@@ -573,6 +654,87 @@
   text-transform: uppercase;
   color: var(--strong);
   margin: 0 0 10px;
+}
+
+/* ── PF-104: the always-available filter summary ──────────────────────
+   Sits below the search row, so the row itself keeps the prototype's
+   single-flex-line shape and this cannot push the chips around. */
+.activeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.activeFiltersLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.activeFilterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .08);
+  border: 1px solid rgba(252, 163, 17, .4);
+  transition: color .25s, background .25s;
+}
+
+.activeFilterPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+}
+
+/* ⚠️ `var(--danger)` — owner-requested red, PF-105 — and it is the ONLY
+   sanctioned one: #f87171 dark / #B4231F light, declared in tokens.css and
+   already read by Contact's `.errorText`. PF-91 measured the pair at 6.68
+   dark and 5.88 light, both clearing the 4.5 that 10.5px text needs.
+
+   ⚠️ Do NOT reach for the admin panel's reds (#dc2626, rgba(239,68,68,…)).
+   Those are hardcoded Phase 1 literals that do not flip with the theme;
+   /admin's contrast is PF-100's, deliberately outside PF-91's scope. */
+.clearAll {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  padding: 7px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--danger);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: text-decoration-thickness .25s;
+}
+
+/* Hover KEEPS the red and thickens the rule instead of switching to the
+   accent. Dropping the red on hover would read as the warning being
+   withdrawn at the moment of committing to it, and a thickness change is
+   feedback that does not depend on colour alone. */
+.clearAll:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* The searched term, echoed back. Brighter than .emptyBody beneath it —
+   it is the answer to "why is this empty", where the line below is only
+   advice. */
+.emptyTerm {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: .06em;
+  color: var(--strong);
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
 }
 
 .emptyBody {

@@ -35,12 +35,48 @@ describe('blogListParams', () => {
     expect(blogListParams({ tag })).toEqual({});
   });
 
+  // ⚠️ PF-105 made `tag` an ARRAY on the way out, even for one tag, so the
+  // service, the query key and the server all see one shape. A single
+  // string still goes IN — that is what every existing caller sends.
   it('keeps a real tag, and keeps its casing', () => {
-    expect(blogListParams({ tag: 'GitHub Actions' })).toEqual({ tag: 'GitHub Actions' });
+    expect(blogListParams({ tag: 'GitHub Actions' })).toEqual({ tag: ['GitHub Actions'] });
   });
 
   it('combines the two', () => {
-    expect(blogListParams({ q: 'api', tag: 'Java' })).toEqual({ q: 'api', tag: 'Java' });
+    expect(blogListParams({ q: 'api', tag: 'Java' })).toEqual({ q: 'api', tag: ['Java'] });
+  });
+
+  it('accepts several tags', () => {
+    expect(blogListParams({ tag: ['Docker', 'DevOps'] }).tag).toEqual(['DevOps', 'Docker']);
+  });
+
+  /**
+   * ⚠️ THE SORT, and why it is not cosmetic. This object IS the React Query
+   * key, so an unsorted array would give ['Docker','DevOps'] and
+   * ['DevOps','Docker'] two cache entries for one identical result set —
+   * the same list fetched twice depending on the order the chips happened
+   * to be clicked in.
+   */
+  it('sorts the tags, so click order cannot fork the cache key', () => {
+    expect(blogListParams({ tag: ['DevOps', 'Docker'] }))
+      .toEqual(blogListParams({ tag: ['Docker', 'DevOps'] }));
+  });
+
+  it('does not sort the caller\'s own array in place', () => {
+    // On /blog this is `searchParams.getAll('tag')`. Reordering it as a
+    // side effect of building params would reorder the chips the visitor
+    // sees, from a function whose job is to build a request.
+    const caller = ['DevOps', 'Docker'];
+    blogListParams({ tag: caller });
+    expect(caller).toEqual(['DevOps', 'Docker']);
+  });
+
+  it('drops All from a mixed array rather than filtering on it', () => {
+    expect(blogListParams({ tag: ['All', 'Docker'] })).toEqual({ tag: ['Docker'] });
+  });
+
+  it('omits tag entirely when the array holds nothing usable', () => {
+    expect(blogListParams({ tag: ['All', '   ', 5] })).toEqual({});
   });
 
   it('ignores non-string input rather than coercing it', () => {

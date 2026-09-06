@@ -1,20 +1,33 @@
 // frontend/src/utils/__tests__/blogMeta.test.js
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { formatMonth, formatReadTime } from '../blogMeta';
+import { formatDate, formatReadTime } from '../blogMeta';
 
 afterEach(() => { vi.restoreAllMocks(); });
 
-describe('formatMonth', () => {
-  it('renders the prototype\'s `JUL 2026` shape, uppercased', () => {
-    expect(formatMonth('2026-07-14T09:00:00.000Z')).toBe('JUL 2026');
+describe('formatDate', () => {
+  // ⚠️ PF-104 widened this from the prototype's `JUL 2026` to the full
+  // date. Restoring the month-only form to match the frozen export is the
+  // thing that was rejected.
+  it('renders the full `14 JUL 2026` shape, uppercased', () => {
+    expect(formatDate('2026-07-14T09:00:00.000Z')).toBe('14 JUL 2026');
   });
 
   it.each([
-    ['2026-04-11T10:00:00.000Z', 'APR 2026'],
-    ['2026-06-15T12:00:00.000Z', 'JUN 2026'],
-    ['2025-12-15T12:00:00.000Z', 'DEC 2025'],
+    ['2026-04-11T10:00:00.000Z', '11 APR 2026'],
+    ['2026-06-15T12:00:00.000Z', '15 JUN 2026'],
+    ['2025-12-15T12:00:00.000Z', '15 DEC 2025'],
   ])('formats %s as %s', (iso, expected) => {
-    expect(formatMonth(iso)).toBe(expected);
+    expect(formatDate(iso)).toBe(expected);
+  });
+
+  /**
+   * ⚠️ `day: '2-digit'`, not `'numeric'`. The dates stack directly above
+   * one another down the grid in mono at .12em tracking, so `4 MAY` beside
+   * `14 JUL` is a visibly ragged column. Asserted on a single-digit day,
+   * which is the only input that can tell the two options apart.
+   */
+  it('zero-pads a single-digit day', () => {
+    expect(formatDate('2026-05-04T09:00:00.000Z')).toBe('04 MAY 2026');
   });
 
   /**
@@ -28,7 +41,7 @@ describe('formatMonth', () => {
    * predates PF-98 (the formatter is PF-86's, moved here unchanged).
    */
   it('renders September as SEPT — en-GB uses four letters, and that ships', () => {
-    expect(formatMonth('2026-09-01T12:00:00.000Z')).toBe('SEPT 2026');
+    expect(formatDate('2026-09-01T12:00:00.000Z')).toBe('01 SEPT 2026');
   });
 
   /**
@@ -44,8 +57,13 @@ describe('formatMonth', () => {
    * on the literal month would pass or fail with the machine's clock, which
    * is how a suite becomes flaky on somebody else's laptop.
    */
-  it('formats in local time, so a boundary instant belongs to one of two months', () => {
-    expect(['DEC 2025', 'JAN 2026']).toContain(formatMonth('2025-12-31T23:59:59.000Z'));
+  it('formats in local time, so a boundary instant belongs to one of two days', () => {
+    // ⚠️ PF-104 made this MORE visible, not different: with a day on
+    // screen, any instant near midnight UTC shifts — not just one near a
+    // month boundary. Still asserted as a set, so the suite does not fail
+    // on somebody else's laptop.
+    expect(['31 DEC 2025', '01 JAN 2026'])
+      .toContain(formatDate('2025-12-31T23:59:59.000Z'));
   });
 
   /**
@@ -63,7 +81,7 @@ describe('formatMonth', () => {
    */
   it('passes an explicit locale, not the visitor\'s', () => {
     const spy = vi.spyOn(Date.prototype, 'toLocaleDateString');
-    formatMonth('2026-07-14T09:00:00.000Z');
+    formatDate('2026-07-14T09:00:00.000Z');
 
     expect(spy).toHaveBeenCalled();
     for (const call of spy.mock.calls) {
@@ -80,7 +98,7 @@ describe('formatMonth', () => {
   it.each([undefined, '', 'not-a-date', {}])(
     'returns an empty string rather than INVALID DATE for %s',
     (input) => {
-      expect(formatMonth(input)).toBe('');
+      expect(formatDate(input)).toBe('');
     },
   );
 
@@ -98,7 +116,7 @@ describe('formatMonth', () => {
    * next reader it was considered.
    */
   it('renders the epoch for null, because new Date(null) is not invalid', () => {
-    expect(formatMonth(null)).toBe('JAN 1970');
+    expect(formatDate(null)).toBe('01 JAN 1970');
   });
 });
 

@@ -55,16 +55,30 @@ async function stubApi(page) {
   await page.route('**/api/vocabulary/**', (route) =>
     route.fulfill(json(TAGS.map((value, i) => ({ _id: `v${i}`, type: 'tag', value })))));
 
-  // Mirrors backend/src/utils/blogQuery.js `buildMatch`: tag is an exact
-  // case-insensitive match, `q` is a substring over title + excerpt + tags
-  // only, `'All'` means no filter, and the two combine with AND.
+  // Mirrors backend/src/utils/blogQuery.js `buildMatch`. Kept deliberately
+  // close to it, because a stub that filters differently from the server
+  // makes an E2E suite assert the stub rather than the app.
+  //
+  // ⚠️ `getAll`, not `get` — PF-105 made the filter multi-tag, and `get`
+  // would silently honour only the first, which is exactly the shape of
+  // the server bug that ticket fixed.
+  //
+  // Tags AND together (a post must carry every selected one), each matched
+  // exactly and case-insensitively, `'All'` means no filter, and the tag
+  // set ANDs with `q`.
+  //
+  // ⚠️ `q` here covers title + excerpt + tags only. PF-104 widened the
+  // REAL query to section headings, paragraphs and bullets too — these
+  // fixtures carry no `sections`, so the two cannot disagree on this data.
+  // If a fixture ever gains sections, this stub has to grow with it.
   await page.route('**/api/blog**', (route) => {
-    const url = new URL(route.request().url());
-    const q   = (url.searchParams.get('q') ?? '').trim().toLowerCase();
-    const tag = url.searchParams.get('tag');
+    const url  = new URL(route.request().url());
+    const q    = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+    const tags = url.searchParams.getAll('tag')
+      .filter((t) => t && t.toLowerCase() !== 'all');
 
     let list = POSTS;
-    if (tag && tag.toLowerCase() !== 'all') {
+    for (const tag of tags) {
       list = list.filter((p) => p.tags.some((t) => t.toLowerCase() === tag.toLowerCase()));
     }
     if (q) {
@@ -79,6 +93,31 @@ const main = (page) => page.locator('main');
 const cards = (page) => main(page).locator('a[href^="/blog/"]');
 const search = (page) => main(page).getByLabel('Search posts, tags and tools');
 const chip = (page, name) => main(page).getByRole('button', { name, exact: true });
+
+/**
+ * The chip row's LABELS, in order.
+ *
+ * ⚠️ This assertion used to be `main(page).getByRole('button')` counted
+ * against a number — every button in the landmark, standing in for "the
+ * chips". It broke the moment PF-104 added a search-submit button inside
+ * `main`, reporting 8 where 7 was expected, and the failure message named
+ * the chip row rather than the real cause.
+ *
+ * Same family as the documented `[class*="name"]` trap: a locator that
+ * selects the right set today for a reason that is not the one the
+ * assertion is about.
+ *
+ * Returning NAMES rather than a count fixes it properly. The search and
+ * clear controls are icon-only, so their text is empty and they filter out
+ * on their own — no exclusion list to keep in step. And the result says
+ * WHICH chips are present, so a row that kept its length while swapping a
+ * tag fails too, where a count could not tell.
+ */
+const chipLabels = (page) =>
+  main(page)
+    .locator('form[role="search"] button')
+    .allTextContents()
+    .then((labels) => labels.map((t) => t.trim()).filter(Boolean));
 
 test.describe('/blog index (PF-98)', () => {
 
@@ -147,12 +186,11 @@ test.describe('/blog index (PF-98)', () => {
     test('the chip row is the tag pool, and does not shrink as posts filter', async ({ page }) => {
       await page.goto('/blog');
       await expect(chip(page, 'Agile')).toBeVisible();   // in the pool, on no post
-      const chips = main(page).getByRole('button');
-      await expect(chips).toHaveCount(TAGS.length + 1);  // + 'All'
+      await expect.poll(() => chipLabels(page)).toEqual(['All', ...TAGS]);
 
       await chip(page, 'Docker').click();
       await expect(cards(page)).toHaveCount(2);          // the posts really narrowed
-      await expect(chips).toHaveCount(TAGS.length + 1);  // the chips really did not
+      await expect.poll(() => chipLabels(page)).toEqual(['All', ...TAGS]);  // chips did not
       await expect(chip(page, 'Agile')).toBeVisible();
     });
 
@@ -233,6 +271,98 @@ test.describe('/blog index (PF-98)', () => {
       await expect(page).toHaveURL(/\/blog$/);
       await expect(search(page)).toHaveValue('');
       await expect(cards(page)).toHaveCount(4);
+    });
+
+    /* ── search controls and clearing (PF-104) ──────────────────────── */
+
+    test('the search button runs the search without waiting for the debounce', async ({ page }) => {
+      await page.goto('/blog');
+      // `pressSequentially` types character by character, so the debounce is
+      // genuinely mid-flight when the button is clicked — `fill()` would set
+      // the value in one shot and prove less.
+      await search(page).pressSequentially('docker', { delay: 10 });
+      // ⚠️ `exact: true` is load-bearing. Playwright matches an accessible
+      // name by case-insensitive SUBSTRING by default, so 'Search' also
+      // resolves "Clear search" and the click fails on a strict-mode
+      // violation. testing-library's getByRole matches a string name in
+      // full, which is why the unit test for this passes without it — the
+      // two libraries differ, and the E2E one is the permissive one.
+      await main(page).getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(page).toHaveURL(/\?q=docker$/);
+      await expect(cards(page)).toHaveCount(2);
+    });
+
+    test('Enter submits, because the field is inside a real form', async ({ page }) => {
+      await page.goto('/blog');
+      await search(page).pressSequentially('docker', { delay: 10 });
+      await search(page).press('Enter');
+      await expect(page).toHaveURL(/\?q=docker$/);
+    });
+
+    test('the clear button empties the field, the URL and the filter', async ({ page }) => {
+      await page.goto('/blog?q=docker');
+      await expect(cards(page)).toHaveCount(2);
+
+      await main(page).getByRole('button', { name: 'Clear search' }).click();
+      await expect(page).toHaveURL(/\/blog$/);
+      await expect(search(page)).toHaveValue('');
+      await expect(cards(page)).toHaveCount(4);
+    });
+
+    test('clicking the ACTIVE chip clears the tag instead of re-picking it', async ({ page }) => {
+      await page.goto('/blog?tag=Docker');
+      await expect(cards(page)).toHaveCount(2);
+
+      await chip(page, 'Docker').click();
+      await expect(page).toHaveURL(/\/blog$/);
+      await expect(cards(page)).toHaveCount(4);
+    });
+
+    test('CLEAR ALL drops both filters at once, from a page with results', async ({ page }) => {
+      // ⚠️ The gap this closes: RESET FILTERS only ever rendered inside the
+      // EMPTY state, so a visitor looking at results had no visible way to
+      // clear anything. This URL deliberately still matches a post.
+      await page.goto('/blog?q=docker&tag=Docker');
+      await expect(cards(page)).toHaveCount(2);
+
+      await main(page).getByRole('button', { name: 'CLEAR ALL' }).click();
+      await expect(page).toHaveURL(/\/blog$/);
+      await expect(cards(page)).toHaveCount(4);
+    });
+
+    test('several chips filter with AND, and each pill clears only itself', async ({ page }) => {
+      await page.goto('/blog');
+      await chip(page, 'Docker').click();
+      await expect(page).toHaveURL(/\?tag=Docker$/);
+
+      // ⚠️ DevOps is the reachable pair here. Only one stubbed post carries
+      // Docker AND DevOps, so this also proves AND rather than OR — under
+      // OR the count would go UP, not down.
+      await chip(page, 'DevOps').click();
+      await expect(page).toHaveURL(/tag=Docker&tag=DevOps/);
+      await expect(cards(page)).toHaveCount(1);
+
+      // Each summary pill drops only its own tag.
+      await main(page).getByRole('button', { name: 'Clear the DevOps tag filter' }).click();
+      await expect(page).toHaveURL(/\?tag=Docker$/);
+      await expect(cards(page)).toHaveCount(2);
+    });
+
+    test('a chip whose combination has no posts is disabled', async ({ page }) => {
+      await page.goto('/blog?tag=Docker');
+      // Nothing carries Docker AND React; something carries Docker AND
+      // DevOps. Both asserted, so a rule disabling everything or nothing
+      // fails one of them.
+      await expect(chip(page, 'React')).toBeDisabled();
+      await expect(chip(page, 'DevOps')).toBeEnabled();
+      await expect(chip(page, 'Docker')).toBeEnabled();   // still removable
+    });
+
+    test('the empty state names the term that found nothing', async ({ page }) => {
+      await page.goto('/blog?q=zzzznomatchanywhere&tag=Docker');
+      await expect(
+        main(page).getByText('No posts match "zzzznomatchanywhere" tagged DOCKER.'),
+      ).toBeVisible();
     });
 
     /* ── chrome ───────────────────────────────────────────────────── */

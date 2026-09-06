@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Reveal } from '../motion';
 import { useBlogPosts } from '../../hooks/useBlog';
-import { formatMonth, formatReadTime } from '../../utils/blogMeta';
+import { formatDate, formatReadTime } from '../../utils/blogMeta';
 import styles from './BlogSection.module.css';
 
 /**
@@ -76,12 +76,12 @@ function byRecency(a, b) {
 }
 
 /**
- * `formatMonth` and `formatReadTime` MOVED to utils/blogMeta.js in PF-98.
+ * `formatDate` and `formatReadTime` MOVED to utils/blogMeta.js in PF-98.
  *
  * They were local here from PF-86 until the /blog index gained a second
  * consumer for both. Two consumers is the bar for extraction in this repo
  * (the `.section-eyebrow` precedent, PF-81); one is not, which is why PF-95
- * was right not to move `formatMonth` on its own.
+ * was right not to move `formatDate` on its own.
  *
  * ⚠️ `byRecency` above deliberately did NOT go with them. It still has one
  * consumer — the /blog index must not re-sort a list the server already
@@ -213,7 +213,7 @@ export function BlogSection() {
                 <span className={styles.badge}>LATEST POST</span>
 
                 <span className={styles.featuredMeta}>
-                  <span>{formatMonth(featured.publishedAt || featured.createdAt)}</span>
+                  <span>{formatDate(featured.publishedAt || featured.createdAt)}</span>
                   <span className={styles.featuredSep}>·</span>
                   <span>{formatReadTime(featured.readingTimeMinutes)}</span>
                 </span>
@@ -255,7 +255,7 @@ export function BlogSection() {
 
                       <span className={styles.rowBody}>
                         <span className={styles.rowMeta}>
-                          <span>{formatMonth(post.publishedAt || post.createdAt)}</span>
+                          <span>{formatDate(post.publishedAt || post.createdAt)}</span>
                           <span className={styles.rowSep}>·</span>
                           <span>{formatReadTime(post.readingTimeMinutes)}</span>
                         </span>

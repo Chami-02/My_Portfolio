@@ -261,6 +261,75 @@ describe('PATCH /api/blog/:id/publish', () => {
 
     expect(res.status).toBe(404);
   });
+
+  // ── PF-104 ──────────────────────────────────────────────────────────
+  // THE DEFECT: nothing on the server ever wrote `publishedAt`. This
+  // route flipped only the boolean, so a draft created in January and
+  // published in September kept null and the list sort fell back to its
+  // January `createdAt` — it appeared as an old post the moment it went
+  // live, below everything published in between.
+  it('stamps publishedAt the first time a post is published', async () => {
+    const post = await Blog.create(DRAFT_POST);
+    expect(post.publishedAt).toBeNull();
+
+    const before = Date.now();
+    const res = await request(app)
+      .patch(`/api/blog/${post._id}/publish`)
+      .set(await authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.publishedAt).not.toBeNull();
+    // A real "now", not some other date the code happened to have around.
+    const stamped = new Date(res.body.data.publishedAt).getTime();
+    expect(stamped).toBeGreaterThanOrEqual(before - 1000);
+    expect(stamped).toBeLessThanOrEqual(Date.now() + 1000);
+  });
+
+  it('keeps the ORIGINAL publish date across unpublish and republish', async () => {
+    // Deliberate: a post that briefly returns to draft for an edit must
+    // not jump to the top of the list when it comes back. Clearing the
+    // stamp on unpublish would do exactly that.
+    const post = await Blog.create(DRAFT_POST);
+
+    const first = (await request(app)
+      .patch(`/api/blog/${post._id}/publish`)
+      .set(await authHeader())).body.data.publishedAt;
+
+    await request(app).patch(`/api/blog/${post._id}/publish`).set(await authHeader());
+    const again = (await request(app)
+      .patch(`/api/blog/${post._id}/publish`)
+      .set(await authHeader())).body.data.publishedAt;
+
+    expect(again).toBe(first);
+  });
+
+  it('does not overwrite a publish date the post already carries', async () => {
+    // seed.js and migration 005 write explicit dates. `== null` is what
+    // keeps those four transcribed dates from being clobbered on any save.
+    const explicit = new Date('2026-07-14T09:00:00.000Z');
+    const post = await Blog.create({ ...DRAFT_POST, publishedAt: explicit });
+
+    const res = await request(app)
+      .patch(`/api/blog/${post._id}/publish`)
+      .set(await authHeader());
+
+    expect(new Date(res.body.data.publishedAt).getTime()).toBe(explicit.getTime());
+  });
+
+  it('stamps publishedAt on a post created as published outright', async () => {
+    // The other write path: the admin panel's "Publish immediately" box,
+    // which never goes through this route at all.
+    const post = await Blog.create({ ...DRAFT_POST, published: true });
+    expect(post.publishedAt).not.toBeNull();
+  });
+
+  it('leaves a draft unstamped', async () => {
+    // The control. A stamp that fired unconditionally would satisfy every
+    // assertion above while being plainly wrong.
+    const post = await Blog.create(DRAFT_POST);
+    expect(post.published).toBe(false);
+    expect(post.publishedAt).toBeNull();
+  });
 });
 
 describe('DELETE /api/blog/:id', () => {

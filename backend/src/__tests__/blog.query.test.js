@@ -218,11 +218,68 @@ describe('GET /api/blog?q= — search', () => {
     expect(names(res)).toEqual(['Alpha']);
   });
 
-  it('does not match section body text', async () => {
-    // Deliberate: the design's filter covers title + excerpt + tags only.
-    // Asserted so that widening it later is a visible decision.
+  // ── ⚠️ INVERTED BY PF-104 (owner-requested 2026-09-06) ──────────────
+  // This test read `does not match section body text` and asserted a
+  // length of 0. PF-96 restricted the query to title + excerpt + tags to
+  // match the design's own filter, and wrote this so that widening it
+  // later would be a visible decision rather than a silent one. This is
+  // that decision: the owner's requirement is that any word belonging to
+  // a post finds it.
+  //
+  // The term is a PHRASE that appears only in Charlie's body — the bare
+  // word "Charlie" is in its title too, so it could not tell the two
+  // rules apart. That is the discriminating-fixture rule PF-96 itself
+  // established after a guard passed 61 of 63 times against reverted code.
+  it('matches section body text', async () => {
     await seedPosts();
     const res = await request(app).get('/api/blog?q=Charlie%20body%20text');
+    expect(names(res)).toEqual(['Charlie']);
+  });
+
+  it('matches a section heading', async () => {
+    await seedPosts();
+    const res = await request(app).get('/api/blog?q=Delta%20heading');
+    expect(names(res)).toEqual(['Delta']);
+  });
+
+  it('matches a section bullet', async () => {
+    // Its own post rather than a bullet added to the shared fixture: a
+    // mutated shared fixture is what disarmed a guard here once already.
+    await seedPosts([{
+      title:       'Echo post',
+      excerpt:     'An excerpt.',
+      tags:        [],
+      published:   true,
+      publishedAt: new Date('2026-01-01T09:00:00.000Z'),
+      sections:    [{ heading: 'Echo heading', body: [], bullets: ['kubernetes rollout'] }],
+    }]);
+
+    const res = await request(app).get('/api/blog?q=kubernetes');
+    expect(names(res)).toEqual(['Echo']);
+  });
+
+  it('still returns nothing for a term that is in no post at all', async () => {
+    // The control. A widened search that matched everything would pass
+    // every assertion above and be just as broken as one matching nothing.
+    await seedPosts();
+    const res = await request(app).get('/api/blog?q=nonexistentterm');
+    expect(res.body.data).toHaveLength(0);
+  });
+
+  it('does not search the deprecated content field', async () => {
+    // Deliberate omission, not an oversight: no row has ever carried a
+    // `content` string, so an $or arm for it would be dead weight.
+    await seedPosts([{
+      title:       'Foxtrot post',
+      excerpt:     'An excerpt.',
+      tags:        [],
+      published:   true,
+      publishedAt: new Date('2026-01-02T09:00:00.000Z'),
+      content:     'legacy markdown mentioning zzuniquezz',
+      sections:    [{ heading: 'Foxtrot heading', body: ['Body.'], bullets: [] }],
+    }]);
+
+    const res = await request(app).get('/api/blog?q=zzuniquezz');
     expect(res.body.data).toHaveLength(0);
   });
 
@@ -295,6 +352,84 @@ describe('GET /api/blog?tag= — filter', () => {
     await seedPosts();
     const res = await request(app).get('/api/blog?q=post');
     expect(names(res)).toEqual(PUBLISHED_ORDER);
+  });
+
+  // ── ⚠️ MULTI-TAG, PF-105 ─────────────────────────────────────────────
+  // Several `?tag=` params AND together: a post must carry EVERY selected
+  // tag. Owner's decision 2026-09-06 — OR was considered and rejected
+  // because on a small blog it returns nearly everything.
+  //
+  // ⚠️ THE SHARED FIXTURE CANNOT TELL AND FROM OR on its own. Docker and
+  // DevOps both belong to Alpha and nothing else, so `?tag=Docker&tag=
+  // DevOps` returns [Alpha] under BOTH rules — a test written on it would
+  // pass against an OR implementation. That is the vacuous-guard trap
+  // PF-96 documented. `ECHO` below is the discriminating fixture: it is
+  // the only post carrying Docker AND React, which Alpha and Bravo hold
+  // separately.
+  const ECHO = {
+    title:       'Echo post about both',
+    excerpt:     'An excerpt.',
+    tags:        ['Docker', 'React'],
+    published:   true,
+    publishedAt: new Date('2026-01-05T09:00:00.000Z'),
+    sections:    [section('Echo heading', 'Echo body text.')],
+  };
+
+  it('ANDs several tags — a post must carry every one of them', async () => {
+    await seedPosts([ECHO]);
+    const res = await request(app).get('/api/blog?tag=Docker&tag=React');
+
+    // OR would return Alpha (Docker), Bravo (React) and Echo (both).
+    expect(names(res)).toEqual(['Echo']);
+  });
+
+  it('returns nothing when no post carries the whole combination', async () => {
+    // The control. A filter that silently ignored the extra tags would
+    // return every Docker post here and pass the test above only by luck.
+    await seedPosts([ECHO]);
+    const res = await request(app).get('/api/blog?tag=Docker&tag=Python');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+  });
+
+  it('still anchors every tag in a multi-tag filter', async () => {
+    // Delta carries "React Native". An unanchored arm would let it satisfy
+    // the React half — the PF-96 property, re-asserted for the array path
+    // because it is a DIFFERENT code branch, not the same one reused.
+    await seedPosts([ECHO]);
+    const res = await request(app).get('/api/blog?tag=React&tag=Java');
+    expect(res.body.data).toHaveLength(0);
+  });
+
+  it('is case-insensitive across every tag in the combination', async () => {
+    await seedPosts([ECHO]);
+    const res = await request(app).get('/api/blog?tag=docker&tag=rEaCt');
+    expect(names(res)).toEqual(['Echo']);
+  });
+
+  it('ignores an "All" mixed in with real tags', async () => {
+    await seedPosts([ECHO]);
+    const res = await request(app).get('/api/blog?tag=All&tag=Docker&tag=React');
+    expect(names(res)).toEqual(['Echo']);
+  });
+
+  it('combines a multi-tag filter with the search term', async () => {
+    // $and (tags) and $or (q) are sibling top-level keys. Asserted rather
+    // than assumed: a query that clobbered one with the other would still
+    // return something plausible.
+    await seedPosts([ECHO]);
+    expect(names(await request(app).get('/api/blog?q=both&tag=Docker&tag=React')))
+      .toEqual(['Echo']);
+    // Same tags, a term Echo does not carry — the tags alone would match.
+    expect((await request(app).get('/api/blog?q=zzznope&tag=Docker&tag=React')).body.data)
+      .toHaveLength(0);
+  });
+
+  it('still handles a single tag as a plain string', async () => {
+    // The one-element path through the same code. Regression guard: the
+    // array rewrite must not break the shape every existing caller sends.
+    await seedPosts([ECHO]);
+    expect(names(await request(app).get('/api/blog?tag=DevOps'))).toEqual(['Alpha']);
   });
 });
 

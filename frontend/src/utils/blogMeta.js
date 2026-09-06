@@ -26,7 +26,18 @@
 // modules one character apart is a mis-import waiting to happen.
 
 /**
- * `JUL 2026` — the prototype's card meta format.
+ * `14 JUL 2026` — the card meta date.
+ *
+ * ── ⚠️ RENAMED AND WIDENED IN PF-104 (owner-requested 2026-09-06) ─────
+ * Was `formatMonth`, returning `JUL 2026` — the prototype's own format
+ * (`Blog.dc.html`). The owner asked for the whole date, so the day is now
+ * included, and the name changed with it: a function called `formatMonth`
+ * returning a full date is a name that lies, and the rename is what makes
+ * every call site declare which one it wanted.
+ *
+ * A sanctioned deviation from the frozen export. Both consumers changed
+ * together — the /blog index and the home-page teaser — because two date
+ * formats for the same posts on the same site reads as a defect.
  *
  * Callers pass `publishedAt || createdAt`. `publishedAt` is the post's own
  * publish date (PF-95); `createdAt` is Mongoose's record stamp, which
@@ -41,12 +52,25 @@
  * for a three-letter Latin abbreviation. Dropping the argument is invisible
  * in an assertion on the output string when the test machine happens to be
  * en-GB, which is why blogMeta.test.js spies on the ARGUMENT.
+ *
+ * ⚠️ `day: '2-digit'` and not `'numeric'`, so every card reads `04 MAY`
+ * rather than `4 MAY`. The meta line is mono at .12em tracking and the
+ * dates sit directly above one another down the grid; a one-character
+ * width difference between the 9th and the 10th of a month is visible as
+ * a ragged column.
+ *
+ * ⚠️ THE TIMEZONE CAVEAT IS UNCHANGED AND NOW SHOWS UP MORE OFTEN. This
+ * renders in the READER'S timezone, so an instant near midnight UTC is a
+ * different DAY either side of the date line — where before only a month
+ * boundary could expose it. `2026-07-14T23:30:00Z` is `15 JUL` in
+ * Colombo. Pinning to UTC would change dates that currently render
+ * correctly for most readers, so it stays a product call, not a bug fix.
  */
-export function formatMonth(iso) {
+export function formatDate(iso) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
   return date
-    .toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+    .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     .toUpperCase();
 }
 
