@@ -1869,3 +1869,240 @@ value must go through the code that derives it, never re-implement the formula.
 source of truth, which is the drift 005's own header warns about. The cost of
 that choice is this trap: the derivation is invisible in the file, so the call
 that triggers it has to be the right one.
+
+## ⚠️ Playwright's `getByRole` name matches by SUBSTRING; testing-library's does not (PF-104, 2026-09-06)
+
+Adding a clear button beside the search button on `/blog` gave the page two
+controls whose accessible names are `Search` and `Clear search`. The E2E click
+
+```js
+main(page).getByRole('button', { name: 'Search' }).click();
+```
+
+failed with a strict-mode violation resolving **2 elements** — because
+Playwright matches an accessible name by **case-insensitive substring** unless
+`exact: true` is passed, and `Clear search` contains `search`.
+
+⚠️ **The trap is that the unit test for the same button passes without it.**
+testing-library's `getByRole({ name })` matches a *string* name in FULL, so
+the identical-looking assertion in `BlogPage.test.jsx` is exact and green.
+Two libraries, opposite defaults, same-looking call — so "it works in the unit
+test" is no evidence at all about the E2E one.
+
+**Fix: `{ name: 'Search', exact: true }`.** Reach for `exact: true` whenever a
+name is a prefix of, or contained in, another control's name on the same page
+— which is very easy to create accidentally, since `Clear X` / `X` and
+`Open menu` / `menu` are natural label pairs.
+
+This failed LOUDLY, which is why it is cheap. The dangerous version is the
+inverse: a substring match that resolves exactly one element today and starts
+matching two when an unrelated control is added later — the same shape as the
+`[class*="name"]` selector trap already documented above.
+
+## ⚠️ Counting every control in a landmark as a stand-in for one component (PF-104, 2026-09-06)
+
+`e2e/blog.spec.js` asserted the tag-chip row like this:
+
+```js
+const chips = main(page).getByRole('button');
+await expect(chips).toHaveCount(TAGS.length + 1);   // + 'All'
+```
+
+It passed for a sprint because the chips genuinely were the only buttons in
+`<main>`. PF-104 added one search-submit button inside the same landmark and
+the test failed with `Expected: 7  Received: 8` — under the name *"the chip
+row is the tag pool, and does not shrink as posts filter"*, which is not what
+broke. A reader chasing that failure looks at the vocabulary API first.
+
+**Same family as the `[class*="name"]` trap**: a locator that selects the
+right set today for a reason unrelated to what the assertion is about.
+
+**Fix — assert NAMES, not a count:**
+
+```js
+const chipLabels = (page) =>
+  main(page).locator('form[role="search"] button')
+    .allTextContents()
+    .then((l) => l.map((t) => t.trim()).filter(Boolean));
+
+await expect.poll(() => chipLabels(page)).toEqual(['All', ...TAGS]);
+```
+
+Two things this buys beyond not breaking: the icon-only controls have empty
+text so they filter themselves out — no exclusion list to keep in step as
+more are added — and the assertion now fails when the row keeps its LENGTH
+while swapping a tag, which a count cannot detect.
+
+## ⚠️ Piping a long-running command through `tail` hides all progress, and reads as a hang (PF-104, 2026-09-06)
+
+`npm test 2>&1 | tail -20` buffers every line until the process exits, so an
+in-progress run writes an **empty** output file. Combined with a backend suite
+that had slowed from ~40 s to ~335 s against a laggy Atlas connection, this
+produced a confident and wrong diagnosis: *the suite is hanging*. Twenty
+minutes were spent killing jest, checking SRV DNS and looking for a local
+Mongo before the suite was simply allowed to finish — **341 passed**.
+
+The SRV check was not wasted, and this is the part worth keeping: the system
+resolver really did return **0** SRV records for the cluster at one point
+while `1.1.1.1` returned all three, matching the documented broken-resolver
+entry above. It recovered on its own minutes later. So there were two
+independent things going on, and the measurement that mattered
+(`nslookup -type=SRV … 1.1.1.1`) correctly identified one of them.
+
+**Rules that fall out:**
+
+- **Redirect, do not pipe, when you intend to watch progress:**
+  `npm test > /tmp/be.log 2>&1` and then `tail -f` / poll the file.
+- **An empty output file is not evidence of a hang** — it is evidence of
+  buffering. Check `ps` for a live process and the file's mtime before
+  concluding anything.
+- **`timeout` does not exist on macOS.** `timeout 540 npm test | grep …`
+  fails with `command not found`, the pipeline exits 0, and the empty output
+  looks exactly like a clean run that matched nothing. Use `gtimeout`
+  (coreutils) or the harness's own background mode.
+
+## ⚠️ An array silently bypassing a `typeof x === 'string'` guard (PF-105, 2026-09-06)
+
+`buildMatch` narrowed the tag filter like this:
+
+```js
+const tagValue = typeof tag === 'string' ? tag.trim() : '';
+if (tagValue && tagValue.toLowerCase() !== 'all') { …apply the filter… }
+```
+
+Correct for one tag. When PF-105 started sending `?tag=Docker&tag=DevOps`,
+Express's query parser handed `buildMatch` an **array**, which failed the
+`typeof` test, produced `''`, and skipped the entire block. Measured before
+the fix: that request returned **all 4 posts with a 200**.
+
+**Why it is worth an entry.** The guard was written defensively and it *is*
+the right shape — it is the fallback value that lies. `: ''` means "no filter"
+here, so an unexpected type is indistinguishable from an absent one. The
+symptom is not an error, a 400, or an empty result: it is the feature quietly
+not applying, which reads as *"the tag filter stopped working"* rather than
+*"the tag filter received something it did not understand"*.
+
+**The consequence for planning:** every layer had to change in one ticket.
+A half-migrated version — page sending an array, server still on the string
+path — is green, 200, and silently unfiltered.
+
+**Rules:**
+
+- When widening a parameter from scalar to array, **grep every
+  `typeof … === 'string'` on that value first**. Those are the places that
+  will fail open.
+- Prefer a fallback that cannot be confused with a valid state, or normalise
+  at the boundary: `(Array.isArray(x) ? x : [x]).filter(…)` handles both and
+  has no silent branch.
+- **Always assert a zero case.** `?tag=Nonexistent` → 0 is what separates
+  "filtering correctly" from "not filtering at all". Every positive assertion
+  passes under a filter that matches everything.
+
+## ⚠️ axios serialises array params differently from `URLSearchParams` (PF-105, 2026-09-06)
+
+`useSearchParams` — what react-router writes into the address bar — produces
+the **repeat** form, `tag=a&tag=b`. axios v1 produces the **bracket** form,
+`tag[]=a&tag[]=b`.
+
+Express's `qs` parser turns *both* into an array, so this "works". That is the
+trap: the URL a visitor copies is then **not** the URL the app fetches, the
+React Query key is built from one shape while the request goes out in the
+other, and any future check on the raw query string sees a form no client code
+writes.
+
+**Fix, once on the shared instance** (`services/api.js`):
+
+```js
+paramsSerializer: { indexes: null },   // repeat form
+```
+
+**Verify it rather than assuming**, from `performance.getEntriesByType('resource')`:
+count `/[?&]tag=/` occurrences in the real request URL, and assert
+`tag(%5B%5D|\[\])=` appears **zero** times. Checking only that the request
+"has tags in it" passes under either serialisation.
+
+## ⚠️ A stale DOM node reference after a React re-render reads as a theming bug (PF-105, 2026-09-06)
+
+While measuring contrast, a chip sampled after clicking the theme toggle
+reported the **dark** `--srf` and `--muted` while `:root` had correctly
+flipped to light. That looks exactly like a token-inheritance bug, and about
+fifteen minutes went into chasing one.
+
+There was none. The toggle re-renders the row, React replaces the button
+element, and the handle captured earlier pointed at a **detached** node —
+which keeps the computed style it had when it left the document. Re-querying
+`document.querySelectorAll` gave the correct light values immediately.
+
+**Rules:**
+
+- **Re-query after any state change**, never reuse an element handle across a
+  render. The stale node does not throw; it answers with old data.
+- **For theme measurements, prefer one clean page load per theme** — set the
+  persisted key (`pg-theme` here) and reload — over toggling mid-session.
+  Three consecutive in-session measurements disagreed with each other before
+  this was noticed; the reload-per-theme numbers were stable and reproducible.
+- The tell was an **impossible reading**: a disabled chip measuring 1.72
+  against a background where the enabled one measured 6.13, when both declare
+  the same colour. When two measurements of the same declared value disagree,
+  suspect the instrument before the code.
+
+## ⚠️ `location.key` / `history.state.idx` cannot tell an initial load from a Back to the first entry (PF-106, 2026-09-06)
+
+PF-106 needed to answer "is this HomePage mount the initial render of this
+document, or a return to it?" React Router's `location.key === 'default'` reads
+like the purpose-built answer: the initial history entry is the only one
+without a generated key.
+
+**It is not.** Measured in the running app by reading `history.state` at each
+step:
+
+```
+initial load of "/"       history.state = { idx: 0 }             no key
+click through to /blog    history.state = { idx: 1, key: 'vuv4pcku' }
+browser Back to "/"       history.state = { idx: 0 }             no key
+```
+
+Going Back **restores** the original entry, state and all. There is no key to
+restore, so React Router falls back to `'default'` again — and the gate would
+have replayed the splash on precisely the journey the ticket existed to stop.
+`history.state.idx` is 0 in both cases and fails identically.
+
+**The general rule:** the History API is *positional*, not *temporal*. It can
+tell you **where** you are in the stack, never **how many times** you have been
+there. Any question of the form "is this the first time in this document" needs
+state in the JS runtime — which, usefully, is also what makes a reload reset it.
+
+⚠️ **The near-miss is what makes this worth recording.** The `location.key`
+version passes every unit test you would naturally write for it (a fresh render
+has key `'default'`; a pushed navigation does not), builds clean, and is wrong
+only on the one journey nobody simulates in jsdom. It was caught by driving a
+real browser and reading `history.state` at three points — not by reasoning.
+
+## ⚠️ The browser-automation round-trip is slower than the thing being measured (PF-106, 2026-09-06)
+
+Three separate point-in-time samples reported "the splash is not showing" on a
+page where it demonstrably was. The reason, once instrumented:
+
+```
+performance.now() at sample time: 8465 ms
+splash window:                    0 – 4500 ms
+```
+
+Every sample landed **after** the splash had already finished. The tool call
+round-trip is several seconds; the thing under test lasts 4.5.
+
+**Rules that follow:**
+
+- **Print the timestamp of the observation, not just its result.** One extra
+  field — `msSinceNavigationStart` — turned three confusing runs into an
+  obvious explanation.
+- **For anything transient, observe rather than sample.** A `MutationObserver`
+  armed before the action survives client-side navigation and records whether
+  the element *ever* appeared, independent of when the next call lands.
+- ⚠️ **An observer needs its own control.** "Never fired" is indistinguishable
+  from "never worked". Inject a node that matches the predicate, confirm the
+  observer flips, then reset — otherwise the negative result proves nothing.
+  Same family as the documented "always run the control" entries above.
+- **For anything spanning a reload, the E2E suite is the right instrument** —
+  it drives the same dev server (`playwright.config.js` runs `npm run dev`),
+  so it also exercises StrictMode, which is where this class of change fails.

@@ -5,6 +5,7 @@ import postcss from 'postcss';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Splash from '../Splash';
+import * as splashUtils from '../../../utils/splash';
 import { SplashProvider } from '../../../providers/SplashProvider';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { useSplashReady } from '../../../hooks/useSplashReady';
@@ -230,6 +231,51 @@ describe('Splash (PF-78)', () => {
 
     advance(1);
     expect(rootOf(container)).toBeNull();
+  });
+
+  /**
+   * ── PF-106 ───────────────────────────────────────────────────────────
+   * `finish()` is the one place both the SPLASH_MS timer and SKIP converge
+   * on, which is why the "seen it" flag is set there rather than at mount.
+   *
+   * Spied rather than asserted through `shouldShowSplash()`, because the
+   * flag is module state: reading it back would couple this file to
+   * another module's lifetime and leak into the tests after it. What
+   * matters here is only that Splash CALLS it, and when.
+   */
+  it('does not mark the splash seen before it has actually finished', () => {
+    // The control. A call at mount is the documented StrictMode trap —
+    // the simulated remount would read what the discarded first mount
+    // wrote and the splash would never appear in development.
+    const spy = vi.spyOn(splashUtils, 'markSplashShown');
+    render(withSplash(<Splash />));
+    expect(spy).not.toHaveBeenCalled();
+
+    advance(SPLASH_MS - 1);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('marks the splash seen when the timer finishes it', () => {
+    const spy = vi.spyOn(splashUtils, 'markSplashShown');
+    render(withSplash(<Splash />));
+    advance(SPLASH_MS);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks it seen on SKIP too, since dismissing counts as dealing with it', () => {
+    const spy = vi.spyOn(splashUtils, 'markSplashShown');
+    render(withSplash(<Splash />));
+    act(() => { screen.getByText('SKIP INTRO →').click(); });
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks it once even when SKIP lands after the timer already fired', () => {
+    // Inside the finishedRef guard, so the second path is a no-op.
+    const spy = vi.spyOn(splashUtils, 'markSplashShown');
+    render(withSplash(<Splash />));
+    advance(SPLASH_MS);
+    act(() => { screen.getByText('SKIP INTRO →').click(); });
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('SKIP runs the same finish sequence immediately', () => {

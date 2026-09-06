@@ -41,7 +41,11 @@ test.describe('Footer (PF-88)', () => {
     await expect(link).toHaveAttribute('href', '/?nosplash=1#projects');
 
     await link.click();
-    await expect(page).toHaveURL(/\/\?nosplash=1#projects$/);
+    // ⚠️ PF-106: the href still CARRIES ?nosplash=1 — the link is
+    // unchanged — but HomePage strips it from the address bar on mount, so
+    // the URL settles without it. That strip is what makes a refresh here
+    // replay the intro rather than suppress it, which is the whole point.
+    await expect(page).toHaveURL(/\/#projects$/);
 
     // ?nosplash=1 is the prototype's own convention — without it the
     // ~5.65s splash replays OVER the anchor jump while initialReady

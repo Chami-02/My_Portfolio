@@ -81,7 +81,11 @@ test.describe('Navbar off the home page', () => {
   test('a nav link from /blog navigates home AND lands under the header', async ({ page }) => {
     await page.goto('/blog');
     await page.locator('header').getByRole('link', { name: 'PROJECTS' }).click();
-    await expect(page).toHaveURL(/\/\?nosplash=1#projects$/);
+    // ⚠️ PF-106: the href still CARRIES ?nosplash=1 — the link is
+    // unchanged — but HomePage strips it from the address bar on mount, so
+    // the URL settles without it. That strip is what makes a refresh here
+    // replay the intro rather than suppress it, which is the whole point.
+    await expect(page).toHaveURL(/\/#projects$/);
 
     // ⚠️ The URL changing is NOT the assertion. React Router v7 performs
     // the navigation and ignores the fragment, so a version of this

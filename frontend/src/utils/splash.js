@@ -37,7 +37,65 @@ import { prefersReducedMotion } from './motion';
  *
  * @returns {boolean}
  */
+/**
+ * ── ⚠️ ONCE PER DOCUMENT LOAD (PF-106, owner-requested 2026-09-06) ──────
+ *
+ * The rule: the splash plays on the first open and on a refresh of the home
+ * page, and on nothing else. Returning home from /blog — by the nav or by
+ * the browser's Back button — must not replay it.
+ *
+ * Module scope IS the mechanism, not an implementation detail. This
+ * variable lives exactly as long as the document does, so:
+ *
+ *   - a refresh re-evaluates the module, the flag is false again, and the
+ *     splash replays — which is the owner's second requirement, for free
+ *     and with nothing to expire;
+ *   - a client-side navigation does not, so coming back to "/" finds it
+ *     already true.
+ *
+ * ⚠️ NEITHER THE URL NOR THE HISTORY ENTRY CAN DO THIS JOB, measured
+ * rather than assumed. React Router's `location.key === 'default'` looks
+ * like a clean stateless test for "initial render of this document"; it is
+ * not. In the running app:
+ *
+ *     initial load of "/"     history.state = { idx: 0 }        no key
+ *     click through to /blog  history.state = { idx: 1, key: … }
+ *     browser Back to "/"     history.state = { idx: 0 }        no key
+ *
+ * The home entry after a Back is identical to the initial load, so that
+ * gate would replay the splash on precisely the journey this ticket exists
+ * to stop. `history.state.idx` fails the same way. Runtime state is the
+ * only thing that separates them.
+ *
+ * ⚠️ THE LOCKED WARNING ABOUT A MODULE FLAG STILL STANDS — it names the
+ * flag set AT MOUNT, which StrictMode's simulated remount sets on the
+ * first mount and reads on the second, so the splash never appears in
+ * development. This one is set from `Splash.jsx`'s `finish()`, ~4.5s
+ * later. StrictMode tears the discarded first mount down within
+ * milliseconds and its effect cleanup clears every pending timer, so
+ * `finish()` never runs on it and the flag is still false when the real
+ * mount arms. Verified by running the dev server, because a green unit
+ * suite says nothing about a dev-only double mount.
+ */
+let shownThisDocument = false;
+
+/**
+ * Called once the splash has finished — by its own timer or by SKIP, which
+ * both funnel through `finish()`.
+ *
+ * At COMPLETION rather than at mount, for the StrictMode reason above. A
+ * side effect worth stating: SKIP therefore counts as seen, which is right
+ * — dismissing the intro deliberately is still having dealt with it.
+ */
+export function markSplashShown() {
+  shownThisDocument = true;
+}
+
 export function shouldShowSplash() {
+  // Cheapest check first, and the only one that is not about this visitor's
+  // preferences: we have already shown it in this document.
+  if (shownThisDocument) return false;
+
   try {
     if (new URLSearchParams(window.location.search).has('nosplash')) return false;
   } catch {

@@ -251,11 +251,20 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   `initialReady={false}` holds every reveal. Stripping the param from the
   address bar after mount is an available follow-up, not a defect.
 
-  **⚠️ Do NOT replace it with a module-scoped "already shown this
-  session" flag.** StrictMode's simulated remount sets it on the first
-  mount and suppresses the splash on the second, so the splash never
-  appears in development at all — the same dev-only footgun class as the
-  `setReady(true)`-on-unmount safety net `SplashProvider` warns about.
+  **⚠️ Do NOT replace it with a module-scoped flag SET AT MOUNT.**
+  StrictMode's simulated remount sets it on the first mount and suppresses
+  the splash on the second, so the splash never appears in development at
+  all — the same dev-only footgun class as the `setReady(true)`-on-unmount
+  safety net `SplashProvider` warns about.
+
+  ⚠️ **NARROWED BY PF-106 (2026-09-06): the mount TIME was the problem,
+  not the module scope.** There is now a module-scoped
+  `shownThisDocument` flag in `utils/splash.js` — see the PF-106 entry
+  below — and it is safe because it is set from `Splash.jsx`'s `finish()`,
+  ~4.5s in. StrictMode tears the discarded first mount down within
+  milliseconds and its effect cleanup clears every pending timer, so
+  `finish()` never runs on it. Verified by driving the dev server, since a
+  green unit suite cannot see a dev-only double mount.
 
   **On `/blog*` the nav WAS the Blog prototype's own content**,
   transcribed from `Blog.dc.html` lines 50-61: PROJECTS · ABOUT ·
@@ -450,6 +459,233 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   no `.ghostNumeral` selector — **via postcss, not a text search**, since
   the module documents the removed declarations in prose exactly where
   the rule used to be. All three mutations caught.
+
+- **PF-106 — the splash plays ONCE PER DOCUMENT LOAD (owner-requested
+  2026-09-06).** The rule, in the owner's words: *"opens the browser and
+  first open should play, and when hit the refresh button in the main page
+  should replay. Nothing else."*
+
+  | arriving at `/` | splash |
+  | --- | --- |
+  | first open | **plays** |
+  | refresh on the home page | **plays** |
+  | browser Back from `/blog` | no |
+  | any nav link from `/blog` | no |
+
+  **Mechanism: a module-scoped `shownThisDocument` in `utils/splash.js`**,
+  set from `Splash.jsx`'s `finish()`. Module scope IS the mechanism, not an
+  implementation detail — the variable lives exactly as long as the
+  document, so a refresh re-evaluates the module and replays for free while
+  a client-side navigation finds it already true. Set at COMPLETION, which
+  is also why SKIP counts as seen.
+
+  ⚠️ **NEITHER THE URL NOR THE HISTORY ENTRY CAN DO THIS JOB.**
+  `location.key === 'default'` looks like a clean stateless test for "the
+  initial render of this document" and is not. Measured in the running app:
+
+  ```
+  initial load of "/"      history.state = { idx: 0 }          no key
+  click through to /blog   history.state = { idx: 1, key: … }
+  browser Back to "/"      history.state = { idx: 0 }          no key
+  ```
+
+  The home entry after a Back is identical to the initial load, so that
+  gate replays the splash on exactly the journey this fixes.
+  `history.state.idx` fails the same way.
+
+  ⚠️ **`sessionStorage` was also rejected** — it survives a reload, so
+  refresh would be the one journey that did NOT replay.
+
+  **`HomePage` now strips `?nosplash` from the address bar on mount**
+  (`replaceState`, keeping pathname and hash). This is load-bearing, not
+  tidying: every nav link on `/blog` points at `/?nosplash=1`, so without
+  the strip a refresh would replay on a hand-typed `/` and silently not on
+  the URL the site's own navigation produces. It runs after `showSplash` is
+  frozen, so it cannot affect its own render's decision.
+
+  ⚠️ **Removing `?nosplash=1` from the nav hrefs instead was rejected.** It
+  would also make refresh work and would delete code rather than add it —
+  but a visitor who lands on `/blog` first would then get the full 4.5s
+  intro on **GO BACK**, which is the "splash over the anchor jump" the
+  2026-08-22 navbar decision exists to prevent. Consequence: two E2E URL
+  assertions now expect `/#projects` rather than `/?nosplash=1#projects`.
+
+  Consistent with PF-88's removal of REPLAY INTRO — *"no one want to replay
+  that splash when in the website"* — so **no replay control was added**,
+  and none is needed: a new tab or a refresh is the way back.
+
+- **PF-105 — several tag chips can be selected, and they AND together
+  (owner decision 2026-09-06).** A post must carry **every** selected tag.
+  `?tag=Docker&tag=DevOps`, repeated params, `$and` of one anchored
+  case-insensitive regex per tag in `buildMatch`.
+
+  ⚠️ **OR was recommended first and was WRONG.** The argument for it was
+  that AND empties the page at this size — measured, `React + Java` → 0.
+  The owner pushed back that selecting two tags means wanting both, and the
+  same measurement cuts the other way: under OR, `Docker + DevOps` returns
+  **3 of 4 posts**, so the filter barely filters. Neither semantic is
+  comfortable on a four-post blog; AND is the one that matches intent, and
+  its failure mode is fixable where OR's is not.
+
+  **`$and`, deliberately NOT `$all`.** `$all` reads shorter but its
+  behaviour with regex elements is inconsistent across MongoDB versions,
+  and each arm has to stay a regex to keep PF-96's anchoring — `React` must
+  not match `React Native`, re-asserted for the array branch because it is
+  a different code path, not the same one reused.
+
+- **PF-105 — a chip that would return zero results is DISABLED, so the row
+  cannot build an empty page.** Derived during render from `everyPost`, the
+  unfiltered list the count pill already fetches — no extra request.
+
+  ⚠️ **This NARROWS PF-98's "the chip row must not shrink as you filter"
+  rather than reversing it.** That decision exists because a visitor should
+  not watch their own options disappear. Every chip still renders, in
+  place, readable; only activation goes away. Verified against the live API
+  across all 11 pool tags: every dimmed chip really returns 0 and every
+  enabled one really returns ≥ 1, both directions represented.
+
+  - ⚠️ **It must read `everyPost`, never `list`.** `list` is already
+    filtered, so a rule built on it disables nearly every chip the moment a
+    filter narrows the results.
+  - ⚠️ **`!isSelected(label)` is load-bearing and looks redundant.** In any
+    reachable state a selected chip trivially matches, so the obvious test
+    cannot tell the guard is doing anything — mutation-tested, removing it
+    left the suite green. It earns its place only for a combination the row
+    can no longer build but a URL still can (`?tag=Docker&tag=Java`), where
+    without it every chip including the selected ones is disabled and the
+    visitor cannot undo either half of their own filter.
+  - Nothing is disabled while `everyPost` is loading. Dimming the whole row
+    during a cold load is worse than dimming none of it.
+
+- **PF-105 — the dimmed chip's look comes from LOSING ITS SHAPE, not from
+  fading the label.** `background: none`, `border-color: transparent`,
+  `opacity: .72`.
+
+  ⚠️ **`opacity: .38` alone was the first attempt and it was wrong.**
+  Composited against the real page it measured **1.86 light / 1.21 dark** —
+  the tag name was effectively invisible, which destroys the entire
+  justification above for dimming instead of removing. `.72` measures
+  **3.41 light / 4.36 dark**, clearing WCAG's 3.0 bar for a user-interface
+  component in the worse theme; light sets the floor.
+
+  ⚠️ WCAG 1.4.3 **exempts** inactive controls from the contrast minimum, so
+  this beats the standard rather than meeting it — which is exactly why it
+  is pinned in `BlogPage.test.jsx`: nothing else would fail if it regressed.
+
+  ⚠️ `.chip:hover` still matches a **disabled** button (`:hover` does not
+  care about `disabled`), so the hover lift is cancelled explicitly. Without
+  that the chip rises and lights its border while being unclickable.
+
+- **PF-105 — CLEAR ALL is `var(--danger)` (owner-requested 2026-09-06).**
+  The design system's only sanctioned red, `#f87171` dark / `#B4231F` light,
+  already read by Contact's `.errorText`. Measured on this surface: **7.32
+  dark / 5.38 light**, both clearing the 4.5 that 10.5px text needs.
+
+  **Hover keeps the red** and thickens the underline instead of switching to
+  `--acc` — losing the red at the moment of committing would read as the
+  warning being withdrawn, and a thickness change is not colour-only
+  feedback.
+
+  ⚠️ **Do NOT reach for the admin panel's reds.** `#dc2626`, `#f87171` and
+  `rgba(239,68,68,…)` there are hardcoded Phase 1 literals that do not flip
+  with the theme; `/admin`'s contrast is PF-100's, outside PF-91's scope.
+
+- **PF-104 — `?q=` SEARCHES THE WHOLE POST, not just title/excerpt/tags
+  (owner-requested 2026-09-06).** `buildMatch`'s `$or` now carries
+  `sections.heading`, `sections.body` and `sections.bullets` alongside the
+  original three.
+
+  ⚠️ **This REVERSES PF-96**, which restricted the query to the design's own
+  client-side filter (`Blog.dc.html:537-546`) on the reasoning that "the
+  design is the authority for behaviour a visitor can observe". The owner's
+  requirement is that any word belonging to a post finds it — which the
+  prototype's own placeholder, "Search posts, tags, tools…", already
+  implies. **Do not narrow it back to match the frozen export.**
+
+  ⚠️ `blog.query.test.js`'s `does not match section body text` was PF-96's
+  deliberate tripwire for exactly this change. It is now
+  `matches section body text` and asserts the opposite. Its fixture uses the
+  PHRASE `Charlie body text` — the bare word `Charlie` is in that post's
+  title too, so it could not tell the two rules apart.
+
+  **The deprecated `content` string is deliberately NOT searched** and a test
+  pins that absence. No row has ever carried one.
+
+  **Cost, accepted and recorded rather than discovered later:** no text index
+  and none on `sections`, so this is a collection scan with a regex per array
+  element. Irrelevant at four posts. Past a few hundred, a `$text` index is
+  the move — and note it changes semantics from substring to whole-word
+  stemming, so it is a visible behaviour change, not a drop-in.
+
+- **PF-104 — `publishedAt` IS stamped at publish time (2026-09-06).**
+  One line in `applyDerivedFields`:
+  `if (doc.published && doc.publishedAt == null) doc.publishedAt = new Date()`.
+
+  ⚠️ `blogQuery.js` recorded this as **rejected** — but rejected *as a
+  replacement for the `$ifNull` fallback*, not as a feature. Both now exist,
+  deliberately: the stamp fixes posts going forward, the fallback still
+  covers every row written before it existed. That header has been rewritten;
+  do not read the old note as still standing.
+
+  **The defect it fixes:** nothing on the server ever wrote `publishedAt`.
+  `togglePublish` flipped only the boolean, so a draft created in January and
+  published in September fell back to its January `createdAt` and appeared as
+  an old post the moment it went live.
+
+  - **Unpublishing does NOT clear it** — a post that briefly returns to draft
+    for an edit must not jump to the top of the list on republish.
+  - **`== null` and not `!doc.publishedAt`** — that is what keeps seed.js's
+    and migration 005's explicit dates from being overwritten on any save.
+  - ⚠️ **In `applyDerivedFields`, not a new `pre('save')`.** That function
+    already runs from both existing hooks, so one line covers create,
+    toggle and update. A second hook beside them is the PF-95 mistake.
+
+- **PF-104 — card dates show the FULL date, and `formatMonth` is now
+  `formatDate` (owner-requested 2026-09-06).** `14 JUL 2026`, not the
+  prototype's `JUL 2026`.
+
+  - **`day: '2-digit'`, not `'numeric'`** — the dates stack down the grid in
+    mono at .12em, so `4 MAY` beside `14 JUL` is a visibly ragged column.
+  - **The rename is part of the change.** A function called `formatMonth`
+    returning a full date is a name that lies.
+  - **BOTH consumers changed** — `/blog` and the home-page teaser. Two date
+    formats for the same posts on one site reads as a defect.
+  - ⚠️ The `en-GB` pin and the reader's-timezone caveat are unchanged, but
+    the caveat now **shows up more often**: an instant near midnight UTC
+    renders as a different DAY either side of the date line, where before
+    only a month boundary exposed it. Still a product call, not a bug.
+
+- **PF-104 — `/blog` has three clearing affordances, and the active chip
+  toggles off (owner-requested 2026-09-06).** None of this is in the
+  prototype, which has the same gap.
+
+  1. A `×` inside the search field, only while there is text to clear. It
+     returns focus to the input.
+  2. **Clicking the ACTIVE chip clears the tag.** Previously it re-set the
+     same value and the only route back was the separate `All` chip.
+  3. An always-visible active-filter summary with `CLEAR ALL`, reusing the
+     existing `clearFilters`. Before this, `RESET FILTERS` rendered **only
+     inside the empty state**, so a visitor looking at results had no
+     visible way to clear anything.
+
+  **The search row is now a real `<form role="search">`** so Enter submits
+  natively and the magnifier is a `type="submit"` button; `onSubmit` flushes
+  the 300 ms debounce rather than duplicating it. ⚠️ **This makes every
+  chip's `type="button"` LOAD-BEARING** — PF-98 wrote them that way on
+  principle when no form existed, and without it a chip click would now
+  submit.
+
+  **The filtered empty state names the term** — `No posts match "docker"
+  tagged DEVOPS.` — built from the URL's `q`/`tag`, never from the input's
+  draft state, so it cannot name a half-typed word nobody searched for.
+  ⚠️ **Inline with `role="status"`, deliberately NOT a modal** despite the
+  request for a pop-up: search is live, so typing `docker` passes through
+  `d`, `do`, `doc`… and a dialog would fire on almost every keystroke.
+
+- **PF-104 — the `/blog` card numeral is 56px, clearing the title.**
+  Supersedes PF-103's 86px. Measured: ink 1.94px inside the card, clearing
+  `.cardTitle` by 5.86px. `top: -2px` and `overflow: hidden` are unchanged
+  from PF-103 — see that entry for why the clip stays.
 
 - **PF-103 — the `/blog` grid numerals sit FULLY INSIDE the card
   (owner-requested 2026-09-05).** `.cardNumeral`'s `top` is **`-2px`**,

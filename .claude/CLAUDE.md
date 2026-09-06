@@ -311,9 +311,21 @@ to PF-59 is intentional.
 | PF-101 | Blog responsive + state audit, both themes | 6 | to do |
 | PF-102 | Sprint gate, PR, close | 8 | to do |
 | PF-103 | `/blog` polish — numeral fit, honest reading times, blog nav | 5 | ✅ built 2026-09-06 |
+| PF-104 | `/blog` search depth, search icon + clear controls, full dates, publish-date stamp | 3 | ✅ built 2026-09-06 |
+| PF-105 | `/blog` multi-tag AND filtering + dimming, CLEAR ALL red | 3 | ✅ built 2026-09-06 |
+| PF-106 | Splash once per document load (first open + refresh only) | 3 | ✅ built 2026-09-06 |
 
-⚠️ **The Jira board still shows PF-95 as To Do; it is DONE.** Built,
-verified and recorded on 2026-09-01. Moving the board is the owner's.
+⚠️ **The board and this table agree as of 2026-09-06** — PF-95 through
+PF-98 and PF-103 through PF-106 are Done; PF-99, PF-100, PF-101 and PF-102
+are To Do. For most of the sprint they did NOT agree, which is what the
+`Board` column in `sprint-log.md` exists to track.
+
+⚠️ **Moving the board is the owner's, and so is CREATING a ticket.** Do not
+invent a `PF-NN` past the end of the sprint plan: a major change gets a
+ticket only with the owner's permission, and everything else is a **fix**
+carrying no number at all. PF-103–106 were made this way in error on
+2026-09-06 and the owner added them to Jira rather than unpick 137
+references.
 
 ⚠️ **Four of these tickets are the second half of defects already found and
 written up** — read `.claude/sprint-log.md` → **Sprint 13 → The plan**
@@ -743,6 +755,16 @@ concluding "this is fine, I read the source".
   invisible to it and the icon passes from either position. Use
   `src/test/leadsWithIcon.js`. Generalises: **any `*Element*` DOM accessor
   filters out text**, so none can answer a question about where text sits.
+- **⚠️ Playwright's `getByRole({ name })` matches by SUBSTRING; testing-
+  library's matches a string in FULL.** `'Search'` also resolves
+  `'Clear search'` — a strict-mode violation in E2E while the identical-
+  looking unit assertion stays green. Pass `exact: true` whenever one
+  control's name contains another's.
+- **⚠️ Counting every control in a landmark as a proxy for one component.**
+  `main.getByRole('button')` stood in for the chip row and broke when an
+  unrelated button joined `<main>` — failing under a name that pointed at
+  the wrong cause. Assert NAMES, not a count; icon-only controls have empty
+  text and filter themselves out.
 - **A `[class*="name"]` selector silently matches longer class names.**
   `pill`/`pillRow` and `card`/`cardPlaceholder` both exist; the substring
   form counted 31 pills where there were 26. `[class~=]` does not fix it
@@ -794,6 +816,13 @@ concluding "this is fine, I read the source".
   gate can be green while CI is red. **Run all five commands.** ⚠️ Unit
   green + E2E red is the signature of a **removed feature whose tests were
   not cleaned up**; unit *red* means broken code — opposite diagnoses.
+- **⚠️ Piping a long run through `tail` buffers everything to the end**, so
+  an in-progress suite writes an EMPTY file and reads as a hang. Cost a
+  wrong diagnosis when the backend suite slowed to 335s against a laggy
+  Atlas link; it was passing throughout (341). **Redirect (`> log 2>&1`),
+  don't pipe, when you mean to watch.** ⚠️ And `timeout` does not exist on
+  macOS — `timeout N cmd | grep …` exits 0 with no output, which looks
+  exactly like a clean run. Use `gtimeout` or background mode.
 - **⚠️ Name the lint SCRIPT, never a path.** `npm run lint` once covered
   `src/` only, so eight root config files were linted by nothing — CI
   included, because CI runs the script. A live `no-undef` sat in
@@ -850,6 +879,18 @@ concluding "this is fine, I read the source".
 
 ### Backend, database and environment
 
+- **⚠️ An array silently bypasses `typeof x === 'string'`.** The `: ''`
+  fallback means "no filter", so an unexpected TYPE is indistinguishable
+  from an absent value — the feature quietly stops applying and returns
+  200. Bit `/blog`'s tag filter when it went multi-tag: measured, an array
+  returned every post. **Grep every `typeof … === 'string'` on a value
+  before widening it to an array, and always assert a ZERO case** — every
+  positive assertion passes under a filter that matches everything.
+- **⚠️ axios serialises arrays as `tag[]=a&tag[]=b`; `URLSearchParams`
+  writes `tag=a&tag=b`.** `qs` parses both, so it "works" while the address
+  bar and the wire disagree. `paramsSerializer: { indexes: null }` on the
+  shared instance; verify from `performance.getEntriesByType('resource')`
+  that the bracket form appears zero times.
 - **A connection string with no database path** → the driver silently uses
   a database literally named `test`. **This already happened here** and is
   why `assertExplicitDatabase` exists (PF-66). ⚠️ Production is
@@ -910,6 +951,33 @@ concluding "this is fine, I read the source".
 
 ### Measurement
 
+- **⚠️ `location.key`/`history.state.idx` cannot distinguish an initial
+  load from a Back to the FIRST entry** — Back restores the original entry,
+  so both read `{ idx: 0 }` with no key and `location.key` is `'default'`
+  again. The History API is positional, not temporal: "is this the first
+  time in this document" needs runtime state. Passes every unit test you
+  would naturally write; wrong only on the untested journey.
+- **⚠️ The browser-tool round-trip (~8s) is slower than a 4.5s splash**, so
+  point-in-time samples reported "not showing" three times on a page where
+  it was. **Print `msSinceNavigationStart` alongside any such result**, use
+  a `MutationObserver` for anything transient — and give the observer a
+  control, because "never fired" and "never worked" look identical.
+- **⚠️ A stale DOM handle after a React re-render answers with OLD
+  computed style**, which reads as a theme/token bug. Cost ~15 minutes in
+  PF-105: a chip sampled after a theme toggle reported dark tokens while
+  `:root` was light; re-querying fixed it instantly. **Re-query after any
+  state change**, and for theme work prefer **one clean page load per
+  theme** (set the persisted key, reload) over toggling mid-session — three
+  in-session measurements disagreed before this was spotted. The tell was
+  an impossible reading: two elements declaring the same colour measuring
+  1.72 and 6.13.
+- **⚠️ `opacity` on a disabled control can make it unreadable while looking
+  fine in review.** `/blog`'s dimmed chips at `.38` measured **1.86 light /
+  1.21 dark** composited against the real page. WCAG EXEMPTS inactive
+  controls, so nothing flags it. Get the disabled look from losing the
+  shape (no surface, no border) and keep opacity high enough to read —
+  `.72` gives 3.41 / 4.36. ⚠️ `:hover` still matches a `disabled` button,
+  so cancel the hover lift explicitly.
 - **⚠️ CLIPPED and OCCLUDED look identical in a screenshot and are
   opposite defects** — one is overflow, one is stacking. Every box
   measurement reports clean on an occluded element, because every box *is*
@@ -1104,6 +1172,15 @@ omitted — keep the two straight.
   Contact's fields resolve the same question the *opposite* way.
 - **About's stat labels are one token lighter in DARK only.** Wins on
   **specificity** (0,2,1), never emission order.
+- **The splash plays ONCE PER DOCUMENT LOAD** (PF-106) — first open and
+  refresh play it; Back from `/blog` and every nav link do not. A
+  module-scoped `shownThisDocument` in `utils/splash.js`, set from
+  `Splash.jsx`'s `finish()`. ⚠️ The old "no module-scoped flag" warning is
+  **narrowed**: the mount TIME was the problem, and `finish()` is ~4.5s
+  past StrictMode's remount. ⚠️ `HomePage` now **strips `?nosplash` from
+  the address bar** on mount — load-bearing, or refresh would replay on `/`
+  but not on the URL the nav produces. `sessionStorage` and `location.key`
+  were both measured and rejected.
 - **Splash timing**: `SPLASH_MS` **4500** (slightly *shorter* than the
   prototype's 4600). Boot lines and `BAR_TICKS` are **DERIVED** from it, so
   changing it keeps everything in step. The exit is a fixed timer and must
@@ -1168,6 +1245,38 @@ omitted — keep the two straight.
   PF-97. The comma-separated text input **stays alongside it** — one is
   for a one-off tag, the other for the shared pool. ⚠️ The `×` is a
   **cascading delete across every post**, behind an impact-count confirm.
+- **`?q=` searches the WHOLE POST since PF-104** — title, excerpt, tags
+  AND `sections.heading` / `.body` / `.bullets`. ⚠️ Reverses PF-96, which
+  restricted it to the design's own three fields; `blog.query.test.js`'s
+  `does not match section body text` tripwire is now inverted. The
+  deprecated `content` is still NOT searched, and a test pins that. No
+  index backs this — a collection scan, fine at four posts.
+- **`publishedAt` is STAMPED at publish time (PF-104)** — one line in
+  `applyDerivedFields`, `== null` guarded so seed/migration dates survive.
+  Unpublishing does not clear it. ⚠️ `blogQuery.js` used to record this as
+  rejected; that note is rewritten — the `$ifNull` fallback STAYS too.
+- **Card dates are FULL dates and the helper is `formatDate`, not
+  `formatMonth`** (PF-104) — `14 JUL 2026`, `day: '2-digit'`, both
+  consumers including the home teaser.
+- **`/blog` filters by SEVERAL tags, ANDed** (PF-105) — `?tag=a&tag=b`,
+  `$and` of one anchored regex each (NOT `$all`, whose regex behaviour
+  varies by version). ⚠️ OR was recommended first and rejected: measured,
+  it returns 3 of 4 posts for a pair, so it barely filters.
+  ⚠️ A chip that would return zero is **disabled**, derived from
+  `everyPost` — never from `list`, which is already filtered. This NARROWS
+  PF-98's "chips must not shrink"; they stay present and readable.
+  ⚠️ `!isSelected(label)` in that rule looks redundant and is not — it is
+  the only thing making `?tag=Docker&tag=Java` escapable chip by chip.
+- **CLEAR ALL is `var(--danger)`** (PF-105) — the only sanctioned red,
+  7.32 dark / 5.38 light. Hover keeps the red, thickening the underline.
+  ⚠️ Never the admin panel's `#dc2626` / `rgba(239,68,68,…)`: Phase 1
+  literals that do not flip with the theme.
+- **`/blog`'s search row is a `<form role="search">`** (PF-104), so every
+  chip's `type="button"` is load-bearing, not merely tidy. Three clearing
+  affordances: the field's `×`, the active chip toggling off, and an
+  always-visible CLEAR ALL. The empty state NAMES the term, inline with
+  `role="status"` — deliberately not a modal, because live search hits
+  zero results mid-word.
 - **`/blog`'s chip row = pool tags carried by at least one PUBLISHED
   post** — `GET /api/vocabulary/tag?inUse=true`, PF-98 prepends `'All'`.
   ⚠️ Not the whole pool (dead chips) and NOT derived from the fetched

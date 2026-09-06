@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ErrorBoundary }   from '../components/common/ErrorBoundary';
 import { HeroSection }     from '../components/sections/HeroSection';
 import { AboutSection }    from '../components/sections/AboutSection';
@@ -31,6 +31,50 @@ export function HomePage() {
   // reveal — no error, no console warning, just a page of invisible
   // sections. Freezing the value makes that unreachable.
   const [showSplash] = useState(shouldShowSplash);
+
+  /**
+   * ── ⚠️ PF-106: take `?nosplash` back out of the address bar ───────────
+   *
+   * WHY THIS IS NOT COSMETIC. Every nav link on /blog points at
+   * `/?nosplash=1` (utils/nav.js), so returning home leaves that param
+   * sitting in the URL. The owner's rule is "refresh on the main page
+   * replays the intro" — and `shouldShowSplash()` reads the param on every
+   * load, so without this a refresh would replay on a hand-typed `/` and
+   * silently NOT replay on the URL the site's own navigation produces.
+   * Two different behaviours for the same button, decided by how the
+   * visitor got there.
+   *
+   * It runs AFTER `showSplash` is frozen above, so removing the param
+   * cannot affect this render's own decision — `useState`'s initialiser
+   * has already read it.
+   *
+   * `replaceState`, not `pushState`: this is tidying the current entry,
+   * not a navigation, and a pushed entry would put a Back step between the
+   * visitor and /blog that they never asked for.
+   *
+   * Only the one param is dropped, and the hash is preserved — a nav click
+   * from /blog arrives as `/?nosplash=1#projects`, and `ScrollToHash` is
+   * still waiting on that `#projects`.
+   *
+   * ⚠️ Deliberately NOT done by removing `?nosplash=1` from the nav hrefs
+   * instead. That would also make refresh work, and it would delete code
+   * rather than add it — but a visitor who lands on /blog first would then
+   * get the full intro when they click GO BACK, which is the "splash over
+   * the anchor jump" the 2026-08-22 navbar decision exists to prevent.
+   */
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('nosplash')) return;
+
+    url.searchParams.delete('nosplash');
+    // `url.search` is '' once the last param goes, so this yields a clean
+    // `/` or `/#projects` rather than a dangling '?'.
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    );
+  }, []);
 
   return (
     <SplashProvider initialReady={!showSplash}>

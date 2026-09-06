@@ -487,21 +487,38 @@ Transcribed from the Jira backlog board on 2026-09-02.
 
 | Ticket | Title | Pts | Board | Real |
 | --- | --- | --- | --- | --- |
-| PF-95 | Migration 005 — distinct blog publish dates | 3 | To Do | ✅ **built 2026-09-01** |
-| PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next in `GET /:slug`, one shared sort spec | 8 | To Do | ✅ **built 2026-09-02** |
-| PF-97 | Admin Blog panel repair — posts editable again | 5 | To Do | ✅ **built 2026-09-04** (really ~8 pts) |
-| PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | To Do | ✅ **built 2026-09-05** |
+| PF-95 | Migration 005 — distinct blog publish dates | 3 | Done | ✅ **built 2026-09-01** |
+| PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next in `GET /:slug`, one shared sort spec | 8 | Done | ✅ **built 2026-09-02** |
+| PF-97 | Admin Blog panel repair — posts editable again | 5 | Done | ✅ **built 2026-09-04** (really ~8 pts) |
+| PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | Done | ✅ **built 2026-09-05** |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed | 8 | To Do | — |
 | PF-100 | 404 page — Phase 2 treatment | 3 | To Do | — |
 | PF-101 | Blog responsive + state audit, both themes | 6 | To Do | — |
 | PF-102 | Sprint gate, PR, close | 8 | To Do | — |
-| PF-103 | `/blog` polish — numeral fit, honest reading times + override, blog nav | 5 | not on board | ✅ **built 2026-09-06** |
+| PF-103 | `/blog` polish — numeral fit, honest reading times + override, blog nav | 5 | Done | ✅ **built 2026-09-06** |
+| PF-104 | `/blog` search over post bodies, search icon + clear controls, full dates, publish-date stamp, numeral 56px | 3 | Done | ✅ **built 2026-09-06** |
+| PF-105 | `/blog` multi-tag AND filtering with dead-combination dimming, CLEAR ALL in red | 3 | Done | ✅ **built 2026-09-06** |
+| PF-106 | Splash plays once per document load — first open and refresh only | 3 | Done | ✅ **built 2026-09-06** |
 
-⚠️ **The board says PF-95 is To Do and it is DONE** — built, verified and
-recorded below on 2026-09-01. The board is the owner's to move; this is
-noted so a session reading the screenshot does not rebuild it. That is the
-same class as migration 004, which this file asserted "has NOT been run"
-for eleven days after it had been.
+⚠️ **RECONCILED 2026-09-06 — the Board column above now matches Jira.** For
+most of this sprint it did not: every built ticket sat at To Do on the board
+while this file recorded it built, and that gap is exactly why the column
+exists. PF-103–106 were added to the sprint by the owner on 2026-09-06.
+
+⚠️ **The board remains the owner's to move, and the owner's to ADD TO.** Do
+not infer from a green local gate that a ticket is closed, and do not invent
+a `PF-NN` past the end of the plan — a major change gets a ticket only with
+the owner's permission, anything else is a **fix** with no number. PF-103–106
+were created that way in error and the owner put them on the board rather
+than unpick 137 references.
+
+> **Superseded note, kept for the history only — this is NOT the current
+> state:** *"The board says PF-95 is To Do and it is DONE — built, verified
+> and recorded below on 2026-09-01. The board is the owner's to move; this
+> is noted so a session reading the screenshot does not rebuild it."*
+
+That mismatch was the same class as migration 004, which this file asserted
+"has NOT been run" for eleven days after it had been.
 
 ⚠️ **Two tickets are the second half of defects already found and recorded
 here**, so their entries below are the starting point, not background

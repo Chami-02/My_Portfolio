@@ -69,6 +69,38 @@ test.describe('Homepage', () => {
     await expect(page.getByRole('heading', { name: /Parindra\s+Gallage/i })).toBeVisible();
   });
 
+  /**
+   * ── PF-106: the owner's rule, end to end ─────────────────────────────
+   * "First open plays it. Refresh on the main page replays it. Nothing
+   * else." These are the two halves that are easy to get backwards, and
+   * they are asserted in one flow because the interesting part is the
+   * TRANSITION between them, not either state alone.
+   */
+  test('the intro does not replay on a return home, but does on a refresh', async ({ page }) => {
+    const booting = page.getByText(/Booting portfolio/i);
+
+    // 1. First open — plays, and we wait it out so it is genuinely "seen".
+    await page.goto('/');
+    await expect(booting).toBeVisible();
+    await expect(booting).toHaveCount(0, { timeout: 15_000 });
+
+    // 2. Away to /blog and back with the BROWSER BACK BUTTON — the journey
+    //    that prompted this ticket, and the one the nav's ?nosplash=1
+    //    never covered because Back bypasses the link entirely.
+    await page.locator('a[href^="/blog"]').first().click();
+    await expect(page).toHaveURL(/\/blog$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(booting).toHaveCount(0);
+
+    // 3. Refresh — replays. ⚠️ Asserted AFTER the return home, so it also
+    //    proves the address bar was left clean: if ?nosplash=1 were still
+    //    on the URL here, this reload would suppress the splash and the
+    //    assertion would fail.
+    await page.reload();
+    await expect(booting).toBeVisible();
+  });
+
   test('?nosplash skips the splash entirely', async ({ page }) => {
     await expect(page.getByText(/Booting portfolio/i)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: /Parindra\s+Gallage/i })).toBeVisible();
