@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Reveal } from '../motion';
 import { useBlogPosts } from '../../hooks/useBlog';
+import { formatMonth, formatReadTime } from '../../utils/blogMeta';
 import styles from './BlogSection.module.css';
 
 /**
@@ -75,46 +76,18 @@ function byRecency(a, b) {
 }
 
 /**
- * `JUL 2026` — the prototype's meta format.
+ * `formatMonth` and `formatReadTime` MOVED to utils/blogMeta.js in PF-98.
  *
- * ── CHANGED IN PF-95 ──────────────────────────────────────────────
- * Callers now pass `publishedAt || createdAt`, not `createdAt`.
- * `publishedAt` is the post's own publish date; `createdAt` is
- * Mongoose's record-creation stamp, which `insertMany` writes
- * identically across a whole batch — so before PF-95 all four seeded
- * posts rendered the same month. The fallback covers a post written
- * before the field existed, and the `NaN` guard below already covers
- * neither being present, returning `''` rather than `INVALID DATE`.
- * ──────────────────────────────────────────────────────────────────
+ * They were local here from PF-86 until the /blog index gained a second
+ * consumer for both. Two consumers is the bar for extraction in this repo
+ * (the `.section-eyebrow` precedent, PF-81); one is not, which is why PF-95
+ * was right not to move `formatMonth` on its own.
  *
- * The locale is pinned to `en-GB` rather than the visitor's. A Sinhala
- * or Japanese locale renders a month name the design has no styling
- * for, and this label is uppercase mono at .12em tracking, which only
- * works for a three-letter Latin abbreviation.
+ * ⚠️ `byRecency` above deliberately did NOT go with them. It still has one
+ * consumer — the /blog index must not re-sort a list the server already
+ * ordered — so moving it would create exactly the shared, drift-prone second
+ * sort rule PF-96 removed.
  */
-function formatMonth(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return date
-    .toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
-    .toUpperCase();
-}
-
-/**
- * `6 MIN READ` — `readingTimeMinutes` is a real schema field
- * (models/Blog.js). Nothing is computed here, and PF-95 needed no
- * change to this function at all: once the field holds real values it
- * renders them.
- *
- * ⚠️ It is derived by TWO hooks working together, not the one this
- * comment used to name — `pre('insertMany')` on the raw seed objects,
- * then `pre('validate')` on the constructed Document. An explicitly
- * supplied value now survives both; before PF-95 the second hook
- * overwrote it, which is why every post read `1 MIN READ`.
- */
-function formatReadTime(minutes) {
-  return `${minutes} MIN READ`;
-}
 
 /**
  * The blog tag pill — a FOURTH pill shape, declared locally.

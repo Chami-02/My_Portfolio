@@ -6,10 +6,25 @@ export const VOCAB_KEY = ['vocabulary'];
 
 export const vocabKey = (type) => [...VOCAB_KEY, type];
 
-export const useVocabulary = (type) =>
+/**
+ * A vocabulary list — the whole pool, or only its in-use half.
+ *
+ * ⚠️ THE TWO VARIANTS MUST NOT SHARE A CACHE KEY, and that is the entire
+ * reason `inUse` reaches the key rather than only the request. They return
+ * genuinely different lists from the same URL path: the admin picker
+ * (PF-97) needs every tag so a new one can be picked before any post carries
+ * it, while /blog's chip row (PF-98) needs only tags on a published post.
+ * One key for both means whichever mounted first decides what the other
+ * sees — the admin picker silently losing its unused tags, or /blog growing
+ * chips that match nothing.
+ *
+ * The key stays THREE elements so it cannot collide with
+ * `useVocabularyImpact`'s four (`[...vocabKey(type), 'impact', id]`).
+ */
+export const useVocabulary = (type, { inUse = false } = {}) =>
   useQuery({
-    queryKey: vocabKey(type),
-    queryFn:  () => vocabularyService.list(type),
+    queryKey: [...vocabKey(type), { inUse }],
+    queryFn:  () => vocabularyService.list(type, { inUse }),
     enabled:  !!type,
   });
 

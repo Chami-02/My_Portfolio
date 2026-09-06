@@ -5,6 +5,7 @@ import { ScrollToTop }     from './components/layout/ScrollToTop';
 import { SkipLink }        from './components/layout/SkipLink';
 import { ProtectedRoute }  from './components/common/ProtectedRoute';
 import { HomePage }        from './pages/HomePage';
+import { BlogPage }        from './pages/BlogPage';
 import { NotFoundPage }    from './pages/NotFoundPage';
 import { AdminLoginPage }  from './pages/AdminLoginPage';
 import { AdminPage }       from './pages/AdminPage';     // Created in PF-37
@@ -42,6 +43,10 @@ function App() {
           <Routes>
             {/* Public */}
             <Route path="/"            element={<HomePage />} />
+            {/* PF-98. Ahead of the `*` catch-all, which swallowed /blog until
+                now — PF-86 pointed five Blog-teaser links here and every one
+                of them rendered NotFoundPage. */}
+            <Route path="/blog"        element={<BlogPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
 
             {/* Protected — requires JWT */}

@@ -1,11 +1,71 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  keepPreviousData,
+} from '@tanstack/react-query';
 import { blogService } from '../services/blogService';
 
 export const BLOG_KEY       = ['blog'];
 export const BLOG_ADMIN_KEY = ['blog', 'admin'];
 
-export const useBlogPosts     = () =>
-  useQuery({ queryKey: BLOG_KEY, queryFn: blogService.getPublished });
+/**
+ * The public list's query params, normalised — PF-98.
+ *
+ * ⚠️ THIS FUNCTION'S JOB IS CACHE IDENTITY, not tidiness. It is what makes
+ * `{ q: '', tag: 'All' }` and `{}` produce the SAME key, and that single
+ * property is what lets /blog mount two list queries — the filtered one it
+ * renders and an unfiltered one for the design's `N POSTS · ALL TOPICS`
+ * count — and still issue exactly ONE request while no filter is active.
+ * Lose it and every visit to /blog costs two identical round trips against a
+ * backend that rate-limits at 100 req / 15 min / IP.
+ *
+ * The rules mirror `buildMatch` in backend/src/utils/blogQuery.js rather than
+ * inventing their own: trim, drop an empty query, and treat `'All'` in any
+ * casing as no filter. Mirroring matters because a param the server would
+ * ignore must not reach the key either — otherwise two keys map to one
+ * response and the cache stores it twice.
+ */
+export const blogListParams = ({ q, tag } = {}) => {
+  const params = {};
+
+  const query = typeof q === 'string' ? q.trim() : '';
+  if (query) params.q = query;
+
+  const label = typeof tag === 'string' ? tag.trim() : '';
+  if (label && label.toLowerCase() !== 'all') params.tag = label;
+
+  return params;
+};
+
+/**
+ * The public post list, optionally filtered by `{ q, tag }`.
+ *
+ * ⚠️ The key gained a `'list'` segment in PF-98 and the reason is collision,
+ * not neatness. `useBlogPost(slug)` keys on `['blog', <slug>]`, so a
+ * two-element key of `['blog', <params>]` would sit in the same namespace as
+ * every post detail. Three elements keeps the list in its own space while
+ * `BLOG_KEY` (`['blog']`) still prefix-matches it, so every existing mutation
+ * invalidates the list exactly as it did before.
+ *
+ * ⚠️ Found while tracing that, NOT fixed here and reported to Outstanding
+ * work: `BLOG_ADMIN_KEY` is `['blog', 'admin']`, which is byte-identical to
+ * the key `useBlogPost('admin')` produces. A post slugged `admin` would share
+ * a cache entry with the admin list. Pre-existing, out of PF-98's scope, and
+ * a genuine latent bug.
+ *
+ * `keepPreviousData` is what stops the grid blanking between keystrokes while
+ * a new search resolves — the previous list stays on screen and `isLoading`
+ * stays false, so the placeholder skeletons do not flash on every character.
+ */
+export const useBlogPosts = (params) => {
+  const listParams = blogListParams(params);
+  return useQuery({
+    queryKey:        [...BLOG_KEY, 'list', listParams],
+    queryFn:         () => blogService.getPublished(listParams),
+    placeholderData: keepPreviousData,
+  });
+};
 
 export const useBlogPostAdmin = () =>
   useQuery({ queryKey: BLOG_ADMIN_KEY, queryFn: blogService.getAllAdmin });
