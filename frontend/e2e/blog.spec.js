@@ -42,6 +42,24 @@ const POSTS = [
  */
 const TAGS = ['React', 'MERN', 'Docker', 'DevOps', 'Java', 'Agile'];
 
+/**
+ * The reading view's body — PF-99.
+ *
+ * ⚠️ Deliberately NOT added to the POSTS above. The list stub's comment
+ * records that these fixtures carry no `sections`, so its title/excerpt/tags
+ * `q` filter cannot disagree with the server's wider PF-104 one. Keeping the
+ * body on a separate constant used only by the detail handler keeps that
+ * true, rather than quietly invalidating a note that is still load-bearing.
+ *
+ * One section with paragraphs and none with bullets, one the other way
+ * round — both shapes are valid under `sectionSchema` and both are in the
+ * live seed.
+ */
+const SECTIONS = [
+  { heading: 'Why Docker', body: ['Consistent environments everywhere.'], bullets: [] },
+  { heading: 'Services',   body: [], bullets: ['Frontend', 'Backend', 'Redis'] },
+];
+
 const json = (data) => ({ json: { status: 'success', data } });
 
 /**
@@ -87,6 +105,48 @@ async function stubApi(page) {
     }
     return route.fulfill(json(list));
   });
+
+  // ── PF-99: the reading view ─────────────────────────────────────────
+  //
+  // ⚠️ REGISTERED AFTER THE LIST HANDLER, and that ordering is the whole
+  // reason this works. `page.route()` matches in REVERSE registration
+  // order, so `**/api/blog**` above would otherwise swallow
+  // `/api/blog/newest-post` and serve it an ARRAY — the reading view
+  // would render its not-found panel and the failure would read as the
+  // route being broken.
+  //
+  // ⚠️ The counter's PATCH is registered after this one for the same
+  // reason: `**/api/blog/*` matches `/api/blog/x/view` too.
+  await page.route('**/api/blog/*', (route) => {
+    const slug  = new URL(route.request().url()).pathname.split('/').pop();
+    const index = POSTS.findIndex((p) => p.slug === slug);
+    if (index === -1) {
+      return route.fulfill({
+        status: 404,
+        json: { status: 'error', message: 'Blog post not found' },
+      });
+    }
+    const total = POSTS.length;
+    // Wrap-around, transcribed from the server's own neighbour().
+    const at = (offset) => {
+      const { slug: s, title } = POSTS[(index + offset + total) % total];
+      return { slug: s, title };
+    };
+    return route.fulfill(json({
+      post:  { ...POSTS[index], sections: SECTIONS },
+      prev:  at(-1),
+      next:  at(1),
+      index,
+      total,
+    }));
+  });
+
+  // The view counter. Stubbed rather than left to the real backend so a
+  // run does not spend its rate-limit budget on telemetry — the PATCH
+  // limiter is a separate 30/min, but the global 100 req / 15 min is
+  // shared, and that is the one this suite has already exhausted once.
+  await page.route('**/api/blog/*/view', (route) =>
+    route.fulfill(json({ slug: 'stub', views: 1 })));
 }
 
 const main = (page) => page.locator('main');
@@ -380,6 +440,192 @@ test.describe('/blog index (PF-98)', () => {
       await expect(header.getByRole('link', { name: 'BLOG' })).toHaveCount(0);
       await expect(header.locator('a[href^="#"]')).toHaveCount(0);
       await expect(page.locator('footer')).toBeVisible();
+    });
+  });
+});
+
+
+/**
+ * /blog/:slug — the reading view. PF-99.
+ *
+ * ⚠️ ONE real-stack test, same policy as the index above and for the same
+ * measured reason: driving every journey through the live stack pushed the
+ * whole suite past the backend's 100 req / 15 min / IP limiter, and a
+ * rate-limited run renders error states rather than failing loudly.
+ */
+test.describe('/blog/:slug reading view (PF-99)', () => {
+
+  /**
+   * THE REGRESSION THIS TICKET EXISTS TO FIX. Every card PF-98 rendered
+   * pointed at /blog/:slug, which had no route, so all of them landed on
+   * NotFoundPage. Unstubbed, so it also proves `GET /api/blog/:slug` really
+   * serves the compound `{ post, prev, next, index, total }` this page reads.
+   */
+  test('is a real page served by the real API, not the 404', async ({ page }) => {
+    await page.goto('/blog');
+    const first = cards(page).first();
+    await expect(first).toBeAttached();
+    await first.click();
+
+    await expect(page).toHaveURL(/\/blog\/[a-z0-9-]+$/);
+    await expect(main(page).getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByText("This page doesn't exist.")).toHaveCount(0);
+    // The numeral proves `index` arrived — it is the one field with no
+    // fallback, so a server that did not send it renders nothing here.
+    await expect(main(page).getByText(/^\d{2}$/).first()).toBeVisible();
+  });
+
+  test.describe('with a stubbed API', () => {
+    test.beforeEach(async ({ page }) => { await stubApi(page); });
+
+    test('renders the post body — headings, paragraphs and bullets', async ({ page }) => {
+      await page.goto('/blog/newest-post');
+      await expect(main(page).getByRole('heading', { level: 1 })).toHaveText('Newest Post');
+      await expect(main(page).getByRole('heading', { name: /Why Docker/ })).toBeVisible();
+      await expect(main(page).getByText('Consistent environments everywhere.')).toBeVisible();
+      for (const bullet of ['Frontend', 'Backend', 'Redis']) {
+        await expect(main(page).getByText(bullet, { exact: true })).toBeVisible();
+      }
+    });
+
+    /**
+     * ⚠️ The locked EMAIL ME removal (2026-08-22). `Blog.dc.html:103-106`
+     * still shows the panel and always will — the export is frozen — so a
+     * fidelity pass diffing live against it will read this absence as a
+     * transcription bug. This is the E2E half of the guard.
+     */
+    test('has no GOT A QUESTION block and no EMAIL ME call to action', async ({ page }) => {
+      await page.goto('/blog/newest-post');
+      await expect(main(page).getByText(/GOT A QUESTION/i)).toHaveCount(0);
+      await expect(main(page).getByText(/EMAIL ME/i)).toHaveCount(0);
+    });
+
+    test('walks to the next post and back through prev/next', async ({ page }) => {
+      await page.goto('/blog/newest-post');
+      // ⚠️ `exact: true`. Playwright's getByRole matches by SUBSTRING, so a
+      // loose 'NEXT' would also resolve any control whose name contains it —
+      // a strict-mode violation that the identical-looking unit assertion
+      // never sees, because testing-library matches in full.
+      await main(page).getByRole('link', { name: /NEXT →/ }).click();
+      await expect(page).toHaveURL('/blog/second-post');
+      await expect(main(page).getByRole('heading', { level: 1 })).toHaveText('Second Post');
+
+      await main(page).getByRole('link', { name: /← PREVIOUS/ }).click();
+      await expect(page).toHaveURL('/blog/newest-post');
+    });
+
+    /**
+     * ⚠️ `.first()` / `.last()` ARE LOAD-BEARING FROM HERE ON. Since
+     * 2026-09-06 the same control is rendered TWICE — once above the
+     * article and once below it — so a bare
+     * `getByRole('link', { name: '← ALL POSTS' })` is a strict-mode
+     * violation, not a locator. That duplication is deliberate and
+     * owner-approved; naming which end is meant is its cost.
+     *
+     * Not the same case as the not-found panel's link, which PF-99
+     * RENAMED to avoid exactly this: those two are visible together in
+     * one region serving one purpose. Top-and-bottom repetition across a
+     * long article is the ordinary pagination pattern.
+     */
+    const backTop    = (page) => main(page).getByRole('link', { name: '← ALL POSTS', exact: true }).first();
+    const backBottom = (page) => main(page).getByRole('link', { name: '← ALL POSTS', exact: true }).last();
+
+    test('returns to the plain index from the TOP control', async ({ page }) => {
+      await page.goto('/blog');
+      await cards(page).first().click();
+      await backTop(page).click();
+      await expect(page).toHaveURL('/blog');
+    });
+
+    /**
+     * Owner-requested 2026-09-06: reaching the end of a post used to leave
+     * only PREVIOUS / NEXT in reach, both of which move sideways to other
+     * posts — so getting back to the index meant scrolling the whole
+     * article up again.
+     */
+    test('returns to the plain index from the BOTTOM control', async ({ page }) => {
+      await page.goto('/blog');
+      await cards(page).first().click();
+
+      // Exactly two, and no more — the pair itself is the contract. A
+      // third would mean the not-found panel's link had drifted back to
+      // this name, or the control had been added twice.
+      await expect(main(page).getByRole('link', { name: '← ALL POSTS', exact: true }))
+        .toHaveCount(2);
+
+      await backBottom(page).click();
+      await expect(page).toHaveURL('/blog');
+    });
+
+    /**
+     * The owner's decision, 2026-09-06: a reader who filtered to a subset
+     * and opened one post gets that subset back, ready to clear or
+     * re-filter — not the unfiltered index.
+     */
+    test('returns to the FILTERED index, relabelled, when a filter came through', async ({ page }) => {
+      await page.goto('/blog?tag=Docker');
+      // Docker carries Second and Third; the featured card is Second.
+      await cards(page).first().click();
+      await expect(page).toHaveURL('/blog/second-post');
+
+      const back = main(page).getByRole('link', { name: '← BACK TO RESULTS', exact: true });
+      // Both ends relabel together — they read the same router state.
+      await expect(back).toHaveCount(2);
+      await expect(back.first()).toBeVisible();
+      await back.first().click();
+      await expect(page).toHaveURL('/blog?tag=Docker');
+      // The filter really is still applied, not merely present in the URL.
+      await expect(cards(page)).toHaveCount(2);
+    });
+
+    /**
+     * The journey the bottom control exists for, end to end: filter, read,
+     * reach the bottom, leave — and land back on the filtered results
+     * rather than the whole archive.
+     */
+    test('returns to the FILTERED index from the BOTTOM control too', async ({ page }) => {
+      await page.goto('/blog?tag=Docker');
+      await cards(page).first().click();
+      await expect(page).toHaveURL('/blog/second-post');
+
+      const back = main(page).getByRole('link', { name: '← BACK TO RESULTS', exact: true });
+      await back.last().click();
+      await expect(page).toHaveURL('/blog?tag=Docker');
+      await expect(cards(page)).toHaveCount(2);
+    });
+
+    test('shows an inline not-found panel for a bad slug, keeping the URL', async ({ page }) => {
+      // NOT a redirect to NotFoundPage, which is still the Phase 1 layout
+      // until PF-100 — a mistyped blog link would otherwise drop the reader
+      // into the old palette entirely.
+      await page.goto('/blog/no-such-post');
+      await expect(page).toHaveURL('/blog/no-such-post');
+      await expect(main(page).getByText('That note is not here')).toBeVisible();
+      await expect(page.getByText("This page doesn't exist.")).toHaveCount(0);
+      // ⚠️ TWO distinct escape routes, deliberately not two identical
+      // ones: the back link at the top of the article and the panel's own
+      // call to action. The first draft labelled both `← ALL POSTS` and
+      // Playwright's strict mode caught it — same accessible name, same
+      // destination, announced twice.
+      await expect(main(page).getByRole('link', { name: '← ALL POSTS', exact: true }))
+        .toBeVisible();
+      await expect(main(page).getByRole('link', { name: 'BROWSE FIELD NOTES →', exact: true }))
+        .toBeVisible();
+      // ⚠️ And exactly ONE `← ALL POSTS` here, not two. The bottom control
+      // is gated on a loaded post, so this state keeps the top one only —
+      // which is why this test needs no .first()/.last() while the others
+      // do, and why the pair above cannot silently become a trio.
+      await expect(main(page).getByRole('link', { name: '← ALL POSTS', exact: true }))
+        .toHaveCount(1);
+    });
+
+    test('keeps the Blog chrome on the reading view', async ({ page }) => {
+      // `isBlogPath()` covers /blog/ -prefixed paths, so this variant
+      // should already apply — asserted rather than assumed.
+      await page.goto('/blog/newest-post');
+      const header = page.locator('header');
+      await expect(header.getByRole('link', { name: /GO BACK/ })).toBeVisible();
+      await expect(header.getByRole('link', { name: 'BLOG' })).toHaveCount(0);
     });
   });
 });

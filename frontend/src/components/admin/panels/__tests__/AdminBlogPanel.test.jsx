@@ -614,3 +614,42 @@ describe('AdminBlogPanel — tag picker', () => {
     expect(screen.getByText(/No tags in the list yet/i)).toBeInTheDocument();
   });
 });
+
+// ══ the view counter (PF-99) ══════════════════════════════════════════
+describe('per-post view counts', () => {
+  it('shows the count as its own stat, not buried in the meta line', () => {
+    // Owner-requested 2026-09-06. The figure was already here before
+    // PF-99 — it has been rendering since the panel was written — but as
+    // `· 42 views` in 0.75rem muted mono at the end of the date line,
+    // which is unreadable down a list of posts.
+    render(<AdminBlogPanel />);
+    expect(screen.getByText('42')).toBeInTheDocument();
+    expect(screen.getByText(/views/)).toBeInTheDocument();
+  });
+
+  it('no longer prints the count TWICE, once per surface', () => {
+    // ⚠️ THE POINT OF THIS TEST IS THE DELETION, not the addition. The
+    // old `· {post.views} views` fragment in the meta line was removed in
+    // the same change that added the chip; left in place, every row would
+    // print the same number twice. That is the shape "add a views
+    // display" takes when the existing one is not looked for first, and
+    // it is invisible in review because both copies are correct.
+    render(<AdminBlogPanel />);
+    expect(screen.getAllByText('42')).toHaveLength(1);
+    // The meta line keeps its other two facts.
+    expect(screen.getByText(/min read/)).toBeInTheDocument();
+    expect(screen.getByText(/min read/).textContent).not.toMatch(/views/);
+  });
+
+  it('shows no counter at all for an unread post', () => {
+    // Same hide-at-zero rule as the public cards, so a fresh draft
+    // carries no chip competing with the Published/Draft badge beside it.
+    useBlogPostAdmin.mockReturnValue({
+      data: [{ ...POST, views: 0 }], isLoading: false,
+    });
+    render(<AdminBlogPanel />);
+    expect(screen.queryByText(/views/)).toBeNull();
+    // Control: the row itself still rendered.
+    expect(screen.getByText(POST.title)).toBeInTheDocument();
+  });
+});

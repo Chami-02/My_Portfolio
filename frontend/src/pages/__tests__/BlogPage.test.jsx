@@ -17,6 +17,24 @@ const useVocabulary = vi.hoisted(() => vi.fn());
 vi.mock('../../hooks/useBlog',       () => ({ useBlogPosts }));
 vi.mock('../../hooks/useVocabulary', () => ({ useVocabulary }));
 
+/**
+ * ⚠️ `useNavigationType` is mocked, and NOT mocking it would have made the
+ * landing-scroll tests below assert the opposite of what they claim.
+ * MemoryRouter reports its INITIAL entry as a 'POP' — the same value a
+ * browser reports for Back — so `draw()` would exercise the skip branch
+ * while reading like the arrival branch, and "scrolls on arrival" would
+ * have failed while "does not scroll on Back" passed for the wrong reason.
+ *
+ * A PARTIAL mock: everything else in this module (MemoryRouter, Link,
+ * useSearchParams, useLocation) must stay real, because the page's URL
+ * behaviour is what most of this file tests.
+ */
+const navType = vi.hoisted(() => ({ current: 'PUSH' }));
+vi.mock('react-router-dom', async (importActual) => ({
+  ...(await importActual()),
+  useNavigationType: () => navType.current,
+}));
+
 const { BlogPage } = await import('../BlogPage');
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -86,16 +104,24 @@ const textsOf = (r, name) => pickAll(r, name).map((el) => el.textContent);
  * Deep-frozen: an in-place sort would then throw rather than quietly
  * reordering module state that every later test in this file shares.
  */
+/**
+ * ⚠️ The `views` spread is DELIBERATE and each value tests a different
+ * branch of PF-99's counter: 1284 exercises the thousands separator, 0 the
+ * hide-at-zero rule, 7 the ordinary case, and `p4` omits the field entirely
+ * — the shape a post fetched from an endpoint that projected `views` away
+ * would arrive in. A fixture where every post had the same non-zero count
+ * would pass against a component that ignored the prop.
+ */
 const POSTS = Object.freeze([
   Object.freeze({ _id: 'p1', title: 'Newest Post', slug: 'newest-post',
     excerpt: 'The most recent one.', tags: Object.freeze(['React', 'MERN']),
-    readingTimeMinutes: 6, publishedAt: '2026-07-14T09:00:00.000Z' }),
+    readingTimeMinutes: 6, views: 1284, publishedAt: '2026-07-14T09:00:00.000Z' }),
   Object.freeze({ _id: 'p2', title: 'Second Post', slug: 'second-post',
     excerpt: 'The second one.', tags: Object.freeze(['Docker']),
-    readingTimeMinutes: 7, publishedAt: '2026-06-14T09:00:00.000Z' }),
+    readingTimeMinutes: 7, views: 0, publishedAt: '2026-06-14T09:00:00.000Z' }),
   Object.freeze({ _id: 'p3', title: 'Third Post', slug: 'third-post',
     excerpt: 'The third one.', tags: Object.freeze(['Docker', 'DevOps']),
-    readingTimeMinutes: 4, publishedAt: '2026-05-14T09:00:00.000Z' }),
+    readingTimeMinutes: 4, views: 7, publishedAt: '2026-05-14T09:00:00.000Z' }),
   Object.freeze({ _id: 'p4', title: 'Fourth Post', slug: 'fourth-post',
     excerpt: 'The fourth one.', tags: Object.freeze(['Java']),
     readingTimeMinutes: 5, publishedAt: '2026-04-14T09:00:00.000Z' }),
@@ -152,6 +178,11 @@ beforeEach(() => {
   useBlogPosts.mockReset();
   useVocabulary.mockReset();
   location = undefined;
+  navType.current = 'PUSH';
+  // ⚠️ `window.scrollTo` is a module-scoped vi.fn() from src/test/setup.js,
+  // shared by every test in the run. Without this clear, a call count
+  // assertion below would inherit calls made by earlier tests in this file.
+  window.scrollTo.mockClear();
 });
 
 afterEach(() => {
@@ -1066,5 +1097,143 @@ describe('BlogPage — the stylesheet', () => {
 
   it('indicates search focus on the container, the way the design does', () => {
     expect(decls('.searchField:focus-within')['border-color']).toBe('var(--acc, #FCA311)');
+  });
+});
+
+// ══ the view counter (PF-99) ══════════════════════════════════════════
+describe('view counts on the cards', () => {
+  /**
+   * ⚠️ EVERY ASSERTION HERE IS A PAIR — one post with views, one without.
+   * A one-sided check passes against a component that ALWAYS renders and
+   * against one that NEVER does, depending which half was written. That
+   * matters more than usual under the owner's hide-at-zero decision
+   * (2026-09-06): a missing counter and a broken counter look identical
+   * on screen, so these tests are the only thing that tells them apart.
+   */
+  it('renders the count on the featured card, grouping thousands', () => {
+    // Pinned at en-GB, for the same reason utils/blogMeta.js pins its
+    // date locale: this sits in mono type beside `6 MIN READ`, and a
+    // locale that groups with spaces produces a width the row has no
+    // styling for.
+    expect(pick(draw(), 'featuredCard').textContent).toContain('1,284');
+  });
+
+  it('renders the count on a grid card that has views', () => {
+    const c = draw();
+    const third = pickAll(c, 'card').find((el) => el.textContent.includes('Third Post'));
+    expect(third.textContent).toContain('7');
+    expect(third.textContent).toContain('views');   // the visually-hidden label
+  });
+
+  it('says "view", singular, for a post read exactly once', () => {
+    // ⚠️ Found in a real browser, not in review — the label is visually
+    // hidden, so "1 views" was invisible on screen and only a probe
+    // reading textContent (or a screen reader) could see it. It is also
+    // the MOST common state, not an edge case: every post passes through
+    // exactly 1 the first time anybody reads it.
+    const c = draw({ filtered: ok([{ ...POSTS[0], views: 1 }]), total: ok(POSTS) });
+    expect(pick(c, 'featuredCard').textContent).toMatch(/1\s*view$/);
+    expect(pick(c, 'featuredCard').textContent).not.toMatch(/1\s*views/);
+  });
+
+  it('renders NO counter for a post with zero views', () => {
+    const c = draw();
+    const second = pickAll(c, 'card').find((el) => el.textContent.includes('Second Post'));
+    expect(second.textContent).not.toMatch(/views/);
+  });
+
+  it('renders NO counter for a post whose views field is absent', () => {
+    // `undefined` and `0` reach the same outcome by different routes — a
+    // projected-away field versus a genuinely unread post — and both are
+    // handled rather than one throwing.
+    const c = draw();
+    const fourth = pickAll(c, 'card').find((el) => el.textContent.includes('Fourth Post'));
+    expect(fourth.textContent).not.toMatch(/views/);
+  });
+
+  it('keeps the CTA first in the footer row, so an absent counter moves nothing', () => {
+    // The layout guarantee behind hide-at-zero. `space-between` with the
+    // CTA as first child is what makes a card with no counter render its
+    // CTA exactly where a card with one does.
+    const d = decls('.cardFooter');
+    expect(d.display).toBe('flex');
+    expect(d['justify-content']).toBe('space-between');
+
+    const c = draw();
+    const second = pickAll(c, 'card').find((el) => el.textContent.includes('Second Post'));
+    const footer = second.querySelector('[class]');
+    expect(pickAll(second, 'cardCta')[0].textContent).toBe('READ →');
+    expect(footer).not.toBeNull();
+  });
+});
+
+// ══ landing scroll (2026-09-06) ═══════════════════════════════════════
+describe('scroll position on arrival', () => {
+  /**
+   * ⚠️ FOUND BY WALKING THE JOURNEY, not by reading code. The reading
+   * view's bottom back control sits ~900px down a long post, and React
+   * Router carries the scroll position across a navigation — so landing on
+   * a SHORTER filtered index clamped to its bottom, putting the search
+   * box, the chips and CLEAR ALL above the fold. Measured `scrollY 912`
+   * against `maxScroll 911`.
+   */
+  it('scrolls to the top when the reader arrives by a link (PUSH)', () => {
+    draw();
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
+  });
+
+  it('does NOT scroll on Back or Forward, so the grid position is restored', () => {
+    // ⚠️ The discriminator, and the reason this is correct rather than
+    // just convenient: a reader pressing Back from a post expects to be
+    // where they left off in the grid, not at the top.
+    navType.current = 'POP';
+    draw();
+    expect(window.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('does not re-scroll when a filter changes', async () => {
+    // ⚠️ THE REGRESSION THIS GUARDS. Every debounced keystroke is a
+    // REPLACE and every chip click is a PUSH. Without the once-per-mount
+    // ref, filtering while scrolled down would yank the page to the top on
+    // each keystroke. Filter changes do not remount the page, so the ref
+    // must hold across them.
+    //
+    // ⚠️ THE navType FLIP ON LINE 4 IS WHAT MAKES THIS TEST MEAN ANYTHING,
+    // and its first version did not have it. With the mock pinned to one
+    // value the effect's `[navigationType]` dependency never changes, so
+    // the effect does not re-run and the assertion passes WITH OR WITHOUT
+    // the ref — measured: bypassing the ref left all 103 tests green. The
+    // real router genuinely reports a new type as the URL is rewritten, so
+    // the fixture has to as well. Any "X does not happen again" assertion
+    // needs a fixture where the thing that would re-trigger it actually
+    // changes.
+    const c = draw();
+    expect(window.scrollTo).toHaveBeenCalledTimes(1);
+
+    navType.current = 'REPLACE';   // what setSearchParams really produces
+    const docker = pickAll(c, 'chip').find((b) => b.textContent === 'Docker');
+    await act(async () => { docker.click(); });
+    expect(window.scrollTo).toHaveBeenCalledTimes(1);   // still one
+  });
+});
+
+// ══ card links reach the reading view (PF-99) ═════════════════════════
+describe('card links', () => {
+  it('links each card to its own post', () => {
+    const c = draw();
+    expect(pick(c, 'featuredCard').getAttribute('href')).toBe('/blog/newest-post');
+    expect(pickAll(c, 'card').map((el) => el.getAttribute('href')))
+      .toEqual(['/blog/second-post', '/blog/third-post', '/blog/fourth-post']);
+  });
+
+  it('still links each card to its own post while a filter is active', () => {
+    // ⚠️ The filter itself rides as router STATE, which never reaches the
+    // DOM — so an href check cannot see it, and BlogPostPage.test.jsx
+    // covers the receiving half. What IS observable here is that the
+    // filter does not leak into the post URLs, which was the rejected
+    // alternative.
+    const c = draw({ path: '/blog?tag=Docker' });
+    expect(pick(c, 'featuredCard').getAttribute('href')).toBe('/blog/newest-post');
+    expect(location.search).toBe('?tag=Docker');
   });
 });

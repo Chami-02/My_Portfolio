@@ -10,7 +10,7 @@
 // omission. And every hash target on this site is a section of the home
 // page, so `ScrollToHash` would have nothing to do on this route.
 import { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigationType, useSearchParams } from 'react-router-dom';
 import {
   PageShell,
   StarfieldCanvas,
@@ -23,6 +23,7 @@ import { useBlogPosts } from '../hooks/useBlog';
 import { useVocabulary } from '../hooks/useVocabulary';
 import { formatDate, formatReadTime } from '../utils/blogMeta';
 import { SearchIcon, CloseIcon } from '../components/icons/BrandIcons';
+import { ViewCount } from '../components/blog/ViewCount';
 import styles from './BlogPage.module.css';
 
 /**
@@ -79,6 +80,43 @@ export function BlogPage() {
   // ⚠️ getAll, not get — `?tag=Docker&tag=DevOps` is how a multi-tag
   // filter is expressed, and `get` would silently return only the first.
   const tags = searchParams.getAll('tag');
+
+  // ── land at the top when ARRIVING here, but not on Back ──────────────
+  //
+  // ⚠️ FOUND BY WALKING THE REAL JOURNEY, not by reading the code. The
+  // reading view's bottom back control (2026-09-06) is ~900px down a long
+  // post, and React Router carries the scroll position across a
+  // navigation. Landing on a SHORTER filtered index then clamps to its
+  // bottom: measured `scrollY 912` against a `maxScroll` of 911, which put
+  // the three result cards on screen and the search box, the tag chips and
+  // CLEAR ALL entirely above the fold — the exact controls the owner
+  // wanted reachable after a read.
+  //
+  // ⚠️ SKIPPED ON 'POP', which is what makes this correct rather than
+  // merely convenient. Back and Forward should RESTORE where the reader
+  // was in the grid; only a deliberate arrival (a link click, PUSH) should
+  // reset. `useNavigationType()` is the discriminator, and it is the same
+  // distinction a browser makes natively for a full page load.
+  //
+  // ⚠️ ONCE PER MOUNT, via the ref — NOT on every navigationType change.
+  // This page writes the URL constantly: every debounced keystroke is a
+  // REPLACE and every chip click is a PUSH. Without the ref, filtering
+  // while scrolled down would yank the page to the top on each keystroke.
+  // Filter changes do not remount BlogPage, so the ref holds across them
+  // and releases only when the route is genuinely re-entered.
+  //
+  // 'instant', not 'smooth': this is arrival at a new page, which the web
+  // does instantly, not a transition within one. It also keeps the
+  // reduced-motion question from arising at all — unlike a JS scrollTo
+  // with an explicit 'smooth', which ignores motion.css's override.
+  const navigationType = useNavigationType();
+  const didLandingScroll = useRef(false);
+  useEffect(() => {
+    if (didLandingScroll.current) return;
+    didLandingScroll.current = true;
+    if (navigationType === 'POP') return;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [navigationType]);
 
   // ── the search box's own value ───────────────────────────────────────
   //
@@ -234,6 +272,27 @@ export function BlogPage() {
   const hasTagFilter = tags.length > 0;
   const hasQuery     = q.trim() !== '';
   const isFiltered   = hasQuery || hasTagFilter;
+
+  // ── what every post card hands to the reading view (PF-99) ───────────
+  //
+  // Owner's decision, 2026-09-06: a reader who filtered to three posts and
+  // opened one should get those same three back when they leave it — ready
+  // to clear or re-filter — not the unfiltered index the prototype's
+  // `closePost()` returns to. BlogPostPage reads this and swaps its label
+  // to `← BACK TO RESULTS` accordingly.
+  //
+  // ⚠️ ROUTER STATE, not the post's own URL. `/blog/docker-compose?tag=Docker`
+  // would survive a refresh, and would also put filter params the post does
+  // not use into every link anyone shares. State loses them on a hard
+  // refresh instead, and the fallback is then plain `/blog` under the
+  // honest `← ALL POSTS` label.
+  //
+  // ⚠️ `undefined` rather than `{ from: '' }` when nothing is filtered —
+  // that is what a plain <Link> sends, so an unfiltered card does not push
+  // a history entry carrying an empty object.
+  const filterState = isFiltered
+    ? { from: searchParams.toString() }
+    : undefined;
 
   // Joined with "and", matching the AND semantics — "or" would describe a
   // filter the server does not implement and send the reader looking for
@@ -477,6 +536,7 @@ export function BlogPage() {
               <Reveal
                 as={Link}
                 to={`/blog/${featured.slug}`}
+                state={filterState}
                 type="up"
                 className={styles.featuredCard}
               >
@@ -502,7 +562,16 @@ export function BlogPage() {
                   className={styles.featuredTagRow}
                   pillClassName={styles.featuredTagPill}
                 />
-                <span className={styles.featuredCta}>READ THE POST →</span>
+                {/* ⚠️ A ROW, not a bare CTA — PF-99. The view counter can be
+                    absent (it renders nothing at zero), so the CTA is the
+                    FIRST child of a space-between row: with no counter it
+                    sits exactly where it always has. A layout that only
+                    looks right when the counter is present is the failure
+                    mode the hide-at-zero decision invites. */}
+                <span className={styles.cardFooter}>
+                  <span className={styles.featuredCta}>READ THE POST →</span>
+                  <ViewCount views={featured.views} className={styles.cardViews} />
+                </span>
               </Reveal>
             ) : (
               !isEmpty && (
@@ -518,6 +587,7 @@ export function BlogPage() {
                       key={post._id}
                       as={Link}
                       to={`/blog/${post.slug}`}
+                      state={filterState}
                       type="up"
                       className={styles.card}
                     >
@@ -541,7 +611,10 @@ export function BlogPage() {
                         className={styles.cardTagRow}
                         pillClassName={styles.cardTagPill}
                       />
-                      <span className={styles.cardCta}>READ →</span>
+                      <span className={styles.cardFooter}>
+                        <span className={styles.cardCta}>READ →</span>
+                        <ViewCount views={post.views} className={styles.cardViews} />
+                      </span>
                     </Reveal>
                   ))
                   : !isEmpty && Array.from({ length: PLACEHOLDER_CARDS }, (_, i) => (

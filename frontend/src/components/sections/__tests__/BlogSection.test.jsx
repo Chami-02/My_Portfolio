@@ -104,6 +104,7 @@ const POSTS = Object.freeze([
     excerpt: 'CRUD, resource routing, exception mapping and request logging.',
     tags: Object.freeze(['Java', 'REST API']),
     readingTimeMinutes: 5,
+    views: 0,
     createdAt: '2026-04-11T10:00:00.000Z',
   },
   {
@@ -113,6 +114,7 @@ const POSTS = Object.freeze([
     excerpt: 'Managing multi-container apps in one command.',
     tags: Object.freeze(['Docker', 'DevOps']),
     readingTimeMinutes: 4,
+    views: 31,
     createdAt: '2026-05-11T10:00:00.000Z',
   },
   {
@@ -122,6 +124,7 @@ const POSTS = Object.freeze([
     excerpt: 'A scalable vehicle-import platform with FastAPI and Redis.',
     tags: Object.freeze(['FastAPI', 'Python', 'Agile']),
     readingTimeMinutes: 7,
+    views: 9,
     createdAt: '2026-06-11T10:00:00.000Z',
   },
   {
@@ -131,6 +134,7 @@ const POSTS = Object.freeze([
     excerpt: 'How I designed and developed this portfolio.',
     tags: Object.freeze(['React', 'MERN', 'Docker', 'GitHub Actions']),
     readingTimeMinutes: 6,
+    views: 402,
     createdAt: '2026-07-11T10:00:00.000Z',
   },
 ]);
@@ -668,17 +672,34 @@ describe('PF-95 — publishedAt', () => {
 
 // ══ 13. links resolve to a real route ═════════════════════════════════
 describe('links', () => {
-  it('points all five at /blog, never at the prototype\'s dead #blog anchor', () => {
+  it('sends the four post links to their own post, and only the fifth to /blog', () => {
     // The prototype gives all four post links href="#blog" — the
     // section's own id — because Claude Design has no post-detail
     // screen to target. Its fifth link goes to Blog.dc.html, which is
-    // what proves navigation is intended. Neither /blog nor
-    // /blog/:slug exists in App.jsx today, so all five point at /blog
-    // and Sprint 13 narrows the post cards.
+    // what proves navigation is intended.
+    //
+    // ⚠️ CHANGED IN PF-99 (2026-09-06). This asserted five × '/blog'
+    // from PF-86 until now, and its own comment recorded why: neither
+    // route existed, so "Sprint 13 narrows the post cards". Both exist
+    // now, so the four post links resolve to their own slug and the
+    // fifth — BROWSE ALL WRITING — still goes to the index.
+    //
+    // ⚠️ The ORDER of the assertion is the point, not just the shape.
+    // A version reading `hrefs.every(h => h.startsWith('/blog'))` would
+    // pass with every card pointing at the SAME post, which is exactly
+    // the bug a hand-written `/blog/${featured.slug}` in a `.map()`
+    // produces. Each href is pinned to the post it belongs to, in
+    // rendered order: featured is the newest, then the three rows.
     const c = draw();
     const hrefs = [...c.querySelectorAll('a')].map((a) => a.getAttribute('href'));
     expect(hrefs).toHaveLength(5);
-    expect(hrefs).toEqual(['/blog', '/blog', '/blog', '/blog', '/blog']);
+    expect(hrefs).toEqual([
+      '/blog/building-a-production-style-mern-portfolio',   // featured — newest
+      '/blog/developing-cleardrivelk-with-fastapi-and-docker',
+      '/blog/getting-started-with-docker-compose',
+      '/blog/building-rest-apis-with-java-and-jax-rs',      // oldest
+      '/blog',                                              // BROWSE ALL WRITING
+    ]);
     expect(hrefs.some((h) => h.startsWith('#'))).toBe(false);
   });
 
@@ -851,4 +872,49 @@ describe('with no published posts', () => {
     });
   });
 
+});
+
+// ══ 14. the view counter (PF-99) ══════════════════════════════════════
+describe('view counts', () => {
+  /**
+   * ⚠️ PAIRED ASSERTIONS THROUGHOUT. The fixture gives the featured post
+   * 402 views, two rows 31 and 9, and the oldest row 0 — so every test
+   * below has a negative twin. A one-sided check passes against a
+   * component that always renders and one that never does, and under the
+   * owner's hide-at-zero decision (2026-09-06) those two failure modes
+   * look identical on screen.
+   */
+  it('renders the count on the featured card', () => {
+    const c = draw(ok(POSTS));
+    expect(pick(c, 'featuredFooter').textContent).toContain('402');
+  });
+
+  it('appends the count to a row\'s meta line, after the reading time', () => {
+    // ⚠️ The META LINE, not the row's right edge — owner's decision. A
+    // row is a numeral, a text block and a chevron; its only right-hand
+    // corner already belongs to the chevron. Asserted on ORDER, because
+    // "contains 31" would pass with the counter anywhere in the row.
+    const c = draw(ok(POSTS));
+    const meta = pickAll(c, 'rowMeta').find((el) => el.textContent.includes('31'));
+    expect(meta.textContent).toMatch(/MIN READ.*31/);
+  });
+
+  it('renders no counter, and no dangling separator, for a row with zero views', () => {
+    // ⚠️ The separator is conditional for exactly this reason. Rendered
+    // unconditionally, an unread post's meta line ends `1 MIN READ · `
+    // — which reads as data that failed to load rather than data that
+    // does not exist yet.
+    const c = draw(ok(POSTS));
+    const meta = pickAll(c, 'rowMeta')
+      .find((el) => el.textContent.includes('5 MIN READ'));
+    expect(meta.textContent).not.toMatch(/views/);
+    expect(meta.textContent.trim()).toMatch(/MIN READ$/);
+  });
+
+  it('keeps the featured CTA first, so an absent counter moves nothing', () => {
+    const c = draw(ok(POSTS.map((p) => ({ ...p, views: 0 }))));
+    expect(pick(c, 'featuredFooter').firstElementChild.textContent)
+      .toBe('READ THE POST →');
+    expect(pick(c, 'featuredFooter').textContent).not.toMatch(/views/);
+  });
 });

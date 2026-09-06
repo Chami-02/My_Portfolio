@@ -2106,3 +2106,86 @@ round-trip is several seconds; the thing under test lasts 4.5.
 - **For anything spanning a reload, the E2E suite is the right instrument** —
   it drives the same dev server (`playwright.config.js` runs `npm run dev`),
   so it also exercises StrictMode, which is where this class of change fails.
+
+
+## ⚠️ The Vite dev proxy targets a DOCKER hostname, and local dev bypasses it (found PF-99, 2026-09-06)
+
+**The tell: `502` from the page, `getaddrinfo ENOTFOUND backend` in the
+Vite log, and `/api/health` returning `200` with the right database the
+whole time.** It reads exactly like "the backend is down". The backend is
+fine.
+
+```
+frontend/vite.config.js:49   '/api': { target: 'http://backend:5000', … }
+frontend/.env.development    VITE_API_URL = …localhost:5050
+```
+
+`backend` is the **Docker Compose service name**. It does not resolve on
+the host. But `.env.development` gives the app an ABSOLUTE API URL, so
+`services/api.js` calls `http://localhost:5050/api/...` directly and
+**never touches the proxy**. The site works perfectly; the proxy is dead
+code outside Docker and has presumably been broken locally for a long
+time with nothing noticing.
+
+**How it bites a PROBE, not the app.** A browser-console probe naturally
+writes a relative URL:
+
+```js
+await fetch('/api/blog')          // → 502, ENOTFOUND backend
+await fetch('http://localhost:5050/api/blog')   // → 200
+```
+
+The first is a path the application itself never uses. Measured during
+PF-99's verification: the reading view had already rendered real data from
+the real API, and the probe issued immediately afterwards reported the API
+as unreachable.
+
+⚠️ **Same family as `?nosplash` removing the splash from an a11y audit:
+the instrument took a path the product does not.** Probe the URL the app
+actually calls — read `VITE_API_URL` before assuming a relative path is
+equivalent — and when a probe disagrees with a page that is visibly
+working, suspect the probe.
+
+**Not "fixed" in PF-99.** Changing the proxy target is not a reading-view
+ticket's business and Docker depends on it. It is on Outstanding work.
+
+
+## ⚠️ A PINNED MOCK makes a "does not happen again" guard vacuous (found 2026-09-07)
+
+**Measured: deleting the guard left all 103 tests green.**
+
+`/blog` scrolls to the top once per mount, via a ref, so that filtering —
+which rewrites the URL on every keystroke — does not yank the page upward
+mid-search. The test written to protect that ref:
+
+```js
+const c = draw();
+expect(window.scrollTo).toHaveBeenCalledTimes(1);
+const docker = pickAll(c, 'chip').find((b) => b.textContent === 'Docker');
+await act(async () => { docker.click(); });
+expect(window.scrollTo).toHaveBeenCalledTimes(1);   // still one
+```
+
+`useNavigationType` is mocked, and the mock returned **one pinned value**.
+The effect's `[navigationType]` dependency therefore never changed, so the
+effect never re-ran, so the assertion held **with or without the ref**. The
+real router genuinely reports a new type as the URL is rewritten — the mock
+was the only thing holding it still.
+
+**The fix is one line in the FIXTURE, not the assertion:**
+
+```js
+navType.current = 'REPLACE';   // what setSearchParams really produces
+```
+
+The mutation is then caught.
+
+⚠️ **The general rule, and this is the PF-95 lesson in a new costume: any
+"X does not happen again" assertion needs a fixture where the thing that
+would RE-TRIGGER X actually changes.** PF-95's version was a fixture whose
+publish-date order coincided with the `_id` order it pinned; this one is a
+mock returning a constant where the real dependency varies. Both look like
+ordinary test setup and both disarm the guard completely.
+
+⚠️ **Only mutation testing finds it.** The test passes, reads correctly,
+and names the right behaviour. Nothing about it looks wrong.

@@ -166,6 +166,25 @@ const getPostBySlug = async (req, res, next) => {
         post,
         prev: neighbour(-1),  // towards the NEWER post, as the design has it
         next: neighbour(1),   // towards the OLDER post
+
+        // ── PF-99: the reading view's `01 ·` numeral ──────────────────
+        // Both values are ALREADY COMPUTED above to build prev/next —
+        // returning them costs nothing and is the whole reason no new
+        // endpoint, query or aggregation was added for this.
+        //
+        // ⚠️ The alternative that looked right: let the client fetch the
+        // unfiltered list and find the slug's position itself. That is a
+        // SECOND expression of an ordering this file already owns — the
+        // exact drift PF-96 collapsed into one shared sort spec — and it
+        // costs an extra round trip on a cold-loaded shared link, against
+        // a backend that rate-limits at 100 req / 15 min / IP.
+        //
+        // Zero-based, because it is a POSITION and not a label. The
+        // reading view adds the 1 and pads, the same way BlogPage.jsx
+        // already derives its card numerals. Naming it `no` and padding
+        // it here would push a presentation decision into the API.
+        index,
+        total,
       },
     });
   } catch (err) { next(err); }

@@ -1,4 +1,5 @@
 import { useState }                                              from 'react';
+import { ViewCount } from '../../blog/ViewCount';
 import { useBlogPostAdmin, useCreatePost, useUpdatePost,
          useTogglePublish, useDeletePost }                       from '../../../hooks/useBlog';
 import { emptyForm, emptySection, postToForm, formToPayload,
@@ -671,6 +672,33 @@ export function AdminBlogPanel() {
                       }}>
                         {post.published ? '● Published' : '○ Draft'}
                       </span>
+
+                      {/* ── PF-99 ────────────────────────────────────
+                          Promoted out of the grey meta line below,
+                          where it read `· 0 views` in 0.75rem muted
+                          mono and was effectively unreadable down a
+                          list. Owner-requested 2026-09-06.
+
+                          ⚠️ The old fragment was DELETED, not left in
+                          place — printing the same count twice per row
+                          is what "add a views display" turns into if
+                          the existing one is not looked for first. Its
+                          absence is pinned by a test.
+
+                          Renders nothing at zero, exactly as on the
+                          public cards, so an unread draft carries no
+                          chip rather than a `0` competing with the
+                          Published/Draft badge beside it. */}
+                      <ViewCount
+                        views={post.views}
+                        style={{
+                          fontSize: '0.65rem',
+                          padding: '0.15rem 0.5rem',
+                          borderRadius: '9999px',
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-muted)',
+                        }}
+                      />
                     </div>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', marginTop: '0.2rem' }}>
                       {/* PF-97: was `createdAt` alone. The site displays
@@ -678,7 +706,7 @@ export function AdminBlogPanel() {
                           set publish dates months before the seed's insert
                           stamp — so the panel and the site printed different
                           dates for the same post. */}
-                      {new Date(post.publishedAt || post.createdAt).toLocaleDateString()} · {post.readingTimeMinutes} min read · {post.views} views
+                      {new Date(post.publishedAt || post.createdAt).toLocaleDateString()} · {post.readingTimeMinutes} min read
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>

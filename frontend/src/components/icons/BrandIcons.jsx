@@ -135,3 +135,22 @@ export function CloseIcon({ size = 16, className }) {
     </svg>
   );
 }
+
+/**
+ * An eye — Material Design's `visibility`, public domain. It fronts the
+ * per-post view counter on the blog cards and in the admin list (PF-99).
+ *
+ * ⚠️ The aria rule does NOT invert for this one — it follows the file's
+ * default, `aria-hidden`, unlike SearchIcon and CloseIcon above. The
+ * difference is what sits beside it: those two ARE their button's entire
+ * content, whereas this glyph is always followed by the count and a
+ * visually-hidden " views", so the number is already named. Exposing the
+ * svg as well would announce the icon twice over one figure.
+ */
+export function EyeIcon({ size = 16, className }) {
+  return (
+    <svg {...base(size)} className={className} viewBox="0 0 24 24">
+      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
+    </svg>
+  );
+}

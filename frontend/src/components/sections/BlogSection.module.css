@@ -266,16 +266,72 @@ section.blog {
   gap: 7px;
 }
 
+/* ⚠️ `position: relative` and `margin-top: 6px` MOVED to
+   `.featuredFooter` in PF-99. Both belonged to this element as the card's
+   last content child; the wrapper is now that child. Leaving `position`
+   here as well would be harmless but would leave two elements appearing
+   to solve the same stacking problem, and leaving `margin-top` would
+   double the gap. */
 .featuredCta {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  margin-top: 6px;
   font-family: var(--font-mono);
   font-size: 11.5px;
   letter-spacing: .12em;
   color: var(--acc, #FCA311);
+}
+
+/* ── the view counter (PF-99) ─────────────────────────────────────────
+ *
+ * ⚠️ NO PROTOTYPE SOURCE. Owner-requested 2026-09-06; neither
+ * `Portfolio Revolution.dc.html` nor `Blog.dc.html` shows a view count.
+ *
+ * `space-between` with the CTA FIRST is what makes an absent counter
+ * harmless — ViewCount renders nothing below one view, and any other
+ * layout would move the CTA depending on the data. */
+.featuredFooter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+/* Shared by the featured card and the three rows. It inherits its size
+   from neither — `.rowMeta` is 10px and this is 10.5px on the card — so
+   the value is declared once and the row's context does not override it,
+   deliberately: the counter should read the same on both. */
+.views {
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  color: var(--muted2);
+}
+
+/* ⚠️ PF-99 — `--muted2` -> `--muted`, DARK ONLY. The same PF-91 Group A
+   remedy, applied to a new element that walked straight into the trap it
+   documents: MEASURED in Chromium against the real composited card,
+   `--muted2` at 10.5px gives 4.15 on the grid card — under AA, on the
+   default theme.
+
+   The trap is the SURFACE, not the token. `--muted2` passes on the page
+   ground and fails on a tinted card, which is why this reads as a token
+   that "works everywhere else".
+
+   ⚠️ BOTH counters take it, not only the failing one. The featured card
+   measured 4.55 — over 4.5, and the owner has already rejected that
+   headroom on evidence: the footer copyright went 4.97 -> 4.28 purely
+   from a surface tint that touched none of its own colours. A margin
+   under 0.2 does not survive a backdrop change.
+
+   Wins on SPECIFICITY, never emission order —
+   `:global(html[data-theme='dark'])` is (0,2,1) against the base rule's
+   (0,1,0). Relies on dark being an EXPLICIT attribute, which it is: the
+   FOUC guard writes data-theme="dark" at index.html:31. Light is
+   untouched and passes. */
+:global(html[data-theme='dark']) .views {
+  color: var(--muted);
 }
 
 /* ── right column ─────────────────────────────────────────────────────

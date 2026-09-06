@@ -482,8 +482,13 @@
   color: var(--text);
 }
 
+/* ⚠️ `position: relative` MOVED to `.cardFooter` in PF-99. Every content
+   child of these cards carries it to sit above the absolutely-positioned
+   `.sweep` layer; now that the CTA is wrapped, the WRAPPER is the child
+   that needs it. Left here as well it would be harmless but misleading —
+   there would be two elements claiming to solve the same stacking
+   problem and only one of them doing it. */
 .featuredCta {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -631,11 +636,70 @@
 }
 
 .cardCta {
-  position: relative;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: .12em;
   color: var(--acc, #FCA311);
+}
+
+/* ── the card footer row (PF-99) ─────────────────────────────────────
+ *
+ * ⚠️ NO PROTOTYPE SOURCE — the view counter is a sanctioned addition
+ * (owner-requested 2026-09-06) and neither Blog.dc.html nor
+ * `Portfolio Revolution.dc.html` has one. A fidelity pass will flag it.
+ *
+ * `space-between` with the CTA first is what makes an ABSENT counter
+ * harmless: ViewCount renders nothing below one view, and a row laid out
+ * any other way would shift the CTA depending on the data.
+ *
+ * `margin-top: auto` on the grid card pushes this to the bottom of a
+ * flex-column card whose siblings have varying heights, so the counters
+ * line up across a row of cards with different excerpt lengths. The
+ * featured card is not a column of the same shape, so it is scoped. */
+.cardFooter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card .cardFooter {
+  margin-top: auto;
+}
+
+/* One step down from the meta line's 10.5px — the counter is the least
+   important fact on the card and must not compete with the CTA opposite
+   it. `--muted2` for the same reason; the CTA keeps the accent. */
+.cardViews {
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  color: var(--muted2);
+}
+
+/* ⚠️ PF-99 — `--muted2` -> `--muted`, DARK ONLY. The same PF-91 Group A
+   remedy, applied to a new element that walked straight into the trap it
+   documents: MEASURED in Chromium against the real composited card,
+   `--muted2` at 10.5px gives 4.55 featured / 4.15 grid — under AA, on the
+   default theme.
+
+   The trap is the SURFACE, not the token. `--muted2` passes on the page
+   ground and fails on a tinted card, which is why this reads as a token
+   that "works everywhere else".
+
+   ⚠️ BOTH counters take it, not only the failing one. The featured card
+   measured 4.55 — over 4.5, and the owner has already rejected that
+   headroom on evidence: the footer copyright went 4.97 -> 4.28 purely
+   from a surface tint that touched none of its own colours. A margin
+   under 0.2 does not survive a backdrop change.
+
+   Wins on SPECIFICITY, never emission order —
+   `:global(html[data-theme='dark'])` is (0,2,1) against the base rule's
+   (0,1,0). Relies on dark being an EXPLICIT attribute, which it is: the
+   FOUC guard writes data-theme="dark" at index.html:31. Light is
+   untouched and passes. */
+:global(html[data-theme='dark']) .cardViews {
+  color: var(--muted);
 }
 
 /* ── empty states ───────────────────────────────────────────────────── */

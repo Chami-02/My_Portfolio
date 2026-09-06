@@ -778,9 +778,15 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
     "restore" the design's figures.
 
 - **The Blog reading view's "GOT A QUESTION ABOUT THIS BUILD? / EMAIL
-  ME →" block is removed (2026-08-22, owner-requested — DECISION ONLY,
-  NOT BUILT).** The reading view does not exist; this is Sprint 13's
-  ticket. `Blog.dc.html:103-106` is the container (`margin-top: 44px`,
+  ME →" block is removed (2026-08-22, owner-requested — ⚠️ BUILT
+  2026-09-06 in PF-99, after three sprints as a decision with nowhere to
+  apply).** The reading view now exists (`frontend/src/pages/
+  BlogPostPage.jsx`) and ships without the panel. Guarded in BOTH suites
+  — `BlogPostPage.test.jsx` asserts no GOT A QUESTION text, no EMAIL ME
+  text and zero `mailto:` links, and `e2e/blog.spec.js` re-asserts the
+  first two against the real render — because the frozen export will
+  show that panel forever and a fidelity pass reads its absence as a
+  transcription bug. `Blog.dc.html:103-106` is the container (`margin-top: 44px`,
   accent-tinted gradient panel, `border: 1px solid rgba(252,163,17,.3)`)
   holding exactly those two children, and nothing else shares it —
   remove container and both children.
@@ -2125,3 +2131,175 @@ removal (2026-08-18) took decorative gradients off the home page's sections
 and explicitly kept card and panel surfaces. This is the Blog screen's own
 page-header treatment, declared on the section because there is no card to
 move it onto. Not an oversight.
+
+
+## PF-99 — the reading view and the view counter (2026-09-06)
+
+- **`GET /api/blog/:slug` returns `index` and `total` alongside
+  `{ post, prev, next }`.** Zero-based position in the ordered published
+  list, and the published count. ⚠️ **Both were ALREADY COMPUTED** in
+  `getPostBySlug` to build the neighbours and were being discarded —
+  returning them is two lines. **Rejected: letting the client fetch the
+  list and find the position itself.** That is a second expression of an
+  ordering `backend/src/utils/blogQuery.js` owns — precisely the drift
+  PF-96 collapsed into one shared sort spec — and it costs an extra round
+  trip on a cold-loaded shared link.
+
+  ⚠️ Zero-based because it is a POSITION, not a label. The reading view
+  adds 1 and pads, as `BlogPage.jsx` already does for card numerals.
+  Padding server-side would push a presentation decision into the API.
+
+- **⚠️ THE VIEW COUNTER IS A SANCTIONED ADDITION WITH NO PROTOTYPE
+  SOURCE** (owner-requested 2026-09-06). Neither `Blog.dc.html` nor
+  `Portfolio Revolution.dc.html` shows a view count anywhere. Same
+  footing as `BrandIcons.jsx`, which is also wholly a deviation — a
+  fidelity pass diffing against the frozen export WILL flag every call
+  site.
+
+  ⚠️ **Almost none of it was new code**, and that is the part worth
+  remembering: `Blog.views`, the `$inc` endpoint (PF-64), its 30/min
+  limiter, and `views` in every list payload (both list endpoints use an
+  EXCLUSION projection, `{ content: 0 }`) all already existed, and
+  `AdminBlogPanel.jsx` already printed the number. Every count read 0
+  for exactly one reason: **nothing had ever called the endpoint.** No
+  backend change was made for this half. Do not add an endpoint, a
+  projection or an aggregation to "expose views" — grep first.
+
+- **A post with fewer than one view renders NO counter at all**
+  (owner's decision, 2026-09-06). ⚠️ **Stated cost, accepted rather than
+  discovered later:** a missing counter and a broken one look identical
+  on screen, and card heights vary by data. Mitigated by pairing every
+  test — `views: 12` renders it, `views: 0` renders nothing — so the
+  absence has a guard behind it. The layout consequence is handled by
+  making the CTA the FIRST child of a `space-between` row, so a card with
+  no counter puts its CTA exactly where a card with one does.
+
+- **Placement, per surface, and the row is deliberately different:**
+  bottom-right on `/blog`'s two card shapes and the home teaser's
+  featured card; **appended to the META LINE** on the teaser's three
+  compact rows, after the reading time. A row is a numeral, a text block
+  and a chevron — its only right-hand corner already belongs to the
+  chevron. ⚠️ The `·` separator before it is CONDITIONAL, or an unread
+  post's meta line ends `1 MIN READ · `, which reads as data that failed
+  to load.
+
+- **The admin panel's count is a stat chip beside the Published/Draft
+  badge, and the old `· {post.views} views` meta-line fragment is
+  DELETED.** Leaving both would print the same number twice per row —
+  invisible in review, because both copies are correct. A test pins the
+  absence.
+
+- **`← ALL POSTS` becomes `← BACK TO RESULTS` when the reader arrived
+  from a filtered index**, and returns to that filtered view
+  (owner-requested 2026-09-06). A copy deviation from `Blog.dc.html:72`.
+  The filter travels as **router state**, not in the post's URL.
+  ⚠️ **Rejected: `/blog/docker-compose?tag=Docker`.** It survives a
+  refresh, and it also puts filter params the post does not use into
+  every shared link. State is lost on a hard refresh instead, and the
+  fallback is plain `/blog` under the honest `← ALL POSTS` label.
+  ⚠️ Prev/next re-pass the same state, or the context evaporates after
+  one hop and the label changes mid-read.
+
+- **An unknown or unpublished slug renders an INLINE not-found panel,
+  keeping the URL** — not a redirect to `NotFoundPage` (owner's decision,
+  2026-09-06). `NotFoundPage` is still the **Phase 1 layout** until
+  PF-100, so a mistyped blog link would otherwise drop the reader into
+  the old palette entirely. ⚠️ Its link reads **`BROWSE FIELD NOTES →`**,
+  NOT `← ALL POSTS` — the article's back link is on screen at the same
+  time, and two links with the same accessible name going to the same
+  place announce identically. Caught by Playwright strict mode, pinned in
+  both suites.
+
+- **The reading view uses NO `Reveal`, and that is transcription.** The
+  prototype's reader (`Blog.dc.html:69-121`) carries no `data-reveal` at
+  all — it animates the whole `<article>` once with `riseIn .8s` and
+  leaves the body static. ⚠️ **Consequence: PF-93's "never declare a
+  transition on a Reveal-wrapped element" is VACUOUS on this screen**, so
+  `.tagPill`'s own transition is correct and the other hover states snap,
+  which is also the export's behaviour. Do not "fix" either one.
+
+- **The reading view's tag pill is DUPLICATED from `/blog`'s
+  `.featuredTagPill`, not composed — deliberately.** ⚠️ The two are
+  byte-identical today (11px / 6px 12px / `rgba(252,163,17,.08)` / `.22`
+  border / `var(--text)`), the reader's adding only a `transition`. They
+  come from two different prototype lines (`:83` and `:170`) that happen
+  to agree, not from one shared intent, and `docs/design/` has been
+  frozen since 2026-08-22 — so they will drift apart under any future
+  owner instruction rather than together. Composing one from the other
+  would silently couple them. (⚠️ The PF-99 ticket claimed they differed
+  in fill and border. They do not; the file won.)
+
+- **PF-91 Group A extended to two new rules** — `--muted2` → `--muted`,
+  **dark only**, on `BlogPage.module.css`'s `.cardViews` and
+  `BlogSection.module.css`'s `.views`. Measured in Chromium against the
+  real composited card: `--muted2` at 10.5px gave **4.15 on the grid card
+  (FAILS AA in the default theme)** and 4.55 on the featured card; after,
+  **7.00 and 7.68**. Light was 5.45 / 5.95 and is untouched.
+  ⚠️ **Both took the override, not only the failing one** — 4.55 is not
+  survivable headroom on the owner's own precedent, the footer copyright
+  having gone 4.97 → 4.28 purely from a surface tint that touched none of
+  its own colours. Wins on SPECIFICITY (0,2,1), never emission order.
+
+- **The view counter's hidden label is singular at one — "1 view".**
+  Trivial-looking and recorded because of HOW it was found: the label is
+  visually hidden, so "1 views" was invisible on screen and only a probe
+  reading `textContent` caught it — and it is the MOST common state, not
+  an edge case, since every post passes through exactly 1 the first time
+  anyone reads it.
+
+### Follow-up, 2026-09-07 — the reading view's second back control
+
+- **⚠️ THE READING VIEW HAS TWO `← ALL POSTS` CONTROLS, one at the top of
+  the article and one after the prev/next cards** (owner-requested
+  2026-09-07). No prototype source — `Blog.dc.html:69-121` has one, at the
+  top. Finishing a post otherwise left only PREVIOUS / NEXT in reach, both
+  of which move sideways to other posts, so leaving for the index meant
+  scrolling the whole article back up. The footer is not an escape either:
+  its "Field Notes" entry resolves to `/?nosplash=1#blog`, the home page's
+  teaser, not `/blog`.
+
+  ⚠️ **Both read the SAME `backTo`/`backLabel`**, deliberately not derived
+  twice — that is what stops the two ends of one page disagreeing about
+  where "back" is. Both relabel to `← BACK TO RESULTS` together.
+
+  ⚠️ **The bottom one is gated on a LOADED POST and is OUTSIDE the
+  `(prev || next)` guard.** Absent while loading and on the not-found panel
+  (neither scrolls, and the panel has its own exit); present for a single
+  post, which is the one case with no other navigation at all.
+
+- **⚠️ TWO LINKS SHARING ONE ACCESSIBLE NAME IS CORRECT HERE, and it was a
+  DEFECT one day earlier — the distinction is worth keeping straight.**
+  PF-99's recheck renamed the not-found panel's link because it and the
+  back link were **visible together in one region serving one purpose**.
+  Top-and-bottom repetition of a single control across a long article is
+  the ordinary pagination pattern and is fine. **Do not "fix" it by
+  renaming one**; the cost is paid in test locators instead —
+  `e2e/blog.spec.js` names which end it means with `.first()`/`.last()` and
+  pins `toHaveCount(2)`, while the not-found test pins `toHaveCount(1)`.
+
+- **`.pillLink` is the ONE declaration of the reading view's pill shape**,
+  composed by `.backLink`, `.backLinkBottom` and `.notFoundLink`. Extracted
+  when the third consumer landed. ⚠️ **This does NOT reopen the rejection of
+  `composes: pill from patterns.module.css`**, which stands: patterns'
+  `.pill` declares `color` and would tie with the composing class at
+  (0,1,0), resolving on bundle emission order. `.pillLink` is local and
+  carries the shape only, so nothing is declared twice and there is no tie.
+  A test pins that the composing classes may add `margin-bottom` and
+  nothing the shape already owns.
+
+- **`/blog` scrolls to the top on a PUSH arrival, never on a POP**
+  (2026-09-07). ⚠️ **Not a preference — it fixes a defect the bottom control
+  created.** React Router carries scroll position across a navigation, and
+  the bottom control sits ~900px down a post; a shorter filtered index then
+  clamped to its own bottom. Measured `scrollY 912` against `maxScroll 911`,
+  which put the cards on screen and the search box, chips and CLEAR ALL
+  above the fold — exactly the controls the owner wanted reachable after a
+  read.
+
+  ⚠️ **Three things make it correct, and removing any one breaks it:**
+  skipping `POP` so Back and Forward still RESTORE the reader's place in the
+  grid; a **once-per-mount ref**, because this page rewrites its URL on every
+  keystroke (REPLACE) and every chip click (PUSH) and would otherwise yank
+  to the top mid-filter; and `'instant'` rather than `'smooth'`, which is
+  what page arrival does and which sidesteps the fact that a JS `scrollTo`
+  with an explicit behavior ignores `motion.css`'s reduced-motion override.

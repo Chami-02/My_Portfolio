@@ -514,6 +514,70 @@ describe('GET /api/blog/:slug — prev/next', () => {
     expect(res.body.data.prev).toBeNull();
     expect(res.body.data.next).toBeNull();
   });
+
+  // ── PF-99: the reading view's position numeral ─────────────────────
+  //
+  // ⚠️ THESE ASSERTIONS ONLY MEAN SOMETHING BECAUSE THE FIXTURE
+  // DISAGREES WITH ITSELF. Insertion order is Alpha, Bravo, Charlie,
+  // Delta; publish order is Charlie, Alpha, Delta, Bravo. If those two
+  // coincided, `index` would pass against a value derived from anything
+  // at all — which is exactly how PF-95's "publishedAt is not wired to
+  // sort yet" guard came to pass 61 of 63 times against the rule it was
+  // supposed to be watching. Alpha is the discriminating case: position
+  // 1 by publish date, position 0 by insertion.
+  it('reports the post position in PUBLISH order, not insertion order', async () => {
+    await seedPosts();
+
+    const alpha = await bySlug('Alpha');
+    expect(alpha.body.data.index).toBe(1);   // 0 under the old createdAt rule
+    expect(alpha.body.data.total).toBe(4);
+
+    const charlie = await bySlug('Charlie');
+    expect(charlie.body.data.index).toBe(0); // 2 under the old rule
+
+    const bravo = await bySlug('Bravo');
+    expect(bravo.body.data.index).toBe(3);   // 1 under the old rule
+  });
+
+  it('counts only published posts in the total', async () => {
+    // A draft must not inflate the denominator, or the reading view
+    // prints `02 of 5` on a four-post blog.
+    await seedPosts([{
+      title:       'Hotel draft',
+      excerpt:     'An excerpt.',
+      published:   false,
+      publishedAt: new Date('2026-06-01T09:00:00.000Z'),
+      sections:    [section('Hotel heading', 'Hotel body text.')],
+    }]);
+
+    const res = await bySlug('Alpha');
+    expect(res.body.data.total).toBe(4);
+    expect(res.body.data.index).toBe(1);
+  });
+
+  it('reports index 0 of 1 for the only post', async () => {
+    await Blog.create({
+      title:     'Solo post',
+      excerpt:   'An excerpt.',
+      published: true,
+      sections:  [section('Solo heading', 'Solo body text.')],
+    });
+
+    const res = await bySlug('Solo');
+    expect(res.body.data.index).toBe(0);
+    expect(res.body.data.total).toBe(1);
+  });
+
+  it('ignores an active filter when computing the position', async () => {
+    // Same reasoning as the neighbours above: the numeral names the
+    // post's place in the ARCHIVE, so a post reached through a filter
+    // that matches one post must not read `01`.
+    await seedPosts();
+    const post = await Blog.findOne({ title: /^Alpha/ });
+    const res  = await request(app).get(`/api/blog/${post.slug}?q=alpha`);
+    expect(res.body.data.index).toBe(1);
+    expect(res.body.data.total).toBe(4);
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════

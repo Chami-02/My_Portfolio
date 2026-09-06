@@ -53,7 +53,7 @@ plan**. PF-95 is built; PF-96 → PF-102 are not.
 | PF-96 | 8 | the `insertMany` ordering bug + `updatePost`'s middleware bypass |
 | PF-97 | 5 | `POST /api/blog` still requiring Phase 1's `content` field |
 | ~~PF-98~~ | 10 | ✅ **BUILT 2026-09-05.** `/blog` has a route. ⚠️ The "fourth pill variant" warning was about the TEASER's pill — `/blog` needed a fifth and sixth |
-| PF-99 | 8 | the EMAIL ME removal (locked 2026-08-22, unbuilt) |
+| ~~PF-99~~ | 8 | the EMAIL ME removal — ✅ **BUILT 2026-09-06** |
 | PF-100 | 3 | three measured contrast failures, raised in PF-91 |
 | PF-101 | 6 | — |
 | PF-102 | 8 | the five-command gate |
@@ -491,7 +491,7 @@ Transcribed from the Jira backlog board on 2026-09-02.
 | PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next in `GET /:slug`, one shared sort spec | 8 | Done | ✅ **built 2026-09-02** |
 | PF-97 | Admin Blog panel repair — posts editable again | 5 | Done | ✅ **built 2026-09-04** (really ~8 pts) |
 | PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | Done | ✅ **built 2026-09-05** |
-| PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed | 8 | To Do | — |
+| PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed, **+ view counter** | 8 | To Do | ✅ **built 2026-09-06** (really ~11 with the counter) |
 | PF-100 | 404 page — Phase 2 treatment | 3 | To Do | — |
 | PF-101 | Blog responsive + state audit, both themes | 6 | To Do | — |
 | PF-102 | Sprint gate, PR, close | 8 | To Do | — |
@@ -546,11 +546,14 @@ it into.
 
 ~~**What PF-98 needs that does not exist yet:**~~ **BUILT 2026-09-05.**
 `/blog` now has a route (`App.jsx`, ahead of the `*` catch-all).
-`/blog/:slug` still does not — PF-99 — so the cards PF-98 renders point at a
-404 until it lands, which is expected inside a sprint. **`BLOG_ROUTE` in
-`BlogSection.jsx` was NOT narrowed**: PF-99 owns the reading view, so it owns
-the links that reach it, and the home teaser's five links still go to
-`/blog`. `Blog.dc.html` was the design source. **Neither `flt-blog` nor
+⚠️ **`/blog/:slug` HAS ONE TOO as of PF-99 (2026-09-06)** — this used to
+read "still does not — PF-99 — so the cards PF-98 renders point at a 404
+until it lands, which is expected inside a sprint." That is resolved; the
+cards reach a real page. **`BLOG_ROUTE` in `BlogSection.jsx` was NOT
+narrowed by PF-98**: PF-99 owned the reading view, so it owned the links
+that reach it — and **PF-99 narrowed the four POST links** to
+`/blog/${slug}`. `BLOG_ROUTE` survives with exactly ONE consumer, BROWSE
+ALL WRITING, which is the index and not a post. `Blog.dc.html` was the design source. **Neither `flt-blog` nor
 `sheen-blog` is used by the index** — the prototype declares `flt` and never
 references it, and has no `sheen` at all, so no carrier was added to
 `animations.css`. **There is no `drift-blog` and there never should be.**
@@ -1161,7 +1164,106 @@ the deployed backend in this project's history.**
 `publicId` item in Outstanding work. Cloudinary working is what makes
 that gap start mattering.
 
+#### PF-99 — `/blog/:slug` reading view, and the view counter — BUILT 2026-09-06
+
+**Report:** `new mds/E8/PF-99-blog-reading-view.md`.
+
+**The headline: most of this was already built and had nobody calling it.**
+`GET /api/blog/:slug` has returned `{ post, prev, next }` since PF-96 with
+ZERO consumers; `PATCH /:slug/view` has existed since PF-64 with zero
+callers, which is the only reason every post's count read 0; `views` was
+already in every list payload (both list endpoints use an EXCLUSION
+projection) and `AdminBlogPanel.jsx` already printed it. The route was the
+unlock.
+
+**Backend, one change:** `getPostBySlug` now returns `index` and `total`,
+both already computed to build the neighbours. No new endpoint, query or
+aggregation.
+
+**Scope grew past the estimate.** 8 points for the reading view; the view
+counter was added by the owner during planning and cost roughly 3 more —
+a new icon, a shared component, four presentation surfaces and their tests.
+Same shape as PF-97 coming in at ~8 against a 5. ⚠️ **No new PF number was
+invented for it** — it was built inside PF-99, per the standing rule.
+
+**Teaser links narrowed**, the change `BlogSection.jsx:25-27` had scheduled
+for Sprint 13 since 2026-08-21: the four POST links now go to
+`/blog/${slug}`; BROWSE ALL WRITING stays on `/blog`. ⚠️ `BlogSection.test
+.jsx`'s "points all five at /blog" guard failed on the first run — **it was
+supposed to.** PF-86 wrote it so this narrowing would be a deliberate act
+with a failing test attached. It was rewritten to pin each href to its own
+post IN ORDER, because an `every(h => h.startsWith('/blog'))` version would
+pass with every card pointing at the SAME post.
+
+**Three real defects found in the SECOND pass, none by the first:**
+
+1. **Two links with the same accessible name** — the not-found panel and
+   the article's back link were both `← ALL POSTS` to `/blog`. Caught by
+   Playwright strict mode; the unit test had asserted only the `href`. The
+   panel's link is now `BROWSE FIELD NOTES →`.
+2. **The hidden label read "1 views"** — invisible on screen by
+   construction, and the most common state rather than an edge case.
+3. **`--muted2` at 10.5px on the dark grid card measured 4.15 — under AA**,
+   in the default theme. PF-91 Group A's existing remedy applied; 4.15 →
+   7.00 and 4.55 → 7.68.
+
+**Mutation-tested the new backend guard** (`index` → `total - 1 - index`):
+3 of 4 new tests fail, control clean. The fixture's publish order disagrees
+with its insertion order on purpose — without that the assertion would pass
+against a numeral derived from anything, which is how PF-95's guard came to
+pass 61 of 63 times against the rule it was watching.
+
+**Gate:** frontend 1000 · lint clean · build clean · backend 352 · e2e 69.
+
+**Follow-up 2026-09-07 — a second back control at the end of the read**
+(owner-requested, a **fix** on this surface, no new number). Finishing a post
+left only PREVIOUS / NEXT in reach, both sideways moves; the footer's "Field
+Notes" goes to `/?nosplash=1#blog`, not the index. Added after prev/next,
+same label logic, same derived values. ⚠️ **Two links now share one
+accessible name deliberately** — the opposite call to the not-found panel's
+rename one day earlier, and the distinction is in locked-decisions.
+
+⚠️ **It surfaced a real bug that only the walked journey could find:** the
+new control sits ~900px down a post, React Router carries scroll across a
+navigation, and a shorter filtered index clamped to its own bottom —
+measured `scrollY 912` vs `maxScroll 911`, putting the search box, chips and
+CLEAR ALL above the fold. Fixed with a PUSH-only, once-per-mount landing
+scroll on `BlogPage`. ⚠️ **The test guarding the once-per-mount ref was
+VACUOUS on first write** — a pinned `useNavigationType` mock meant the
+effect's dependency never changed, so deleting the ref left all 103 tests
+green. Recorded in silent-failures.
+
+Gate after: frontend **1011** · lint · build · backend **352** · e2e **71**.
+⚠️ One backend run went red on `health.test.js` with a transient connection
+error, on a frontend-only diff; not reproducible across two re-runs.
+
+⚠️ **A measurement trap worth knowing before debugging anything locally:**
+`vite.config.js`'s dev proxy targets `http://backend:5000` — the DOCKER
+service hostname — while `.env.development` sets `VITE_API_URL` to
+localhost:5050, so **the app bypasses the proxy entirely in local dev.**
+Probing with relative `/api/…` URLs from the page returns `502
+getaddrinfo ENOTFOUND backend`, which reads exactly like "the backend is
+down" while `/api/health` returns 200 throughout. Probe the URL the app
+actually calls.
+
 ### Outstanding work — deferred deliberately, not lost
+
+- **PF-101's responsive audit does not name the reading view** — the
+  surface did not exist when that ticket was described. `/blog/:slug` was
+  verified at one viewport (1384×868, Chromium) in PF-99 and needs to be
+  in PF-101's sweep. Added 2026-09-06.
+- **`vite.config.js`'s dev proxy is dead outside Docker** — it targets
+  `http://backend:5000` and local dev bypasses it via `VITE_API_URL`, so
+  it has presumably been broken locally for a long time with nothing
+  noticing. NOT touched in PF-99: changing a proxy target is not a
+  reading-view ticket's business, and Docker depends on it. Added
+  2026-09-06.
+- **`BLOG_ADMIN_KEY` is `['blog', 'admin']`, byte-identical to the key
+  `useBlogPost('admin')` produces** — a post slugged `admin` would share a
+  cache entry with the admin list. Reported in PF-98 as latent.
+  ⚠️ **PF-99 is the first ticket that actually CALLS `useBlogPost`**, so it
+  is now reachable rather than theoretical. Still out of scope. Updated
+  2026-09-06.
 
 - **⚠️ THE `sweep` SHEEN HAS NEVER PAINTED, ON EITHER CONSUMER. Found and
   measured in PF-98 (2026-09-05); the owner's call was to record it here and

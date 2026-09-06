@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Reveal } from '../motion';
 import { useBlogPosts } from '../../hooks/useBlog';
+import { ViewCount } from '../blog/ViewCount';
 import { formatDate, formatReadTime } from '../../utils/blogMeta';
 import styles from './BlogSection.module.css';
 
@@ -22,9 +23,16 @@ const TEASER_COUNT = 4;
  * has no post-detail screen to target, which is also why the fifth link
  * points at `Blog.dc.html` — the one place it had somewhere real to go.
  *
- * Neither `/blog` nor `/blog/:slug` exists in App.jsx today, so all five
- * links point here and Sprint 13 narrows the post cards to
- * `/blog/${slug}` when the route lands. Owner's call, 2026-08-21.
+ * ⚠️ DONE, PF-99 (2026-09-06). This used to read "Neither `/blog` nor
+ * `/blog/:slug` exists in App.jsx today, so all five links point here and
+ * Sprint 13 narrows the post cards to `/blog/${slug}` when the route
+ * lands. Owner's call, 2026-08-21." Both routes now exist, and the four
+ * POST links below go to `/blog/${post.slug}`.
+ *
+ * ⚠️ `BLOG_ROUTE` survives with exactly ONE consumer — BROWSE ALL
+ * WRITING, the fifth link. That is the one the prototype already pointed
+ * somewhere real (`Blog.dc.html`), and it is the index, not a post.
+ * Repointing it too would be the obvious-looking overreach here.
  *
  * Note this is not a regression against Phase 1: its BlogSection linked
  * to `/blog/${post.slug}` with a plain `<a href>`, which has been
@@ -183,7 +191,7 @@ export function BlogSection() {
             {hasData ? (
               <Reveal
                 as={Link}
-                to={BLOG_ROUTE}
+                to={`/blog/${featured.slug}`}
                 type="up"
                 delay={80}
                 className={styles.featuredCard}
@@ -223,7 +231,13 @@ export function BlogSection() {
 
                 <TagRow tags={featured.tags} className={styles.featuredTagRow} />
 
-                <span className={styles.featuredCta}>READ THE POST →</span>
+                {/* PF-99 — a space-between row so an absent counter
+                    (ViewCount renders nothing below one view) leaves the
+                    CTA exactly where it has always sat. */}
+                <span className={styles.featuredFooter}>
+                  <span className={styles.featuredCta}>READ THE POST →</span>
+                  <ViewCount views={featured.views} className={styles.views} />
+                </span>
               </Reveal>
             ) : (
               // Bare div, not a Reveal: a placeholder that animates in
@@ -240,7 +254,7 @@ export function BlogSection() {
                     <Reveal
                       key={post._id}
                       as={Link}
-                      to={BLOG_ROUTE}
+                      to={`/blog/${post.slug}`}
                       type="up"
                       delay={150 + i * 70}
                       className={styles.row}
@@ -254,10 +268,22 @@ export function BlogSection() {
                       </span>
 
                       <span className={styles.rowBody}>
+                        {/* ⚠️ The counter joins the META LINE here rather
+                            than a card corner — owner's decision,
+                            2026-09-06. A row is a numeral, a text block
+                            and a chevron; it has no bottom-right corner
+                            that is not already the chevron's. The
+                            separator is rendered CONDITIONALLY, or a
+                            post with no views yet would print a dangling
+                            "· " after the reading time. */}
                         <span className={styles.rowMeta}>
                           <span>{formatDate(post.publishedAt || post.createdAt)}</span>
                           <span className={styles.rowSep}>·</span>
                           <span>{formatReadTime(post.readingTimeMinutes)}</span>
+                          {post.views > 0 && (
+                            <span className={styles.rowSep}>·</span>
+                          )}
+                          <ViewCount views={post.views} className={styles.views} />
                         </span>
                         <span className={styles.rowTitle}>{post.title}</span>
                         <span className={styles.rowExcerpt}>{post.excerpt}</span>

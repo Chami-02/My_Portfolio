@@ -87,7 +87,15 @@ test.describe('Homepage', () => {
     // 2. Away to /blog and back with the BROWSER BACK BUTTON — the journey
     //    that prompted this ticket, and the one the nav's ?nosplash=1
     //    never covered because Back bypasses the link entirely.
-    await page.locator('a[href^="/blog"]').first().click();
+    //    ⚠️ `href="/blog"` EXACTLY, not the `^=` prefix this used until
+    //    PF-99. The prefix form took whichever /blog-ish link came first
+    //    in the DOM, and that was fine only while all five teaser links
+    //    pointed at the index. PF-99 narrowed the four POST links to
+    //    `/blog/${slug}`, so the prefix selector started resolving the
+    //    featured card and this assertion failed against a post URL. The
+    //    exact form pins the one link this test actually means — BROWSE
+    //    ALL WRITING — and cannot drift again.
+    await page.locator('main a[href="/blog"]').first().click();
     await expect(page).toHaveURL(/\/blog$/);
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);

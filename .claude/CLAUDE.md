@@ -306,7 +306,7 @@ to PF-59 is intentional.
 | PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next, one shared sort spec | 8 | ✅ built 2026-09-02 |
 | PF-97 | Admin Blog panel repair — posts editable again | 5 | ✅ built 2026-09-04 (really ~8) |
 | PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | ✅ built 2026-09-05 |
-| PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed | 8 | to do |
+| PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed, **+ view counter** | 8 | ✅ built 2026-09-06 (really ~11) |
 | PF-100 | 404 page — Phase 2 treatment | 3 | to do |
 | PF-101 | Blog responsive + state audit, both themes | 6 | to do |
 | PF-102 | Sprint gate, PR, close | 8 | to do |
@@ -315,9 +315,10 @@ to PF-59 is intentional.
 | PF-105 | `/blog` multi-tag AND filtering + dimming, CLEAR ALL red | 3 | ✅ built 2026-09-06 |
 | PF-106 | Splash once per document load (first open + refresh only) | 3 | ✅ built 2026-09-06 |
 
-⚠️ **The board and this table agree as of 2026-09-06** — PF-95 through
-PF-98 and PF-103 through PF-106 are Done; PF-99, PF-100, PF-101 and PF-102
-are To Do. For most of the sprint they did NOT agree, which is what the
+⚠️ **PF-99 is BUILT but the board still says To Do** (2026-09-06) — the
+board is the owner's to move. PF-95 through PF-98 and PF-103 through PF-106
+are Done on both; **PF-99 is built here and To Do there**; PF-100, PF-101
+and PF-102 are genuinely To Do. For most of the sprint they did NOT agree, which is what the
 `Board` column in `sprint-log.md` exists to track.
 
 ⚠️ **Moving the board is the owner's, and so is CREATING a ticket.** Do not
@@ -347,14 +348,25 @@ before starting any of them. It is the starting point, not background:
   (owner-approved deviation — `Admin.dc.html` still shows the Phase 1
   markdown box), plus the tag vocabulary picker and `?inUse=true`. Report:
   `new mds/E8/PF-97-admin-blog-panel-sections-editor.md`.
-- **PF-99**'s EMAIL ME removal is an existing **locked decision**
-  (2026-08-22, never built because the reading view does not exist).
+- ~~**PF-99**~~ — **BUILT 2026-09-06.** The reading view exists, and the
+  locked EMAIL ME removal (2026-08-22) is built with it after three
+  sprints as a decision with nowhere to apply. ⚠️ **Most of the ticket was
+  already written and uncalled**: `GET /api/blog/:slug` has returned
+  `{ post, prev, next }` since PF-96 with zero consumers, and
+  `PATCH /:slug/view` has existed since PF-64 with zero callers — the only
+  reason every view count read 0. The one backend change is `index` +
+  `total`, both already computed to build the neighbours. Owner added a
+  **view counter** during planning (bottom-right on the cards, in the
+  teaser rows' meta line, a chip in admin; nothing below one view).
+  Report: `new mds/E8/PF-99-blog-reading-view.md`.
 - **PF-100** inherits three measured contrast failures raised in PF-91.
   ⚠️ Not a pin-to-dark candidate — it fails in dark, the default theme.
 
-**`/blog` has a route as of PF-98; `/blog/:slug` still does not.** PF-86's
-five teaser links now reach a real page. `Blog.dc.html` is PF-98 and PF-99's
-design source.
+**`/blog` and `/blog/:slug` BOTH have routes** (PF-98, PF-99). ⚠️ PF-99
+also narrowed the home teaser's **four post links** to `/blog/${slug}`, the
+change `BlogSection.jsx`'s own comment had scheduled since 2026-08-21;
+`BLOG_ROUTE` survives with one consumer, BROWSE ALL WRITING.
+`Blog.dc.html` was the design source for both.
 
 ~~**PF-98**~~ — **BUILT 2026-09-05.** `/blog` is a real page: header,
 featured card, grid, server-side search, tag chips and empty state. **No
@@ -363,7 +375,7 @@ PF-97's `?inUse=true`, both of which had zero consumers. Filters live in the
 URL and there are TWO empty states, both owner-approved deviations. Report:
 `new mds/E8/PF-98-blog-index-page.md`.
 
-⚠️ **`/blog/:slug` still 404s** — PF-99. PF-98's cards already point at it.
+~~⚠️ **`/blog/:slug` still 404s** — PF-99.~~ **RESOLVED 2026-09-06.**
 
 ⚠️ **THREE FINDINGS FROM PF-98, NONE IN ITS OWN CODE**, all in
 `silent-failures.md` and Outstanding work: **the `sweep` sheen has never
@@ -415,6 +427,10 @@ frontend/
                                  useVocabulary — PF-97: the tag/tech pool.
                                  ⚠️ useDeleteVocabulary invalidates the BLOG
                                  caches too; the delete cascades server-side
+                                 useRecordView — PF-99. ⚠️ Invalidates
+                                 NOTHING, deliberately: copying the other
+                                 mutations would refetch the post being
+                                 read on every page view
     components/
       motion/                    index.js barrel — Reveal, CountUp, Marquee
       ambient/                   index.js barrel — PageShell, StarfieldCanvas,
@@ -423,6 +439,15 @@ frontend/
       icons/                     BrandIcons.jsx — inline SVG on currentColor
       layout/                    Navbar ThemeToggle Footer SkipLink
                                  ScrollToTop ScrollToHash
+      blog/                      PF-99: ViewCount — the per-post view counter.
+                                 3 consumers (BlogPage, BlogSection,
+                                 AdminBlogPanel). ⚠️ Renders NOTHING below
+                                 one view, so an absent counter is the
+                                 normal case, not a bug
+    pages/
+      BlogPostPage.jsx           PF-99: /blog/:slug. ⚠️ Uses NO Reveal —
+                                 the prototype's reader has no data-reveal
+                                 and animates the article once with riseIn
     utils/                       ALL React-free and directly unit-testable:
       theme.js                   normalise, readTheme, applyTheme, toggleLabel
       motion.js                  prefersReducedMotion, subscribe…
@@ -769,6 +794,12 @@ concluding "this is fine, I read the source".
   `pill`/`pillRow` and `card`/`cardPlaceholder` both exist; the substring
   form counted 31 pills where there were 26. `[class~=]` does not fix it
   (the token is `_pill_f5cf21`). Unwrap the local name and compare exactly.
+- **⚠️ A PINNED MOCK disarms a "does not happen again" guard.** Measured:
+  deleting the once-per-mount ref on `/blog`'s landing scroll left all 103
+  tests green, because the mocked `useNavigationType` returned ONE value, so
+  the effect's dependency never changed and it never re-ran. Same family as
+  the entry below: **the fixture must make the thing that would RE-TRIGGER
+  the behaviour actually change.** Only mutation testing finds it.
 - **⚠️ A guard against a FUTURE change is vacuous unless its fixture can
   tell the two outcomes apart.** PF-95's "publishedAt is not wired to
   sort yet" absence-assertion was recorded as PF-96's safety net and was
@@ -916,6 +947,13 @@ concluding "this is fine, I read the source".
   runs ahead of the router. ⚠️ So "no `expect` diff" is *not* the reliable
   discriminator; **reproducibility is**. `mongodb-memory-server` removes
   all four.
+- **⚠️ The Vite dev proxy targets `http://backend:5000` — a DOCKER
+  hostname — and local dev BYPASSES it** via `.env.development`'s absolute
+  `VITE_API_URL`. A probe using a relative `/api/…` URL gets `502
+  getaddrinfo ENOTFOUND backend` while the app works perfectly and
+  `/api/health` returns 200. **Probe the URL the app actually calls.** Same
+  family as `?nosplash` removing the splash from an a11y audit: the
+  instrument took a path the product does not.
 - **`mongodb+srv://` needs SRV DNS** — a broken resolver presents as a
   broken backend. Compare your resolver against `1.1.1.1`. ⚠️ Do NOT "fix"
   it by hardcoding shard hostnames in the repo.
@@ -1284,6 +1322,43 @@ omitted — keep the two straight.
 - **`impact` and `?inUse=true` use DIFFERENT filters on purpose** — impact
   counts every post including drafts, inUse counts published only.
   Unifying them breaks one or the other.
+- **`GET /api/blog/:slug` returns `index` + `total`** (PF-99) alongside
+  `{ post, prev, next }` — the reading view's `01 ·` numeral. ⚠️ Both were
+  ALREADY computed to build the neighbours; rejected letting the client
+  fetch the list and find the position, which re-expresses an ordering
+  `blogQuery.js` owns.
+- **The VIEW COUNTER is an ADDITION with no prototype source** (PF-99,
+  owner-requested). ⚠️ Almost none of it was new code — the field, the
+  `$inc` endpoint, its limiter and `views` in every list payload all
+  already existed with **no caller**. Do not add an endpoint or projection
+  to "expose views"; grep first. **Nothing renders below one view**, and
+  the CTA is the FIRST child of a `space-between` row so an absent counter
+  moves nothing.
+- **`← ALL POSTS` becomes `← BACK TO RESULTS`** when the reader arrived
+  from a filtered index, and returns to it (PF-99). The filter travels as
+  **router state**, never in the post's URL. ⚠️ The not-found panel's link
+  is `BROWSE FIELD NOTES →`, NOT a second `← ALL POSTS` — two links with
+  one accessible name to one destination.
+- **A bad slug renders an INLINE not-found panel, keeping the URL** (PF-99)
+  — not `NotFoundPage`, which is Phase 1's layout until PF-100.
+- **The reading view uses NO `Reveal`** (PF-99) — transcription, not an
+  omission. ⚠️ So PF-93's transition rule is VACUOUS there and `.tagPill`'s
+  own transition is correct.
+- **The reading view has TWO `← ALL POSTS` controls** (2026-09-07) — top and
+  after prev/next. Both read the same `backTo`/`backLabel`. ⚠️ **Two links
+  sharing one accessible name is CORRECT here and was a DEFECT one day
+  earlier** (the not-found panel's, renamed in PF-99): those two were visible
+  together in one region; this is ordinary top-and-bottom repetition. E2E
+  names which end it means with `.first()`/`.last()`.
+- **`/blog` scrolls to top on a PUSH arrival, never on a POP** (2026-09-07)
+  — the bottom back control otherwise landed readers at the *bottom* of a
+  shorter filtered index (measured `scrollY 912` vs `maxScroll 911`), with
+  the search box and chips above the fold. ⚠️ Once per mount via a ref, or
+  every keystroke would yank the page upward mid-filter.
+- **`.pillLink` is the reading view's one pill-shape declaration**, composed
+  by three classes. ⚠️ Does NOT reopen the rejection of `composes: pill from
+  patterns.module.css` — that pattern declares `color` and would tie at
+  (0,1,0); a local shape-only class does not.
 - **The `tech` chip picker for Projects is still NOT built** — same API,
   different form, its own ticket.
 
