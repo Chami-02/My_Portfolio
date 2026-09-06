@@ -219,8 +219,10 @@ describe('AdminBlogPanel — what the save actually sends', () => {
   });
 
   // Each of these is server-owned. The old `setForm({ ...post })` PUT them
-  // all straight back; echoing `readingTimeMinutes` in particular asks
-  // PF-95's hook to skip its recompute.
+  // all straight back; echoing `readingTimeMinutes` in particular used to
+  // ask PF-95's hook to skip its recompute. Since PF-103 the server ignores
+  // it outright, but not sending it is still the contract — a payload that
+  // carries a derived field is wrong even when it is harmless.
   it.each(['_id', 'slug', 'views', 'createdAt', 'publishedAt', 'readingTimeMinutes'])(
     'does not send back the server-owned %s',
     async (field) => {
@@ -231,6 +233,56 @@ describe('AdminBlogPanel — what the save actually sends', () => {
       expect(updateMutation.mutateAsync.mock.calls[0][0].data).not.toHaveProperty(field);
     },
   );
+
+  // ── PF-103: the reading-time pin ─────────────────────────────────────
+  it('sends null for the pin when the field is left blank', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(updateMutation.mutateAsync.mock.calls[0][0].data.readingTimeOverride).toBeNull();
+  });
+
+  it('sends the pin as a number once one is typed', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+    await user.type(screen.getByLabelText(/Reading time override/i), '8');
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(updateMutation.mutateAsync.mock.calls[0][0].data.readingTimeOverride).toBe(8);
+  });
+
+  /**
+   * ⚠️ THE TRAP THIS EXISTS FOR. A <button> inside a <form> with no `type`
+   * is a SUBMIT button, and PF-97's tag-delete confirm sat inside this same
+   * form — "Yes, Remove" deleted the tag AND silently saved and closed the
+   * post, while LOOKING like it worked (the tag really was gone). It was
+   * caught only by asserting the editor was still open.
+   *
+   * Written as a structural sweep rather than one case, because the defect
+   * is an OMISSION: the next control added to this form fails this without
+   * anyone remembering to write a test for it.
+   *
+   * ⚠️ NOT a test that Enter cannot submit. Measured while writing this:
+   * pressing Enter in the existing Title field submits too, because that is
+   * HTML's implicit form submission and every single-line input in this
+   * form does it. An assertion that the reading-time input is exempt would
+   * have demanded it behave differently from its siblings — a false
+   * expectation, not a defect.
+   */
+  it('gives every non-submit button in the editor an explicit type', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    const form = document.querySelector('form');
+    expect(form).not.toBeNull();
+
+    const submits = [...form.querySelectorAll('button')]
+      .filter((b) => (b.getAttribute('type') ?? 'submit') === 'submit');
+
+    // Exactly one: Save Changes. Anything else here submits on click.
+    expect(submits.map((b) => b.textContent)).toEqual(['Save Changes']);
+  });
 });
 
 describe('AdminBlogPanel — failures are visible', () => {

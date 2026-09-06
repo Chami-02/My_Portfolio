@@ -109,11 +109,46 @@ describe('formToPayload', () => {
       excerpt:   API_POST.excerpt,
       tags:      ['React', 'Node.js'],
       published: true,
+      // PF-103: API_POST carries no pin, so the payload says so explicitly
+      // rather than omitting the key — absent means "unchanged" on a PUT,
+      // which would make clearing a pin impossible.
+      readingTimeOverride: null,
       sections: [
         { heading: 'Introduction', body: ['A real paragraph.'], bullets: [] },
         { heading: 'Planning',     body: [], bullets: ['Jira', 'Branching'] },
       ],
     });
+  });
+
+  // ── PF-103: the reading-time pin ────────────────────────────────────
+  // ⚠️ `readingTimeOverride` is AUTHORED and round-trips; the lookalike
+  // `readingTimeMinutes` is DERIVED and must never be sent. The pair of
+  // assertions is deliberate — they are one character apart in intent and
+  // opposite in direction.
+  it('round-trips an existing pin through the form and back', () => {
+    const pinned = { ...API_POST, readingTimeOverride: 6 };
+    expect(postToForm(pinned).readingTimeOverride).toBe('6');
+    expect(formToPayload(postToForm(pinned)).readingTimeOverride).toBe(6);
+  });
+
+  it('sends null for a blank field, so a pin can be CLEARED', () => {
+    const wasPinned = postToForm({ ...API_POST, readingTimeOverride: 6 });
+    const cleared   = { ...wasPinned, readingTimeOverride: '' };
+    expect(formToPayload(cleared).readingTimeOverride).toBeNull();
+  });
+
+  it.each(['', '   ', 'abc', null, undefined])(
+    'sends null rather than NaN for %p',
+    (value) => {
+      expect(formToPayload({ ...emptyForm(), readingTimeOverride: value }).readingTimeOverride)
+        .toBeNull();
+    },
+  );
+
+  it('never emits the derived readingTimeMinutes, pin set or not', () => {
+    expect(formToPayload(postToForm(API_POST))).not.toHaveProperty('readingTimeMinutes');
+    expect(formToPayload(postToForm({ ...API_POST, readingTimeOverride: 6 })))
+      .not.toHaveProperty('readingTimeMinutes');
   });
 
   it('never emits content, even when the form somehow holds one', () => {

@@ -48,6 +48,22 @@ const blogRules = [
     }
     return true;
   }),
+
+  // ── NEW IN PF-103 ─────────────────────────────────────────────────────
+  // The author's reading-time pin. Optional, and `null` is MEANINGFUL —
+  // it is how the admin form says "clear the pin, go back to computing"
+  // — so `.optional({ nullable: true })` rather than a plain
+  // `.optional()`, which would reject an explicit null.
+  //
+  // ⚠️ There is deliberately NO rule for `readingTimeMinutes`. That field
+  // is derived by the model and a client must not be able to set it;
+  // leaving it unvalidated is not an oversight, it is what keeps the only
+  // writer `applyDerivedFields()`.
+  body('readingTimeOverride')
+    .optional({ nullable: true })
+    .isInt({ min: 1, max: 999 })
+    .withMessage('Reading time must be a whole number of minutes, at least 1')
+    .toInt(),
 ];
 
 // ── GET /api/blog ─────────────────────────────────────────────────────────────

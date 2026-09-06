@@ -422,11 +422,42 @@ describe('PUT /api/blog/:id — document middleware now runs', () => {
     expect(res.body.data.readingTimeMinutes).toBeGreaterThan(1);
   });
 
-  it('keeps an explicitly supplied reading time on the same request', async () => {
-    // PF-95's rule, which must survive the switch to save(): an edit that
-    // changes sections AND states a reading time keeps the stated one.
+  it('keeps the reading time an override pins, even against the word count', async () => {
+    // ⚠️ PF-103 REPLACED PF-95's rule here. This used to send
+    // `readingTimeMinutes: 9` and assert the server honoured it. That field
+    // is now derived and a client cannot write it; the pin moved to
+    // `readingTimeOverride`, so the same intent is expressed with the field
+    // that actually stores it.
     const post = await Blog.create({
       title:     'Explicit reading time post',
+      excerpt:   'An excerpt.',
+      published: true,
+      sections:  [section('Heading', 'One short sentence.')],
+    });
+
+    const res = await request(app)
+      .put(`/api/blog/${post._id}`)
+      .set(await authHeader())
+      .send({
+        sections:            [section('Heading', 'word '.repeat(1000).trim())],
+        readingTimeOverride: 9,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.readingTimeMinutes).toBe(9);
+    // 1000 body words PLUS the one-word heading is 1001, and the model
+    // counts headings — ceil(1001/200) = 6. The pin and the computation
+    // genuinely disagree, without which the assertion could not tell which
+    // one the server used.
+    expect(res.body.data.readingTimeMinutes).not.toBe(6);
+  });
+
+  it('⚠️ IGNORES a client-supplied readingTimeMinutes', async () => {
+    // The half of PF-103 that closes the trap PF-97 could only avoid. A
+    // panel that echoed the derived figure back used to freeze it forever;
+    // now the server simply recomputes over it.
+    const post = await Blog.create({
+      title:     'Derived only post',
       excerpt:   'An excerpt.',
       published: true,
       sections:  [section('Heading', 'One short sentence.')],
@@ -441,7 +472,43 @@ describe('PUT /api/blog/:id — document middleware now runs', () => {
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.data.readingTimeMinutes).toBe(9);
+    expect(res.body.data.readingTimeMinutes).toBe(6);
+  });
+
+  it('clearing the override to null returns to the computed figure', async () => {
+    const post = await Blog.create({
+      title:               'Unpin me',
+      excerpt:             'An excerpt.',
+      published:           true,
+      readingTimeOverride: 9,
+      sections:            [section('Heading', 'word '.repeat(1000).trim())],
+    });
+    expect(post.readingTimeMinutes).toBe(9);
+
+    const res = await request(app)
+      .put(`/api/blog/${post._id}`)
+      .set(await authHeader())
+      .send({ readingTimeOverride: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.readingTimeMinutes).toBe(6);
+    expect(res.body.data.readingTimeOverride).toBeNull();
+  });
+
+  it('rejects an override below 1 with a 400', async () => {
+    const post = await Blog.create({
+      title:     'Bad override post',
+      excerpt:   'An excerpt.',
+      published: true,
+      sections:  [section('Heading', 'Body text.')],
+    });
+
+    const res = await request(app)
+      .put(`/api/blog/${post._id}`)
+      .set(await authHeader())
+      .send({ readingTimeOverride: 0 });
+
+    expect(res.status).toBe(400);
   });
 
   it('leaves the slug alone when the title is untouched', async () => {

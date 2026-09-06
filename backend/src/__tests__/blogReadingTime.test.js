@@ -53,42 +53,40 @@ function runInsertManyHook(docs) {
   pres[0].fn.call(Blog, docs);
 }
 
-describe('Blog reading time — the auto-compute fallback (PF-95)', () => {
-  test('computes readingTimeMinutes when none is supplied', async () => {
+describe('Blog reading time — derivation (PF-95, reshaped by PF-103)', () => {
+  test('computes readingTimeMinutes when no override is set', async () => {
     const post = makePost();
     await post.validate();
     expect(post.readingTimeMinutes).toBe(3);
   });
 
-  test('keeps an explicitly supplied readingTimeMinutes on a new document', async () => {
-    // The test that fails against the pre-PF-95 hook. Measured before the
-    // fix: this came back as 3, the computed value, silently discarding
-    // the 6 the caller passed.
-    const post = makePost({ readingTimeMinutes: 6 });
-    await post.validate();
-    expect(post.readingTimeMinutes).toBe(6);
-  });
-
-  test('the explicit value wins even when it disagrees with the word count', async () => {
+  test('an override wins over the word count', async () => {
     // 6 is deliberately "wrong" by the 200-wpm formula, which gives 3 for
-    // this fixture. An author's own stated reading time outranks the
-    // estimate — that is the entire reason seed.js can carry the
-    // prototype's 6/7/4/5.
-    const post = makePost({ readingTimeMinutes: 6 });
+    // this fixture. That disagreement IS the assertion — a fixture where
+    // the pinned and computed values coincided could not tell which one
+    // the code returned, which is the vacuous-guard trap PF-96 documented.
+    const post = makePost({ readingTimeOverride: 6 });
     await post.validate();
     expect(post.readingTimeMinutes).toBe(6);
     expect(post.readingTimeMinutes).not.toBe(3);
   });
 
-  test('recomputes on a genuine content edit when no override accompanies it', async () => {
+  test('⚠️ readingTimeMinutes supplied WITHOUT an override is ignored', async () => {
+    // ⚠️ THE BEHAVIOUR CHANGE IN PF-103, and the reason a caller cannot
+    // half-migrate. Before PF-103 this returned 6 — an explicitly-supplied
+    // readingTimeMinutes was how seed.js pinned the design's figures.
+    // It is now a derived field with exactly one writer, so a client that
+    // sets it is overwritten rather than obeyed.
+    const post = makePost({ readingTimeMinutes: 6 });
+    await post.validate();
+    expect(post.readingTimeMinutes).toBe(3);
+  });
+
+  test('recomputes on a genuine content edit', async () => {
     // ⚠️ Modelled with hydrate(), NOT by validating one fresh document
-    // twice. A new document's `readingTimeMinutes` is marked modified by
-    // the hook's OWN first write, so a second validate on the same unsaved
-    // document correctly declines to recompute — that is not the edit path
-    // and asserting against it would fail correct code. hydrate() is
-    // Mongoose's documented way to build a document as if it came from the
-    // database: modifiedPaths() is empty, exactly like a real
-    // find-then-edit-then-save.
+    // twice. hydrate() is Mongoose's documented way to build a document as
+    // if it came from the database: modifiedPaths() is empty, exactly like
+    // a real find-then-edit-then-save.
     const post = Blog.hydrate({
       _id: new mongoose.Types.ObjectId(),
       title: 'Test Post',
@@ -105,21 +103,72 @@ describe('Blog reading time — the auto-compute fallback (PF-95)', () => {
     expect(post.readingTimeMinutes).toBe(21);
   });
 
-  test('an edit that supplies its own reading time is not overwritten', async () => {
+  test('an edit keeps the pin when one is set', async () => {
     const post = Blog.hydrate({
       _id: new mongoose.Types.ObjectId(),
       title: 'Test Post',
       slug: 'test-post',
       excerpt: 'An excerpt for a test post.',
-      readingTimeMinutes: 3,
+      readingTimeMinutes: 9,
+      readingTimeOverride: 9,
       sections: [{ heading: 'Intro', body: [LONG_BODY], bullets: [] }],
     });
 
     post.sections = [{ heading: 'Intro', body: [LONGER_BODY], bullets: [] }];
-    post.readingTimeMinutes = 9;
     await post.validate();
 
     expect(post.readingTimeMinutes).toBe(9);
+  });
+
+  test('clearing the pin to null recomputes from the content', async () => {
+    // The admin form's "blank the field" path. Sending null rather than
+    // omitting the key is what makes un-pinning expressible at all.
+    const post = Blog.hydrate({
+      _id: new mongoose.Types.ObjectId(),
+      title: 'Test Post',
+      slug: 'test-post',
+      excerpt: 'An excerpt for a test post.',
+      readingTimeMinutes: 9,
+      readingTimeOverride: 9,
+      sections: [{ heading: 'Intro', body: [LONG_BODY], bullets: [] }],
+    });
+
+    post.readingTimeOverride = null;
+    await post.validate();
+
+    expect(post.readingTimeMinutes).toBe(3);
+  });
+
+  test('⚠️ recomputes on a TITLE-ONLY edit, which the old hook did not', async () => {
+    // The case PF-103's unconditional derivation fixes. The old condition
+    // was `isModified('content') || isModified('sections')`, so a post
+    // whose body had drifted out of step with its stored figure — exactly
+    // the four seeded posts — kept the stale number through any edit that
+    // did not touch sections.
+    const post = Blog.hydrate({
+      _id: new mongoose.Types.ObjectId(),
+      title: 'Test Post',
+      slug: 'test-post',
+      excerpt: 'An excerpt for a test post.',
+      readingTimeMinutes: 6,          // the fiction
+      sections: [{ heading: 'Intro', body: [LONG_BODY], bullets: [] }],
+    });
+
+    post.title = 'Test Post Renamed';
+    await post.validate();
+
+    expect(post.readingTimeMinutes).toBe(3);
+  });
+
+  test('an override below 1 is rejected rather than silently floored', async () => {
+    const post = makePost({ readingTimeOverride: 0 });
+    await expect(post.validate()).rejects.toThrow(/readingTimeOverride/);
+  });
+
+  test('readingTimeOverride is a real schema path defaulting to null', () => {
+    expect(Blog.schema.path('readingTimeOverride')).toBeDefined();
+    expect(Blog.schema.path('readingTimeOverride').instance).toBe('Number');
+    expect(Blog.schema.path('readingTimeOverride').defaultValue).toBeNull();
   });
 });
 
@@ -144,11 +193,11 @@ describe('Blog publishedAt (PF-95)', () => {
 });
 
 describe('Blog pre(insertMany) — the seed path (PF-95)', () => {
-  test('leaves an explicitly supplied readingTimeMinutes alone', () => {
+  test('honours an override on a raw seed object', () => {
     const raw = {
       title: 'Seeded Post',
       excerpt: 'x',
-      readingTimeMinutes: 6,
+      readingTimeOverride: 6,
       sections: [{ heading: 'Intro', body: [LONG_BODY], bullets: [] }],
     };
     runInsertManyHook([raw]);
@@ -195,11 +244,11 @@ describe('Blog pre(insertMany) — the seed path (PF-95)', () => {
   // pre('validate') (mongoose/lib/model.js:3055, 3085-3096 →
   // document.js:2972 → document.js:2765-2769). Neither hook alone is the
   // contract — the bug lived in the handoff between them.
-  test('an explicit reading time survives BOTH hooks, in order', async () => {
+  test('an override survives BOTH hooks, in order', async () => {
     const raw = {
       title: 'Seeded Post',
       excerpt: 'x',
-      readingTimeMinutes: 6,
+      readingTimeOverride: 6,
       publishedAt: new Date('2026-07-14T09:00:00.000Z'),
       sections: [{ heading: 'Intro', body: [LONG_BODY], bullets: [] }],
     };
@@ -210,5 +259,23 @@ describe('Blog pre(insertMany) — the seed path (PF-95)', () => {
     expect(doc.readingTimeMinutes).toBe(6);
     expect(doc.publishedAt.getTime()).toBe(new Date('2026-07-14T09:00:00.000Z').getTime());
     expect(doc.slug).toBe('seeded-post');
+  });
+
+  // ⚠️ The seed path AS IT ACTUALLY IS since PF-103 — seed.js sets no
+  // reading time at all. This is the case the four real posts take, so it
+  // is asserted rather than left implied by the override tests above.
+  test('a seed object with no reading time computes through both hooks', async () => {
+    const raw = {
+      title: 'Seeded Post',
+      excerpt: 'x',
+      publishedAt: new Date('2026-07-14T09:00:00.000Z'),
+      sections: [{ heading: 'Intro', body: [LONG_BODY], bullets: [] }],
+    };
+    runInsertManyHook([raw]);
+    const doc = new Blog(raw);
+    await doc.validate();
+
+    expect(doc.readingTimeMinutes).toBe(3);
+    expect(doc.readingTimeOverride).toBeNull();
   });
 });

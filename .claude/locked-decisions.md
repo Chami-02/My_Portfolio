@@ -257,11 +257,20 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   appears in development at all — the same dev-only footgun class as the
   `setReady(true)`-on-unmount safety net `SplashProvider` warns about.
 
-  **On `/blog*` the nav is the Blog prototype's own content**,
+  **On `/blog*` the nav WAS the Blog prototype's own content**,
   transcribed from `Blog.dc.html` lines 50-61: PROJECTS · ABOUT ·
   `← PORTFOLIO` (glowpulse pill, replacing CONTACT) · divider · toggle ·
-  ADMIN. No BLOG link — you are on it. **This is the one part of the
-  2026-08-22 navbar rework that is transcription rather than deviation.**
+  ADMIN. No BLOG link — you are on it. ~~**This is the one part of the
+  2026-08-22 navbar rework that is transcription rather than
+  deviation.**~~
+
+  ⚠️ **THAT SENTENCE IS NO LONGER TRUE — SUPERSEDED BY PF-103
+  (owner-requested, 2026-09-05).** The blog nav is now
+  **ABOUT · SKILLS · PROJECTS · CONTACT · `← GO BACK`** · divider ·
+  toggle · ADMIN — the portfolio's own sections, left to right, so a
+  reader on `/blog` reaches any of them in one hop instead of two. See
+  the sanctioned-deviation entry below. Restoring the prototype's
+  two-link set to "fix" the mismatch is the thing that was rejected.
   It renders today over `NotFoundPage`, since `/blog` has no route until
   Sprint 13; blog chrome over a 404 is strictly better than portfolio
   chrome whose every link is dead.
@@ -441,6 +450,96 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   no `.ghostNumeral` selector — **via postcss, not a text search**, since
   the module documents the removed declarations in prose exactly where
   the rule used to be. All three mutations caught.
+
+- **PF-103 — the `/blog` grid numerals sit FULLY INSIDE the card
+  (owner-requested 2026-09-05).** `.cardNumeral`'s `top` is **`-2px`**,
+  not `Blog.dc.html:180`'s **`-18px`**.
+
+  **Why it is a deviation and not a transcription fix:** the prototype
+  clips the digits exactly as this page did. `overflow: hidden` on the
+  card is the prototype's own (`Blog.dc.html:179`) and **STAYS** — the
+  fix moves the numeral, it does not remove the clip. Sweeping the
+  `overflow` up with it is the same shape of mistake as taking
+  `.scanTexture` with the splash scan lines.
+
+  **Measured in Chrome before the change, and this is the number that
+  justifies the value:** Anton at 86px puts the digit ink **4.42px below
+  the span's box top**, so `-18px` left the ink top **13.58px above the
+  card's top edge**, slicing 13.58 of a **75.25px** glyph — about **18%
+  of every numeral**. At `-2px` the ink sits **3.42px inside** the card
+  (the extra 1px is the card's border).
+
+  ⚠️ **Deliberately not `-4.42px` (flush).** Re-measured across the whole
+  font stack: `Anton Fallback` puts the ink 14.1px down and `Arial
+  Narrow` 12.19px, so every fallback lands further inside — but a flush
+  value would have no margin at all if metrics shift. Verified live: all
+  three cards fully visible, ink bottom and right edge inside the card,
+  identical in both themes.
+
+  Guarded in `BlogPage.test.jsx` via **postcss** (the module documents the
+  old value in prose exactly where the rule sits), asserting `top`,
+  `right`, `font-size`, `line-height` **and** `.card`'s `overflow:
+  hidden` together. Both mutations caught: restoring `-18px`, and
+  deleting the clip instead of moving the numeral.
+
+- **PF-103 — the `/blog` nav is the portfolio's own sections
+  (owner-requested 2026-09-05).** **ABOUT · SKILLS · PROJECTS · CONTACT**,
+  left to right, then the glowpulse pill relabelled **`← GO BACK`**
+  (same slot, same `/?nosplash=1` href), divider, toggle, ADMIN.
+
+  - **No BLOG link** — you are on it. Unchanged from before.
+  - **CONTACT is a plain link here**, where on `/` it is the pill. So
+    `/blog` now carries both a CONTACT navLink and a `.contactPill`
+    labelled GO BACK. ⚠️ **`.contactPill` is deliberately NOT renamed** —
+    the rename touches `Navbar.jsx`, `.overlayContactPill` and guarded
+    tests for zero user-visible change. It is the nav's one accent pill,
+    whatever `navModel()` labels it. Commented at the class.
+  - Built from `SECTIONS` with `blog` filtered out and `contact`
+    appended, hrefs via `sectionHref()` — **not** four hand-written
+    strings, so `?nosplash=1` stays expressed once.
+  - ⚠️ **The mobile overlay focusable count for `/blog` is now 8, was
+    6.** It coincidentally equals `/`'s count again; the two are asserted
+    separately so they stay independently wrong-able.
+
+  Verified live: four links in DOM order, zero bare hashes in the
+  header, and the pill's `glowpulse` reported **running at 3000ms by
+  `getAnimations()`** — the instrument that works, not
+  `getComputedStyle`. Mutations caught: label reverted (3 failures),
+  link set reverted (5).
+
+- **PF-103 — blog reading times are DERIVED and honest; the pin is a
+  separate field (owner decision 2026-09-05).** This settles the
+  three-way open question recorded in `sprint-log.md`.
+
+  **The seeded 6 / 7 / 4 / 5 were fiction.** Transcribed from
+  `Blog.dc.html` for a design that assumed full-length posts; measured
+  with the model's own 200-wpm formula the real bodies are **158 / 123 /
+  89 / 64 words**, so every post computes to **1 minute**. Option 1 of
+  the three recorded ways out — accept the computed value — plus option
+  3, the override.
+
+  - `readingTimeMinutes` is **DERIVED, with exactly one writer**
+    (`applyDerivedFields`). A client-supplied value is now **ignored**,
+    where PF-95 made it win.
+  - **`readingTimeOverride`** (new schema field, `default: null`,
+    `min: 1`) is the author's pin. `null` means compute.
+  - ⚠️ **Two fields, deliberately.** One field cannot answer "was this
+    pinned or computed?", and every reading-time defect here came out of
+    that ambiguity — PF-95's two hooks disagreeing, then PF-97 having to
+    drop the field from the admin payload because echoing a *computed*
+    figure would freeze it forever. With the pin stored separately,
+    `postToForm` can round-trip it safely; `readingTimeMinutes` is still
+    never sent.
+  - The derivation is now **unconditional**. `forceReadingTime` and its
+    `isModified` gymnastics are **deleted**. This also fixes a case the
+    old condition missed: a **title-only edit** used to leave a stale
+    figure, because `sections` had not changed.
+  - **Migration `006-blog-reading-time-honest.js`** clears the fiction in
+    an existing database. ⚠️ **005 is NOT edited** — it has run in
+    production and a migration that has run is frozen.
+  - ⚠️ **The live site will show `1 MIN READ` on all four posts, and
+    that disagrees with `docs/design/Blog.dc.html`.** Intended. Do not
+    "restore" the design's figures.
 
 - **The Blog reading view's "GOT A QUESTION ABOUT THIS BUILD? / EMAIL
   ME →" block is removed (2026-08-22, owner-requested — DECISION ONLY,
@@ -1700,3 +1799,93 @@ already stops it reaching the public page.
 reading view numbers sections 01·02·03 in array order, so without ↑/↓ a
 mis-ordered post could only be fixed by retyping it. The arrows are not
 decoration.
+
+### PF-98 — the `/blog` index (2026-09-05)
+
+Four deviations from `docs/design/Blog.dc.html`, all raised and agreed before
+building. **Do not "restore" any of them to match the export.**
+
+- **⚠️ The filters live in the URL** — `/blog?q=…&tag=…` (owner-approved
+  2026-09-05). The prototype keeps `query` and `tag` in component state
+  (`Blog.dc.html:330`), so a refresh clears them and the back button leaves
+  the page. In the shipped site a filtered view is bookmarkable and
+  shareable, the back button undoes a filter, and PF-99's reading view can
+  link a tag straight back into a filtered index.
+
+  ⚠️ **Search writes with `replace`; a tag chip PUSHES.** Deliberate and
+  measured: six typed characters add **zero** history entries, one chip click
+  adds **one**. A half-typed search term is not a place you were; a filter
+  is. Both halves are guarded in `e2e/blog.spec.js` — an earlier version of
+  that test asserted "one Back returns to /blog" and was wrong about its own
+  subject, because `replace` overwrites the entry it would have returned to.
+
+- **⚠️ There are TWO empty states, where the prototype has one**
+  (owner-approved 2026-09-05). The design's copy — `Nothing filed under
+  that` / `Try another keyword or clear the filters.` / `RESET FILTERS` —
+  ships **verbatim** and is used when a filter matched nothing. A second
+  state, `Nothing filed yet` / `The first field note is still being
+  written.` with **no reset button**, covers a blog with no published posts,
+  where the design's copy would tell a visitor to clear filters they never
+  set.
+
+  ⚠️ **The discriminator is the UNFILTERED TOTAL, not the rendered list's
+  length.** Zero posts anywhere is a different fact from zero matches, and
+  only the second list can tell them apart.
+
+- **The post cards are `<Link to={/blog/:slug}>`, not `<button>`.** Forced by
+  the port, not a preference: the prototype opens an in-page overlay because
+  a single-file export has no router.
+
+- **The chips carry `aria-pressed` and the search input has an `aria-label`.**
+  The prototype signals the active chip with colour alone and leaves the
+  field unnamed (its only label content is a decorative `/`). Both are
+  invisible on screen, so implementation choices rather than design changes.
+
+**⚠️ `/blog`'s tag pills are a FIFTH and SIXTH variant. Do NOT compose
+BlogSection's.** Verified against both prototypes, and this is the most
+likely fidelity mistake on the page because the wrong one renders *almost*
+right:
+
+| | teaser (`Portfolio…:436`) | `/blog` featured (`Blog:170`) | `/blog` card (`Blog:188`) |
+| --- | --- | --- | --- |
+| `font-size` | 10.5px | **11px** | 10.5px |
+| `padding` | 5px 10px | **6px 12px** | **5px 11px** |
+| `letter-spacing` | .06em | **none** | **none** |
+| transition/hover | yes | **none** | **none** |
+
+⚠️ **The GRID pill is the dangerous one** — identical `font-size` to the
+teaser's and one pixel of padding apart on a single axis. Pinned in
+`BlogPage.test.jsx` as *exactly two* differing properties, cross-parsed from
+`BlogSection.module.css`, so a later edit that collapses the two shapes fails
+rather than passing quietly. The `.badge` differs too: `5px 11px` here,
+`5px 10px` in the teaser.
+
+**Carried forward from existing locked decisions, applied to this page:**
+
+- **The featured card's ghost `01` is REMOVED** — the 2026-08-22 owner
+  decision says in as many words that the `/blog` index inherits it.
+  `.sweep` **stays** (a different absolute child), and the grid's
+  `02/03/04` numerals **stay**. Guarded three ways and mutation-tested: both
+  putting the numeral back and sweeping `.sweep` up with it fail.
+- **PF-91's `--muted2` → `--muted` in DARK only on a tinted surface**, applied
+  to `.cardMeta`. Re-measured on this card rather than assumed: `--muted2`
+  gives **4.15** at 10.5px against the composited card ground, below the 4.5
+  AA needs; `--muted` gives **7.00**. Light passes at **5.95** with `--muted2`
+  and is untouched. Wins on specificity (0,2,1), never emission order.
+- **PF-91's separator alpha**: `.cardMetaSep` is `var(--acc)` at **`.9`**,
+  where `Blog.dc.html:182` declares `.65`. Same separator, same size, same
+  surface class as the two PF-91 already unified.
+
+**The count pill is suppressed at zero rather than reading `0 POSTS`** —
+BlogSection's precedent, for the same reason: during a cold load or after a
+failed fetch, zero is wrong rather than merely absent.
+
+**The grid numerals are POSITIONAL** (`String(i + 2).padStart(2, '0')`). The
+prototype authors a `no` per post; the schema has no such field, so they
+renumber as you filter. Accepted.
+
+**⚠️ The header section KEEPS its radial gradient.** The site-wide section-wash
+removal (2026-08-18) took decorative gradients off the home page's sections
+and explicitly kept card and panel surfaces. This is the Blog screen's own
+page-header treatment, declared on the section because there is no card to
+move it onto. Not an oversight.

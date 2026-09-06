@@ -490,6 +490,13 @@ export function AdminBlogPanel() {
 
   const isSaving = createPost.isPending || updatePost.isPending;
 
+  // The figure the server currently derives for the post being edited, shown
+  // beside the override field so "leave blank to calculate" is checkable
+  // rather than a promise. Derived during render from the list already in
+  // hand — NOT copied into state on edit, which would go stale the moment a
+  // save recomputed it.
+  const editingPost = editing ? posts.find((p) => p._id === editing) : null;
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -587,6 +594,32 @@ export function AdminBlogPanel() {
               }}
               onError={(message) => setErrors([message])}
             />
+            {/* ── PF-103: the author's reading-time pin ────────────────
+                Optional by design. `readingTimeMinutes` is derived by the
+                model from a 200-wpm word count and is never sent from here;
+                this field is the separate AUTHORED override, and blank —
+                the normal state — means "compute it".
+
+                Why the field exists at all: the seeded posts shipped with
+                hardcoded 6/7/4/5 figures transcribed from the design, which
+                the real 64-158 word bodies never justified. PF-103 made the
+                numbers honest, and this is the escape hatch for a post that
+                genuinely warrants a different one. */}
+            <div>
+              <label style={LABEL} htmlFor="post-read-time">
+                Reading time override (minutes)
+              </label>
+              <input id="post-read-time" name="readingTimeOverride" type="number"
+                min="1" max="999" inputMode="numeric"
+                placeholder="Leave blank to calculate from the content"
+                value={form.readingTimeOverride} onChange={handleChange}
+                style={INPUT} {...FI} />
+              <p style={{ margin: '0.375rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Leave blank to calculate from the content.
+                {editingPost && ` Currently showing ${editingPost.readingTimeMinutes} min read.`}
+              </p>
+            </div>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input type="checkbox" name="published" id="pub" checked={form.published} onChange={handleChange}
                 style={{ width: 16, height: 16, accentColor: 'var(--accent)' }} />

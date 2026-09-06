@@ -1689,3 +1689,183 @@ $ grep -c "inUse" src/controllers/vocabularyController.js
 ⚠️ Generalises past mutation testing: **any verification loop that
 mutates and restores can end up measuring a state nobody intended.** The
 control is the cheapest instrument that detects it.
+
+## ⚠️ The `sweep` keyframe is MIS-TRANSCRIBED and its sheen has never painted (found PF-98, 2026-09-05)
+
+**Measured, with a control. Deliberately NOT fixed in PF-98 — owner's call:
+PF-101 fixes all three consumers together, so they stay identical until then.**
+
+**Both prototypes declare `sweep` as a `background-position` animation:**
+
+```
+docs/design/Blog.dc.html:31                 @keyframes sweep{0%{background-position:0 -160%}100%{background-position:0 160%}}
+docs/design/Portfolio Revolution.dc.html:39  ...byte-identical...
+```
+
+`frontend/src/styles/keyframes/base.css:136` has it as a **transform**
+(`translateY(-120%)` → `translateY(120%)`). The shipped bundle carries the
+wrong one — confirmed in `dist/assets/*.css`, not just in source:
+
+```
+@keyframes sweep{0%{transform:translateY(-120%)}to{transform:translateY(120%)}
+```
+
+**The mechanism, and why translating the box cannot save it.** Both consumers
+paint with `background-size: 100% 300%/320%` and leave `background-position`
+at its default `0% 0%`. The gradient's amber band is at 50% of the *image*, so
+it sits `background-size / 2` down from the **box's own top** — and the
+background is painted only inside that box. Measured live:
+
+| element | box height | `background-size` | band sits at | inside the box? |
+| --- | --- | --- | --- | --- |
+| `BlogSection.module.css` `.sweep` | 322px | `100% 320%` | **515px** | **no** |
+| `AboutSection.module.css` `.portraitSweep` | 784px | `100% 300%` | **1176px** | **no** |
+
+A `transform` moves the box and its painted background *together*, so the band
+stays outside the paint area at every point in the cycle. **Generalised: with
+a static `background-position`, any `background-size` over 200% puts the 50%
+band outside the element and nothing renders.**
+
+**Verified in a real browser, with the control that makes the zero meaningful.**
+Amplifying the layer (opacity 1, `mix-blend-mode: normal`, the band to solid
+red) and stepping the paused animation to 0% / 12.5% / 60% of its 9s cycle
+showed **nothing at any point**. Swapping in the prototype's keyframe on the
+same element then showed the band sweeping **bottom → top** across the whole
+card at t≈5300 / 5900 / 6500ms. **Same element, same probe: one paints, one
+does not.**
+
+⚠️ **Why every previous verification passed.** PF-81 and PF-86 both asserted
+`getAnimations()` → one running animation named `sweep` at 8000/9000ms
+(`sprint-log.md:2701`, `:3006`, `:3222`). That is true of the wrong keyframe —
+the transform animation really is running. **`getAnimations()` proves an
+animation exists, never that it is the right one.** The instrument that
+answers the real question is
+**`el.getAnimations()[0].effect.getKeyframes()`**, which returns the computed
+keyframes and named `transform` outright.
+
+⚠️ **`keyframes.test.js:31` pins the NAME `'sweep'` and not its content**, so
+the whole 32-keyframe guard is blind to this class of error. Every other
+keyframe in that list has the same exposure.
+
+⚠️ **The `+1/+1/+0` reading in `sprint-log.md:1671` is not evidence against
+this.** It was recorded in LIGHT as proof that `mix-blend-mode: screen` is
+invisible on paper. A layer that paints nothing at all produces the same
+reading, in both themes — the two explanations were never distinguished, and
+the "it works in dark" half of that entry was asserted, not measured.
+
+## ⚠️ A `fullPage` screenshot never scrolls, so every scroll-reveal below the fold is captured at opacity 0 (PF-98, 2026-09-05)
+
+`page.screenshot({ fullPage: true })` stitches the document without moving the
+viewport, so an `IntersectionObserver` gated on visibility never fires. Every
+`Reveal` below the first screen is captured in its **pre-entrance** state —
+`data-reveal="out"`, `opacity: 0` — and the screenshot shows a page with a
+large blank region where its content should be.
+
+**It reads exactly like a broken layout.** During PF-98 a 375px shot of
+`/blog` showed the featured card followed by empty space to the footer;
+measured, all four grid cards were present at their full heights (369 / 369 /
+308 / 308) and simply transparent.
+
+**The fix, when a screenshot is the instrument:** scroll the document through
+before capturing, then return to the top.
+
+```js
+await page.evaluate(async () => {
+  const step = window.innerHeight * 0.8;
+  for (let y = 0; y < document.body.scrollHeight; y += step) {
+    window.scrollTo(0, y); await new Promise(r => setTimeout(r, 150));
+  }
+  window.scrollTo(0, 0); await new Promise(r => setTimeout(r, 400));
+});
+```
+
+⚠️ **A second, opposite artefact in the same capture mode:** `position: fixed`
+elements are composited once, so the fixed header can appear drawn *over*
+content it does not actually cover. On the same shot the `FIELD NOTES` H1
+looked clipped by the header; hit-testing with `elementFromPoint` at 320 /
+375 / 430 / 768 / 1440 reported the eyebrow at 122px and the H1 at 157px
+against a header bottom of 71px, **occluded: false at every width**. Same
+family as the CLIPPED-vs-OCCLUDED entry above: **a screenshot cannot settle a
+stacking question, and `fullPage` cannot settle a reveal question.**
+
+## ⚠️ The E2E suite already exceeds the backend's rate limiter, and it fails silently (found PF-98, 2026-09-05)
+
+**Measured, and it is PRE-EXISTING — not caused by PF-98.** The backend allows
+100 req / 15 min / IP (`backend/src/middleware/rateLimiter.js`). A full
+Playwright run makes several hundred, so the later specs are served **429**
+and their sections render their error state.
+
+```
+suite WITHOUT the new blog spec :  40 tests, 27 "429" lines
+suite WITH    the new blog spec :  52 tests, 29 "429" lines
+```
+
+Specs whose sections 429'd in the baseline: `admin`, `contact`, `footer`,
+`homepage`, `navigation` — i.e. everything after the first few.
+
+⚠️ **It is silent because nothing asserts on that data.** Those specs check
+chrome, hrefs and scroll positions, so a section rendering its error state
+changes nothing they look at. The suite is green while a large fraction of it
+drives a degraded page.
+
+⚠️ **The first spec that DOES assert on data late in the run fails, and the
+failure is unreadable.** PF-98's first draft of `e2e/blog.spec.js` ran against
+the real stack and failed with `Expected: > 2, Received: 1` chips — the
+vocabulary request had been throttled, so the chip row rendered `'All'` alone.
+Nothing about that message points at a rate limiter.
+
+**The rule this makes concrete, already in the Playwright section above:
+prefer `route.fulfill()` with a fixture.** PF-98's spec now stubs everything
+except one deliberate real-stack test, which took its contribution from ~33
+requests to 2. **Not fixed for the suite as a whole** — raising the limiter
+for `NODE_ENV=test`, or resetting it per spec, is its own ticket. On the
+Outstanding-work list.
+
+## ⚠️ `validateSync()` runs NO middleware, so a hook-derived field is silently not derived (PF-103, 2026-09-06)
+
+**Where it bit.** Migration `006-blog-reading-time-honest.js` needs to know
+what `readingTimeMinutes` *would* become before deciding whether a post needs
+writing — that is the whole `--dry-run` contract. The obvious way to get it
+without writing is to validate the document in memory, and the obvious call is
+`post.validateSync()`.
+
+**It does not fire `pre('validate')`.** Measured directly, because guessing
+about middleware is how PF-95's bug survived:
+
+```
+new Blog({ ...501 words... }); doc.readingTimeMinutes = 99;
+doc.validateSync()   → readingTimeMinutes stays 99      ← hook never ran
+await doc.validate() → readingTimeMinutes becomes 3     ← hook ran
+```
+
+**Why it is silent, and why it is worse than a normal bug.** `validateSync()`
+returns `undefined` for a valid document — exactly what a successful validation
+returns. Nothing throws, nothing warns, the script exits 0. The failure mode is
+that the migration reports **`Updated: 0   Already correct: 4`** — the same
+output a correctly-migrated database produces. So the dry run says "nothing to
+do" and the live run writes nothing, on a database that is entirely wrong.
+
+⚠️ **This is the "always run the control" rule with real stakes.** The first
+006 dry run against freshly-seeded data printed `Already correct: 4`, which was
+the *true* answer for that data and would have been read as proof the script
+worked. The bug only surfaced by planting production's 6/7/4/5 into the dev
+database with `collection.updateOne()` (which bypasses hooks, the way 005 left
+them) and re-running: a working script reports `Updated: 4`, a broken one still
+reports `Already correct: 4`. **A probe that reports zero looks identical to a
+clean result — construct the dirty state and check the probe sees it.**
+
+**Fix: `await post.validate()`.** It runs the middleware. `validateSync()` is
+also deprecated and slated for removal in Mongoose 10, so there is no reason to
+reach for it.
+
+**Generalises beyond Mongoose:** any `*Sync` variant of an async API is a
+candidate for silently skipping the async pipeline the hooks live in. Before
+using one to *observe* a derived value, prove it derives — a one-line probe
+that sets the field to a sentinel and checks it changed.
+
+⚠️ **Corollary for migrations specifically.** A migration that reads a derived
+value must go through the code that derives it, never re-implement the formula.
+006 deliberately contains no word counter — a second copy would be a second
+source of truth, which is the drift 005's own header warns about. The cost of
+that choice is this trap: the derivation is invisible in the file, so the call
+that triggers it has to be the right one.

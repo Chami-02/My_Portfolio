@@ -26,6 +26,14 @@
 // figure alongside rewritten sections is asking the server not to update
 // it. Not sending the field at all removes the question rather than
 // answering it.
+//
+// ⚠️ PF-103 ADDS `readingTimeOverride`, AND IT IS NOT THAT TRAP — the two
+// names look alike and the distinction is the whole point. The rule above
+// is about DERIVED values: `readingTimeMinutes` is computed by the server,
+// so echoing it back is a client telling the server what it already knows,
+// and getting it wrong. `readingTimeOverride` is AUTHORED — the same
+// category as `title` or `excerpt` — so round-tripping it is not an echo,
+// it is the field doing its job. `readingTimeMinutes` is still never sent.
 
 /**
  * A blank section, as a FACTORY rather than a shared constant.
@@ -47,6 +55,9 @@ export const emptyForm = () => ({
   excerpt:   '',
   tags:      '',
   published: false,
+  // A STRING, not a number or null, because the input binds to it. Blank
+  // is the normal state and means "compute from the content".
+  readingTimeOverride: '',
   sections:  [emptySection()],
 });
 
@@ -65,6 +76,11 @@ export const postToForm = (post = {}) => ({
   excerpt:   post.excerpt || '',
   tags:      Array.isArray(post.tags) ? post.tags.join(', ') : '',
   published: Boolean(post.published),
+  // `?? ''` and not `|| ''`: both null and undefined mean "no pin", but a
+  // real pin of 0 is impossible (the schema floors at 1) so the two would
+  // agree here anyway — `??` says which question is being asked.
+  readingTimeOverride:
+    post.readingTimeOverride == null ? '' : String(post.readingTimeOverride),
   sections:  Array.isArray(post.sections) && post.sections.length > 0
     ? post.sections.map((section) => ({
         heading: section.heading || '',
@@ -99,11 +115,22 @@ export const formToPayload = (form = {}) => {
     }))
     .filter((section) => section.heading || section.body.length || section.bullets.length);
 
+  // ⚠️ Blank sends an explicit `null`, it does not omit the key. Omitting
+  // it would make "clear the pin" inexpressible — the server would keep the
+  // old override forever, since absent means "unchanged" on a PUT. `null`
+  // is what the API's `.optional({ nullable: true })` rule accepts.
+  //
+  // A non-numeric string also becomes null rather than NaN: NaN survives
+  // JSON.stringify as `null` anyway, so spelling it out here keeps the
+  // payload honest instead of relying on that.
+  const pin = Number.parseInt(String(form.readingTimeOverride ?? '').trim(), 10);
+
   return {
     title:     (form.title   || '').trim(),
     excerpt:   (form.excerpt || '').trim(),
     tags:      (form.tags    || '').split(',').map((t) => t.trim()).filter(Boolean),
     published: Boolean(form.published),
+    readingTimeOverride: Number.isFinite(pin) ? pin : null,
     sections,
   };
 };

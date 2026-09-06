@@ -52,7 +52,7 @@ plan**. PF-95 is built; PF-96 → PF-102 are not.
 | --- | --- | --- |
 | PF-96 | 8 | the `insertMany` ordering bug + `updatePost`'s middleware bypass |
 | PF-97 | 5 | `POST /api/blog` still requiring Phase 1's `content` field |
-| PF-98 | 10 | `/blog` has no route; `BLOG_ROUTE`; the fourth pill variant |
+| ~~PF-98~~ | 10 | ✅ **BUILT 2026-09-05.** `/blog` has a route. ⚠️ The "fourth pill variant" warning was about the TEASER's pill — `/blog` needed a fifth and sixth |
 | PF-99 | 8 | the EMAIL ME removal (locked 2026-08-22, unbuilt) |
 | PF-100 | 3 | three measured contrast failures, raised in PF-91 |
 | PF-101 | 6 | — |
@@ -490,11 +490,12 @@ Transcribed from the Jira backlog board on 2026-09-02.
 | PF-95 | Migration 005 — distinct blog publish dates | 3 | To Do | ✅ **built 2026-09-01** |
 | PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next in `GET /:slug`, one shared sort spec | 8 | To Do | ✅ **built 2026-09-02** |
 | PF-97 | Admin Blog panel repair — posts editable again | 5 | To Do | ✅ **built 2026-09-04** (really ~8 pts) |
-| PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | To Do | — |
+| PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | To Do | ✅ **built 2026-09-05** |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed | 8 | To Do | — |
 | PF-100 | 404 page — Phase 2 treatment | 3 | To Do | — |
 | PF-101 | Blog responsive + state audit, both themes | 6 | To Do | — |
 | PF-102 | Sprint gate, PR, close | 8 | To Do | — |
+| PF-103 | `/blog` polish — numeral fit, honest reading times + override, blog nav | 5 | not on board | ✅ **built 2026-09-06** |
 
 ⚠️ **The board says PF-95 is To Do and it is DONE** — built, verified and
 recorded below on 2026-09-01. The board is the owner's to move; this is
@@ -526,18 +527,26 @@ in DARK**, the default theme, on a page any broken link reaches. ⚠️ It is
 **not** a pin-to-dark candidate — it fails in the theme pinning would lock
 it into.
 
-**What PF-98 needs that does not exist yet:** `/blog` and `/blog/:slug` have
-**no routes** — `App.jsx` has `/`, `/admin/login`, `/admin`, `/admin/*` and
-`*`. PF-86 pointed five Blog-teaser links at `/blog`, so they render
-`NotFoundPage` today. The route target is one constant, `BLOG_ROUTE`, so
-narrowing the post cards to `/blog/${slug}` changes where three `to=` props
-read from, not five string literals. `Blog.dc.html` is the design source and
-has its own `flt-blog`/`sheen-blog` keyframes already in the library —
-**there is no `drift-blog` and there never should be.**
+~~**What PF-98 needs that does not exist yet:**~~ **BUILT 2026-09-05.**
+`/blog` now has a route (`App.jsx`, ahead of the `*` catch-all).
+`/blog/:slug` still does not — PF-99 — so the cards PF-98 renders point at a
+404 until it lands, which is expected inside a sprint. **`BLOG_ROUTE` in
+`BlogSection.jsx` was NOT narrowed**: PF-99 owns the reading view, so it owns
+the links that reach it, and the home teaser's five links still go to
+`/blog`. `Blog.dc.html` was the design source. **Neither `flt-blog` nor
+`sheen-blog` is used by the index** — the prototype declares `flt` and never
+references it, and has no `sheen` at all, so no carrier was added to
+`animations.css`. **There is no `drift-blog` and there never should be.**
 
-⚠️ **The Blog tag pill is a FOURTH variant** — 10.5px / `.06em` / `5px 10px`
-— closest to Skills' but scaled down on three properties, so composing any
-existing pill renders a near-miss rather than something visibly wrong.
+⚠️ **THE "FOURTH PILL VARIANT" NOTE WAS ABOUT THE WRONG PILL, and following
+it would have produced the exact near-miss it warned against.** 10.5px /
+`.06em` / `5px 10px` is the HOME TEASER's pill, transcribed from
+`Portfolio Revolution.dc.html:436`. `/blog`'s own screen has **two more**
+(`Blog.dc.html:170` and `:188`) — 11px / `6px 12px` and 10.5px / `5px 11px`,
+**neither with any letter-spacing and neither with a transition**. So PF-98
+declared a fifth and sixth shape. The grid pill is the dangerous one: same
+`font-size` as the teaser's, one pixel of padding apart. Full table in
+`.claude/locked-decisions.md`.
 
 **Sprint 14 is where `/admin`'s light theme, `global.css`'s `:root` deletion
 and the `body { font-family }` cutover land — as ONE piece of work.** PF-97
@@ -896,6 +905,71 @@ against the originals to confirm the files actually came back:
 | save error swallowed again (no catch) | its own case |
 | client-side validation gate removed | its own case |
 
+### Built by PF-98 — `/blog` is a real page (2026-09-05)
+
+**The route existed nowhere.** `App.jsx` had `/`, `/admin/login`, `/admin`,
+`/admin/*` and `*`, so the five Blog-teaser links PF-86 pointed at `/blog` all
+rendered `NotFoundPage`. Meanwhile PF-96's server-side `?q=`/`?tag=` and
+PF-97's `?inUse=true` had **zero frontend callers**. PF-98 built the page that
+consumes all of it.
+
+```
+frontend/src/
+  pages/BlogPage.jsx                     NEW  the index
+  pages/BlogPage.module.css              NEW  53 rules, transcribed
+  pages/__tests__/BlogPage.test.jsx      NEW  59 cases
+  utils/blogMeta.js                      NEW  formatMonth + formatReadTime,
+                                              EXTRACTED from BlogSection
+  utils/__tests__/blogMeta.test.js       NEW  14 cases
+  hooks/__tests__/useBlog.test.jsx       NEW  16 cases
+  App.jsx                                + <Route path="/blog">
+  services/blogService.js                getPublished({ q, tag })
+  hooks/useBlog.js                       + blogListParams; key gains 'list';
+                                              keepPreviousData
+  services/vocabularyService.js          list(type, { inUse })
+  hooks/useVocabulary.js                 + inUse, in a DISTINCT key
+  components/sections/BlogSection.jsx    imports the two moved formatters
+  styles/__tests__/revealTransition.test.js  scan widened to src/pages
+frontend/e2e/blog.spec.js                NEW  12 cases
+```
+
+**No backend change at all.** Everything PF-98 needed was already serving.
+
+**The two-query count.** The design's pill reads `4 POSTS · ALL TOPICS`
+unfiltered and `2 OF 4 POSTS` filtered (`Blog.dc.html:586`), so it needs the
+UNFILTERED total, which a server-filtered response cannot carry. `BlogPage`
+mounts `useBlogPosts({ q, tag })` and `useBlogPosts()` together;
+`blogListParams` normalises both, so while nothing is filtered the two produce
+an identical key. **Measured on a fresh load: one request.**
+
+**⚠️ The gate.** frontend **887 / 887** (50 files, was 798/798 in 47) · lint
+**exit 0** · build **228 modules**, CSS 67.76 → **74.58 kB**, JS 435.92 kB ·
+backend **323 / 323** (25 suites) · e2e **51 passed + 1 pre-existing flaky**
+of 52.
+
+**Five mutations, all caught, control green before and after:** chips derived
+from the posts (2 failed) · the ghost `01` put back (1) · `.sweep` swept up
+with it (1) · the param normaliser removed (9) · the grid tag pill collapsed
+onto BlogSection's (2). A sixth, on the widened reveal guard, confirmed it now
+actually reads `pages/BlogPage.jsx` rather than passing because it scanned
+nothing.
+
+**⚠️ Three findings, none of them PF-98's own code**, all recorded in
+`.claude/silent-failures.md` and Outstanding work: the `sweep` keyframe has
+never painted on either existing consumer; a `fullPage` screenshot captures
+every below-the-fold reveal at opacity 0; and the E2E suite already exhausts
+the backend's rate limiter.
+
+**⚠️ The second pass found three defects in the TESTS, none in the code.**
+Every one was an assertion that was wrong about its own subject: `SEP` where
+en-GB produces `SEPT`; a month-boundary fixture that depends on the machine's
+timezone; and an e2e test asserting "one Back returns to `/blog`" for a URL
+write that uses `replace`, which overwrites the very entry it would return to.
+The lesson is the recurring one — **a failing test is a claim about the code
+that has to be checked in both directions.**
+
+Report: `new mds/E8/PF-98-blog-index-page.md`.
+
 ### Infrastructure — databases, credentials, Cloudinary (2026-08-31)
 
 Three pieces of work with no ticket between them, done after the Sprint
@@ -1072,10 +1146,83 @@ that gap start mattering.
 
 ### Outstanding work — deferred deliberately, not lost
 
-- **⚠️ EDITING A SEEDED POST IN THE ADMIN PANEL DROPS ITS "MIN READ" TO 1,
-  AND THAT IS THE CORRECT COMPUTATION — the seeded figures are the
-  fiction. Found during PF-97's browser recheck, 2026-09-04. NEEDS AN
-  OWNER DECISION.**
+- **⚠️ THE `sweep` SHEEN HAS NEVER PAINTED, ON EITHER CONSUMER. Found and
+  measured in PF-98 (2026-09-05); the owner's call was to record it here and
+  fix it in PF-101 so all three consumers change together.**
+
+  `styles/keyframes/base.css` animates `transform`; both prototypes animate
+  `background-position`. With a static `background-position` the gradient's
+  band sits `background-size / 2` down from the box top — 515px inside a
+  322px box on `BlogSection`'s `.sweep`, 1176px inside a 784px box on
+  `AboutSection`'s `.portraitSweep` — so it is outside the paint area at
+  every point in the cycle, and translating the box moves the background
+  with it. Verified in a real browser against a control that DID paint.
+  Full entry, with the numbers and the working instrument, in
+  `.claude/silent-failures.md`.
+
+  ⚠️ **PF-98 shipped `/blog`'s featured card with the same wrong keyframe on
+  purpose**, so PF-101 changes one keyframe and gets three correct elements
+  rather than chasing a fourth that was fixed early.
+
+  ⚠️ **`keyframes.test.js` pins keyframe NAMES, not their content**, so all
+  32 have this exposure. Worth widening in the same ticket.
+
+- **⚠️ The E2E suite exceeds the backend's 100 req / 15 min / IP limiter, and
+  has for some time.** Measured in PF-98: **27** `429` lines in a full run
+  *without* the new blog spec, 29 with it — so this is pre-existing, not
+  PF-98's. Specs after the first few drive a page whose sections have all
+  rendered their error state, and the suite stays green because none of them
+  assert on that data. The first spec that does assert on data late in the
+  run fails with something unreadable — PF-98's first draft failed with
+  `Expected: > 2, Received: 1` chips. Fix is its own ticket: raise or disable
+  the limiter under `NODE_ENV=test`, or reset it per spec.
+
+- **⚠️ `e2e/footer.spec.js:38` is flaky, and it is NOT PF-98's.** "footer nav
+  links work from a 404, landing under the header" reported `flaky` in both
+  the baseline run and the PF-98 run — it passes on retry. Playwright buckets
+  `flaky` separately from `passed`, so a run reading `39 passed` out of 40 is
+  not a skipped test.
+
+- **⚠️ A post slugged `admin` would share a cache entry with the admin list.**
+  `useBlogPost(slug)` keys on `['blog', slug]` and `BLOG_ADMIN_KEY` is
+  `['blog', 'admin']` — byte-identical for that one slug. Pre-existing (both
+  keys predate PF-98) and deliberately not fixed there; PF-98 added the
+  `'list'` segment to its own key so the LIST could not join the collision,
+  and left the detail key alone. Pinned as a documenting test in
+  `hooks/__tests__/useBlog.test.jsx` so it changes colour when someone fixes
+  it.
+
+- **The public list response still ships every post's full `sections[]`.**
+  `getAllPosts` projects `{ content: 0 }`, which drops only the deprecated
+  flat string — the whole body-as-array travels to a card view that renders
+  the excerpt. A one-word backend change (`{ content: 0, sections: 0 }`), but
+  a backend change, and `GET /api/blog` is out of PF-98's scope. Check
+  PF-99's needs first: the reading view uses `getBySlug`, which is unaffected.
+
+- **⚠️ `formatMonth` renders in the READER'S timezone and abbreviates
+  September to four letters.** Both pre-existing (PF-86), both surfaced by
+  PF-98's new unit tests, neither changed. `SEPT 2026` is en-GB's correct
+  output and is wider than any month in the design's own fixture data, whose
+  meta label is mono at .12em. And an instant within hours of a month
+  boundary renders as a different month either side of the date line —
+  `2025-12-31T23:59:59Z` is `JAN 2026` in Colombo. Pinning the formatter to
+  UTC would change dates that currently render correctly for most readers, so
+  it is a product call, not a bug fix.
+
+- ~~**⚠️ EDITING A SEEDED POST IN THE ADMIN PANEL DROPS ITS "MIN READ" TO 1**~~
+  — **RESOLVED BY PF-103 (2026-09-05).** Owner chose way out **1 + 3**:
+  the computed value is the true one, and an optional pin exists for the
+  cases that warrant one. `readingTimeMinutes` is now derived with a
+  single writer and a client-supplied value is ignored; the pin moved to
+  a new `readingTimeOverride` field, so the panel can round-trip it
+  without the PF-97 echo trap. Migration 006 clears the fiction from an
+  existing database (005 untouched — it has run in production). The four
+  posts now read **1 MIN READ**, which disagrees with the design on
+  purpose. Way out 2 (writing full-length bodies) was NOT taken and is
+  worth raising again when PF-99 renders these 64-158 word posts. Full
+  entry in `locked-decisions.md`; report:
+  `new mds/E8/PF-103-blog-polish.md`. Original finding, kept because the
+  measurements are the reason the decision went this way:
 
   The panel deliberately does not send `readingTimeMinutes` (PF-97's
   explicit pick), so `pre('validate')` sees `sections` modified with no

@@ -35,14 +35,34 @@ describe('navModel / isBlogPath (2026-08-22)', () => {
     expect(m.brandHref).toBe('/?nosplash=1');
   });
 
-  it('gives /blog the Blog prototype own nav content', () => {
-    // Blog.dc.html lines 50-61: PROJECTS · ABOUT · ← PORTFOLIO.
-    // No BLOG — you are on it — and no CONTACT.
+  /**
+   * ⚠️ PF-103 (owner-requested 2026-09-05) REPLACED the transcription here.
+   * Blog.dc.html:50-61 says PROJECTS · ABOUT · ← PORTFOLIO; this asserts the
+   * deviation, so restoring the prototype's set turns the suite red rather
+   * than passing as a fidelity fix.
+   */
+  it('gives /blog the portfolio sections plus a GO BACK pill', () => {
     const m = navModel('/blog');
     expect(m.variant).toBe('blog');
-    expect(m.links.map((l) => l.label)).toEqual(['PROJECTS', 'ABOUT']);
-    expect(m.pillLabel).toBe('← PORTFOLIO');
+    // Left to right, and CONTACT is a plain link here — on "/" it is the pill.
+    expect(m.links.map((l) => l.label)).toEqual(['ABOUT', 'SKILLS', 'PROJECTS', 'CONTACT']);
+    // No BLOG link — you are on it.
+    expect(m.links.map((l) => l.label)).not.toContain('BLOG');
+    // Absolute, and carrying the prototype's own ?nosplash=1.
+    expect(m.links.map((l) => l.href)).toEqual([
+      '/?nosplash=1#about',
+      '/?nosplash=1#skills',
+      '/?nosplash=1#projects',
+      '/?nosplash=1#contact',
+    ]);
+    expect(m.pillLabel).toBe('← GO BACK');
     expect(m.pillHref).toBe('/?nosplash=1');
+  });
+
+  it('gives a post path the same nav as the index', () => {
+    // The links are built from `pathname`, so a second route is what proves
+    // sectionHref's off-home branch is reached rather than a literal.
+    expect(navModel('/blog/a-post').links).toEqual(navModel('/blog').links);
   });
 
   it('treats a post path as blog, and /blogroll as not', () => {

@@ -122,10 +122,33 @@ const blogSchema = new mongoose.Schema(
       type:    Boolean,
       default: false,   // Draft by default — you publish from admin panel
     },
+    // ⚠️ DERIVED. Never write this from a client — `applyDerivedFields()`
+    // below owns it on every path, and a payload that sets it is ignored
+    // because `blogRules` does not accept it.
     readingTimeMinutes: {
       type:    Number,
       default: 1,
     },
+
+    // ── NEW IN PF-103 ───────────────────────────────────────────
+    // The author's PIN. null — the normal case — means "compute from the
+    // content". A number freezes `readingTimeMinutes` at that value until
+    // the pin is cleared.
+    //
+    // Why a second field rather than an explicit `readingTimeMinutes`:
+    // one field cannot answer "was this pinned or computed?", and every
+    // reading-time defect this project has had came out of that ambiguity.
+    // PF-95's bug was two hooks disagreeing about whether a supplied value
+    // was intentional; PF-97 then had to drop the field from the admin
+    // payload entirely, because echoing a COMPUTED figure back would have
+    // silently frozen it forever. With the pin stored separately, both
+    // questions have a stored answer and neither hook has to infer one.
+    readingTimeOverride: {
+      type:    Number,
+      default: null,
+      min:     1,
+    },
+    // ─────────────────────────────────────────────────────────────
 
     // ── NEW IN PF-95 ────────────────────────────────────────────
     // The app's own publish date, independent of `createdAt` (which
@@ -159,55 +182,61 @@ const blogSchema = new mongoose.Schema(
 );
 
 function applyDerivedFields(doc, options = {}) {
-  const { forceSlug = false, forceReadingTime = false } = options;
+  const { forceSlug = false } = options;
 
   if ((forceSlug || !doc.slug) && doc.title) {
     doc.slug = makeSlug(doc.title);
   }
 
-  const hasReadableContent = (doc.sections && doc.sections.length > 0) || doc.content;
-
-  if ((forceReadingTime || doc.readingTimeMinutes == null) && hasReadableContent) {
+  // ── CHANGED IN PF-103 ─────────────────────────────────────────
+  // `readingTimeMinutes` is now a PURE FUNCTION of `readingTimeOverride`
+  // and the content, recomputed on every pass. It used to be conditional
+  // — a `forceReadingTime` option the caller derived from `isModified()`
+  // — and that condition is what made the field's value depend on WHICH
+  // hook ran and what else changed in the same operation.
+  //
+  // Recomputing unconditionally is safe precisely because it is
+  // deterministic: same override, same sections, same answer. It also
+  // fixes a case the old condition missed, where editing only the title
+  // left a stale figure behind because `sections` had not changed.
+  // ──────────────────────────────────────────────────────────────
+  if (doc.readingTimeOverride != null) {
+    doc.readingTimeMinutes = doc.readingTimeOverride;
+  } else if ((doc.sections && doc.sections.length > 0) || doc.content) {
     doc.readingTimeMinutes = calculateReadingTimeMinutes(doc);
   }
 }
 
 // Auto-generate fields before validation so required slug validation passes.
 //
-// ── CHANGED IN PF-95 ────────────────────────────────────────────
-// `forceReadingTime` used to fire on any content change alone, which
-// silently overwrote an explicitly-supplied `readingTimeMinutes` on the
-// SAME operation — it never checked whether `readingTimeMinutes` itself
-// had been touched.
-//
-// Not hypothetical, and not only a save()-path concern: BOTH hooks run
-// for `insertMany`. `pre('insertMany')` fires first on the raw POJOs
-// (mongoose/lib/model.js:3055), then each is constructed via
+// ── HISTORY, because the shape here is the scar tissue ──────────
+// BOTH hooks run for `insertMany`. `pre('insertMany')` fires first on the
+// raw POJOs (mongoose/lib/model.js:3055), then each is constructed via
 // `new ThisModel(doc)` and `.$validate()`d (model.js:3085-3096 →
-// document.js:2972 → document.js:2765-2769), which fires THIS hook. On a
-// freshly-constructed post `sections` is always "modified", so the old
-// condition recomputed unconditionally and `pre('insertMany')`'s own
-// null-check — which correctly left an explicit value alone — was undone
-// one step later. Measured before the fix: an explicit
-// `readingTimeMinutes: 6` came back as 3.
+// document.js:2972 → document.js:2765-2769), which fires THIS hook.
 //
-// The fix adds one condition: skip the recompute if THIS operation also
-// explicitly set `readingTimeMinutes`. An edit that changes `sections`
-// without supplying a new reading time still recomputes.
+// PF-95 found the two disagreeing: `pre('insertMany')` correctly left an
+// explicitly-supplied `readingTimeMinutes` alone, and then this hook
+// overwrote it one step later, because on a freshly-constructed document
+// `sections` is always "modified". Measured before that fix: an explicit
+// `readingTimeMinutes: 6` came back as 3. PF-95 patched it by adding a
+// second condition here — skip the recompute if `readingTimeMinutes` was
+// modified in the same operation.
 //
-// `pre('insertMany')` is deliberately UNCHANGED — it was never the bug.
-// A second `pre('validate')` hook would not work either: it would run
-// after this one and see `isModified('readingTimeMinutes')` already true
-// from this hook's own overwrite.
+// ── CHANGED IN PF-103: that condition is GONE ───────────────────
+// It was a heuristic standing in for a fact nothing stored. `isModified`
+// cannot distinguish "the author pinned 6" from "a client echoed back the
+// 6 we computed last time" — which is why PF-97 had to strip the field
+// from the admin payload rather than answer the question.
+//
+// `readingTimeOverride` stores the fact, so this hook no longer has to
+// guess: `applyDerivedFields()` derives unconditionally, both hooks call
+// it identically, and there is nothing left for them to disagree about.
+// `forceSlug` stays — slugs genuinely are regenerated only on a title
+// change, since an existing post's URL must not move on every save.
 // ───────────────────────────────────────────────────────────────
 blogSchema.pre('validate', function () {
-  const contentChanged = this.isModified('content') || this.isModified('sections');
-  const readingTimeGivenThisOperation = this.isModified('readingTimeMinutes');
-
-  applyDerivedFields(this, {
-    forceSlug:        this.isModified('title'),
-    forceReadingTime: contentChanged && !readingTimeGivenThisOperation,
-  });
+  applyDerivedFields(this, { forceSlug: this.isModified('title') });
 });
 
 // insertMany does not run save middleware, so handle bulk seed/import paths too.

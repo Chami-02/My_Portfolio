@@ -117,6 +117,12 @@
   background: rgba(252, 163, 17, .10);
 }
 
+/* ⚠️ Named for the home page, where this pill IS the CONTACT link. On
+   /blog it carries '← GO BACK' while a separate CONTACT navLink sits beside
+   it (PF-103), so the class name understates its job. Deliberately NOT
+   renamed: the rename would touch Navbar.jsx, .overlayContactPill and the
+   guarded Navbar tests for zero user-visible change. It is the nav's one
+   accent pill, whatever navModel() labels it. */
 .contactPill {
   /* The keyframe NAME must come from a global class — CSS Modules
      rewrites an in-module animation-name to a scoped identifier that

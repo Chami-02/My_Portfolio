@@ -305,11 +305,12 @@ to PF-59 is intentional.
 | PF-95 | Migration 005 — distinct blog publish dates | 3 | ✅ built 2026-09-01 |
 | PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next, one shared sort spec | 8 | ✅ built 2026-09-02 |
 | PF-97 | Admin Blog panel repair — posts editable again | 5 | ✅ built 2026-09-04 (really ~8) |
-| PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | to do |
+| PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | ✅ built 2026-09-05 |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed | 8 | to do |
 | PF-100 | 404 page — Phase 2 treatment | 3 | to do |
 | PF-101 | Blog responsive + state audit, both themes | 6 | to do |
 | PF-102 | Sprint gate, PR, close | 8 | to do |
+| PF-103 | `/blog` polish — numeral fit, honest reading times, blog nav | 5 | ✅ built 2026-09-06 |
 
 ⚠️ **The Jira board still shows PF-95 as To Do; it is DONE.** Built,
 verified and recorded on 2026-09-01. Moving the board is the owner's.
@@ -339,17 +340,27 @@ before starting any of them. It is the starting point, not background:
 - **PF-100** inherits three measured contrast failures raised in PF-91.
   ⚠️ Not a pin-to-dark candidate — it fails in dark, the default theme.
 
-**`/blog` and `/blog/:slug` have no routes yet.** PF-86's five teaser links
-point at `/blog` and render `NotFoundPage` today. `Blog.dc.html` is PF-98
-and PF-99's design source.
+**`/blog` has a route as of PF-98; `/blog/:slug` still does not.** PF-86's
+five teaser links now reach a real page. `Blog.dc.html` is PF-98 and PF-99's
+design source.
 
-⚠️ **PF-98's tag-chip row is already decided and half-built.** It calls
-`GET /api/vocabulary/tag?inUse=true` (PF-97) and prepends `'All'` itself —
-`buildMatch` in `utils/blogQuery.js` already treats `'All'` as no filter.
-**Do NOT derive the chips from the fetched posts** the way
-`Blog.dc.html:327` does: PF-96 made `?q=`/`?tag=` server-side, so the list
-response is already filtered and derived chips would shrink as you filter.
-Full reasoning and both rejected alternatives in `locked-decisions.md`. **Sprint 14, not 13**, owns `/admin`'s light
+~~**PF-98**~~ — **BUILT 2026-09-05.** `/blog` is a real page: header,
+featured card, grid, server-side search, tag chips and empty state. **No
+backend change** — it is the first caller of PF-96's `?q=`/`?tag=` and
+PF-97's `?inUse=true`, both of which had zero consumers. Filters live in the
+URL and there are TWO empty states, both owner-approved deviations. Report:
+`new mds/E8/PF-98-blog-index-page.md`.
+
+⚠️ **`/blog/:slug` still 404s** — PF-99. PF-98's cards already point at it.
+
+⚠️ **THREE FINDINGS FROM PF-98, NONE IN ITS OWN CODE**, all in
+`silent-failures.md` and Outstanding work: **the `sweep` sheen has never
+painted** on either existing consumer (`base.css` animates `transform`; both
+prototypes animate `background-position` — measured with a control, fix
+deferred to PF-101 by owner decision); a **`fullPage` screenshot** captures
+every below-the-fold reveal at opacity 0 and reads as a broken layout; and
+**the E2E suite already exhausts the backend's rate limiter** (27 `429`
+lines in a run that predates PF-98). **Sprint 14, not 13**, owns `/admin`'s light
 theme, `global.css`'s `:root` deletion and the font cutover — one piece of
 work, don't pull it forward.
 
@@ -407,6 +418,9 @@ frontend/
       splash.js                  shouldShowSplash()
       parallax.js                computeParallaxTransform()
       loginError.js              loginErrorMessage() — see Silent failures
+      blogMeta.js                PF-98: formatMonth/formatReadTime — MOVED
+                                 here from BlogSection.jsx once /blog became
+                                 a second consumer. ⚠️ byRecency did NOT move
       blogForm.js                PF-97: postToForm/formToPayload/formErrors
                                  + tagList/hasTag/toggleTag/removeTag.
                                  ⚠️ emptySection()/emptyForm() are FACTORIES,
@@ -845,6 +859,14 @@ concluding "this is fine, I read the source".
   It sits *in front of* the `connectDB()` middleware and swallows connect
   errors. **`database` is the only field carrying the truth** — assert it
   is a non-null string, ideally the expected name.
+- **⚠️ `validateSync()` runs NO middleware**, so a field derived by
+  `pre('validate')` is silently not derived — and it returns `undefined`
+  for a valid doc exactly like a success. Measured: a doc pinned at 99
+  stayed 99 through `validateSync()` and became 3 through
+  `await validate()`. Bit migration 006's dry run, where the failure
+  prints `Already correct: 4` — **identical to the correct output**.
+  ⚠️ Only the control caught it: plant the dirty state and check the
+  probe sees it. Use `await doc.validate()`.
 - **A red backend suite has FOUR distinct shapes**, all on diffs that never
   touched the backend: a **timeout** (no `expect` diff), **SRV DNS**
   (`querySrv ENOTFOUND`, every route fails), **isolation residue**
@@ -983,7 +1005,7 @@ sibling that must NOT be swept up with it:
 | Removed | Keep |
 | --- | --- |
 | Contact's accent glow layer | `overflow: hidden` — the prototype's own |
-| Blog featured card's ghost `01` | `.sweep`, and the 02/03/04 numerals |
+| Blog featured card's ghost `01` | `.sweep`, and the 02/03/04 numerals — ⚠️ which sit at `top: -2px` since PF-103, NOT the export's `-18px`; `.card`'s `overflow: hidden` STAYS |
 | About portrait's caption | `.portraitFade` |
 | Blog reading view's "GOT A QUESTION" block (decision only, unbuilt) | — |
 | REPLAY INTRO + SCROLL BACK UP from the footer | — |
@@ -1039,7 +1061,13 @@ omitted — keep the two straight.
   The icon shows the **destination**. Glow is **theme-scoped** and uses
   `drop-shadow`, never `box-shadow`.
 - **The navbar is route-aware** — bare hashes on `/` (e2e depends on it),
-  absolute `/?nosplash=1#…` elsewhere, Blog's own nav on `/blog*`.
+  absolute `/?nosplash=1#…` elsewhere. ⚠️ **`/blog*` is NO LONGER the
+  prototype's nav (PF-103, 2026-09-05)**: it is **ABOUT · SKILLS ·
+  PROJECTS · CONTACT · `← GO BACK`** · divider · toggle · ADMIN. No BLOG
+  link. `Blog.dc.html:50-61`'s PROJECTS · ABOUT · `← PORTFOLIO` is the
+  frozen export — restoring it re-breaks an owner decision. Mobile
+  overlay focusables on `/blog` are **8**, not 6. `.contactPill` keeps
+  its name while carrying GO BACK, deliberately.
 - **`ScrollToHash` is gated on splash readiness and passes NO `behavior`
   argument**, so it inherits the root's `scroll-behavior` and the
   reduced-motion override reaches it. It is mounted **inside
@@ -1121,6 +1149,15 @@ omitted — keep the two straight.
 - **Cloudinary for file storage**, behind a provider interface.
 - **Résumé is PDF only; a new upload hard-deletes the old.**
 - **Blog content is `sections[]`**, not a flat string.
+- **`readingTimeMinutes` is DERIVED, one writer, client value IGNORED**
+  (PF-103). The author's pin is a **separate** field,
+  `readingTimeOverride` (`default: null`, `min: 1`); null means compute
+  at 200 wpm over headings + body + bullets. ⚠️ The seeded 6/7/4/5 were
+  **fiction** — the real bodies are 158/123/89/64 words, so every post
+  is **1 MIN READ**, and that disagrees with `docs/design/Blog.dc.html`
+  on purpose. Migration **006** clears it from a live database; **005 is
+  frozen, it ran in production**. ⚠️ Do NOT re-add a
+  `readingTimeMinutes` literal to `seed.js`.
 - **The admin Blog editor is a STRUCTURED SECTIONS EDITOR, not the
   prototype's markdown textarea** (PF-97, owner-approved 2026-09-04).
   ⚠️ `Admin.dc.html:478-481` still shows the single "Content * (Markdown

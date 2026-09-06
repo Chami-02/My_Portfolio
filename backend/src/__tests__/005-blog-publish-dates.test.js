@@ -69,17 +69,26 @@ describe('Migration 005 — blog publish dates and reading times (PF-95)', () =>
     expect(new Date(m[1]).getTime()).toBe(TARGET_DATA[title].publishedAt.getTime());
   });
 
-  test.each(titles)('seed.js sets the migration\'s readingTimeMinutes for "%s"', (title) => {
-    const block = postBlock(title);
-    const m = block.match(/readingTimeMinutes:\s*(\d+)/);
-    expect(m).not.toBeNull();
-    expect(Number(m[1])).toBe(TARGET_DATA[title].readingTimeMinutes);
+  // ── REPLACED BY PF-103 ────────────────────────────────────────────
+  // This used to assert that seed.js declared the migration's own
+  // readingTimeMinutes for each post, and that the four were [6, 7, 4, 5].
+  // Both are now WRONG BY DESIGN. Migration 006 retires those figures:
+  // measured with the model's 200-wpm formula the real bodies are
+  // 158/123/89/64 words, so every post computes to 1 minute, and seed.js
+  // declares no reading time at all.
+  //
+  // The direction is flipped rather than the assertion deleted — an
+  // absence that nothing checks is how a value creeps back in. TARGET_DATA
+  // still holds 6/7/4/5 because migration 005 RAN with them and a migration
+  // that has run is frozen; 006 is what changes them.
+  test.each(titles)('seed.js declares NO readingTimeMinutes for "%s"', (title) => {
+    expect(postBlock(title)).not.toMatch(/readingTimeMinutes:\s*\d+/);
   });
 
-  // The prototype's own values, docs/design/Blog.dc.html lines 268-316.
-  // Pinned literally so a plausible-looking edit to TARGET_DATA that
-  // happens to match a matching edit in seed.js still fails here.
-  test('reading times match the prototype exactly: 6, 7, 4, 5', () => {
+  test('005 still records the figures it actually wrote: 6, 7, 4, 5', () => {
+    // Not the current truth — the historical one. Editing this to match
+    // today's computed values would rewrite what a migration that has run
+    // against production did, which is exactly what must not happen.
     expect(titles.map((t) => TARGET_DATA[t].readingTimeMinutes)).toEqual([6, 7, 4, 5]);
   });
 
@@ -99,11 +108,16 @@ describe('Migration 005 — blog publish dates and reading times (PF-95)', () =>
     }
   });
 
-  // Guards the header comment corrected in this ticket. The old wording
+  // Guards the header comment. The original wording
   // ("readingTimeMinutes — calculated from `sections` by the same hook")
-  // is what let this bug survive: it names one hook where there are two,
-  // and it claims the field is derived when seed.js now sets it outright.
-  test('seed.js no longer claims readingTimeMinutes is a hook-derived field', () => {
+  // is what let PF-95's bug survive: it names one hook where there are two.
+  test('seed.js does not describe readingTimeMinutes with the old single-hook wording', () => {
     expect(seedSrc).not.toMatch(/readingTimeMinutes\s+— calculated from/);
+  });
+
+  // PF-103: seed.js's header must still EXPLAIN the absence, not just have
+  // one. A silent removal reads as an oversight and invites a re-add.
+  test('seed.js says why it no longer declares a reading time', () => {
+    expect(seedSrc).toMatch(/readingTimeMinutes` is NO LONGER set here/);
   });
 });

@@ -473,14 +473,31 @@ describe('route-awareness (2026-08-22)', () => {
       expect(hrefOf('PROJECTS')).toBe('/?nosplash=1#projects');
     });
 
-    it('renders the blog chrome on /blog, with no BLOG or CONTACT link', () => {
+    /**
+     * ⚠️ PF-103 (owner-requested 2026-09-05) widened this set. It used to be
+     * the prototype's PROJECTS · ABOUT · ← PORTFOLIO; it is now the
+     * portfolio's own sections with a GO BACK pill. Restoring the two-link
+     * set fails here rather than reading as a fidelity fix.
+     */
+    it('renders the blog chrome on /blog — four sections, no BLOG link', () => {
       at('/blog');
-      expect(screen.getByText('PROJECTS')).toBeInTheDocument();
-      expect(screen.getByText('ABOUT')).toBeInTheDocument();
-      expect(screen.getByText('← PORTFOLIO')).toBeInTheDocument();
+      for (const label of ['ABOUT', 'SKILLS', 'PROJECTS', 'CONTACT']) {
+        expect(screen.getByText(label)).toBeInTheDocument();
+      }
+      expect(screen.getByText('← GO BACK')).toBeInTheDocument();
+      // You are on it.
       expect(screen.queryByText('BLOG')).toBeNull();
-      expect(screen.queryByText('CONTACT')).toBeNull();
-      expect(screen.queryByText('SKILLS')).toBeNull();
+      // The label it replaced, so a stale build is caught rather than passing.
+      expect(screen.queryByText('← PORTFOLIO')).toBeNull();
+    });
+
+    it('orders the blog links left to right, ABOUT first', () => {
+      // getByText order is DOM order here, which is what the reader sees.
+      const { container } = at('/blog');
+      const labels = [...container.querySelectorAll('nav a')]
+        .map((a) => a.textContent)
+        .filter((t) => ['ABOUT', 'SKILLS', 'PROJECTS', 'CONTACT'].includes(t));
+      expect(labels).toEqual(['ABOUT', 'SKILLS', 'PROJECTS', 'CONTACT']);
     });
 
     it('uses react-router for off-home links, not a full document load', () => {
@@ -490,8 +507,8 @@ describe('route-awareness (2026-08-22)', () => {
       // still being intercepted by the router — assert the shape the
       // component chose rather than the navigation itself.
       const { container } = at('/blog');
-      const portfolio = screen.getByText('← PORTFOLIO').closest('a');
-      expect(portfolio).toHaveAttribute('href', '/?nosplash=1');
+      const goBack = screen.getByText('← GO BACK').closest('a');
+      expect(goBack).toHaveAttribute('href', '/?nosplash=1');
       // Nothing in the blog header should still be a dead bare hash.
       const hashes = [...container.querySelectorAll('a[href^="#"]')];
       expect(hashes).toHaveLength(0);
@@ -560,9 +577,12 @@ describe('route-awareness (2026-08-22)', () => {
       expect(openAt('/')).toHaveLength(8);
     });
 
-    it('has 6 on /blog — the count is per-route now, not a constant', () => {
-      // close, PROJECTS, ABOUT, ← PORTFOLIO, toggle, ADMIN.
-      expect(openAt('/blog')).toHaveLength(6);
+    it('has 8 on /blog — the count is per-route now, not a constant', () => {
+      // close, ABOUT, SKILLS, PROJECTS, CONTACT, ← GO BACK, toggle, ADMIN.
+      // ⚠️ Was 6 before PF-103 widened the blog link set; it coincidentally
+      // matches "/" again, so the two counts are asserted separately rather
+      // than shared, to keep them independently wrong-able.
+      expect(openAt('/blog')).toHaveLength(8);
     });
 
     it('still ends on ADMIN, so the trap wraps at the right element', () => {
@@ -582,7 +602,8 @@ describe('route-awareness (2026-08-22)', () => {
       act(() => {
         screen.getByLabelText('Open menu').click();
       });
-      const links = screen.getAllByText('PROJECTS');
+      // ABOUT is first in the blog set since PF-103; it was PROJECTS before.
+      const links = screen.getAllByText('ABOUT');
       expect(document.activeElement).toBe(links[links.length - 1].closest('a'));
     });
   });

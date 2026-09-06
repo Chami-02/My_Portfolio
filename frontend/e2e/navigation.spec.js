@@ -65,12 +65,15 @@ test.describe('Navbar off the home page', () => {
   test('/blog renders the Blog chrome, with no dead bare hashes', async ({ page }) => {
     await page.goto('/blog');
     const header = page.locator('header');
-    await expect(header.getByRole('link', { name: 'PROJECTS' })).toBeVisible();
-    await expect(header.getByRole('link', { name: 'ABOUT' })).toBeVisible();
-    await expect(header.getByRole('link', { name: /PORTFOLIO/ })).toBeVisible();
-    // On it already — and the Blog prototype's nav has no CONTACT.
+    // PF-103: the portfolio's own sections, left to right, plus GO BACK.
+    for (const label of ['ABOUT', 'SKILLS', 'PROJECTS', 'CONTACT']) {
+      await expect(header.getByRole('link', { name: label })).toBeVisible();
+    }
+    await expect(header.getByRole('link', { name: /GO BACK/ })).toBeVisible();
+    // On it already.
     await expect(header.getByRole('link', { name: 'BLOG' })).toHaveCount(0);
-    await expect(header.getByRole('link', { name: 'CONTACT' })).toHaveCount(0);
+    // The label GO BACK replaced — catches a stale build serving old chrome.
+    await expect(header.getByRole('link', { name: /PORTFOLIO/ })).toHaveCount(0);
     // The bug itself: zero links that go nowhere off the home page.
     await expect(header.locator('a[href^="#"]')).toHaveCount(0);
   });
