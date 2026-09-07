@@ -573,3 +573,45 @@ section.blog {
   border: 1px solid rgba(var(--ln), .08);
   background: rgba(var(--srf), .34);
 }
+
+/* ── empty state — PF-101 ─────────────────────────────────────────────
+ * Shown when the fetch SUCCEEDS and returns no posts. Before PF-101 that
+ * case fell through to `.featuredPlaceholder` and stayed there forever.
+ *
+ * Values transcribed from the prototype's own empty state
+ * (Blog.dc.html:197) via BlogPage.module.css's `.empty`, which shipped
+ * them first in PF-98. Declared here rather than shared: the two modules
+ * are free to diverge under a later owner instruction, and `docs/design/`
+ * has been frozen since 2026-08-22 — the same call BlogPostPage.module.css
+ * records for its byte-identical tag pill.
+ *
+ * ⚠️ No `transition`. Nothing here is Reveal-wrapped (the panel replaces a
+ * grid slot, deliberately un-Revealed), so PF-93's rule is vacuous — but
+ * there is also nothing to transition, and adding one would be inventing
+ * motion the prototype's empty state does not have.
+ */
+.empty {
+  padding: 56px 28px;
+  border-radius: 22px;
+  border: 1px dashed rgba(252, 163, 17, .34);
+  background: rgba(252, 163, 17, .04);
+  text-align: center;
+}
+
+.emptyHeading {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 34px);
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 10px;
+}
+
+/* `margin: 0` — last child, there is no button under it. Matches
+   BlogPage's `.emptyBodyLast` for the same reason. */
+.emptyBody {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin: 0;
+}

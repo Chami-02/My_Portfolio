@@ -2,7 +2,8 @@
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -140,6 +141,27 @@ const VOCAB = Object.freeze([
 const ok      = (data) => ({ data, isLoading: false, isError: false, error: null });
 const loading = ()     => ({ data: undefined, isLoading: true, isError: false, error: null });
 const failed  = (e)    => ({ data: undefined, isLoading: false, isError: true, error: e });
+
+/**
+ * The error page, rendered. Separate from `draw()` because the error branch
+ * needs `refetch`/`isFetching` on the query result, which `failed()` does
+ * not carry — and a mock missing `refetch` would make the retry click throw
+ * rather than fail an assertion.
+ */
+function drawFailed({ refetch = vi.fn(), isFetching = false } = {}) {
+  const state = { ...failed(new Error('boom')), refetch, isFetching };
+  useBlogPosts.mockImplementation(() => state);
+  useVocabulary.mockImplementation(() => ok(VOCAB));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/blog']}>
+        <ThemeProvider><MotionProvider><BlogPage /></MotionProvider></ThemeProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  return view.container;
+}
 
 let location;
 function LocationProbe() {
@@ -942,6 +964,70 @@ describe('BlogPage — failure', () => {
    * a parent state change — turning one failed fetch into a console full of
    * duplicates.
    */
+  /**
+   * ⚠️ BEFORE PF-101 A FAILED FETCH RENDERED NOTHING AT ALL, and no test
+   * noticed — the only error assertion in this file was the console.error
+   * one below, which passes just as well against a blank page.
+   *
+   * The trace: `showGrid = !isError` killed the featured block AND the
+   * grid, while `isEmpty` excluded `isError` so neither empty branch
+   * fired. Every branch in the section was false simultaneously.
+   *
+   * ⚠️ This is why "does it log the error" is not a substitute for "does
+   * the reader see anything". The console assertion measured the
+   * diagnostic, not the interface.
+   */
+  it('shows an error panel when the fetch fails, not a blank section', () => {
+    const c = drawFailed();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByText(/Field notes are not loading/i)).toBeInTheDocument();
+    // The section is not merely non-empty — it must not be the blank case.
+    expect(c.querySelectorAll('[class*="featuredCard"]')).toHaveLength(0);
+    expect(c.querySelectorAll('[class*="cardPlaceholder"]')).toHaveLength(0);
+  });
+
+  /**
+   * ⚠️ `role="alert"`, NOT `role="status"`. The filtered-empty panel is
+   * deliberately polite because live search fires it on nearly every
+   * keystroke; a fetch failure is not keystroke-driven and should
+   * interrupt. Both directions pinned, or the two panels could silently
+   * converge on one role.
+   */
+  it('announces the error assertively and the filtered-empty politely', () => {
+    drawFailed();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
+    cleanup();
+
+    draw({ filtered: ok([]), total: ok(POSTS), path: '/blog?q=zzz' });
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /**
+   * ⚠️ `type="button"` is load-bearing even though this control sits
+   * outside the search `<form>`: a button with no type inside a form is a
+   * SUBMIT button, and this panel is one refactor away from moving. PF-97
+   * shipped exactly that bug — a confirm dialog inside a form silently
+   * saved the form.
+   */
+  it('offers a retry that calls refetch, and is a non-submitting button', async () => {
+    const refetch = vi.fn();
+    drawFailed({ refetch });
+
+    const retry = screen.getByRole('button', { name: 'TRY AGAIN' });
+    expect(retry).toHaveAttribute('type', 'button');
+
+    await userEvent.click(retry);
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables the retry while a refetch is already in flight', () => {
+    drawFailed({ isFetching: true });
+    const retry = screen.getByRole('button', { name: 'RETRYING…' });
+    expect(retry).toBeDisabled();
+  });
+
   it('logs the failure exactly once across a re-render', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const err = new Error('boom');
@@ -965,6 +1051,26 @@ describe('BlogPage — failure', () => {
 
 // ══════════════════════════════════════════════════════════════════════
 describe('BlogPage — the stylesheet', () => {
+  /**
+   * ⚠️ PF-101. An unbroken token in a title had no wrap guard, so it
+   * overflowed and was CLIPPED — silently, because the card's own
+   * `overflow: hidden` absorbs it and the page never scrolls sideways
+   * (`docOverflowX` stayed 0 at every width measured).
+   *
+   * Measured with an 85-character token: 1039px of content in a 238px box at 320px wide, 1970 in 1106 at 1280.
+   *
+   * ⚠️ NOT a narrow-viewport bug. It clips at 1280 too — the content is
+   * wider than any box the design has. A responsive sweep that only
+   * looked at phone widths would have called this clean.
+   *
+   * ⚠️ Asserted through postcss, not a text search: the rule's own
+   * comment names `overflow-wrap` while explaining why it is there, so a
+   * raw `toContain` would match the explanation and pass regardless.
+   */
+  it('.featuredTitle wraps an unbroken token rather than clipping it', () => {
+    expect(decls('.featuredTitle')['overflow-wrap']).toBe('anywhere');
+  });
+
   /**
    * PF-93. `Reveal` owns `transition` for the life of the element it
    * renders, entrance and hover alike. A `transition` declared on one of

@@ -89,6 +89,113 @@ describe('Keyframe library (PF-69)', () => {
     expect(dupes).toEqual([]);
   });
 
+  /**
+   * ⚠️ WHICH PROPERTY EACH KEYFRAME ANIMATES — added PF-101, 2026-09-07.
+   *
+   * The list above pins NAMES. That is what let `sweep` ship for a full
+   * sprint as a `transform` when both prototypes declare it as a
+   * `background-position` animation: the name was right, the body was
+   * wrong, and the sheen never painted on any of its three consumers.
+   * Every other keyframe in the library had the identical exposure.
+   *
+   * ⚠️ THIS PINS THE PROPERTY, NOT THE VALUES, and that is deliberate.
+   * Several magnitudes here are owner-approved deviations from the
+   * prototype; asserting whole bodies would turn any future re-tune into
+   * a test failure and train the next person to weaken the guard. The
+   * exact magnitudes that matter already have their own assertion below.
+   *
+   * ⚠️ The property is what carries the MECHANISM. A wrong value looks
+   * wrong on screen; a wrong property renders nothing at all and reports
+   * as healthy — `getComputedStyle` says "running", and even
+   * `getAnimations().length` says 1, because the wrong animation really
+   * is running. That is the class of bug this catches and a value guard
+   * cannot.
+   *
+   * `shimmer` is the built-in control: it is the one other
+   * background-position keyframe, transcribed correctly, and base.css's
+   * comment on it already drew the distinction `sweep` violated. If a
+   * mutation of `shimmer` does not turn this red, the guard is broken.
+   */
+  const ANIMATES = {
+    // base.css
+    riseIn:      ['opacity', 'transform'],
+    fadeIn:      ['opacity'],
+    typeIn:      ['opacity', 'transform'],
+    barGrow:     ['transform'],
+    dot:         ['box-shadow'],
+    'dot-ok':    ['box-shadow'],
+    glowdot:     ['box-shadow', 'transform'],
+    glowpulse:   ['box-shadow'],
+    pulsering:   ['opacity', 'transform'],
+    ringPulse:   ['box-shadow'],
+    boltp:       ['opacity', 'transform'],
+    breathe:     ['transform'],
+    floatY:      ['transform'],
+    nudge:       ['opacity', 'transform'],
+    spin:        ['transform'],
+    orbdot:      ['transform'],
+    sweep:       ['background-position'],   // ⚠️ NOT transform — see above
+    shimmerline: ['transform'],
+    shimmer:     ['background-position'],
+    scanline:    ['transform'],
+    flicker:     ['opacity'],
+    marq:        ['transform'],
+    blink:       ['opacity'],
+    // the per-screen variants
+    'flt-portfolio':   ['transform'],
+    'drift-portfolio': ['transform'],
+    'sheen-portfolio': ['opacity', 'transform'],
+    'flt-blog':        ['transform'],
+    'sheen-blog':      ['transform'],
+    'flt-admin':       ['transform'],
+    'drift-admin':     ['transform'],
+    'sheen-admin':     ['transform'],
+    auroraA:           ['transform'],
+    auroraB:           ['transform'],
+  };
+
+  /**
+   * The body of one @keyframes rule, from its own opening line to its own
+   * closing brace at column 0.
+   *
+   * ⚠️ `indexOf('}')` would stop at the first INNER step's brace and
+   * silently assert against a single keyframe step — the trap already
+   * documented on the `blink` assertion below, which is where this
+   * technique comes from.
+   */
+  const bodyOf = (css, name) => {
+    const start = css.search(new RegExp(`^\\s*@keyframes\\s+${name}\\s*\\{`, 'm'));
+    if (start === -1) return null;
+    const lines = css.slice(start).split('\n');
+    const end = lines.findIndex((l, i) => i > 0 && /^\}/.test(l));
+    return end === -1 ? null : lines.slice(0, end + 1).join('\n');
+  };
+
+  it('covers every defined keyframe — the table cannot silently fall behind', () => {
+    const found = [...all.matchAll(/@keyframes\s+([a-zA-Z0-9_-]+)/g)].map((m) => m[1]);
+    // A new keyframe with no entry here would otherwise be unguarded, and
+    // nothing else in this file would notice.
+    expect(found.filter((n) => !(n in ANIMATES))).toEqual([]);
+    expect(Object.keys(ANIMATES)).toHaveLength(found.length);
+  });
+
+  it.each(Object.entries(ANIMATES))(
+    '@keyframes %s animates exactly %s',
+    (name, props) => {
+      const body = bodyOf(all, name);
+      expect(body, `no body found for @keyframes ${name}`).not.toBeNull();
+
+      // Property names as they appear at the start of a declaration.
+      const declared = [
+        ...new Set(
+          [...body.matchAll(/(?:\{|;)\s*([a-z-]+)\s*:/g)].map((m) => m[1]),
+        ),
+      ].sort();
+
+      expect(declared).toEqual([...props].sort());
+    },
+  );
+
   // Values that carry the design's feel. Rounding them is the
   // failure mode this ticket exists to prevent.
   it('preserves exact magnitudes', () => {

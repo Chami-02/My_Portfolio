@@ -747,6 +747,61 @@ describe('the loading state', () => {
   });
 });
 
+// ══ empty — PF-101 ════════════════════════════════════════════════════
+describe('the empty state (PF-101)', () => {
+  /**
+   * ⚠️ THIS WAS A LIVE BUG UNTIL PF-101, and every test in this file
+   * passed throughout it.
+   *
+   * `hasData = !isLoading && !!featured` is false whenever there is no
+   * featured post — and a SUCCESSFUL fetch of an empty blog gives exactly
+   * that: not loading, not errored, no posts. Both render branches fell to
+   * their loading placeholders and nothing ever flipped them back, so an
+   * empty blog showed `aria-hidden` grey blocks forever, with no copy and
+   * nothing announced.
+   *
+   * ⚠️ Why the existing suite could not catch it: the loading tests above
+   * assert the placeholders are PRESENT, which is exactly what the broken
+   * empty state also produced. A fixture that returns `[]` was never
+   * written, so the two states were indistinguishable to the suite.
+   * A guard needs a fixture that separates the outcomes — asserting the
+   * placeholder exists proves nothing about which state produced it.
+   */
+  const empty = { data: [], isLoading: false, isError: false, error: null };
+
+  it('shows a message, not placeholders, when the blog is genuinely empty', () => {
+    const c = draw(empty);
+    expect(c.textContent).toContain('Nothing filed yet');
+    // The bug, pinned directly: these must be GONE, not merely joined.
+    expect(pickAll(c, 'featuredPlaceholder')).toHaveLength(0);
+    expect(pickAll(c, 'rowPlaceholder')).toHaveLength(0);
+  });
+
+  it('still distinguishes empty from loading', () => {
+    const loadingC = draw({ data: undefined, isLoading: true, isError: false, error: null });
+    expect(pickAll(loadingC, 'featuredPlaceholder')).toHaveLength(1);
+    expect(loadingC.textContent).not.toContain('Nothing filed yet');
+  });
+
+  /* The count pill was already suppressed at zero; the body now agrees. */
+  it('renders no count pill and no post links', () => {
+    const c = draw(empty);
+    expect(pick(c, 'count')).toBeNull();
+    expect([...c.querySelectorAll('a')].filter((a) => /^\/blog\/./.test(a.getAttribute('href') || ''))).toHaveLength(0);
+  });
+
+  it('keeps the browse-all link, which has no dependency on the query', () => {
+    expect(pick(draw(empty), 'browseAll')).not.toBeNull();
+  });
+
+  /* Same words as BlogPage's zero-posts panel, so the two surfaces agree
+     about what an empty blog looks like. */
+  it('uses the same copy as /blog\'s zero-posts panel', () => {
+    const c = draw(empty);
+    expect(c.textContent).toContain('The first field note is still being written.');
+  });
+});
+
 // ══ 15. error ═════════════════════════════════════════════════════════
 describe('the error state', () => {
   const failed = {

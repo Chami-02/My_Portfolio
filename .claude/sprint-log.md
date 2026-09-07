@@ -55,7 +55,7 @@ plan**. PF-95 is built; PF-96 → PF-102 are not.
 | ~~PF-98~~ | 10 | ✅ **BUILT 2026-09-05.** `/blog` has a route. ⚠️ The "fourth pill variant" warning was about the TEASER's pill — `/blog` needed a fifth and sixth |
 | ~~PF-99~~ | 8 | the EMAIL ME removal — ✅ **BUILT 2026-09-06** |
 | ~~PF-100~~ | 3 | three measured contrast failures, raised in PF-91 — ✅ **BUILT 2026-09-07**. ⚠️ The inherited framing ("Phase 1 token work") was WRONG; see the plan entry |
-| PF-101 | 6 | — |
+| ~~PF-101~~ | 6 | the `sweep` keyframe, parked here by owner decision — ✅ **BUILT 2026-09-07**. ⚠️ Its written scope named neither the reading view nor the 404, and missed TWO pre-existing defects it had to fix |
 | PF-102 | 8 | the five-command gate |
 
 Non-ticket sections worth knowing exist:
@@ -493,7 +493,7 @@ Transcribed from the Jira backlog board on 2026-09-02.
 | PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | Done | ✅ **built 2026-09-05** |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed, **+ view counter** | 8 | To Do | ✅ **built 2026-09-06** (really ~11 with the counter) |
 | PF-100 | 404 page — Phase 2 treatment | 3 | To Do | ✅ **built 2026-09-07** |
-| PF-101 | Blog responsive + state audit, both themes | 6 | To Do | — |
+| PF-101 | Blog responsive + state audit, both themes | 6 | To Do | ✅ **built 2026-09-07** (really ~8) |
 | PF-102 | Sprint gate, PR, close | 8 | To Do | — |
 | PF-103 | `/blog` polish — numeral fit, honest reading times + override, blog nav | 5 | Done | ✅ **built 2026-09-06** |
 | PF-104 | `/blog` search over post bodies, search icon + clear controls, full dates, publish-date stamp, numeral 56px | 3 | Done | ✅ **built 2026-09-06** |
@@ -1275,10 +1275,36 @@ actually calls.
 
 ### Outstanding work — deferred deliberately, not lost
 
-- **PF-101's responsive audit does not name the reading view** — the
-  surface did not exist when that ticket was described. `/blog/:slug` was
-  verified at one viewport (1384×868, Chromium) in PF-99 and needs to be
-  in PF-101's sweep. Added 2026-09-06.
+- **⚠️ `<ErrorBoundary>` DOES NOT PROTECT `BlogPage` OR `BlogPostPage`'s
+  own inline JSX.** Found and measured in PF-101 (2026-09-07): a bad
+  `sections[].body` blanked the entire page — `root.innerHTML.length === 0`
+  — despite the `.map` sitting inside the boundary. JSX children are
+  evaluated by the PARENT's render, so the throw happens above the
+  boundary and it never mounts. `HomePage`'s boundaries are effective
+  because they wrap real child components.
+  **NOT fixed, deliberately**: not reachable through the real API
+  (`sectionSchema` declares `body` as `[String]`, so Mongoose rejects a
+  string), and the fix is a structural refactor — extracting the article
+  body into a child component — which is beyond an audit ticket and needs
+  its own decision. Full entry and the instrument in `silent-failures.md`.
+
+- **No automated responsive coverage exists for ANY surface.**
+  `playwright.config.js` declares one project (Chromium) at the default
+  1280×720, and the only `setViewportSize` calls in the whole suite are
+  two 1440×900 ones in `footer.spec.js`. PF-101's sweep was manual and is
+  recorded in prose; nothing re-runs it. ⚠️ Related and larger: **no pass
+  in this repo has ever used Firefox or WebKit** — every "measured in
+  Chromium" line in this file is literal. Both were explicitly out of
+  PF-101's scope.
+
+
+- ~~**PF-101's responsive audit does not name the reading view**~~ —
+  **RESOLVED 2026-09-07.** It was added to the sweep, along with the 404,
+  which the ticket also predated. ⚠️ Worth keeping as a pattern: PF-101's
+  written scope was stale in BOTH directions — it named surfaces that had
+  grown, and it did not name two that had been built since. **A ticket
+  described early in a sprint describes the sprint's starting state, not
+  the state it will run against.**
 - **`vite.config.js`'s dev proxy is dead outside Docker** — it targets
   `http://backend:5000` and local dev bypasses it via `VITE_API_URL`, so
   it has presumably been broken locally for a long time with nothing
@@ -1292,9 +1318,14 @@ actually calls.
   is now reachable rather than theoretical. Still out of scope. Updated
   2026-09-06.
 
-- **⚠️ THE `sweep` SHEEN HAS NEVER PAINTED, ON EITHER CONSUMER. Found and
-  measured in PF-98 (2026-09-05); the owner's call was to record it here and
-  fix it in PF-101 so all three consumers change together.**
+- ~~**⚠️ THE `sweep` SHEEN HAS NEVER PAINTED, ON EITHER CONSUMER.**~~
+  **✅ FIXED — PF-101, 2026-09-07.** One line in `base.css`; all three
+  consumers were already correct and none changed. The batching decision
+  paid off exactly as intended. Full measurements, the control, and the
+  new property guard are in `silent-failures.md`. ⚠️ The sheen is
+  **subtle at the prototype's values** — effective source alpha 0.0635 at
+  the band's peak, about +16/+10/+1 RGB through `screen`. That is the
+  design's number; do not amplify it without asking.
 
   `styles/keyframes/base.css` animates `transform`; both prototypes animate
   `background-position`. With a static `background-position` the gradient's
@@ -1310,8 +1341,15 @@ actually calls.
   purpose**, so PF-101 changes one keyframe and gets three correct elements
   rather than chasing a fourth that was fixed early.
 
-  ⚠️ **`keyframes.test.js` pins keyframe NAMES, not their content**, so all
-  32 have this exposure. Worth widening in the same ticket.
+  ⚠️ ~~**`keyframes.test.js` pins keyframe NAMES, not their content**~~ —
+  **WIDENED in PF-101.** It now pins the PROPERTY each of the 33 keyframes
+  animates, plus a coverage assertion so a new keyframe cannot join the
+  library unguarded. Values are deliberately NOT pinned — several
+  magnitudes are owner-approved deviations, and a whole-body assertion
+  would turn any future re-tune into a test failure.
+  ⚠️ Small correction to the original note: the guard was not *purely*
+  name-based even then — the `blink` assertion already pinned content, and
+  it is the precedent the new one follows.
 
 - **⚠️ The E2E suite exceeds the backend's 100 req / 15 min / IP limiter, and
   has for some time.** Measured in PF-98: **27** `429` lines in a full run

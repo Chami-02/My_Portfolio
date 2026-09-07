@@ -439,7 +439,20 @@
   color: var(--muted);
 }
 
+/* ⚠️ `overflow-wrap` — PF-101. Without it a single unbroken token in a
+   title overflows this element and is CLIPPED by `.featuredCard`'s
+   `overflow: hidden`, silently. Measured with an 85-character token:
+   1039px of content inside a 238px box at 320px wide, and still 1970 in
+   1106 at 1280 — so this is NOT a narrow-viewport problem, it is a
+   content problem that no viewport escapes.
+
+   ⚠️ The page does not scroll sideways when it happens (docOverflowX
+   stayed 0 at every width), which is why nothing noticed: the card's own
+   `overflow: hidden` absorbs it and the title simply loses its tail.
+   `anywhere` rather than `break-word` — matching `.emptyTerm` below,
+   which already guards the echoed search term for the same reason. */
 .featuredTitle {
+  overflow-wrap: anywhere;
   position: relative;
   display: block;
   font-family: var(--font-display);

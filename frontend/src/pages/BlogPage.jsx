@@ -202,7 +202,8 @@ export function BlogPage() {
   // calls, so while no filter is active the two produce an identical query
   // key and React Query issues exactly ONE request. A filter costs one extra
   // fetch, already cached from the unfiltered first paint in the common case.
-  const { data: posts, isLoading, isError, error } = useBlogPosts({ q, tag: tags });
+  const { data: posts, isLoading, isError, error, refetch, isFetching } =
+    useBlogPosts({ q, tag: tags });
   const { data: everyPost } = useBlogPosts();
 
   // ⚠️ NOT derived from the fetched posts, which is what the prototype does
@@ -620,6 +621,48 @@ export function BlogPage() {
                   : !isEmpty && Array.from({ length: PLACEHOLDER_CARDS }, (_, i) => (
                     <div key={i} className={styles.cardPlaceholder} aria-hidden="true" />
                   ))}
+              </div>
+            )}
+
+            {/* ⚠️ THE ERROR STATE. Added PF-101 — before it, a failed fetch
+                rendered NOTHING AT ALL.
+
+                The trace: `showGrid = !isError` killed both the featured
+                block and the grid, and `isEmpty` excluded `isError`, so
+                neither empty branch fired either. Every branch in this
+                section was false at once and the page went blank under a
+                still-rendered search header. The only record was a
+                `console.error` the reader never sees.
+
+                Reuses the `.empty` surface rather than inventing a second
+                treatment: `Blog.dc.html` has an empty state (:196-202) and
+                no error state, so there is nothing to transcribe, and the
+                two panels are the same kind of "nothing to show you here".
+
+                ⚠️ NOT folded into `isEmpty`. "No posts match" and "the API
+                failed" are different sentences, and PF-104's
+                `notFoundMessage` names the search term — meaningless when
+                nothing was fetched at all.
+
+                ⚠️ `role="alert"`, where the filtered-empty panel uses
+                `role="status"`. That one is deliberately polite because
+                live search fires it on almost every keystroke; this one is
+                not keystroke-driven and is a genuine failure, so it should
+                interrupt. */}
+            {isError && (
+              <div className={styles.empty} role="alert">
+                <p className={styles.emptyHeading}>Field notes are not loading</p>
+                <p className={styles.emptyBody}>
+                  The posts could not be fetched. This is usually temporary.
+                </p>
+                <button
+                  type="button"
+                  className={styles.resetButton}
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                >
+                  {isFetching ? 'RETRYING…' : 'TRY AGAIN'}
+                </button>
               </div>
             )}
 

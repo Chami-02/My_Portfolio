@@ -2396,3 +2396,79 @@ The Footer carries its own `Field Notes` link on every route, so a
 page-level locator for the new pill resolves two elements and throws —
 which reads as the feature being gone. The E2E locator is scoped to
 `main`. Built in deliberately, not discovered.
+
+
+## PF-101 — the two missing states, and the sweep (2026-09-07)
+
+### `/blog`'s ERROR state is an ADDITION with no prototype source
+
+`Blog.dc.html` has an empty state (`:196-202`) and **no error state**. Before
+PF-101 a failed fetch rendered *nothing*: `showGrid = !isError` killed the
+featured block and the grid, and `isEmpty` excluded `isError` so neither
+empty branch fired. The page went blank under a still-rendered search
+header, recorded only by a `console.error`.
+
+**Owner-approved 2026-09-07, on the explicit condition that it invents no
+new visual language.** It reuses the `.empty` surface PF-98 already shipped
+— same dashed `rgba(252,163,17,.34)` border, same `rgba(252,163,17,.04)`
+wash, same `clamp(22px,3vw,34px)` heading — with error copy and a retry in
+place of `RESET FILTERS`.
+
+⚠️ **NOT folded into `isEmpty`.** "No posts match" and "the API failed" are
+different sentences, and PF-104's `notFoundMessage` names the search term —
+meaningless when nothing was fetched.
+
+⚠️ **`role="alert"`, where the filtered-empty panel is `role="status"`.**
+That one is deliberately polite because live search fires it on nearly
+every keystroke; this one is not keystroke-driven and is a real failure, so
+it interrupts. **Both directions are pinned by tests** — the two panels
+could otherwise silently converge on one role.
+
+⚠️ `type="button"` on the retry, even though it sits outside the search
+`<form>`. PF-97 shipped the opposite and a confirm dialog silently saved
+the form.
+
+Measured, composited, one clean load per theme: heading **19.48** dark /
+**15.01** light, body **7.38 / 6.21**, retry **8.62 / 5.74**.
+
+### The home teaser's EMPTY state
+
+`hasData = !isLoading && !!featured` is false for a *successful* fetch of an
+empty blog, so both branches fell to their loading placeholders and nothing
+ever flipped them back — `aria-hidden` grey blocks, permanently, with no
+copy. The new branch mirrors `BlogPage`'s zero-posts panel **word for word**
+so the two surfaces agree about what an empty blog looks like.
+
+⚠️ The values are transcribed into `BlogSection.module.css` rather than
+shared with `BlogPage.module.css`. Same call, same reason, as
+`BlogPostPage`'s byte-identical tag pill: `docs/design/` is frozen, so the
+next owner instruction moves one and not the other.
+
+⚠️ **BROWSE ALL WRITING stays.** The empty panel replaces the featured slot
+and the rows render `null`; the link is a fixed child of the column with no
+dependency on the query, exactly as it already survives the loading state.
+
+### `sweep` now animates `background-position`
+
+One line in `base.css:136`, matching both prototypes byte-for-byte. All
+three consumers already carried the correct `background-size`, so **no
+consumer changed** and `animations.css` did not either.
+
+⚠️ **The sheen is subtle at the design's own values** — effective source
+alpha **0.0635** at the band's peak, about **+16 R / +10 G / +1 B** through
+`mix-blend-mode: screen`. It is clearest in motion. **That is the
+prototype's number; amplifying it is a design change and needs asking.**
+
+⚠️ `AboutSection`'s `.portraitSweep` is on the **home page**, outside this
+ticket's blog scope, and changed anyway — batching all three was the whole
+reason the fix was parked in PF-101.
+
+### Titles wrap rather than clip
+
+`.featuredTitle` (`/blog`) and `.title` (`/blog/:slug`) take
+`overflow-wrap: anywhere`, matching `.emptyTerm`'s existing precedent.
+⚠️ Not a narrow-viewport fix: an unbroken 85-character token exceeded the
+box at **1280px** as well as 320. The teaser's rows and the reading view's
+nav cards were measured and need no guard — `.rowBody`'s `min-width: 0`
+already covers the first.
+

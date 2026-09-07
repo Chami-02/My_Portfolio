@@ -132,10 +132,39 @@
 
 /* ── Travelling light ────────────────────────────────────── */
 
-/* Vertical light pass over cards */
+/* Vertical light pass over cards.
+   ⚠️ `background-position`, NOT `transform` — PF-101, 2026-09-07.
+
+   This shipped as `translateY(-120%) → translateY(120%)` from PF-69 and
+   NEVER PAINTED ON ANY CONSUMER, for a full sprint. Both prototypes
+   declare it as a background-position animation, byte-identical:
+
+     Blog.dc.html:31                @keyframes sweep{0%{background-position:0 -160%}100%{background-position:0 160%}}
+     Portfolio Revolution.dc.html:39  ...identical...
+
+   The mechanism, because "it's a transform, it still moves" is the
+   intuition that let it survive: every consumer paints with
+   `background-size: 100% 300%/320%` and leaves `background-position` at
+   its default `0% 0%`. The gradient's amber band is at 50% of the IMAGE,
+   so it sits `background-size / 2` below the element's own top — 515px
+   inside a 322px box, 1176px inside a 784px box — and a background is
+   painted only inside its box. A transform then moves the box and its
+   painted background TOGETHER, so the band is outside the paint area at
+   every point in the cycle. Nothing renders, in either theme.
+
+   ⚠️ Generalised: with a static background-position, any
+   background-size over 200% puts the 50% band outside the element.
+
+   ⚠️ `getAnimations().length` CANNOT catch this and twice reported it
+   fine (PF-81, PF-86) — the wrong animation really is running. The
+   instrument that answers the question is
+   `el.getAnimations()[0].effect.getKeyframes()`.
+
+   `shimmer` below is the sibling that was transcribed correctly, and its
+   comment already drew this exact distinction. */
 @keyframes sweep {
-  0%   { transform: translateY(-120%); }
-  100% { transform: translateY(120%);  }
+  0%   { background-position: 0 -160%; }
+  100% { background-position: 0 160%;  }
 }
 
 /* Horizontal shimmer — accent rules */

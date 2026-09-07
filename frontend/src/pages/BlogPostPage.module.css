@@ -144,7 +144,14 @@
 
 /* ── headline block ─────────────────────────────────────────────────── */
 
+/* ⚠️ `overflow-wrap` — PF-101. Same defect as BlogPage's `.featuredTitle`
+   and found by the same probe: an unbroken 85-character token measured
+   1308px of content in a 288px box at 320px wide, and 2758 in 820 at
+   1280. The reading view has no `overflow: hidden` ancestor to absorb it,
+   so here it escapes the measure instead of being clipped — a different
+   symptom, the same missing declaration. */
 .title {
+  overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-size: clamp(34px, 5.6vw, 72px);
   line-height: 1.02;

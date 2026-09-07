@@ -496,6 +496,26 @@ describe('states', () => {
 
 // ══ 8. the stylesheet ═════════════════════════════════════════════════
 describe('BlogPostPage.module.css', () => {
+  /**
+   * ⚠️ PF-101. An unbroken token in a title had no wrap guard. Measured
+   * with an 85-character token: 1308px of content in a 288px box at
+   * 320px wide, and 2758 in 820 at 1280.
+   *
+   * ⚠️ NOT a narrow-viewport bug — it exceeds every box the design has,
+   * so a sweep that only checked phone widths would have called it clean.
+   * The sibling defect on BlogPage's `.featuredTitle` was CLIPPED by an
+   * `overflow: hidden` ancestor; this one has no such ancestor and
+   * escapes the reading measure instead. Different symptom, same missing
+   * declaration — which is why both are guarded rather than just the one
+   * that looked broken.
+   *
+   * ⚠️ Asserted through postcss, not a text search: the rule's own
+   * comment names `overflow-wrap` while explaining why it is there.
+   */
+  it('.title wraps an unbroken token rather than overflowing the measure', () => {
+    expect(decls('.title')['overflow-wrap']).toBe('anywhere');
+  });
+
   it('pulls riseIn in with composes, not a scoped animation-name', () => {
     // ⚠️ A keyframe NAMED inside a *.module.css is scoped to an
     // identifier no @keyframes defines: the declaration stays valid and

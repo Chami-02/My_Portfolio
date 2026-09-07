@@ -159,6 +159,19 @@ export function BlogSection() {
   const showGrid = !isError;
   const hasData  = !isLoading && !!featured;
 
+  // ⚠️ WITHOUT THIS THE TEASER SKELETONS FOREVER. Added PF-101.
+  //
+  // `hasData` is false whenever there is no `featured` post — and a
+  // SUCCESSFUL fetch of an empty blog gives exactly that: `isLoading`
+  // false, `isError` false, `featured` undefined. Both branches below
+  // therefore fell to their loading placeholders and nothing ever flipped
+  // them back, so an empty blog rendered `aria-hidden` grey blocks
+  // permanently, with no copy and nothing for a screen reader.
+  //
+  // The discriminator has to be "the fetch finished and returned nothing",
+  // which is not the same question as "is there a featured post".
+  const isEmpty = !isLoading && !isError && all.length === 0;
+
   return (
     <section id="blog" className={styles.blog}>
       <div className={styles.inner}>
@@ -239,6 +252,17 @@ export function BlogSection() {
                   <ViewCount views={featured.views} className={styles.views} />
                 </span>
               </Reveal>
+            ) : isEmpty ? (
+              /* Mirrors BlogPage's zero-posts panel (its `total === 0`
+                 branch) — same words, so the teaser and /blog agree about
+                 what an empty blog looks like. Not a Reveal: it replaces a
+                 grid slot, same reasoning as the placeholder below. */
+              <div className={styles.empty}>
+                <p className={styles.emptyHeading}>Nothing filed yet</p>
+                <p className={styles.emptyBody}>
+                  The first field note is still being written.
+                </p>
+              </div>
             ) : (
               // Bare div, not a Reveal: a placeholder that animates in
               // and is then replaced animates the same grid slot twice.
@@ -293,6 +317,11 @@ export function BlogSection() {
                       <span className={styles.rowChevron} aria-hidden="true">→</span>
                     </Reveal>
                   ))
+                : isEmpty
+                ? // Nothing to stand in FOR. The panel in the featured slot
+                  // already says so; three more grey blocks beside it would
+                  // read as content still arriving.
+                  null
                 : Array.from({ length: TEASER_COUNT - 1 }, (_, i) => (
                     <div
                       key={i}

@@ -1690,7 +1690,58 @@ $ grep -c "inUse" src/controllers/vocabularyController.js
 mutates and restores can end up measuring a state nobody intended.** The
 control is the cheapest instrument that detects it.
 
-## ⚠️ The `sweep` keyframe is MIS-TRANSCRIBED and its sheen has never painted (found PF-98, 2026-09-05)
+## ⚠️ The `sweep` keyframe was MIS-TRANSCRIBED and its sheen never painted (found PF-98, 2026-09-05 — FIXED PF-101, 2026-09-07)
+
+**✅ FIXED 2026-09-07.** `base.css:136` now declares
+`background-position: 0 -160% → 0 160%`, matching both prototypes. One
+line; all three consumers were already carrying the correct
+`background-size`, so none of them changed and `animations.css` did not
+either — `.kf-sweep` only ever carried the name.
+
+**Verified with the instrument that works, and with a control:**
+`el.getAnimations()[0].effect.getKeyframes()` now reports
+`backgroundPositionX`/`backgroundPositionY` (Chrome splits the shorthand);
+computed `background-position` reads `0px -154.101%` mid-cycle where it
+used to sit static. The band's position through the 9s cycle, measured on
+`/blog`'s featured card (352px box):
+
+| t | `background-position-y` | band | inside the box? |
+| --- | --- | --- | --- |
+| 0ms | -160% | 1815px | no |
+| 4000ms | -17.7778% | 706px | no |
+| **5300ms** | **28.4444%** | **345px** | **yes** |
+| **5900ms** | **49.7778%** | **179px** | **yes** |
+| **6500ms** | **71.1111%** | **13px** | **yes** |
+| 7500ms | 106.667% | -265px | no |
+
+Those three crossings are the same t-values PF-98's amplified control
+predicted. The amplified control was re-run after the fix (band to solid
+red, opacity 1, blend normal) and the band is plainly visible crossing the
+card — where before it showed nothing at any point in the cycle.
+
+⚠️ **The shipped bundle is the check that matters, and it flipped**:
+`dist/assets/*.css` carried `@keyframes sweep{0%{transform:translateY(-120%)}…}`
+and now carries `@keyframes sweep{0%{background-position:0 -160%}to{background-position:0 160%}`.
+
+⚠️ **At the prototype's real values the sheen is SUBTLE** — measured, the
+layer contributes an effective source alpha of **0.0635** at the band's
+peak (`rgba(252,163,17,.14)` × `opacity: .45`), i.e. about
+**+16 R / +10 G / +1 B** over whatever it sits on, through
+`mix-blend-mode: screen`. Clearest in motion, easy to miss in a still.
+That is the design's value, not a shortfall — do not amplify it without
+asking.
+
+⚠️ **The blind spot is closed too.** `keyframes.test.js` now pins the
+PROPERTY each of the 33 keyframes animates, not just its name, and has a
+coverage assertion so a new keyframe cannot join unguarded. Mutation-
+tested three ways: reverting `sweep` fails it, mutating `shimmer`
+(the one other `background-position` keyframe — the control that proves
+the guard generalises rather than special-casing `sweep`) fails it, and
+adding an untabled keyframe fails it.
+
+**The original entry follows, because the mechanism is the reusable part.**
+
+---
 
 **Measured, with a control. Deliberately NOT fixed in PF-98 — owner's call:
 PF-101 fixes all three consumers together, so they stay identical until then.**
@@ -2189,3 +2240,85 @@ ordinary test setup and both disarm the guard completely.
 
 ⚠️ **Only mutation testing finds it.** The test passes, reads correctly,
 and names the right behaviour. Nothing about it looks wrong.
+
+
+## ⚠️ An `<ErrorBoundary>` wrapping JSX in the SAME component catches nothing that JSX throws (found PF-101, 2026-09-07)
+
+**Measured, not reasoned about.** `BlogPostPage.jsx:146` opens an
+`<ErrorBoundary>`; `:223` maps `post.sections` inside it. A section whose
+`body` was a string instead of an array threw
+`TypeError: (section.body ?? []).map is not a function` — and the **whole
+page went blank**: `document.getElementById('root').innerHTML.length === 0`,
+`document.body.innerText === ''`. The boundary's fallback renders visible
+content (a 3rem-padded panel with an icon), so a caught error would have
+left `root` non-empty. It did not catch.
+
+**Why, and it is not a bug in `ErrorBoundary`.** A boundary catches errors
+thrown while rendering its **children as components**. JSX children are
+evaluated *eagerly by the parent* — `BlogPostPage` builds the whole element
+tree, including `.map()` calls, during **its own** render, before React
+ever mounts the boundary it returned. The throw therefore happens in
+`BlogPostPage`, one level ABOVE the boundary, and propagates to the
+nearest boundary above *that* — of which there is none, so React unmounts
+the tree.
+
+```
+<ErrorBoundary>            ← protects errors thrown INSIDE child COMPONENTS
+  <SkillsSection />        ← ✅ HomePage's usage. Works.
+</ErrorBoundary>
+
+<ErrorBoundary>
+  <article>
+    {items.map(...)}       ← ❌ evaluated during THIS component's render.
+  </article>                    The boundary is never mounted.
+</ErrorBoundary>
+```
+
+⚠️ **So the same component and the same JSX give opposite protection
+depending on whether the risky expression sits in a child component or
+inline.** `HomePage`'s six boundaries are effective; `BlogPage`'s and
+`BlogPostPage`'s protect their fetch-driven inline JSX not at all.
+
+⚠️ **NOT currently reachable through the real API** — `sectionSchema`
+declares `body` as `[String]`, so Mongoose rejects a string before it can
+be served. The blank page above was produced by a hand-written test
+fixture. Logged rather than fixed: the fix is a structural refactor
+(extracting the article body into a child component), which is beyond an
+audit ticket and needs its own decision.
+
+⚠️ **The instrument.** `page.on('pageerror')` registered *before*
+`goto` — a listener attached after load catches nothing and the page just
+looks empty. `root.innerHTML.length` distinguishes "boundary caught and
+rendered a fallback" from "React unmounted everything"; a screenshot does
+not.
+
+## ⚠️ "Element wider than the viewport" is not a responsive defect, and flags everything (found PF-101, 2026-09-07)
+
+A first pass at a responsive audit flagged any element whose
+`getBoundingClientRect().right` exceeded `innerWidth`. It reported
+**72 of 72** viewport/theme/surface combinations as broken. Every hit was
+intentional: marquee tracks (`4704px` wide by design), hero blobs, the
+`PageShell` clip. All are clipped by an ancestor and none of them scrolls
+the page.
+
+**Two different questions, and only the second is usually a bug:**
+
+| question | instrument |
+| --- | --- |
+| does the PAGE scroll sideways? | `documentElement.scrollWidth - clientWidth` |
+| is CONTENT cut off inside its own box? | `el.scrollWidth > el.clientWidth` on an element whose `overflow-x` clips |
+
+⚠️ **The second one found the real defects the first one buried** — an
+unbroken 85-character title measured 1039px of content inside a 238px
+`.featuredTitle` box, clipped invisibly by `.featuredCard`'s
+`overflow: hidden`, with `docOverflowX` reading **0** the whole time.
+
+⚠️ **And it is NOT a narrow-viewport bug**, which is the second lesson:
+the same title clipped at **1280px** (1970 in 1106). A sweep that only
+checked phone widths would have called it clean. Content can exceed every
+box the design has.
+
+⚠️ Screen-reader-only text (`.srOnly`, `clientWidth: 1`) and marquees will
+always trip the self-overflow check. Exclude them by name, or the signal
+drowns again.
+
