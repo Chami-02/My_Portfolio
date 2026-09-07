@@ -1,0 +1,211 @@
+/* frontend/src/pages/NotFoundPage.module.css
+ *
+ * The 404 — PF-100. New file; the page had no stylesheet at all before
+ * this, only Tailwind utilities reading Phase 1 tokens.
+ *
+ * ⚠️ NO PROTOTYPE SOURCE. `docs/design/` contains no 404 screen. Every
+ * value below is nonetheless transcribed from an existing prototype
+ * element rather than chosen — the sources are named inline. What is new
+ * is the ARRANGEMENT, approved by the owner on 2026-09-07.
+ *
+ * Three file-wide rules, inherited from BlogPage/BlogPostPage:
+ *
+ * 1. Font stacks go through the tokens (`var(--font-mono|display)`),
+ *    NEVER the prototype's literal `'Anton', sans-serif`. The token
+ *    carries the metric-matched `Anton Fallback` face declared in
+ *    tokens.css; the literal stack drops it and puts the font-swap
+ *    reflow back.
+ *
+ * 2. PF-93 — never declare a `transition` on a Reveal-wrapped element.
+ *    ⚠️ VACUOUS ON THIS PAGE, and worth saying rather than leaving to be
+ *    rediscovered: NotFoundPage.jsx uses no `Reveal` at all. Nothing
+ *    supplies a transition, so the pills below must declare their own.
+ *    Same reasoning that makes `.tagPill`'s transition correct on the
+ *    reading view.
+ *
+ * 3. Accent literals transcribe verbatim — `rgba(252, 163, 17, .3)`
+ *    stays as written. They are the design's own values, not token
+ *    references it forgot to make.
+ *
+ * ⚠️ THE PILL PAIR IS A SECOND TRANSCRIPTION OF THE HERO'S CTA PAIR
+ * (Portfolio Revolution.dc.html:118-119, already transcribed at
+ * HeroSection.module.css:275-317) AND IS DELIBERATELY NOT SHARED WITH IT.
+ * Composing across from a section module would make HeroSection a
+ * library, and extracting to patterns.module.css would coerce two screens
+ * that are free to diverge into one rule — `docs/design/` has been frozen
+ * since 2026-08-22, so the next owner instruction moves one and not the
+ * other. This is the same call BlogPostPage.module.css records for its
+ * byte-identical tag pill, and for the same stated reason.
+ */
+
+/* ── the page ───────────────────────────────────────────────────────── */
+
+/* ⚠️ `composes` MUST be the first declaration and the timing MUST be
+   longhands. A keyframe named inside a *.module.css is scoped to an
+   identifier no @keyframes defines: the declaration stays valid, the
+   element simply never animates, and getComputedStyle still reports it
+   as running — `el.getAnimations().length === 0` is the only tell. The
+   `animation` shorthand would additionally reset animation-name to
+   `none` and undo the composed class.
+
+   `riseIn` is one of the design's own 32 and already has its carrier in
+   styles/animations.css, so this adds no keyframe and leaves
+   keyframes.test.js's pinned count untouched. */
+.panel {
+  composes: kf-riseIn from global;
+  animation-duration: .8s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-fill-mode: both;
+
+  position: relative;
+  z-index: 2;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  /* Fills the viewport so the footer sits below the fold, as the Phase 1
+     page's `min-h-screen` did. `dvh` second — it wins where supported and
+     avoids the mobile address-bar jump, exactly as patterns.module.css's
+     `.section-hero` does it. */
+  min-height: 100vh;
+  min-height: 100dvh;
+
+  /* ⚠️ The top value clears the FIXED header (`--header-h`, 71px) with
+     room to spare. This is BlogPostPage's clamp, not the hero's — the
+     non-home-page rhythm, and the 404 is one click from either. */
+  padding:
+    clamp(110px, 15vh, 170px)
+    clamp(16px, 4vw, 40px)
+    clamp(60px, 9vh, 110px);
+}
+
+/* ── eyebrow ────────────────────────────────────────────────────────── */
+
+/* The design's accent mono label — 12px / .24em / var(--acc), the same
+   treatment the prototype's five numbered section eyebrows carry
+   (Portfolio Revolution.dc.html:195, 247, 312, 417, 493).
+
+   Declared locally rather than `composes:`-ing patterns.module.css's
+   `.section-eyebrow-label`. That class is half of the `01 / ABOUT`
+   structure — a label beside a gradient rule inside a flex row — and
+   this is a standalone page eyebrow with no number and no line. Binding
+   them means the next instruction to either moves both.
+
+   ⚠️ This token choice IS the fix for one of PF-91's three failures. The
+   old eyebrow was Phase 1's `--accent`, measured 2.44 in LIGHT. `--acc`
+   is the Phase 2 accent, deepened to #7E4800 in light by PF-91 precisely
+   so it passes on paper. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .24em;
+  color: var(--acc, #FCA311);
+  margin: 0 0 18px;
+}
+
+/* ── headline ───────────────────────────────────────────────────────── */
+
+/* Anton at the prototype's large-heading scale — Portfolio Revolution
+   .dc.html:210, the "WHO I AM" heading: clamp(34px,5vw,64px) / .95 /
+   uppercase. Not the hero's clamp(56px,9.4vw,138px); that is the site's
+   single largest type and belongs to the name on the front page.
+
+   ⚠️ `--strong` replaces Phase 1's `--border-bright`, which measured
+   1.91 in DARK — the default theme. That was the worst of PF-91's three
+   findings here and the reason this ticket outranked the admin rebuild.
+
+   The DOM text is sentence case and the uppercasing is CSS, which is the
+   prototype's own idiom (the hero writes "Parindra", not "PARINDRA").
+   ⚠️ Consequence for tests: the accessible name is "Page not found".
+   testing-library matches names case-SENSITIVELY, Playwright does not. */
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 5vw, 64px);
+  line-height: .95;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 20px;
+}
+
+/* ── body copy ──────────────────────────────────────────────────────── */
+
+/* BlogPostPage.module.css's `.notFoundBody` — 15px / 1.75 / var(--muted).
+   The site's other not-found surface, one click away, so the two read as
+   siblings.
+
+   ⚠️ `--muted` replaces Phase 1's `--text-body`, which measured 2.10 in
+   LIGHT. Third of PF-91's three.
+
+   `max-width` is a reading measure, not a layout width — the panel is
+   centred and the copy would otherwise stretch to the viewport. */
+.body {
+  max-width: 46ch;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.75;
+  margin: 0 0 34px;
+}
+
+/* ── actions ────────────────────────────────────────────────────────── */
+
+/* `gap: 14px` and the wrap are the hero's `.ctaRow`. `justify-content`
+   is added because this row is centred and the hero's is not. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+}
+
+/* Filled + outlined, the prototype's CTA pair. See the file header for
+   why these are transcribed again rather than shared with HeroSection.
+   Both carry their own `transition` — nothing here is Reveal-wrapped, so
+   nothing else supplies one. */
+.actionPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--acc, #FCA311);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: .1em;
+  padding: 16px 26px;
+  border-radius: 999px;
+  box-shadow: 0 12px 34px rgba(252, 163, 17, .3);
+  text-decoration: none;
+  transition: transform .25s, box-shadow .25s;
+}
+
+.actionPrimary:hover {
+  color: var(--accInk);
+  transform: translateY(-3px);
+  box-shadow: 0 20px 46px rgba(252, 163, 17, .45);
+}
+
+.actionSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: .1em;
+  padding: 16px 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .22);
+  text-decoration: none;
+  transition: color .25s, border-color .25s, background .25s;
+}
+
+.actionSecondary:hover {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .08);
+}

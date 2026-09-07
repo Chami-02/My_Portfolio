@@ -65,16 +65,36 @@ function modules(dir = src, out = []) {
   return out;
 }
 
-/** Every *.jsx under src/components, excluding test files. */
-function components(dir = join(src, 'components'), out = []) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name !== '__tests__') components(full, out);
-    } else if (entry.name.endsWith('.jsx')) {
-      out.push({ path: full, rel: full.slice(src.length + 1), jsx: readFileSync(full, 'utf8') });
+/**
+ * Every *.jsx that can render a <Reveal>, excluding test files.
+ *
+ * ⚠️ WIDENED IN PF-98 to include `src/pages`. It scanned `src/components`
+ * alone, which was complete only while every Reveal in the repo lived in a
+ * section component. `pages/BlogPage.jsx` renders seven of them — the
+ * featured card and each grid card among them — and every one of those
+ * escaped this guard entirely: the CSS half of the file already walked all
+ * of `src/`, so the module was scanned while the JSX naming its classes was
+ * not, and the pairing is what the guard is made of.
+ *
+ * A directory list rather than a single root, deliberately. `src/` as a
+ * whole would pull in `src/test/` and any future non-render tree, and the
+ * cost of a miss here is a SILENT one — the entrance easing is eaten with no
+ * error — so the set of scanned roots should be a decision, not a default.
+ */
+const RENDER_ROOTS = ['components', 'pages'];
+
+function components(out = []) {
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== '__tests__') walk(full);
+      } else if (entry.name.endsWith('.jsx')) {
+        out.push({ path: full, rel: full.slice(src.length + 1), jsx: readFileSync(full, 'utf8') });
+      }
     }
-  }
+  };
+  for (const root of RENDER_ROOTS) walk(join(src, root));
   return out;
 }
 

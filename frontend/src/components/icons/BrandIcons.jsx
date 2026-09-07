@@ -94,3 +94,63 @@ export function InstagramIcon({ size = 16, className }) {
     </svg>
   );
 }
+
+/**
+ * Magnifier — Material Design's `search`, public domain. Not a brand mark:
+ * it fronts /blog's search field (PF-104).
+ *
+ * ⚠️ THE aria RULE INVERTS FOR THIS ONE AND FOR CloseIcon BELOW, and
+ * getting it backwards ships a button with NO accessible name.
+ *
+ * Every icon above is `aria-hidden` *because it sits beside a text label*
+ * that already names the link — an exposed <svg> would duplicate that name.
+ * These two are the ENTIRE content of their buttons; there is no text
+ * beside them. The icon still stays `aria-hidden` (it is decorative either
+ * way), and the BUTTON carries the `aria-label`. A screen reader then
+ * announces "Search, button" rather than "button".
+ */
+export function SearchIcon({ size = 16, className }) {
+  return (
+    <svg {...base(size)} className={className} viewBox="0 0 24 24">
+      <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
+    </svg>
+  );
+}
+
+/**
+ * A cross — Material Design's `close`, public domain. The clear control in
+ * /blog's search field and on the active-filter summary (PF-104).
+ *
+ * ⚠️ Deliberately NOT the literal character `×`. That is U+00D7 MULTIPLICATION
+ * SIGN, which a screen reader announces as "times" and which renders at
+ * whatever weight the body font gives it — visibly lighter than the mono
+ * type it sits beside here. An `aria-hidden` glyph on `currentColor` tracks
+ * the theme and the hover state the same way every other icon in this file
+ * does. See the aria note on SearchIcon above.
+ */
+export function CloseIcon({ size = 16, className }) {
+  return (
+    <svg {...base(size)} className={className} viewBox="0 0 24 24">
+      <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" />
+    </svg>
+  );
+}
+
+/**
+ * An eye — Material Design's `visibility`, public domain. It fronts the
+ * per-post view counter on the blog cards and in the admin list (PF-99).
+ *
+ * ⚠️ The aria rule does NOT invert for this one — it follows the file's
+ * default, `aria-hidden`, unlike SearchIcon and CloseIcon above. The
+ * difference is what sits beside it: those two ARE their button's entire
+ * content, whereas this glyph is always followed by the count and a
+ * visually-hidden " views", so the number is already named. Exposing the
+ * svg as well would announce the icon twice over one figure.
+ */
+export function EyeIcon({ size = 16, className }) {
+  return (
+    <svg {...base(size)} className={className} viewBox="0 0 24 24">
+      <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
+    </svg>
+  );
+}

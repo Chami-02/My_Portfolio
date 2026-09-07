@@ -8,6 +8,20 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // ── ⚠️ ARRAY PARAMS, PF-105 ──────────────────────────────────────────
+  // axios v1 serialises an array as `tag[]=a&tag[]=b`. `URLSearchParams`
+  // — which react-router writes into the address bar, and which /blog's
+  // tag filter is built on — produces the REPEAT form, `tag=a&tag=b`.
+  //
+  // Express's `qs` parser happens to turn both into an array, so leaving
+  // this alone would appear to work while the address bar and the request
+  // on the wire disagreed. That is a bad kind of working: the URL a
+  // visitor copies is then not the URL the app fetches, and any future
+  // check on the raw query string sees a shape no client code writes.
+  //
+  // `indexes: null` is axios's own switch for the repeat form. Set once
+  // here rather than per call, so no future caller has to remember it.
+  paramsSerializer: { indexes: null },
 });
 
 // ── Request interceptor ───────────────────────────────────────────────────────

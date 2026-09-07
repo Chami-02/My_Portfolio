@@ -5,6 +5,8 @@ import { ScrollToTop }     from './components/layout/ScrollToTop';
 import { SkipLink }        from './components/layout/SkipLink';
 import { ProtectedRoute }  from './components/common/ProtectedRoute';
 import { HomePage }        from './pages/HomePage';
+import { BlogPage }        from './pages/BlogPage';
+import { BlogPostPage }    from './pages/BlogPostPage';
 import { NotFoundPage }    from './pages/NotFoundPage';
 import { AdminLoginPage }  from './pages/AdminLoginPage';
 import { AdminPage }       from './pages/AdminPage';     // Created in PF-37
@@ -42,6 +44,17 @@ function App() {
           <Routes>
             {/* Public */}
             <Route path="/"            element={<HomePage />} />
+            {/* PF-98. Ahead of the `*` catch-all, which swallowed /blog until
+                now — PF-86 pointed five Blog-teaser links here and every one
+                of them rendered NotFoundPage. */}
+            <Route path="/blog"        element={<BlogPage />} />
+            {/* PF-99. Every card PF-98 rendered pointed here and landed
+                on NotFoundPage; so did the four post links in the home
+                page's teaser. Order does not matter against `/blog`
+                (React Router v7 ranks by specificity, not declaration),
+                but it must precede nothing in particular — the `*`
+                catch-all below is what it is escaping. */}
+            <Route path="/blog/:slug"  element={<BlogPostPage />} />
             <Route path="/admin/login" element={<AdminLoginPage />} />
 
             {/* Protected — requires JWT */}

@@ -184,7 +184,12 @@ function AboutPortrait() {
         style={{ transform: 'scale(1.02)' }}
       />
       <div aria-hidden="true" className={styles.portraitFade} />
-      <div aria-hidden="true" className={styles.portraitSweep} />
+      {/* ⚠️ `.portraitSweep` was the next sibling and is GONE
+          (owner-requested, 2026-09-07). It never painted until PF-101
+          corrected the `sweep` keyframe hours earlier; the owner saw it
+          for the first time and asked for its removal. The ELEMENT is
+          removed, not just its animation. `.portraitFade` above is a
+          DIFFERENT child and stays — see the module for both notes. */}
       {/* The prototype's "GALLE, SRI LANKA — SEEING THE STACK" caption
           (line 205) was removed 2026-08-18 at the owner's request. The
           ELEMENT is gone, not just its text — an empty positioned div

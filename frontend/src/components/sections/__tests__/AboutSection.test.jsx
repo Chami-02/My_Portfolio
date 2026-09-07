@@ -63,9 +63,10 @@ const pickAll = (container, name) => container.querySelectorAll(`[class*="${name
 // Selected by class, not by alt text. The four parallax tests below only
 // need "the portrait <img>", and coupling them to the alt copy meant a
 // change to that copy failed them for a reason unrelated to what they
-// assert. The `img` qualifier disambiguates from .portraitFrame/.portraitFade/
-// .portraitSweep, which the [class*=] substring form would otherwise match
+// assert. The `img` qualifier disambiguates from .portraitFrame and
+// .portraitFade, which the [class*=] substring form would otherwise match
 // (see CLAUDE.md on [class*="name"] matching longer class names).
+// (.portraitSweep was a third such match until it was removed 2026-09-07.)
 const portrait = (container) => container.querySelector('img[class*="portraitImg"]');
 
 describe('AboutSection (PF-81)', () => {
@@ -175,8 +176,20 @@ describe('AboutSection (PF-81)', () => {
     expect(
       screen.getByAltText('Parindra Gallage leaning against a classic green Mini')
     ).toBeInTheDocument();
-    // The sweep and the fade are decoration, not content.
-    expect(pick(container, 'portraitSweep')).toHaveAttribute('aria-hidden', 'true');
+    // The fade is decoration, not content.
+    expect(pick(container, 'portraitFade')).toHaveAttribute('aria-hidden', 'true');
+
+    // ⚠️ `.portraitSweep` was removed 2026-09-07 (owner-requested) and the
+    // ELEMENT must be gone, not merely transparent — a zero-opacity
+    // absolute child still occupies the frame and is still walked by
+    // anything reading the DOM.
+    //
+    // ⚠️ ASSERTED AS A PAIR WITH `.portraitFade` ABOVE, deliberately.
+    // `.portraitFade` is a DIFFERENT child that softens the photo's bottom
+    // edge, and it is the sibling that nearly went with the caption
+    // removal in 2026-08. Checking the removal without checking the
+    // survivor is how that trap fires.
+    expect(pick(container, 'portraitSweep')).toBeNull();
   });
 
   // Owner-requested removal, 2026-08-18. Asserted as absent rather than
@@ -213,18 +226,43 @@ describe('AboutSection (PF-81)', () => {
       expect(ruleBody('section.about')).toContain('scroll-margin-top: var(--header-h)');
     });
 
-    // First use of `sweep` in the port. Naming it directly in a module
-    // scopes it to an identifier no @keyframes defines and the element
-    // silently does not animate; `composes` must also be the first
-    // declaration in the rule.
-    it('pulls the sweep keyframe in through a global carrier, first', () => {
-      const sweep = ruleBody('.portraitSweep');
-      expect(sweep).toContain('composes: kf-sweep from global');
-      expect(sweep.indexOf('composes:')).toBeLessThan(sweep.indexOf('position:'));
-      expect(sweep).toContain('animation-duration: 8s');
-      // Longhands only — the shorthand would reset animation-name to none
-      // and undo the composed class.
-      expect(sweep).not.toMatch(/animation:\s/);
+    /**
+     * ⚠️ THIS FILE DECLARES NO ANIMATION AT ALL as of 2026-09-07. It used
+     * to carry exactly one — `.portraitSweep`, via `composes: kf-sweep
+     * from global` — removed at the owner's request.
+     *
+     * ⚠️ WHY IT SURFACED WHEN IT DID: the sheen never painted until hours
+     * earlier the same day. `base.css`'s `sweep` animated `transform`
+     * where both prototypes declare `background-position`, so the band sat
+     * outside the paint area for the whole cycle. PF-101 fixed the
+     * keyframe, the owner saw the animation for the first time, and asked
+     * for it gone.
+     *
+     * ⚠️ ASSERTED THROUGH COMMENT-STRIPPED TEXT, never a raw search. The
+     * module documents the removal in prose that NAMES `.portraitSweep`
+     * and quotes its whole declaration block, so `not.toContain(…)` would
+     * match the explanation and pass while proving nothing. This is the
+     * repo's most-repeated test trap; the BlogSection ghost-numeral
+     * removal hit it directly.
+     *
+     * ⚠️ `kf-sweep` itself is NOT dead — BlogSection and BlogPage still
+     * use it, so its carrier in animations.css stays.
+     */
+    it('declares no animation, the sweep having been removed', () => {
+      const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '');
+      expect(stripped).not.toContain('portraitSweep');
+      expect(stripped).not.toContain('kf-sweep');
+      expect(stripped).not.toMatch(/animation-/);
+
+      // ⚠️ And the survivor is still declared, matched as a WHOLE RULE.
+      //
+      // `toContain('.portraitFade')` was the first version of this line and
+      // it is VACUOUS: renaming the rule to `.portraitFadeX` still contains
+      // that substring, and a mutation doing exactly that passed all 28
+      // tests. Same family as `pill`/`pillRow` and `card`/`cardPlaceholder`
+      // in CLAUDE.md — a substring match cannot answer a question about a
+      // class NAME. Anchored on the opening brace instead.
+      expect(stripped).toMatch(/\.portraitFade\s*\{/);
     });
 
     it('composes the two extracted patterns rather than redeclaring them', () => {

@@ -1,6 +1,7 @@
 // frontend/src/components/splash/Splash.jsx
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSplashControls } from '../../hooks/useSplashControls';
+import { markSplashShown } from '../../utils/splash';
 import logo from '../../assets/logo.png';
 import styles from './Splash.module.css';
 
@@ -130,6 +131,21 @@ export default function Splash() {
   const finish = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
+
+    // ⚠️ PF-106. Records that this document has shown its intro, so a
+    // return to "/" — by the nav or the browser's Back button — does not
+    // replay it. A refresh re-evaluates the module and the flag resets,
+    // which is what makes refresh replay.
+    //
+    // HERE and not at mount, deliberately: a mount-time flag is the
+    // documented StrictMode trap, where the simulated remount reads what
+    // the discarded first mount wrote and the splash never appears in dev.
+    // `finish()` is ~4.5s away and the discarded mount's cleanup clears the
+    // timer first, so it never runs on that mount.
+    //
+    // Inside the finishedRef guard, so SKIP-after-timer cannot double-set
+    // it — harmless for a boolean, but the guard is the contract here.
+    markSplashShown();
 
     // Prototype clears splashTimers here: boot lines that have not
     // appeared yet never do, and the progress bar stops wherever it got

@@ -4,6 +4,7 @@ const jwt        = require('jsonwebtoken');
 const app        = require('../app');
 const Vocabulary = require('../models/Vocabulary');
 const Project    = require('../models/Project');
+const Blog       = require('../models/Blog');
 const User       = require('../models/User');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 
@@ -226,4 +227,131 @@ describe('Vocabulary API (PF-62)', () => {
     expect(typeof res.body.data.transactional).toBe('boolean');
   });
 
+});
+
+// ── PF-97: ?inUse=true ────────────────────────────────────────────────────
+// The /blog filter-chip row (PF-98) must not render a chip that returns
+// nothing. These pin the rule that decides which pool values are public.
+describe('GET /api/vocabulary/:type?inUse=true (PF-97)', () => {
+
+  beforeAll(async () => {
+    await connectTestDB();
+    await Vocabulary.init();
+  });
+  afterEach(clearDB);
+  afterAll(disconnectTestDB);
+
+  const post = (overrides = {}) => ({
+    title:     'ZZ Tag Usage Post',
+    excerpt:   'A post used to prove the in-use filter works.',
+    sections:  [{ heading: 'Only', body: ['Some body text.'], bullets: [] }],
+    published: true,
+    ...overrides,
+  });
+
+  const values = (res) => res.body.data.map((v) => v.value);
+
+  it('includes a tag a published post carries', async () => {
+    await Vocabulary.create({ type: 'tag', value: 'ZZUsed' });
+    await Blog.create(post({ tags: ['ZZUsed'] }));
+
+    const res = await request(app).get('/api/vocabulary/tag?inUse=true');
+
+    expect(res.status).toBe(200);
+    expect(values(res)).toContain('ZZUsed');
+  });
+
+  it('excludes a tag no post carries at all', async () => {
+    await Vocabulary.create({ type: 'tag', value: 'ZZOrphan' });
+
+    const res = await request(app).get('/api/vocabulary/tag?inUse=true');
+
+    expect(values(res)).not.toContain('ZZOrphan');
+  });
+
+  // The crux of the decision. A draft is not public, so a tag that only a
+  // draft carries must not become a public filter chip — clicking it would
+  // return nothing, because the list endpoint only serves published posts.
+  it('excludes a tag carried ONLY by a draft', async () => {
+    await Vocabulary.create({ type: 'tag', value: 'ZZDraftOnly' });
+    await Blog.create(post({ title: 'ZZ Draft Post', tags: ['ZZDraftOnly'], published: false }));
+
+    const res = await request(app).get('/api/vocabulary/tag?inUse=true');
+
+    expect(values(res)).not.toContain('ZZDraftOnly');
+  });
+
+  it('includes it once that draft is published', async () => {
+    await Vocabulary.create({ type: 'tag', value: 'ZZDraftOnly' });
+    const draft = await Blog.create(
+      post({ title: 'ZZ Draft Post', tags: ['ZZDraftOnly'], published: false }));
+
+    expect(values(await request(app).get('/api/vocabulary/tag?inUse=true')))
+      .not.toContain('ZZDraftOnly');
+
+    draft.published = true;
+    await draft.save();
+
+    expect(values(await request(app).get('/api/vocabulary/tag?inUse=true')))
+      .toContain('ZZDraftOnly');
+  });
+
+  // The admin form keeps a free-text tags input beside the picker, so a
+  // post can carry a different casing than the pool row.
+  it('matches case-insensitively', async () => {
+    await Vocabulary.create({ type: 'tag', value: 'ZZCasing' });
+    await Blog.create(post({ tags: ['zzcasing'] }));
+
+    const res = await request(app).get('/api/vocabulary/tag?inUse=true');
+
+    // The POOL's casing is what comes back, not the post's.
+    expect(values(res)).toContain('ZZCasing');
+  });
+
+  // ⚠️ The regression most likely to bite: the admin picker needs the FULL
+  // pool. If this ever starts filtering by default, a newly added tag could
+  // never be applied to a first post — it would vanish from the picker the
+  // instant it was created.
+  it('returns the full pool when the param is absent', async () => {
+    await Vocabulary.create({ type: 'tag', value: 'ZZOrphan' });
+
+    const res = await request(app).get('/api/vocabulary/tag');
+
+    expect(values(res)).toContain('ZZOrphan');
+  });
+
+  it('returns the full pool for any value other than the literal "true"', async () => {
+    await Vocabulary.create({ type: 'tag', value: 'ZZOrphan' });
+
+    for (const q of ['false', '1', 'yes', '']) {
+      const res = await request(app).get(`/api/vocabulary/tag?inUse=${q}`);
+      expect(values(res)).toContain('ZZOrphan');
+    }
+  });
+
+  // Projects have no published field, so every project counts as visible.
+  it('filters tech by project usage, with no published concept', async () => {
+    await Vocabulary.create({ type: 'tech', value: 'ZZUsedTech' });
+    await Vocabulary.create({ type: 'tech', value: 'ZZOrphanTech' });
+    await Project.create({ ...VALID_PROJECT, tech: ['ZZUsedTech'] });
+
+    const res = await request(app).get('/api/vocabulary/tech?inUse=true');
+
+    expect(values(res)).toContain('ZZUsedTech');
+    expect(values(res)).not.toContain('ZZOrphanTech');
+  });
+
+  it('stays public — the chip row loads without a token', async () => {
+    await Vocabulary.create({ type: 'tag', value: 'ZZUsed' });
+    await Blog.create(post({ tags: ['ZZUsed'] }));
+
+    const res = await request(app).get('/api/vocabulary/tag?inUse=true');
+
+    expect(res.status).toBe(200);
+  });
+
+  it('still rejects an invalid type', async () => {
+    const res = await request(app).get('/api/vocabulary/category?inUse=true');
+    expect(res.status).toBe(400);
+  });
 });

@@ -2,7 +2,7 @@
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
 import { MemoryRouter } from 'react-router-dom';
@@ -104,6 +104,7 @@ const POSTS = Object.freeze([
     excerpt: 'CRUD, resource routing, exception mapping and request logging.',
     tags: Object.freeze(['Java', 'REST API']),
     readingTimeMinutes: 5,
+    views: 0,
     createdAt: '2026-04-11T10:00:00.000Z',
   },
   {
@@ -113,6 +114,7 @@ const POSTS = Object.freeze([
     excerpt: 'Managing multi-container apps in one command.',
     tags: Object.freeze(['Docker', 'DevOps']),
     readingTimeMinutes: 4,
+    views: 31,
     createdAt: '2026-05-11T10:00:00.000Z',
   },
   {
@@ -122,6 +124,7 @@ const POSTS = Object.freeze([
     excerpt: 'A scalable vehicle-import platform with FastAPI and Redis.',
     tags: Object.freeze(['FastAPI', 'Python', 'Agile']),
     readingTimeMinutes: 7,
+    views: 9,
     createdAt: '2026-06-11T10:00:00.000Z',
   },
   {
@@ -131,6 +134,7 @@ const POSTS = Object.freeze([
     excerpt: 'How I designed and developed this portfolio.',
     tags: Object.freeze(['React', 'MERN', 'Docker', 'GitHub Actions']),
     readingTimeMinutes: 6,
+    views: 402,
     createdAt: '2026-07-11T10:00:00.000Z',
   },
 ]);
@@ -500,19 +504,202 @@ describe('date and read time', () => {
   });
 });
 
+// ══ PF-95 — publishedAt, with a createdAt fallback ════════════════════
+/**
+ * The live shape this ticket fixes: ONE `createdAt` shared by all four
+ * posts, because `seed.js` writes them in a single `insertMany` and
+ * `timestamps: true` stamps the batch identically — and four DISTINCT
+ * `publishedAt` values carrying the prototype's real dates.
+ *
+ * ⚠️ The shared `createdAt` is load-bearing, not incidental. It is the
+ * only arrangement in which reading the wrong field is observable: with
+ * the file's main POSTS fixture (distinct createdAt, ascending in step
+ * with publishedAt) a component that still read `createdAt` would render
+ * plausible months and pass. This fixture makes the two fields disagree.
+ *
+ * Order is unchanged by any of this. `byRecency()` still sorts on
+ * `createdAt` and, with all four tied, still falls back to `_id`
+ * ascending — recovering p1·p2·p3·p4, the design's own sequence.
+ * Wiring sort to `publishedAt` is PF-96's job, not this ticket's.
+ */
+const LIVE_CREATED_AT = '2026-08-09T05:56:05.288Z';
+const PUBLISHED = Object.freeze({
+  p1: '2026-07-14T09:00:00.000Z',   // MERN          JUL 2026 · 6 MIN
+  p2: '2026-06-09T09:00:00.000Z',   // ClearDrive    JUN 2026 · 7 MIN
+  p3: '2026-05-04T09:00:00.000Z',   // Docker        MAY 2026 · 4 MIN
+  p4: '2026-04-02T09:00:00.000Z',   // JAX-RS        APR 2026 · 5 MIN
+});
+const LIVE_POSTS = Object.freeze(
+  POSTS.map((p) => Object.freeze({
+    ...p,
+    createdAt: LIVE_CREATED_AT,
+    publishedAt: PUBLISHED[p._id],
+  })),
+);
+
+/** Every meta row on the page, featured first, as one string per post. */
+function metaText(c) {
+  return [pick(c, 'featuredMeta').textContent, ...pickAll(c, 'rowMeta').map((n) => n.textContent)];
+}
+
+describe('PF-95 — publishedAt', () => {
+  it('renders each post\'s own publish month, not the shared createdAt', () => {
+    const metas = metaText(draw(ok(LIVE_POSTS)));
+    expect(metas).toHaveLength(4);
+    expect(metas[0]).toContain('JUL 2026');
+    expect(metas[1]).toContain('JUN 2026');
+    expect(metas[2]).toContain('MAY 2026');
+    expect(metas[3]).toContain('APR 2026');
+  });
+
+  it('renders AUG 2026 nowhere, which is what the bug looked like', () => {
+    // Before PF-95 every one of the four read AUG 2026 — the month of
+    // the shared createdAt. This is the assertion that fails if either
+    // call site is reverted to `createdAt`.
+    const metas = metaText(draw(ok(LIVE_POSTS)));
+    for (const meta of metas) expect(meta).not.toMatch(/AUG 2026/);
+  });
+
+  it('renders four distinct reading times, not a uniform 1 MIN READ', () => {
+    // No frontend change was needed for this half — `formatReadTime` was
+    // always correct and the field was always rendered. It is asserted
+    // here because "6/7/4/5 MIN" is half of what the ticket promises on
+    // screen, and nothing else in this file would notice it regressing
+    // to a uniform value.
+    const metas = metaText(draw(ok(LIVE_POSTS)));
+    expect(metas[0]).toContain('6 MIN READ');
+    expect(metas[1]).toContain('7 MIN READ');
+    expect(metas[2]).toContain('4 MIN READ');
+    expect(metas[3]).toContain('5 MIN READ');
+  });
+
+  it('falls back to createdAt when publishedAt is null', () => {
+    // `null` is the schema default, so this is what every post written
+    // before PF-95 looks like coming off the API — not a hypothetical.
+    const nulled = LIVE_POSTS.map((p) => ({ ...p, publishedAt: null }));
+    const metas = metaText(draw(ok(nulled)));
+    for (const meta of metas) expect(meta).toContain('AUG 2026');
+  });
+
+  it('falls back to createdAt when publishedAt is absent entirely', () => {
+    // Distinct from null: a cached response from before the field
+    // existed has no key at all.
+    const metas = metaText(draw(ok(POSTS)));
+    expect(metas[0]).toContain('JUL 2026');   // POSTS' own createdAt
+    expect(metas[3]).toContain('APR 2026');
+  });
+
+  it('renders nothing rather than "INVALID DATE" when neither field parses', () => {
+    const c = draw(ok([{ ...POSTS[3], createdAt: undefined, publishedAt: undefined }]));
+    expect(pick(c, 'featuredMeta').textContent).not.toMatch(/INVALID/i);
+  });
+
+  it('prefers publishedAt over a createdAt that would sort the same', () => {
+    // The discriminating case, deliberately contradictory: createdAt
+    // says JAN, publishedAt says JUL. Only reading the right field can
+    // produce JUL, and no plausible fallback ordering produces both.
+    const one = [{ ...POSTS[3], createdAt: '2026-01-20T10:00:00.000Z', publishedAt: PUBLISHED.p1 }];
+    const meta = pick(draw(ok(one)), 'featuredMeta').textContent;
+    expect(meta).toContain('JUL 2026');
+    expect(meta).not.toMatch(/JAN 2026/);
+  });
+
+  it('orders by publishedAt, which for the live data matches the design', () => {
+    // ⚠️ REWRITTEN IN PF-96, and the reason matters more than the change.
+    //
+    // This was an ABSENCE assertion — "leaves post order alone" — written
+    // so that wiring publishedAt to the sort would arrive with a failing
+    // test attached. It could never have done that job. LIVE_POSTS gives
+    // p1..p4 publish dates in DESCENDING order, which is the same
+    // sequence as the _id-ascending tiebreak it was pinning, so both the
+    // old rule and the new one produce MERN · ClearDrive · Docker · JAX-RS
+    // and the test passes either way.
+    //
+    // `.claude/sprint-log.md` recorded that guard as the safety net for
+    // this exact change. It was not one. The real discriminating case is
+    // the test below, which this fixture cannot express.
+    const c = draw(ok(LIVE_POSTS));
+    expect(pick(c, 'featuredTitle').textContent).toMatch(/MERN/i);
+    const rows = pickAll(c, 'rowTitle').map((n) => n.textContent);
+    expect(rows[0]).toMatch(/ClearDrive/i);
+    expect(rows[1]).toMatch(/Docker Compose/i);
+    expect(rows[2]).toMatch(/JAX-RS/i);
+  });
+
+  it('sorts on publishedAt even when createdAt disagrees', () => {
+    // THE discriminating fixture, and the only one in this file that can
+    // tell the two rules apart.
+    //
+    // createdAt is DISTINCT and ascending in step with _id, so the old
+    // rule (createdAt desc, then _id asc) yields JAX-RS · Docker ·
+    // ClearDrive · MERN. publishedAt is deliberately the OPPOSITE order,
+    // so the new rule yields MERN · ClearDrive · Docker · JAX-RS. No
+    // tiebreak can rescue a component that reads the wrong field: the two
+    // orders are exact reverses of each other.
+    const contradictory = POSTS.map((p, i) => ({
+      ...p,
+      // POSTS is ordered p4, p3, p2, p1 — so index 0 is JAX-RS.
+      createdAt:   `2026-0${i + 1}-01T10:00:00.000Z`,  // JAX-RS oldest → MERN newest
+      publishedAt: `2026-0${4 - i}-01T09:00:00.000Z`,  // JAX-RS newest → MERN oldest
+    }));
+
+    const c = draw(ok(contradictory));
+    expect(pick(c, 'featuredTitle').textContent).toMatch(/JAX-RS/i);
+    expect(pickAll(c, 'rowTitle').map((n) => n.textContent)).toEqual([
+      'Getting Started with Docker Compose',
+      'Developing ClearDrive.lk with FastAPI and Docker',
+      'Building a production-style MERN portfolio',
+    ]);
+  });
+
+  it('falls back to createdAt for a post with no publishedAt, and interleaves', () => {
+    // The admin panel creates posts with publishedAt null, so a list is
+    // routinely MIXED. The fallback has to place an undated post among
+    // the dated ones by its createdAt — not bunch every undated post at
+    // one end, which is what a plain date sort does with nulls.
+    const mixed = [
+      { ...POSTS[3], _id: 'm1', title: 'Dated newest',  publishedAt: '2026-07-01T09:00:00.000Z', createdAt: '2020-01-01T00:00:00.000Z' },
+      { ...POSTS[2], _id: 'm2', title: 'Undated middle', publishedAt: null,                       createdAt: '2026-06-01T09:00:00.000Z' },
+      { ...POSTS[1], _id: 'm3', title: 'Dated oldest',  publishedAt: '2026-05-01T09:00:00.000Z', createdAt: '2030-01-01T00:00:00.000Z' },
+    ];
+
+    const c = draw(ok(mixed));
+    expect(pick(c, 'featuredTitle').textContent).toBe('Dated newest');
+    expect(pickAll(c, 'rowTitle').map((n) => n.textContent))
+      .toEqual(['Undated middle', 'Dated oldest']);
+  });
+});
+
 // ══ 13. links resolve to a real route ═════════════════════════════════
 describe('links', () => {
-  it('points all five at /blog, never at the prototype\'s dead #blog anchor', () => {
+  it('sends the four post links to their own post, and only the fifth to /blog', () => {
     // The prototype gives all four post links href="#blog" — the
     // section's own id — because Claude Design has no post-detail
     // screen to target. Its fifth link goes to Blog.dc.html, which is
-    // what proves navigation is intended. Neither /blog nor
-    // /blog/:slug exists in App.jsx today, so all five point at /blog
-    // and Sprint 13 narrows the post cards.
+    // what proves navigation is intended.
+    //
+    // ⚠️ CHANGED IN PF-99 (2026-09-06). This asserted five × '/blog'
+    // from PF-86 until now, and its own comment recorded why: neither
+    // route existed, so "Sprint 13 narrows the post cards". Both exist
+    // now, so the four post links resolve to their own slug and the
+    // fifth — BROWSE ALL WRITING — still goes to the index.
+    //
+    // ⚠️ The ORDER of the assertion is the point, not just the shape.
+    // A version reading `hrefs.every(h => h.startsWith('/blog'))` would
+    // pass with every card pointing at the SAME post, which is exactly
+    // the bug a hand-written `/blog/${featured.slug}` in a `.map()`
+    // produces. Each href is pinned to the post it belongs to, in
+    // rendered order: featured is the newest, then the three rows.
     const c = draw();
     const hrefs = [...c.querySelectorAll('a')].map((a) => a.getAttribute('href'));
     expect(hrefs).toHaveLength(5);
-    expect(hrefs).toEqual(['/blog', '/blog', '/blog', '/blog', '/blog']);
+    expect(hrefs).toEqual([
+      '/blog/building-a-production-style-mern-portfolio',   // featured — newest
+      '/blog/developing-cleardrivelk-with-fastapi-and-docker',
+      '/blog/getting-started-with-docker-compose',
+      '/blog/building-rest-apis-with-java-and-jax-rs',      // oldest
+      '/blog',                                              // BROWSE ALL WRITING
+    ]);
     expect(hrefs.some((h) => h.startsWith('#'))).toBe(false);
   });
 
@@ -526,6 +713,198 @@ describe('links', () => {
     // path — this assertion pins the rendered element type.
     expect(pick(c, 'featuredCard').tagName).toBe('A');
     expect(pick(c, 'browseAll').tagName).toBe('A');
+  });
+});
+
+// ══ the featured card's backdrop image ════════════════════════════════
+describe("the featured card's backdrop image (2026-09-07)", () => {
+  /**
+   * ⚠️ AN ADDITION WITH NO PROTOTYPE SOURCE. The prototype's featured card
+   * has the gradient and `.sweep` and no image. Owner-requested; a
+   * sanctioned deviation, recorded in locked-decisions.md.
+   *
+   * ⚠️ FIXED backdrops, deliberately not per-post. `Blog.coverImage` exists
+   * in the schema with no consumer; the owner chose constant images so
+   * title/excerpt/date/tags keep coming from the API.
+   */
+  /**
+   * ⚠️ `position: absolute` IS LOAD-BEARING BEYOND PLACEMENT, and this is
+   * the assertion most likely to be deleted as redundant.
+   *
+   * `.featuredCard` is `display: flex`. A `::before` is a FLEX ITEM unless
+   * it is out of flow — in flow it would sit above the badge and push
+   * every child down. So dropping `position` does not merely move the
+   * image, it breaks the card's layout, and the failure would present as
+   * a spacing bug with no obvious link to an image rule.
+   */
+  it('is out of flow, or it becomes a flex item and shifts the content', () => {
+    const d = decls('.featuredCard::before');
+    expect(d.position).toBe('absolute');
+    expect(d.inset).toBe('0');
+    // The card is an <a>; the layer must not eat its clicks.
+    expect(d['pointer-events']).toBe('none');
+  });
+
+  /**
+   * ⚠️ BOTH themes are pinned, or a single-theme regression passes.
+   *
+   * The photograph is dark navy, so LIGHT is the tighter constraint: at
+   * `.2` it drags the light card to a cold grey and the surface stops
+   * belonging to the warm-paper palette, even though the text still
+   * measures over 6:1. Contrast does not catch this — it is a palette
+   * failure, not a legibility one. `.1` keeps the paper.
+   *
+   * ⚠️ The scoping must win on SPECIFICITY, not emission order —
+   * `:global(html[data-theme='dark'])` is (0,2,1) against the base rule's
+   * (0,1,0). A second BARE `.featuredCard::before` rule would look
+   * identical in review and depend on which stylesheet the bundler
+   * emitted last. Same guard shape as the PF-91 `.rowMeta` test below.
+   */
+  /**
+   * ⚠️ TWO PHOTOGRAPHS, ONE PER THEME — and two different CROPS, which is
+   * the part that looks like an inconsistency and is not.
+   *
+   * The light image contains the WORD "BLOG" in Scrabble tiles. Rendered
+   * at all three positions: `left center` — which the dark image uses —
+   * SLICES THE G. `center` keeps the word whole. The dark photograph has
+   * no such constraint and its objects sit in its left third, so it wants
+   * `left center`. Normalising the two onto one position breaks one of
+   * them.
+   */
+  it('uses a different photograph and crop per theme', () => {
+    const light = decls('.featuredCard::before').background;
+    expect(light).toContain('blog_section_first_card_Light_Mode.jpg');
+    expect(light).toContain('center');
+    expect(light).not.toContain('left center');
+
+    const dark = [];
+    root.walkRules((rule) => {
+      if (!rule.selector.includes("[data-theme='dark']")) return;
+      if (!rule.selector.includes('.featuredCard::before')) return;
+      rule.walkDecls('background', (d) => dark.push({ sel: rule.selector, v: d.value }));
+    });
+    expect(dark).toHaveLength(1);
+    expect(dark[0].v).toContain('blog_section_first_card.jpg');
+    expect(dark[0].v).toContain('left center');
+    // Specificity (0,2,1) against the base rule's (0,1,0), never emission order.
+    expect(dark[0].sel).toMatch(/:global\(html\[data-theme='dark'\]\)\s*\./);
+    expect(dark[0].sel.trim()).not.toMatch(/^\./);
+  });
+
+  /**
+   * ⚠️ THE LIGHT SCRIM IS A LEGIBILITY REQUIREMENT, NOT A LOOK.
+   *
+   * 19.7% of the light photograph's pixels are dark — the wood between
+   * tiles and the black letters. Its 5th-percentile backdrop luminance
+   * gives **1.07** against `--strong`. Measured as the top alpha rose:
+   * .62 -> excerpt 2.64, .72 -> 3.90, .80 -> 4.64, **.84 -> 5.08**.
+   *
+   * ⚠️ A first estimate of ~.50 was wrong, and wrong in an instructive
+   * way: it eased the wash off across 34-56%, which is exactly the band
+   * the excerpt occupies. The top alpha is not the whole story — the
+   * 56% stop matters as much.
+   *
+   * Pinned as a FLOOR rather than an exact value, so the scrim can be
+   * re-tuned upward but cannot be quietly lightened back under AA.
+   */
+  it('keeps the light scrim heavy enough for dark ink', () => {
+    const bg = decls('.featuredCard::before').background;
+    const alphas = [...bg.matchAll(/rgba\(var\(--gnd\),\s*(\.\d+)\)/g)].map((m) => Number(m[1]));
+    expect(alphas.length).toBeGreaterThanOrEqual(3);
+    expect(alphas[0]).toBeGreaterThanOrEqual(0.8);   // behind the title/meta
+    expect(alphas[2]).toBeGreaterThanOrEqual(0.76);  // behind the excerpt
+  });
+
+  /**
+   * ⚠️ The always-dark card is SUPERSEDED. It was real — the terminal
+   * panel's precedent, "the SURFACE decides, not the colour" — and it was
+   * replaced only because a light-appropriate photograph now exists. This
+   * asserts the token block is GONE, so the two approaches cannot end up
+   * layered on top of each other, which would leave a dark card wearing a
+   * light photograph.
+   */
+  it('no longer forces the dark palette onto the light card', () => {
+    const forced = [];
+    root.walkRules((rule) => {
+      if (!rule.selector.includes("[data-theme='light']")) return;
+      if (!rule.selector.includes('.featuredCard')) return;
+      if (rule.selector.includes('::before')) return;
+      rule.walkDecls((d) => forced.push(d.prop));
+    });
+    expect(forced).toEqual([]);
+  });
+
+  /* The clip to the card's 24px radius comes from the card, not the
+     layer. Pinned because removing it would let the image square off the
+     corners and that reads as a rendering bug, not a CSS one. */
+  it('is clipped by the card, which still hides its overflow', () => {
+    expect(decls('.featuredCard').overflow).toBe('hidden');
+  });
+});
+
+// ══ featured card height ══════════════════════════════════════════════
+describe('the featured card fills its grid cell (2026-09-07)', () => {
+  /**
+   * ⚠️ A SANCTIONED DEVIATION, not a bug fix. The prototype declares
+   * `align-items: start` on this grid (Portfolio Revolution.dc.html:421)
+   * and its featured card has no height of any kind — the transcription
+   * was faithful. Measured live, the card ended 238px above the bottom of
+   * the right column (394px vs 631px) and showed page background beneath
+   * it. Owner called it, 2026-09-07.
+   *
+   * ⚠️ PF-86 explicitly rejected stretching, and that note is NOT wrong —
+   * it is about the RIGHT COLUMN stretching and spreading its 12px gaps,
+   * which only happens when the column is the SHORTER item. At three rows
+   * the column is the taller one, so nothing can spread. Both are true;
+   * they describe different post counts. This is why the deviation is
+   * scoped to the card and the grid keeps `start`.
+   *
+   * ⚠️ ASSERTED THROUGH POSTCSS, NEVER A TEXT SEARCH. The module's own
+   * comments now contain the words `align-self`, `stretch` and
+   * `align-items` while explaining all of the above, so a raw
+   * `toContain('stretch')` would match the explanation and pass whatever
+   * the rules say. This file's header already states the rule; this block
+   * is a live instance of why it exists.
+   */
+  it('.featuredCard stretches to its cell', () => {
+    expect(decls('.featuredCard')['align-self']).toBe('stretch');
+  });
+
+  /**
+   * Where the reclaimed height is spent. `margin-top: auto` moves ONLY the
+   * CTA and leaves every other transcribed spacing intact.
+   *
+   * ⚠️ `justify-content: space-between` on the card was tried and rejected
+   * — it redistributes all six children, floating the LATEST POST badge
+   * alone and pulling the title off its excerpt, overriding the card's own
+   * `gap: 16px`. Pinned as an ABSENCE so it cannot come back as a tidy-up.
+   */
+  it('.featuredFooter is pushed to the card floor, and the card is not redistributed', () => {
+    expect(decls('.featuredFooter')['margin-top']).toBe('auto');
+    expect(decls('.featuredCard')['justify-content']).toBeUndefined();
+  });
+
+  /**
+   * ⚠️ THE PLACEHOLDER MUST MOVE WITH THE CARD OR THE LOAD JUMPS.
+   * `min-height: 394px` was measured by PF-86 specifically to match the
+   * real card so the grid does not shift when data lands. Growing the card
+   * to 631px while leaving this at 394 reintroduces exactly the shift that
+   * measurement exists to prevent. Stretched, it takes the loading
+   * column's height (3×177 + 2×12 + 62 + 12 = 629px) — within ~2px of the
+   * loaded card.
+   */
+  it('.featuredPlaceholder stretches too, so the grid does not shift on load', () => {
+    expect(decls('.featuredPlaceholder')['align-self']).toBe('stretch');
+    expect(decls('.featuredPlaceholder')['min-height']).toBe('394px');
+  });
+
+  /**
+   * ⚠️ The deviation is CARD-SCOPED. `align-items: stretch` here would
+   * also stretch the right column — the case PF-86 was right to prevent.
+   * Pinned so a later "simplification" cannot move it up to the grid.
+   */
+  it('the grid still declares align-items: start', () => {
+    expect(decls('.grid')['align-items']).toBe('start');
   });
 });
 
@@ -560,6 +939,61 @@ describe('the loading state', () => {
   });
 });
 
+// ══ empty — PF-101 ════════════════════════════════════════════════════
+describe('the empty state (PF-101)', () => {
+  /**
+   * ⚠️ THIS WAS A LIVE BUG UNTIL PF-101, and every test in this file
+   * passed throughout it.
+   *
+   * `hasData = !isLoading && !!featured` is false whenever there is no
+   * featured post — and a SUCCESSFUL fetch of an empty blog gives exactly
+   * that: not loading, not errored, no posts. Both render branches fell to
+   * their loading placeholders and nothing ever flipped them back, so an
+   * empty blog showed `aria-hidden` grey blocks forever, with no copy and
+   * nothing announced.
+   *
+   * ⚠️ Why the existing suite could not catch it: the loading tests above
+   * assert the placeholders are PRESENT, which is exactly what the broken
+   * empty state also produced. A fixture that returns `[]` was never
+   * written, so the two states were indistinguishable to the suite.
+   * A guard needs a fixture that separates the outcomes — asserting the
+   * placeholder exists proves nothing about which state produced it.
+   */
+  const empty = { data: [], isLoading: false, isError: false, error: null };
+
+  it('shows a message, not placeholders, when the blog is genuinely empty', () => {
+    const c = draw(empty);
+    expect(c.textContent).toContain('Nothing filed yet');
+    // The bug, pinned directly: these must be GONE, not merely joined.
+    expect(pickAll(c, 'featuredPlaceholder')).toHaveLength(0);
+    expect(pickAll(c, 'rowPlaceholder')).toHaveLength(0);
+  });
+
+  it('still distinguishes empty from loading', () => {
+    const loadingC = draw({ data: undefined, isLoading: true, isError: false, error: null });
+    expect(pickAll(loadingC, 'featuredPlaceholder')).toHaveLength(1);
+    expect(loadingC.textContent).not.toContain('Nothing filed yet');
+  });
+
+  /* The count pill was already suppressed at zero; the body now agrees. */
+  it('renders no count pill and no post links', () => {
+    const c = draw(empty);
+    expect(pick(c, 'count')).toBeNull();
+    expect([...c.querySelectorAll('a')].filter((a) => /^\/blog\/./.test(a.getAttribute('href') || ''))).toHaveLength(0);
+  });
+
+  it('keeps the browse-all link, which has no dependency on the query', () => {
+    expect(pick(draw(empty), 'browseAll')).not.toBeNull();
+  });
+
+  /* Same words as BlogPage's zero-posts panel, so the two surfaces agree
+     about what an empty blog looks like. */
+  it('uses the same copy as /blog\'s zero-posts panel', () => {
+    const c = draw(empty);
+    expect(c.textContent).toContain('The first field note is still being written.');
+  });
+});
+
 // ══ 15. error ═════════════════════════════════════════════════════════
 describe('the error state', () => {
   const failed = {
@@ -576,11 +1010,54 @@ describe('the error state', () => {
     spy.mockRestore();
   });
 
-  it('drops the grid', () => {
+  it('drops the cards', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const c = draw(failed);
-    expect(pick(c, 'grid')).toBeNull();
     expect(pick(c, 'featuredCard')).toBeNull();
+    expect(pick(c, 'featuredPlaceholder')).toBeNull();
+    expect(pick(c, 'row')).toBeNull();
+    expect(pick(c, 'rowPlaceholder')).toBeNull();
+    spy.mockRestore();
+  });
+
+  /**
+   * ⚠️ This REPLACES an assertion that the whole grid goes (2026-09-07).
+   *
+   * BROWSE ALL WRITING depends on no query — it is a constant `to`. The
+   * old `showGrid = !isError` wrapper took it out with the cards anyway,
+   * so a failed fetch left the section with a heading and no route onward
+   * to /blog. It also broke `e2e/homepage.spec.js:79`, which clicks this
+   * link: under CI's rate limiter the fetch 429'd, the link was never in
+   * the DOM, and the spec failed as a 30s timeout that read like a splash
+   * bug rather than a fetch one.
+   *
+   * The grid element itself stays too, and that is not incidental: the
+   * link is a child of `.column` inside it, and `.grid`'s
+   * `auto-fit, minmax(min(100%, 340px), 1fr)` collapses to the single
+   * remaining track, so the link spans the section instead of sitting in
+   * a half-width cell beside an empty one.
+   */
+  it('keeps BROWSE ALL WRITING, the one thing that never depended on the fetch', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const c = draw(failed);
+
+    const browse = screen.getByRole('link', { name: /BROWSE ALL WRITING/i });
+    expect(browse).toHaveAttribute('href', '/blog');
+
+    // The link's layout parents survive with it, or it renders orphaned.
+    expect(pick(c, 'grid')).not.toBeNull();
+    expect(pick(c, 'column')).not.toBeNull();
+
+    // ⚠️ The discriminating half. Without it this passes just as well
+    // against the old code IF the fixture ever stops failing, because
+    // every card assertion above is also satisfied by a *successful*
+    // fetch of an empty blog. Pinning it as the ONLY link in the section
+    // is what makes "the cards are gone AND the link is not" the single
+    // state that passes.
+    const links = within(c.querySelector('section#blog')).getAllByRole('link');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toBe(browse);
+
     spy.mockRestore();
   });
 
@@ -685,4 +1162,49 @@ describe('with no published posts', () => {
     });
   });
 
+});
+
+// ══ 14. the view counter (PF-99) ══════════════════════════════════════
+describe('view counts', () => {
+  /**
+   * ⚠️ PAIRED ASSERTIONS THROUGHOUT. The fixture gives the featured post
+   * 402 views, two rows 31 and 9, and the oldest row 0 — so every test
+   * below has a negative twin. A one-sided check passes against a
+   * component that always renders and one that never does, and under the
+   * owner's hide-at-zero decision (2026-09-06) those two failure modes
+   * look identical on screen.
+   */
+  it('renders the count on the featured card', () => {
+    const c = draw(ok(POSTS));
+    expect(pick(c, 'featuredFooter').textContent).toContain('402');
+  });
+
+  it('appends the count to a row\'s meta line, after the reading time', () => {
+    // ⚠️ The META LINE, not the row's right edge — owner's decision. A
+    // row is a numeral, a text block and a chevron; its only right-hand
+    // corner already belongs to the chevron. Asserted on ORDER, because
+    // "contains 31" would pass with the counter anywhere in the row.
+    const c = draw(ok(POSTS));
+    const meta = pickAll(c, 'rowMeta').find((el) => el.textContent.includes('31'));
+    expect(meta.textContent).toMatch(/MIN READ.*31/);
+  });
+
+  it('renders no counter, and no dangling separator, for a row with zero views', () => {
+    // ⚠️ The separator is conditional for exactly this reason. Rendered
+    // unconditionally, an unread post's meta line ends `1 MIN READ · `
+    // — which reads as data that failed to load rather than data that
+    // does not exist yet.
+    const c = draw(ok(POSTS));
+    const meta = pickAll(c, 'rowMeta')
+      .find((el) => el.textContent.includes('5 MIN READ'));
+    expect(meta.textContent).not.toMatch(/views/);
+    expect(meta.textContent.trim()).toMatch(/MIN READ$/);
+  });
+
+  it('keeps the featured CTA first, so an absent counter moves nothing', () => {
+    const c = draw(ok(POSTS.map((p) => ({ ...p, views: 0 }))));
+    expect(pick(c, 'featuredFooter').firstElementChild.textContent)
+      .toBe('READ THE POST →');
+    expect(pick(c, 'featuredFooter').textContent).not.toMatch(/views/);
+  });
 });

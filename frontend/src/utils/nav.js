@@ -84,22 +84,34 @@ export function isBlogPath(pathname) {
 export function navModel(pathname) {
   const onHome = pathname === '/';
 
-  // The Blog prototype's own nav content, transcribed from
-  // Blog.dc.html lines 50-61: PROJECTS · ABOUT · ← PORTFOLIO · divider ·
-  // toggle · ADMIN. No BLOG link — you are on it — and no CONTACT; the
-  // glowpulse pill goes home instead. This is the one part of the
-  // 2026-08-22 navbar rework that is transcription rather than
-  // deviation.
+  // ⚠️ A SANCTIONED DEVIATION as of PF-103 (owner-requested 2026-09-05).
+  //
+  // This branch used to be pure transcription of Blog.dc.html lines 50-61 —
+  // PROJECTS · ABOUT · ← PORTFOLIO — and the locked entry called it "the one
+  // part of the 2026-08-22 navbar rework that is transcription rather than
+  // deviation". That sentence is no longer true, so do NOT restore the
+  // prototype's two-link set to "fix" the mismatch.
+  //
+  // The owner asked for the portfolio's own sections, left to right, so a
+  // reader on /blog can reach any of them in one hop instead of two:
+  // ABOUT · SKILLS · PROJECTS · CONTACT. Built from SECTIONS rather than
+  // hand-written, so the labels and the ?nosplash=1 convention stay
+  // expressed once — BLOG is dropped (you are on it) and CONTACT appended,
+  // because on the home page CONTACT is the pill and so is not in SECTIONS.
+  //
+  // The glowpulse pill keeps its slot and its href and is relabelled
+  // '← GO BACK': with CONTACT now a plain link, '← PORTFOLIO' no longer
+  // needs to name its destination to be unambiguous.
   if (isBlogPath(pathname)) {
     return {
       variant: 'blog',
       brandHref: HOME,
       links: [
-        { href: `${HOME}#projects`, label: 'PROJECTS' },
-        { href: `${HOME}#about`, label: 'ABOUT' },
-      ],
+        ...SECTIONS.filter(({ id }) => id !== 'blog'),
+        { id: 'contact', label: 'CONTACT' },
+      ].map(({ id, label }) => ({ href: sectionHref(pathname, id), label })),
       pillHref: HOME,
-      pillLabel: '\u2190 PORTFOLIO',
+      pillLabel: '\u2190 GO BACK',
     };
   }
 

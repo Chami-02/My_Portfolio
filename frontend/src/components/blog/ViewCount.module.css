@@ -1,0 +1,50 @@
+/* frontend/src/components/blog/ViewCount.module.css
+ *
+ * PF-99. Structure only — every consuming surface supplies its own size,
+ * colour and placement through the `className` prop, because the counter
+ * appears in mono at three different scales (the /blog cards, the home
+ * teaser's meta line, the admin list chip).
+ *
+ * ⚠️ No `transition` is declared here. Two of the three consumers render
+ * this INSIDE a Reveal-wrapped card, and PF-93's rule is absolute — a
+ * transition on a Reveal-wrapped element ties with `.reveal` at (0,1,0)
+ * and wins on emission order, eating the entrance easing. This element is
+ * not itself Reveal-wrapped, but it inherits nothing and needs nothing,
+ * so there is no reason to introduce the question.
+ */
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  /* Colour and size come from the call site. `currentColor` on the glyph
+     means the icon follows whatever the consumer sets here. */
+}
+
+/* Visually hidden, still in the accessibility tree.
+ *
+ * ⚠️ Declared locally rather than using Tailwind's `sr-only`, which would
+ * have been this repo's first use of it. A Tailwind utility that is never
+ * emitted into the built stylesheet fails exactly the way this project's
+ * CSS traps do — silently, with the text simply becoming visible — and
+ * verifying emission is a build-output grep on every future change. A
+ * local rule cannot stop being emitted.
+ *
+ * ⚠️ `clip-path` AND the legacy `clip`: `clip` is deprecated but is what
+ * older engines honour, and the pair is the long-standing recipe. NOT
+ * `display: none` or `visibility: hidden` — both remove the text from the
+ * accessibility tree, which is the entire thing this element exists to
+ * stay in. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

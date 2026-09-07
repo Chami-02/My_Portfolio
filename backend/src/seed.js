@@ -111,9 +111,42 @@ const SKILLS = [
 // Blog.dc.html renders. Copy is taken verbatim from that design file.
 //
 // Fields deliberately NOT set here:
-//   slug               — generated from `title` by the pre-insertMany hook
-//   readingTimeMinutes — calculated from `sections` by the same hook
-//   views              — schema default of 0
+//   slug   — generated from `title` by the hooks below
+//   views  — schema default of 0
+// ───────────────────────────────────────────────────────────────────────────
+//
+// ── CHANGED IN PF-95, THEN AGAIN IN PF-103 ─────────────────────────────────
+// `publishedAt` IS set explicitly below, per post. It used to fall through to
+// `createdAt`, which is why every post read `AUG 2026` in production before
+// PF-95: production's one `insertMany` happened to stamp all four
+// identically — that is NOT a guaranteed property of `insertMany` itself, see
+// CLAUDE.md's `insertMany`/`createdAt` entry. Dates match
+// docs/design/Blog.dc.html's own POSTS array exactly (grepped, not eyeballed).
+//
+// ⚠️ `readingTimeMinutes` is NO LONGER set here, and its absence is the
+// point. PF-95 hardcoded 6 / 7 / 4 / 5, transcribed from the same design
+// array — but that design assumed full-length posts, and these bodies are
+// short excerpts. Measured with the model's own 200-wpm formula: 158 / 123 /
+// 89 / 64 words, every one of which computes to 1 minute. The declared
+// figures only ever survived because nothing had edited a post; the first
+// admin save of any of them would have silently dropped 6 MIN READ to 1.
+//
+// Owner's decision, 2026-09-05: the computed number is the true one, so let
+// it compute. A post that genuinely warrants a different figure gets a
+// `readingTimeOverride` from the admin panel — deliberately NOT set here,
+// because pinning a number to hide a short body is the fiction this removed.
+//
+// ⚠️ `slug` and `readingTimeMinutes` are derived by TWO hooks working
+// together, not one — an older comment here said "the pre-insertMany hook"
+// and that is why PF-95's bug survived. `pre('insertMany')` runs first on
+// these raw objects, then Mongoose constructs each into a Document and runs
+// `pre('validate')` on it. Since PF-103 both call the same derivation
+// unconditionally, so they can no longer disagree.
+//
+// Day-of-month and time-of-day are arbitrary; only month and year are
+// asserted anywhere. `createdAt` is untouched — still Mongoose's own
+// record-creation timestamp, still identical across all four, and nothing
+// reads it for display once `publishedAt` exists.
 // ───────────────────────────────────────────────────────────────────────────
 
 const BLOG_POSTS = [
@@ -123,6 +156,7 @@ const BLOG_POSTS = [
       'How I designed and developed my portfolio using professional software engineering practices including Jira, Docker, GitHub Actions, and CI/CD.',
     tags: ['React', 'MERN', 'Docker', 'GitHub Actions'],
     published: true,
+    publishedAt: new Date('2026-07-14T09:00:00.000Z'),
     sections: [
       {
         heading: 'Introduction',
@@ -171,6 +205,7 @@ const BLOG_POSTS = [
       'A look into building a scalable vehicle import platform using FastAPI, PostgreSQL, Docker, Redis, and Agile development practices.',
     tags: ['FastAPI', 'Python', 'Docker', 'PostgreSQL', 'Agile'],
     published: true,
+    publishedAt: new Date('2026-06-09T09:00:00.000Z'),
     sections: [
       {
         heading: 'Project Overview',
@@ -220,6 +255,7 @@ const BLOG_POSTS = [
       'Everything I learned while using Docker Compose to manage multi-container applications for my projects.',
     tags: ['Docker', 'DevOps'],
     published: true,
+    publishedAt: new Date('2026-05-04T09:00:00.000Z'),
     sections: [
       {
         heading: 'Why Docker?',
@@ -260,6 +296,7 @@ const BLOG_POSTS = [
       'Key concepts I learned while developing my Smart Campus REST API using Java and JAX-RS.',
     tags: ['Java', 'REST API', 'JAX-RS'],
     published: true,
+    publishedAt: new Date('2026-04-02T09:00:00.000Z'),
     sections: [
       {
         heading: 'Overview',

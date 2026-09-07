@@ -1,0 +1,898 @@
+/* frontend/src/pages/BlogPage.module.css
+ *
+ * The /blog index — PF-98. Transcribed from docs/design/Blog.dc.html
+ * lines 125-202 (the `isIndex` branch).
+ *
+ * Three file-wide rules, inherited from BlogSection.module.css:
+ *
+ * 1. Font stacks go through the tokens (`var(--font-mono|display|body)`),
+ *    NEVER the prototype's literal `'JetBrains Mono', monospace`. The token
+ *    carries the metric-matched `Anton Fallback` face declared in tokens.css;
+ *    the literal stack drops it and puts the font-swap reflow back.
+ *
+ * 2. PF-93 — a `transition` is NEVER declared on a Reveal-wrapped element.
+ *    The Reveal-wrapped elements here are `.eyebrow`, `.heading`, `.deck`,
+ *    `.statRow`, `.searchRow`, `.featuredCard` and `.card`, and none of them
+ *    declares one. `Reveal` owns that property for the life of the element,
+ *    entrance and hover alike.
+ *
+ * 3. The elements that DO declare a transition — `.chip`, `.searchField`,
+ *    `.resetButton` — all sit INSIDE a reveal target rather than being one,
+ *    so nothing else supplies them and their own declaration is what
+ *    applies. Same case as BlogSection's `.tagPill`.
+ *
+ * ⚠️ FOUR values on this screen are near-misses against BlogSection's, which
+ * transcribes a DIFFERENT prototype (Portfolio Revolution.dc.html's teaser).
+ * Reusing any of them renders something that looks approximately right:
+ *
+ *              BlogSection (teaser)   /blog featured   /blog card
+ *   tag pill   10.5px .06em 5px 10px  11px  6px 12px   10.5px 5px 11px
+ *   badge      5px 10px               5px 11px         —
+ *
+ * The tag pill is now a FIFTH and SIXTH shape in this repo, after
+ * patterns.module.css's `.pill`, Skills', Projects' and BlogSection's.
+ */
+
+/* ── page sections ──────────────────────────────────────────────────── */
+
+.header {
+  position: relative;
+  z-index: 2;
+  padding: clamp(110px, 15vh, 170px) clamp(16px, 4vw, 40px) clamp(28px, 4vw, 44px);
+  /* ⚠️ NOT a section wash. The site-wide wash removal (2026-08-18) took the
+     decorative gradients off the home page's SECTIONS; card and panel
+     surfaces were explicitly kept. This is the Blog screen's own page
+     header treatment and the prototype declares it on the section itself —
+     there is no card here to move it onto. Kept deliberately. */
+  background: radial-gradient(110% 80% at 76% 12%,
+    rgba(var(--srf), .6) 0%,
+    rgba(var(--gnd), .35) 62%);
+}
+
+.posts {
+  position: relative;
+  z-index: 2;
+  padding: 0 clamp(16px, 4vw, 40px) clamp(70px, 10vh, 120px);
+}
+
+.inner {
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+/* ── header content ─────────────────────────────────────────────────── */
+
+.eyebrow {
+  composes: section-eyebrow from '../styles/patterns.module.css';
+  /* Local, not composed. The prototype's eyebrows disagree on this value
+     (About 38px, Skills/Projects/Blog-teaser 14px, this one 16px), and a
+     composed class ties with the composing class at (0,1,0) — so the winner
+     would be bundle emission order, not authoring intent. */
+  margin-bottom: 16px;
+}
+
+.eyebrowLabel {
+  composes: section-eyebrow-label from '../styles/patterns.module.css';
+}
+
+.eyebrowLine {
+  composes: section-eyebrow-line from '../styles/patterns.module.css';
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(46px, 10vw, 150px);
+  line-height: .88;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 24px;
+}
+
+.outlined {
+  composes: outline-text from '../styles/patterns.module.css';
+}
+
+.deck {
+  max-width: 560px;
+  color: var(--muted);
+  font-size: clamp(15px, 1.6vw, 18px);
+  line-height: 1.75;
+  margin: 0 0 30px;
+}
+
+/* ── stat pills ─────────────────────────────────────────────────────── */
+
+.statRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 34px;
+}
+
+/* ⚠️ `composes` must be the FIRST declaration and the timing must be
+   LONGHANDS. A keyframe named inside a *.module.css is scoped to an
+   identifier no @keyframes defines: the declaration stays valid, the element
+   simply never animates, and getComputedStyle still reports it as running.
+   `element.getAnimations().length === 0` is the only tell. The `animation`
+   shorthand would additionally reset animation-name back to `none` and undo
+   the composed class. */
+.countPill {
+  composes: kf-glowpulse from global;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .5);
+  background: rgba(252, 163, 17, .10);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: var(--acc, #FCA311);
+  box-shadow: 0 0 22px rgba(252, 163, 17, .2);
+  animation-duration: 3s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.countDot {
+  composes: kf-glowdot from global;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+  animation-duration: 2.4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.locationPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .14);
+  background: rgba(var(--srf), .5);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+
+/* ── search + chips ─────────────────────────────────────────────────── */
+
+.searchRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: min(100%, 260px);
+  padding: 13px 18px;
+  border-radius: 999px;
+  background: rgba(var(--gnd), .7);
+  border: 1px solid rgba(var(--ln), .14);
+  transition: border-color .25s;
+}
+
+/* The prototype puts `style-focus` on the LABEL, and the label is not
+   focusable — its input is. `:focus-within` is that behaviour expressed
+   correctly rather than a change to it. */
+.searchField:focus-within {
+  border-color: var(--acc, #FCA311);
+}
+
+.searchSlash {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--acc, #FCA311);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  /* The prototype relies on its global `input { font-family: inherit }`.
+     Declared explicitly here — this repo has no such global rule, and
+     without it the field renders in the UA default face. */
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+/* ⚠️ NOT the prototype's bare `outline: none`. Transcribed the way
+   ContactSection.module.css resolved the identical question in PF-87: a
+   TRANSPARENT outline renders as nothing in every normal mode, so the
+   design's own indicator (the container's accent border, above) is what the
+   user sees — but in forced-colors mode the browser overrides author
+   `border-color`, and a suppressed outline would leave the field with no
+   focus indicator at all. A transparent outline is restored to a system
+   colour there, so keeping one costs nothing visible and closes the hole.
+   This is the repo's second outline suppression, and it matches the first. */
+.searchInput:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+/* ── PF-104: the clear (×) and submit (magnifier) controls ─────────────
+   Both live INSIDE .searchField, which is the pill with the border, so
+   they sit within the rounded outline rather than beside it.
+
+   ⚠️ No `border-radius` in the :focus-visible rules. A radius declared
+   there reshapes the ELEMENT while focused — it squares off a 999px pill
+   for exactly as long as the ring is up — and the outline follows the
+   element's own curve for free. Documented trap, repo-wide. */
+.searchClear,
+.searchSubmit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color .25s;
+}
+
+.searchClear:hover,
+.searchSubmit:hover {
+  color: var(--acc, #FCA311);
+}
+
+/* The magnifier is the field's primary action, so it carries the accent
+   at rest where the × is muted until hovered. */
+.searchSubmit {
+  color: var(--acc, #FCA311);
+}
+
+.searchSubmit:hover {
+  color: var(--strong);
+}
+
+.chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  padding: 11px 15px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .14);
+  color: var(--muted);
+  transition: background .25s, color .25s, border-color .25s, transform .25s;
+}
+
+.chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--acc, #FCA311);
+}
+
+/* The prototype expresses the active chip as three inline bindings
+   (`chip.bg` / `chip.border` / `chip.color`, Blog.dc.html:575-583). Same
+   three values, as a class. */
+/* ── PF-105: a chip whose combination would return nothing ────────────
+   AND narrows fast, so the row disables anything that cannot produce a
+   result rather than letting a click land on an empty page.
+
+   ⚠️ Not `display: none`. PF-98 locked that the chip row must not SHRINK
+   as you filter — a visitor watching their own options vanish. Dimming
+   keeps every tag present and readable; only activation goes away.
+
+   The hover lift is cancelled explicitly: `.chip:hover` still matches a
+   disabled button in CSS (`:hover` does not care about `disabled`), so
+   without this the chip would rise and light up its border while being
+   unclickable. */
+.chipDisabled {
+  /* ⚠️ The "disabled" read comes mostly from LOSING THE CHIP SHAPE — no
+     surface, no outline — not from fading the label away.
+
+     The first attempt was `opacity: .38` alone. Measured composited
+     against the real page: 1.86 in light and 1.21 in dark, i.e. the tag
+     name was effectively invisible. That defeats the entire reason for
+     dimming instead of removing: PF-98 locked that the row must not
+     shrink because a visitor should not watch their options vanish, and a
+     chip nobody can read has vanished in every way that matters.
+
+     ⚠️ WCAG exempts inactive controls from the contrast minimum (1.4.3),
+     so this is a deliberate choice to do better than the standard, not a
+     compliance fix. The measured value is in BlogPage.test.jsx. */
+  background: none;
+  border-color: transparent;
+  /* .72 is measured, not chosen by eye. Composited against the real page
+     it gives 3.41 in light and 4.03 in dark — clearing WCAG's 3.0 bar for
+     a user-interface component in the worse of the two themes, with the
+     light one setting the floor. .65 gave 2.96 light and just missed. */
+  opacity: .72;
+  cursor: not-allowed;
+}
+
+/* `:hover` does NOT care about `disabled`, so `.chip:hover` still matches
+   a disabled button — without this it would lift and light its border
+   while being unclickable, which reads as "this works". */
+.chipDisabled:hover {
+  transform: none;
+  border-color: transparent;
+}
+
+.chipActive {
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  color: var(--accInk);
+}
+
+/* ── featured card ──────────────────────────────────────────────────── */
+
+/* ⚠️ The prototype's ghost `01` (Blog.dc.html:160 — `top:-40px; right:-8px`,
+   Anton `clamp(140px,20vw,240px)`, `rgba(252,163,17,.08)`) is REMOVED. Owner
+   decision of 2026-08-22, taken against the home teaser, and the locked
+   entry says in as many words that "the `/blog` index inherits the removal
+   when Sprint 13 builds it".
+ *
+ * Three things to keep straight:
+ *   - The ELEMENT is gone, not its opacity. A zero-opacity span still
+ *     occupies the corner and is still walked by anything reading the DOM.
+ *   - `.sweep` STAYS. It is a different absolute child of the same card and
+ *     is not what was objected to. This is the trap that nearly took
+ *     `.scanTexture` with the splash scan lines and `.portraitFade` with the
+ *     About caption.
+ *   - The GRID card numerals `02/03/04` STAY (`.cardNumeral` below). Only
+ *     the big one was objected to.
+ *
+ * Guarded as an absence three ways in BlogPage.test.jsx — no element, no
+ * bare "01" text, no `.ghostNumeral` selector — and via postcss, not a text
+ * search, because this very comment names the class. */
+.featuredCard {
+  position: relative;
+  display: block;
+  padding: clamp(24px, 3.6vw, 46px);
+  margin: 0 0 34px;
+  border-radius: 26px;
+  overflow: hidden;
+  background: linear-gradient(150deg,
+    rgba(252, 163, 17, .14),
+    rgba(var(--srf), .7) 44%,
+    rgba(var(--gnd), .92));
+  border: 1px solid rgba(252, 163, 17, .3);
+  box-shadow: 0 34px 80px rgba(var(--shd), .5);
+  /* tokens.css declares `a:hover { color: var(--strong) }`, so a card
+     rendered as a <Link> needs `color` pinned in BOTH states or its body
+     copy lightens on hover. */
+  color: inherit;
+}
+
+.featuredCard:hover {
+  color: inherit;
+  transform: translateY(-6px);
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 44px 100px rgba(var(--shd), .62);
+}
+
+/* ⚠️ KNOWN DEAD AS SHIPPED — measured in PF-98's Step 0, deliberately NOT
+   fixed here (owner's call: PF-101 fixes all three consumers together).
+   `kf-sweep` points at base.css's `@keyframes sweep`, which animates
+   `transform: translateY(-120% → 120%)`. BOTH prototypes declare `sweep` as
+   `background-position: 0 -160% → 0 160%`. With a static background-position
+   the gradient's 50% band sits at `background-size/2` down the box — 515px
+   inside a 322px box here — so it is outside the paint area at every point
+   in the cycle and translating the box cannot bring it in. Transcribed as-is
+   so all three consumers stay identical for the one ticket that fixes them.
+   Full entry in .claude/silent-failures.md. */
+.sweep {
+  composes: kf-sweep from global;
+  position: absolute;
+  inset: 0;
+  opacity: .45;
+  mix-blend-mode: screen;
+  background: linear-gradient(180deg,
+    transparent 44%,
+    rgba(252, 163, 17, .14) 50%,
+    transparent 56%);
+  background-size: 100% 320%;
+  animation-duration: 9s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* Every content child carries `position: relative` to clear `.sweep`. The
+   prototype declares it per element rather than establishing a stacking
+   context on the card, and that is transcribed rather than "improved" — a
+   blanket `.featuredCard > *` rule would also lift `.sweep`, which must
+   stay behind. */
+.featuredBadgeRow {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* ⚠️ `5px 11px`, where BlogSection's `.badge` is `5px 10px`. Different
+   prototypes, different values. */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  padding: 5px 11px;
+  border-radius: 6px;
+}
+
+/* ⚠️ The `·` here is a LITERAL in the text node (Blog.dc.html:164), not a
+   styled span — unlike the grid card's, which is `.cardMetaSep`. */
+.featuredMeta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+/* ⚠️ `overflow-wrap` — PF-101. Without it a single unbroken token in a
+   title overflows this element and is CLIPPED by `.featuredCard`'s
+   `overflow: hidden`, silently. Measured with an 85-character token:
+   1039px of content inside a 238px box at 320px wide, and still 1970 in
+   1106 at 1280 — so this is NOT a narrow-viewport problem, it is a
+   content problem that no viewport escapes.
+
+   ⚠️ The page does not scroll sideways when it happens (docOverflowX
+   stayed 0 at every width), which is why nothing noticed: the card's own
+   `overflow: hidden` absorbs it and the title simply loses its tail.
+   `anywhere` rather than `break-word` — matching `.emptyTerm` below,
+   which already guards the echoed search term for the same reason. */
+.featuredTitle {
+  overflow-wrap: anywhere;
+  position: relative;
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(27px, 4vw, 54px);
+  line-height: 1.02;
+  letter-spacing: .012em;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 16px;
+}
+
+.featuredExcerpt {
+  position: relative;
+  display: block;
+  max-width: 70ch;
+  color: var(--muted);
+  font-size: clamp(14.5px, 1.6vw, 17px);
+  line-height: 1.75;
+  margin: 0 0 20px;
+}
+
+.featuredTagRow {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+/* Tag pill — /blog FEATURED. 11px / `6px 12px` / no letter-spacing / no
+   transition. See the file header: do not reuse BlogSection's. */
+.featuredTagPill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(252, 163, 17, .08);
+  border: 1px solid rgba(252, 163, 17, .22);
+  color: var(--text);
+}
+
+/* ⚠️ `position: relative` MOVED to `.cardFooter` in PF-99. Every content
+   child of these cards carries it to sit above the absolutely-positioned
+   `.sweep` layer; now that the CTA is wrapped, the WRAPPER is the child
+   that needs it. Left here as well it would be harmless but misleading —
+   there would be two elements claiming to solve the same stacking
+   problem and only one of them doing it. */
+.featuredCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  color: var(--acc, #FCA311);
+}
+
+/* ── grid ───────────────────────────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 18px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 26px 24px;
+  border-radius: 20px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .09);
+  overflow: hidden;
+  color: inherit;
+}
+
+.card:hover {
+  color: inherit;
+  transform: translateY(-8px);
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 30px 64px rgba(var(--shd), .56);
+}
+
+/* The 02/03/04 series. Kept — only the featured card's big numeral was
+   removed. `aria-hidden` in the JSX.
+ *
+ * ⚠️ `top` is a SANCTIONED DEVIATION (PF-103, owner-requested 2026-09-05).
+ * Blog.dc.html:180 declares `top:-18px` on a card that also declares
+ * `overflow:hidden`, so the prototype slices the digits — and so did this
+ * page until PF-103. Measured live in Chrome before the change: Anton at
+ * 86px puts the digit ink 4.42px BELOW the span's box top, so `-18px` left
+ * the ink top 13.58px above the card's top edge, clipping 13.58 of a
+ * 75.25px glyph — about 18% of every numeral.
+ *
+ * -2px puts the ink 2.42px INSIDE the card: fully visible, still reading as
+ * pinned to the corner. Deliberately not -4.42px (flush), which would risk a
+ * 1px slice whenever the metric-adjusted `Anton Fallback` face paints first.
+ *
+ * ⚠️ Do NOT "restore" -18px to match the frozen export. Pinned in
+ * BlogPage.test.jsx via postcss. */
+.cardNumeral {
+  position: absolute;
+  top: -2px;
+  right: 6px;
+  font-family: var(--font-display);
+  font-size: 56px;
+  line-height: 1;
+  color: rgba(252, 163, 17, .09);
+}
+
+.cardMeta {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted2);
+}
+
+/* ── PF-91 · `--muted2` fails AA in DARK on a tinted surface ────────────
+   The locked decision from PF-91, applied to a new surface of the same
+   kind: 10.5px is small text, AA wants 4.5:1, and `--muted2` on a
+   translucent card ground does not reach it in dark. `--muted` is the
+   one-step-lighter token in the same palette.
+
+   ⚠️ The trap is the SURFACE, not the token — the same token on the page
+   ground passes, which is why `.featuredMeta` (on the amber-tinted featured
+   gradient) uses `--muted` outright and `.locationPill` needs no override.
+
+   ⚠️ DARK ONLY, and it wins on SPECIFICITY (0,2,1) against the base rule's
+   (0,1,0) — never on emission order. An equal-specificity tie resolving on
+   bundle order is a bug this project has hit six times. */
+:global(html[data-theme='dark']) .cardMeta {
+  color: var(--muted);
+}
+
+/* ⚠️ `.9`, where the prototype declares `.65` (Blog.dc.html:182). PF-91
+   unified both Blog separators on `var(--acc)` at `.9` for contrast; this
+   is the same separator, at the same size, on the same kind of surface, so
+   it takes the same value rather than reintroducing the ratio that decision
+   removed. */
+.cardMetaSep {
+  color: var(--acc, #FCA311);
+  opacity: .9;
+}
+
+.cardTitle {
+  position: relative;
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.32;
+  color: var(--strong);
+}
+
+/* `flex: 1` is load-bearing: it pushes the tag row and CTA to the bottom so
+   cards of different excerpt lengths line up along the grid row. */
+.cardExcerpt {
+  position: relative;
+  display: block;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+  flex: 1;
+}
+
+.cardTagRow {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(var(--ln), .09);
+}
+
+/* Tag pill — /blog GRID CARD. 10.5px / `5px 11px` / no letter-spacing / no
+   transition. One step down from `.featuredTagPill` and one step across
+   from BlogSection's. */
+.cardTagPill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(252, 163, 17, .08);
+  border: 1px solid rgba(252, 163, 17, .22);
+  color: var(--text);
+}
+
+.cardCta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: var(--acc, #FCA311);
+}
+
+/* ── the card footer row (PF-99) ─────────────────────────────────────
+ *
+ * ⚠️ NO PROTOTYPE SOURCE — the view counter is a sanctioned addition
+ * (owner-requested 2026-09-06) and neither Blog.dc.html nor
+ * `Portfolio Revolution.dc.html` has one. A fidelity pass will flag it.
+ *
+ * `space-between` with the CTA first is what makes an ABSENT counter
+ * harmless: ViewCount renders nothing below one view, and a row laid out
+ * any other way would shift the CTA depending on the data.
+ *
+ * `margin-top: auto` on the grid card pushes this to the bottom of a
+ * flex-column card whose siblings have varying heights, so the counters
+ * line up across a row of cards with different excerpt lengths. The
+ * featured card is not a column of the same shape, so it is scoped. */
+.cardFooter {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card .cardFooter {
+  margin-top: auto;
+}
+
+/* One step down from the meta line's 10.5px — the counter is the least
+   important fact on the card and must not compete with the CTA opposite
+   it. `--muted2` for the same reason; the CTA keeps the accent. */
+.cardViews {
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  color: var(--muted2);
+}
+
+/* ⚠️ PF-99 — `--muted2` -> `--muted`, DARK ONLY. The same PF-91 Group A
+   remedy, applied to a new element that walked straight into the trap it
+   documents: MEASURED in Chromium against the real composited card,
+   `--muted2` at 10.5px gives 4.55 featured / 4.15 grid — under AA, on the
+   default theme.
+
+   The trap is the SURFACE, not the token. `--muted2` passes on the page
+   ground and fails on a tinted card, which is why this reads as a token
+   that "works everywhere else".
+
+   ⚠️ BOTH counters take it, not only the failing one. The featured card
+   measured 4.55 — over 4.5, and the owner has already rejected that
+   headroom on evidence: the footer copyright went 4.97 -> 4.28 purely
+   from a surface tint that touched none of its own colours. A margin
+   under 0.2 does not survive a backdrop change.
+
+   Wins on SPECIFICITY, never emission order —
+   `:global(html[data-theme='dark'])` is (0,2,1) against the base rule's
+   (0,1,0). Relies on dark being an EXPLICIT attribute, which it is: the
+   FOUC guard writes data-theme="dark" at index.html:31. Light is
+   untouched and passes. */
+:global(html[data-theme='dark']) .cardViews {
+  color: var(--muted);
+}
+
+/* ── empty states ───────────────────────────────────────────────────── */
+
+.empty {
+  padding: 56px 28px;
+  border-radius: 22px;
+  border: 1px dashed rgba(252, 163, 17, .34);
+  background: rgba(252, 163, 17, .04);
+  text-align: center;
+}
+
+.emptyHeading {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 34px);
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 10px;
+}
+
+/* ── PF-104: the always-available filter summary ──────────────────────
+   Sits below the search row, so the row itself keeps the prototype's
+   single-flex-line shape and this cannot push the chips around. */
+.activeFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.activeFiltersLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.activeFilterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .08);
+  border: 1px solid rgba(252, 163, 17, .4);
+  transition: color .25s, background .25s;
+}
+
+.activeFilterPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+}
+
+/* ⚠️ `var(--danger)` — owner-requested red, PF-105 — and it is the ONLY
+   sanctioned one: #f87171 dark / #B4231F light, declared in tokens.css and
+   already read by Contact's `.errorText`. PF-91 measured the pair at 6.68
+   dark and 5.88 light, both clearing the 4.5 that 10.5px text needs.
+
+   ⚠️ Do NOT reach for the admin panel's reds (#dc2626, rgba(239,68,68,…)).
+   Those are hardcoded Phase 1 literals that do not flip with the theme;
+   /admin's contrast is PF-100's, deliberately outside PF-91's scope. */
+.clearAll {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  padding: 7px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--danger);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: text-decoration-thickness .25s;
+}
+
+/* Hover KEEPS the red and thickens the rule instead of switching to the
+   accent. Dropping the red on hover would read as the warning being
+   withdrawn at the moment of committing to it, and a thickness change is
+   feedback that does not depend on colour alone. */
+.clearAll:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* The searched term, echoed back. Brighter than .emptyBody beneath it —
+   it is the answer to "why is this empty", where the line below is only
+   advice. */
+.emptyTerm {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: .06em;
+  color: var(--strong);
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.emptyBody {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin: 0 0 22px;
+}
+
+/* ⚠️ `margin: 0` rather than `0 0 22px` — this is the last child in the
+   no-posts-yet state, which has no RESET button under it. Declared as its
+   own class instead of overriding `.emptyBody`, which would tie at (0,1,0)
+   and resolve on emission order. */
+.emptyBodyLast {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* The prototype declares no transition on this button, so its hover snaps.
+   Transcribed, not smoothed. */
+.resetButton {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .08);
+  border: 1px solid rgba(252, 163, 17, .4);
+  border-radius: 999px;
+  padding: 12px 20px;
+  cursor: pointer;
+}
+
+/* Hover changes ink and fill only — the prototype does NOT move
+   `border-color` here, unlike every other accent control on the screen. */
+.resetButton:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+}
+
+/* ── loading placeholders ───────────────────────────────────────────────
+   Bare divs, `aria-hidden`, never Reveals — a placeholder that animates in
+   and is then replaced animates the same grid slot twice.
+
+   `min-height` rather than `height`, so an under-estimate grows rather than
+   clipping. MEASURED against the real filled elements in Chromium, not
+   guessed — the first pass of this ticket guessed 322/268 and both were
+   wrong. Each value is the MINIMUM observed across the range, so the
+   placeholder is never TALLER than the content that replaces it and the grid
+   never has to shrink:
+
+     viewport   featured   grid cards
+       320px      312      393 393 333 308
+       375px      283      369 369 308 308
+       430px      258      308 344 308 284
+       600px      258      259 259 259 259
+       768px      269      369 369 308 308
+      1024px      301      308 308 259 259
+      1280px      331      344 344 344 284
+      1440px      334      344 344 344 284
+     ───────────────────────────────────────
+      minimum     258      259
+
+   ⚠️ The featured card is SHORTEST in the middle of the range, not at either
+   end — its title wraps to more lines when narrow and its padding grows with
+   the viewport when wide. A two-point measurement would have missed the
+   floor entirely. */
+.featuredPlaceholder {
+  min-height: 258px;
+  margin: 0 0 34px;
+  border-radius: 26px;
+  border: 1px solid rgba(252, 163, 17, .3);
+  background: rgba(var(--srf), .34);
+}
+
+.cardPlaceholder {
+  min-height: 259px;
+  border-radius: 20px;
+  border: 1px solid rgba(var(--ln), .09);
+  background: rgba(var(--srf), .34);
+}

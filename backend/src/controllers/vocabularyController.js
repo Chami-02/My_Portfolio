@@ -4,10 +4,22 @@ const Project    = require('../models/Project');
 const Blog       = require('../models/Blog');
 const AppError   = require('../utils/AppError');
 
-// Which collection and field each vocabulary type maps onto
+// Which collection and field each vocabulary type maps onto.
+//
+// ── `publicFilter`, ADDED IN PF-97 ──────────────────────────────────────
+// Which documents of that collection a VISITOR can actually see. Used only
+// by `?inUse=true` below, to decide whether a vocabulary value deserves a
+// public filter chip.
+//
+// ⚠️ Blog is `{ published: true }` and Project is `{}` — that asymmetry is
+// correct, not an oversight: `models/Project.js` has no published/draft
+// field at all, so every project is public, while a blog post is a draft
+// until it is not.
 const TARGETS = {
-  tech: { model: Project, field: 'tech', label: 'projects'   },
-  tag:  { model: Blog,    field: 'tags', label: 'blog posts' },
+  tech: { model: Project, field: 'tech', label: 'projects',
+          publicFilter: {} },
+  tag:  { model: Blog,    field: 'tags', label: 'blog posts',
+          publicFilter: { published: true } },
 };
 
 // Guard used by every handler — rejects anything that isn't tag/tech
@@ -22,15 +34,53 @@ const resolveType = (type, next) => {
 
 // ── GET /api/vocabulary/:type ────────────────────────────────────────────────
 // Public. Loads the chip list for the picker.
+//
+// ── `?inUse=true`, ADDED IN PF-97 ───────────────────────────────────────
+// Returns only values that at least one PUBLICLY VISIBLE document actually
+// carries. The `/blog` filter-chip row (PF-98) is the caller.
+//
+// WHY THE ROW CANNOT JUST USE THE FULL POOL: a vocabulary value with no
+// published post behind it renders a chip that returns "no posts found".
+// That is trivial to produce — add a tag then cancel the post, tag only a
+// draft, or delete the last post using a tag (this cascade runs one way
+// only, so the row survives). A filter guaranteed to fail is worse than an
+// absent one: a visitor cannot tell a stale pool entry from a broken site.
+//
+// WHY THE ROW CANNOT DERIVE FROM THE POSTS IT FETCHED, as the design does
+// (`Blog.dc.html:327`): PF-96 made `?q=`/`?tag=` server-side, so the list
+// response is already filtered. Chips derived from it would shrink as you
+// filter. The row needs a source independent of the current filter.
+//
+// ⚠️ OMITTING THE PARAM MUST RETURN THE FULL POOL, and the admin picker
+// depends on it: you have to be able to pick a tag BEFORE anything uses it,
+// or a new tag could never reach a first post.
 const getVocabulary = async (req, res, next) => {
   try {
-    if (!resolveType(req.params.type, next)) return;
+    const target = resolveType(req.params.type, next);
+    if (!target) return;
 
     const items = await Vocabulary
       .find({ type: req.params.type })
       .sort({ order: 1, value: 1 });
 
-    res.json({ status: 'success', data: items });
+    if (req.query.inUse !== 'true') {
+      return res.json({ status: 'success', data: items });
+    }
+
+    // `distinct` is the natural fit for a value living in an array field:
+    // one query returning every value in use across the visible documents.
+    const used = await target.model.distinct(target.field, target.publicFilter);
+
+    // ⚠️ Case-INSENSITIVE. The picker writes the vocabulary's own casing,
+    // but the admin form also keeps a free-text tags input, so a post can
+    // legitimately carry `react` while the pool holds `React`. An exact
+    // compare would drop that chip for no reason a reader could see.
+    const usedLower = new Set(used.map((v) => String(v).toLowerCase()));
+
+    res.json({
+      status: 'success',
+      data:   items.filter((item) => usedLower.has(item.value.toLowerCase())),
+    });
   } catch (err) {
     next(err);
   }
@@ -38,6 +88,21 @@ const getVocabulary = async (req, res, next) => {
 
 // ── GET /api/vocabulary/:type/:id/impact ─────────────────────────────────────
 // Protected. Tells the confirm modal how much damage a delete would do.
+//
+// ⚠️ DELIBERATELY COUNTS EVERY DOCUMENT, DRAFTS INCLUDED — do NOT reuse
+// `publicFilter` here. It looks like duplicated logic that ought to be
+// unified with `?inUse=true` above, and it is not: these answer different
+// questions.
+//
+//   impact       → "what will this delete touch?"   ALL posts. The cascade
+//                  strips drafts too, so a published-only count would
+//                  understate the damage in the one dialog whose entire
+//                  purpose is stating it.
+//   ?inUse=true  → "should this be a public chip?"  PUBLISHED only.
+//
+// Unifying them breaks one or the other: either the confirm lies about
+// drafts it is about to edit, or a draft-only tag leaks a dead chip onto
+// the public page.
 const getDeleteImpact = async (req, res, next) => {
   try {
     const target = resolveType(req.params.type, next);

@@ -11,11 +11,18 @@
  * size-adjusted fallback and put the font-swap reflow back. Same choice
  * HeroSection.module.css made.
  *
- * The one `animation` here arrives through `composes: kf-sweep from
- * global`, with the timing spelled out as LONGHANDS underneath. Writing
- * `animation-name: sweep` directly in a module gets the name scoped to an
- * identifier no @keyframes defines, and the element then silently does
- * not animate. See styles/animations.css.
+ * ⚠️ THIS FILE NOW DECLARES NO ANIMATION AT ALL. It used to carry one —
+ * `.portraitSweep`, pulled in via `composes: kf-sweep from global` — and
+ * that rule was removed on 2026-09-07 at the owner's request. The note
+ * where it stood explains why. Kept as a header remark because the old
+ * text asserted the opposite and a reader checking "which animation does
+ * About run" deserves the answer rather than a stale claim.
+ *
+ * The `composes: kf-… from global` mechanism itself is still live
+ * elsewhere (BlogSection, BlogPage) and still mandatory there: writing
+ * `animation-name: sweep` directly in a module scopes the name to an
+ * identifier no @keyframes defines and the element silently does not
+ * animate. See styles/animations.css.
  */
 
 /* `section.about`, not `.about`. Phase 1's global.css:338 carries
@@ -112,20 +119,42 @@ section.about {
   background: linear-gradient(180deg, rgba(var(--gnd), 0) 68%, rgba(var(--gnd), .6) 100%);
 }
 
-/* First use of the `sweep` keyframe anywhere in the port. It was already
-   in base.css's shared 22 — only the carrier in animations.css is new. */
-.portraitSweep {
-  composes: kf-sweep from global;
-  position: absolute;
-  inset: 0;
-  opacity: .4;
-  mix-blend-mode: screen;
-  background: linear-gradient(180deg, transparent 44%, rgba(252, 163, 17, .16) 50%, transparent 56%);
-  background-size: 100% 300%;
-  animation-duration: 8s;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
+/* ⚠️ `.portraitSweep` WAS HERE AND IS GONE (owner-requested, 2026-09-07).
+   The ELEMENT is removed too, not just its animation — a transparent
+   absolute child still occupies the frame and is still walked by anything
+   reading the DOM. Same shape as the caption removal below.
+
+   Preserved rather than left to git history, because `docs/design/` is
+   frozen and the prototype STILL CARRIES IT at line 204; a later fidelity
+   pass diffing the two will see the gap and would otherwise "restore" it:
+
+       composes: kf-sweep from global;
+       position: absolute;
+       inset: 0;
+       opacity: .4;
+       mix-blend-mode: screen;
+       background: linear-gradient(180deg, transparent 44%,
+                                   rgba(252,163,17,.16) 50%, transparent 56%);
+       background-size: 100% 300%;
+       animation-duration: 8s;
+       animation-timing-function: linear;
+       animation-iteration-count: infinite;
+
+   ⚠️ WHY IT SURFACED WHEN IT DID, which is the part that looks like a
+   coincidence and is not. This sheen NEVER PAINTED until 2026-09-07:
+   `base.css`'s `sweep` animated `transform` where both prototypes declare
+   `background-position`, so the gradient's band sat outside the paint area
+   at every point in the cycle. PF-101 corrected the keyframe, and the
+   owner saw this animation for the first time — then asked for it gone.
+   The two changes are hours apart and directly connected.
+
+   ⚠️ `.portraitFade` ABOVE STAYS. It is a DIFFERENT absolute child — the
+   soft bottom edge — and it predates this one. It is the sibling that
+   nearly went with the caption; this is the second time that trap has been
+   live in this file.
+
+   ⚠️ `kf-sweep`'s carrier in animations.css STAYS. Two consumers remain:
+   BlogSection's `.sweep` and BlogPage's `.sweep`, both still wanted. */
 
 /* `.portraitCaption` was here and is gone (owner-requested, 2026-08-18).
    Removed rather than left unused: a rule whose element no longer exists

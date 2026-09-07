@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Reveal } from '../motion';
 import { useBlogPosts } from '../../hooks/useBlog';
+import { ViewCount } from '../blog/ViewCount';
+import { formatDate, formatReadTime } from '../../utils/blogMeta';
 import styles from './BlogSection.module.css';
 
 /**
@@ -21,9 +23,16 @@ const TEASER_COUNT = 4;
  * has no post-detail screen to target, which is also why the fifth link
  * points at `Blog.dc.html` — the one place it had somewhere real to go.
  *
- * Neither `/blog` nor `/blog/:slug` exists in App.jsx today, so all five
- * links point here and Sprint 13 narrows the post cards to
- * `/blog/${slug}` when the route lands. Owner's call, 2026-08-21.
+ * ⚠️ DONE, PF-99 (2026-09-06). This used to read "Neither `/blog` nor
+ * `/blog/:slug` exists in App.jsx today, so all five links point here and
+ * Sprint 13 narrows the post cards to `/blog/${slug}` when the route
+ * lands. Owner's call, 2026-08-21." Both routes now exist, and the four
+ * POST links below go to `/blog/${post.slug}`.
+ *
+ * ⚠️ `BLOG_ROUTE` survives with exactly ONE consumer — BROWSE ALL
+ * WRITING, the fifth link. That is the one the prototype already pointed
+ * somewhere real (`Blog.dc.html`), and it is the index, not a post.
+ * Repointing it too would be the obvious-looking overreach here.
  *
  * Note this is not a regression against Phase 1: its BlogSection linked
  * to `/blog/${post.slug}` with a plain `<a href>`, which has been
@@ -35,55 +44,58 @@ const BLOG_ROUTE = '/blog';
 /**
  * Most recent first, with a deterministic tiebreak.
  *
- * ⚠️ The tiebreak is not decoration — it is load-bearing against today's
- * data. `seed.js` inserts all four posts with one `insertMany`, so
- * `timestamps: true` stamps them with an IDENTICAL `createdAt`
- * (2026-08-09T05:56:05.288Z, verified against the live API). A pure
- * date sort therefore leaves all four tied, and both Mongo's
- * `sort({ createdAt: -1 })` and `Array.prototype.sort` are free to
- * return them in any order — the live API currently hands back
- * Java/JAX-RS first, which would put it in the LATEST POST slot.
+ * ⚠️ CHANGED IN PF-96 — the key is `publishedAt` with a `createdAt`
+ * fallback, mirroring the API's own sort in
+ * `backend/src/utils/blogQuery.js` (`$ifNull: [publishedAt, createdAt]`,
+ * then `_id` ascending). The two must agree: this list is re-sorted on
+ * the client, so if the rules diverge the teaser silently contradicts
+ * every other view of the same posts.
  *
- * `_id` ascending breaks the tie by insertion order, because an
- * ObjectId's trailing counter increments within a single insertMany.
- * With today's seed that reproduces the prototype's own 01·02·03·04
- * exactly — MERN, ClearDrive, Docker Compose, JAX-RS.
+ * ⚠️ The previous version sorted on `createdAt` alone, and the reasoning
+ * recorded here for it was WRONG in a way worth keeping. It claimed
+ * `insertMany` stamps a batch with an IDENTICAL `createdAt`, so the
+ * `_id` tiebreak always engaged and always recovered the design's
+ * 01·02·03·04. That is a property of one lucky production insert, not of
+ * `insertMany`: measured over five fresh seeds, THREE straddled a
+ * millisecond boundary and produced two distinct stamps. The date
+ * comparison then decided, the `_id` branch never ran, and the LATEST
+ * POST badge landed on the third-oldest post.
  *
- * It is a degenerate-case fallback and nothing more: the moment two
- * posts have different `createdAt` values the date comparison decides
- * and the `_id` branch never runs. Sorting the array is done on a COPY;
- * mutating in place would reorder the array TanStack Query is caching.
+ * `publishedAt` is real per-post data with a month between values
+ * (PF-95), so the tiebreak returns to being what it was always described
+ * as — a degenerate-case fallback that only runs on a genuine tie.
+ *
+ * The fallback matches how the date is DISPLAYED further down
+ * (`post.publishedAt || post.createdAt`). Order and printed date must
+ * read the same field, or a card appears in a position its own date
+ * contradicts. `??` here rather than `||` because it mirrors the
+ * backend's `$ifNull`, which is null/undefined semantics; for a Date
+ * field serialised to JSON — an ISO string or `null`, never `0` or `''`
+ * — the two operators cannot disagree.
+ *
+ * Sorting is done on a COPY; mutating in place would reorder the array
+ * TanStack Query is caching.
  */
 function byRecency(a, b) {
-  const delta = new Date(b.createdAt) - new Date(a.createdAt);
+  const delta = new Date(b.publishedAt ?? b.createdAt)
+              - new Date(a.publishedAt ?? a.createdAt);
   if (delta !== 0) return delta;
   return a._id < b._id ? -1 : a._id > b._id ? 1 : 0;
 }
 
 /**
- * `JUL 2026` — the prototype's meta format.
+ * `formatDate` and `formatReadTime` MOVED to utils/blogMeta.js in PF-98.
  *
- * The locale is pinned to `en-GB` rather than the visitor's. A Sinhala
- * or Japanese locale renders a month name the design has no styling
- * for, and this label is uppercase mono at .12em tracking, which only
- * works for a three-letter Latin abbreviation.
+ * They were local here from PF-86 until the /blog index gained a second
+ * consumer for both. Two consumers is the bar for extraction in this repo
+ * (the `.section-eyebrow` precedent, PF-81); one is not, which is why PF-95
+ * was right not to move `formatDate` on its own.
+ *
+ * ⚠️ `byRecency` above deliberately did NOT go with them. It still has one
+ * consumer — the /blog index must not re-sort a list the server already
+ * ordered — so moving it would create exactly the shared, drift-prone second
+ * sort rule PF-96 removed.
  */
-function formatMonth(iso) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return date
-    .toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
-    .toUpperCase();
-}
-
-/**
- * `6 MIN READ` — `readingTimeMinutes` is a real schema field
- * (models/Blog.js), derived from a word count across `sections[]` by
- * the model's own pre-validate hook. Nothing is computed here.
- */
-function formatReadTime(minutes) {
-  return `${minutes} MIN READ`;
-}
 
 /**
  * The blog tag pill — a FOURTH pill shape, declared locally.
@@ -143,9 +155,29 @@ export function BlogSection() {
   // should not announce the whole site as broken. But the section, its
   // heading and its `#blog` anchor STAY: Navbar.jsx:12 links to `#blog`,
   // so returning null here would turn that into a dead anchor with no
-  // feedback at all. Only the grid goes; the cause is in the console.
-  const showGrid = !isError;
+  // feedback at all. Only the CARDS go; the cause is in the console.
+  //
+  // ⚠️ This used to be `showGrid` and took the whole grid with it —
+  // including BROWSE ALL WRITING, which depends on no query at all. The
+  // link's own comment below already claimed it "renders even while
+  // loading"; the gate above it quietly said otherwise, so a failed fetch
+  // left the section with a heading and NO route onward to /blog. Renamed
+  // so the name states what it actually governs.
+  const showCards = !isError;
   const hasData  = !isLoading && !!featured;
+
+  // ⚠️ WITHOUT THIS THE TEASER SKELETONS FOREVER. Added PF-101.
+  //
+  // `hasData` is false whenever there is no `featured` post — and a
+  // SUCCESSFUL fetch of an empty blog gives exactly that: `isLoading`
+  // false, `isError` false, `featured` undefined. Both branches below
+  // therefore fell to their loading placeholders and nothing ever flipped
+  // them back, so an empty blog rendered `aria-hidden` grey blocks
+  // permanently, with no copy and nothing for a screen reader.
+  //
+  // The discriminator has to be "the fetch finished and returned nothing",
+  // which is not the same question as "is there a featured post".
+  const isEmpty = !isLoading && !isError && all.length === 0;
 
   return (
     <section id="blog" className={styles.blog}>
@@ -174,120 +206,166 @@ export function BlogSection() {
           )}
         </div>
 
-        {showGrid && (
-          <div className={styles.grid}>
-            {hasData ? (
-              <Reveal
-                as={Link}
-                to={BLOG_ROUTE}
-                type="up"
-                delay={80}
-                className={styles.featuredCard}
-              >
-                {/* ONE absolute layer — the sweep. The six content
-                    children below each carry `position: relative` to sit
-                    above it; the prototype declares that per element
-                    rather than via a stacking context.
+        {/* ⚠️ The GRID is unconditional. `.grid` is
+            `auto-fit, minmax(min(100%, 340px), 1fr)`, so when the cards
+            are gone it collapses to the single remaining track and the
+            browse link below spans the section cleanly — no empty cell. */}
+        <div className={styles.grid}>
+          {!showCards ? null : hasData ? (
+            <Reveal
+              as={Link}
+              to={`/blog/${featured.slug}`}
+              type="up"
+              delay={80}
+              className={styles.featuredCard}
+            >
+              {/* ONE absolute layer — the sweep. The six content
+                  children below each carry `position: relative` to sit
+                  above it; the prototype declares that per element
+                  rather than via a stacking context.
 
-                    ⚠️ Do NOT replace that with PF-85's
-                    `.card > *:not(…)` rule. That one existed to replace
-                    a JS DOM walk; this is already declarative, and a
-                    blanket rule would also hit this aria-hidden layer,
-                    which it must not.
+                  ⚠️ Do NOT replace that with PF-85's
+                  `.card > *:not(…)` rule. That one existed to replace
+                  a JS DOM walk; this is already declarative, and a
+                  blanket rule would also hit this aria-hidden layer,
+                  which it must not.
 
-                    ⚠️ There were TWO layers until 2026-08-22. The ghost
-                    numeral — a translucent "01" at top:-30px;right:-10px,
-                    Anton clamp(120px,17vw,190px), rgba(252,163,17,.09) —
-                    was removed by owner request. The ELEMENT is gone, not
-                    its opacity: a zero-opacity span still occupies the
-                    corner. `.sweep` is the OTHER absolute child and
-                    stays; deleting it with the numeral is the same trap
-                    that nearly took `.scanTexture` with the splash scan
-                    lines and `.portraitFade` with the About caption. */}
-                <span className={styles.sweep} aria-hidden="true" />
+                  ⚠️ There were TWO layers until 2026-08-22. The ghost
+                  numeral — a translucent "01" at top:-30px;right:-10px,
+                  Anton clamp(120px,17vw,190px), rgba(252,163,17,.09) —
+                  was removed by owner request. The ELEMENT is gone, not
+                  its opacity: a zero-opacity span still occupies the
+                  corner. `.sweep` is the OTHER absolute child and
+                  stays; deleting it with the numeral is the same trap
+                  that nearly took `.scanTexture` with the splash scan
+                  lines and `.portraitFade` with the About caption. */}
+              <span className={styles.sweep} aria-hidden="true" />
 
-                <span className={styles.badge}>LATEST POST</span>
+              <span className={styles.badge}>LATEST POST</span>
 
-                <span className={styles.featuredMeta}>
-                  <span>{formatMonth(featured.createdAt)}</span>
-                  <span className={styles.featuredSep}>·</span>
-                  <span>{formatReadTime(featured.readingTimeMinutes)}</span>
-                </span>
+              <span className={styles.featuredMeta}>
+                <span>{formatDate(featured.publishedAt || featured.createdAt)}</span>
+                <span className={styles.featuredSep}>·</span>
+                <span>{formatReadTime(featured.readingTimeMinutes)}</span>
+              </span>
 
-                <h3 className={styles.featuredTitle}>{featured.title}</h3>
-                <p className={styles.featuredExcerpt}>{featured.excerpt}</p>
+              <h3 className={styles.featuredTitle}>{featured.title}</h3>
+              <p className={styles.featuredExcerpt}>{featured.excerpt}</p>
 
-                <TagRow tags={featured.tags} className={styles.featuredTagRow} />
+              <TagRow tags={featured.tags} className={styles.featuredTagRow} />
 
+              {/* PF-99 — a space-between row so an absent counter
+                  (ViewCount renders nothing below one view) leaves the
+                  CTA exactly where it has always sat. */}
+              <span className={styles.featuredFooter}>
                 <span className={styles.featuredCta}>READ THE POST →</span>
-              </Reveal>
-            ) : (
-              // Bare div, not a Reveal: a placeholder that animates in
-              // and is then replaced animates the same grid slot twice.
-              <div className={styles.featuredPlaceholder} aria-hidden="true" />
-            )}
-
-            <div className={styles.column}>
-              {hasData
-                ? rows.map((post, i) => (
-                    // 150 + i*70 → 150/220/290, the prototype's
-                    // data-delay values exactly, continuing at 360 if a
-                    // row is ever added rather than hardcoding three.
-                    <Reveal
-                      key={post._id}
-                      as={Link}
-                      to={BLOG_ROUTE}
-                      type="up"
-                      delay={150 + i * 70}
-                      className={styles.row}
-                    >
-                      {/* Decorative counters — the row's title carries
-                          the identity. Left audible they announce "02"
-                          before every heading, and at rgba(252,163,17,.3)
-                          they are not reliably visible either. */}
-                      <span className={styles.rowNumeral} aria-hidden="true">
-                        {String(i + 2).padStart(2, '0')}
-                      </span>
-
-                      <span className={styles.rowBody}>
-                        <span className={styles.rowMeta}>
-                          <span>{formatMonth(post.createdAt)}</span>
-                          <span className={styles.rowSep}>·</span>
-                          <span>{formatReadTime(post.readingTimeMinutes)}</span>
-                        </span>
-                        <span className={styles.rowTitle}>{post.title}</span>
-                        <span className={styles.rowExcerpt}>{post.excerpt}</span>
-                        <TagRow tags={post.tags} className={styles.rowTagRow} />
-                      </span>
-
-                      <span className={styles.rowChevron} aria-hidden="true">→</span>
-                    </Reveal>
-                  ))
-                : Array.from({ length: TEASER_COUNT - 1 }, (_, i) => (
-                    <div
-                      key={i}
-                      className={styles.rowPlaceholder}
-                      aria-hidden="true"
-                    />
-                  ))}
-
-              {/* Fourth child of the right column, inside its gap: 12px
-                  grid — NOT a sibling of the outer grid. Renders even
-                  while loading: it is a fixed link with no dependency on
-                  the query, so gating it would blank it for nothing. */}
-              <Reveal
-                as={Link}
-                to={BLOG_ROUTE}
-                type="up"
-                delay={360}
-                className={styles.browseAll}
-              >
-                <span className={styles.browseLabel}>BROWSE ALL WRITING</span>
-                <span className={styles.browseChevron} aria-hidden="true">→</span>
-              </Reveal>
+                <ViewCount views={featured.views} className={styles.views} />
+              </span>
+            </Reveal>
+          ) : isEmpty ? (
+            /* Mirrors BlogPage's zero-posts panel (its `total === 0`
+               branch) — same words, so the teaser and /blog agree about
+               what an empty blog looks like. Not a Reveal: it replaces a
+               grid slot, same reasoning as the placeholder below. */
+            <div className={styles.empty}>
+              <p className={styles.emptyHeading}>Nothing filed yet</p>
+              <p className={styles.emptyBody}>
+                The first field note is still being written.
+              </p>
             </div>
+          ) : (
+            // Bare div, not a Reveal: a placeholder that animates in
+            // and is then replaced animates the same grid slot twice.
+            <div className={styles.featuredPlaceholder} aria-hidden="true" />
+          )}
+
+          <div className={styles.column}>
+            {!showCards
+              ? null
+              : hasData
+              ? rows.map((post, i) => (
+                  // 150 + i*70 → 150/220/290, the prototype's
+                  // data-delay values exactly, continuing at 360 if a
+                  // row is ever added rather than hardcoding three.
+                  <Reveal
+                    key={post._id}
+                    as={Link}
+                    to={`/blog/${post.slug}`}
+                    type="up"
+                    delay={150 + i * 70}
+                    className={styles.row}
+                  >
+                    {/* Decorative counters — the row's title carries
+                        the identity. Left audible they announce "02"
+                        before every heading, and at rgba(252,163,17,.3)
+                        they are not reliably visible either. */}
+                    <span className={styles.rowNumeral} aria-hidden="true">
+                      {String(i + 2).padStart(2, '0')}
+                    </span>
+
+                    <span className={styles.rowBody}>
+                      {/* ⚠️ The counter joins the META LINE here rather
+                          than a card corner — owner's decision,
+                          2026-09-06. A row is a numeral, a text block
+                          and a chevron; it has no bottom-right corner
+                          that is not already the chevron's. The
+                          separator is rendered CONDITIONALLY, or a
+                          post with no views yet would print a dangling
+                          "· " after the reading time. */}
+                      <span className={styles.rowMeta}>
+                        <span>{formatDate(post.publishedAt || post.createdAt)}</span>
+                        <span className={styles.rowSep}>·</span>
+                        <span>{formatReadTime(post.readingTimeMinutes)}</span>
+                        {post.views > 0 && (
+                          <span className={styles.rowSep}>·</span>
+                        )}
+                        <ViewCount views={post.views} className={styles.views} />
+                      </span>
+                      <span className={styles.rowTitle}>{post.title}</span>
+                      <span className={styles.rowExcerpt}>{post.excerpt}</span>
+                      <TagRow tags={post.tags} className={styles.rowTagRow} />
+                    </span>
+
+                    <span className={styles.rowChevron} aria-hidden="true">→</span>
+                  </Reveal>
+                ))
+              : isEmpty
+              ? // Nothing to stand in FOR. The panel in the featured slot
+                // already says so; three more grey blocks beside it would
+                // read as content still arriving.
+                null
+              : Array.from({ length: TEASER_COUNT - 1 }, (_, i) => (
+                  <div
+                    key={i}
+                    className={styles.rowPlaceholder}
+                    aria-hidden="true"
+                  />
+                ))}
+
+            {/* Fourth child of the right column, inside its gap: 12px
+                grid — NOT a sibling of the outer grid. Renders in EVERY
+                state: it is a fixed link with no dependency on the query,
+                so gating it would blank it for nothing.
+                ⚠️ "every state" now includes a FAILED fetch. It did not
+                until 2026-09-07: the old `showGrid = !isError` wrapper
+                sat above this whole block, so an error took the one route
+                onward to /blog with it — contradicting this very comment.
+                A dead-end section is a worse failure mode than a bare
+                link, and `e2e/homepage.spec.js:79` clicks this link, so
+                the old behaviour also turned any 429 into a 30s timeout
+                whose message pointed at the splash, not at the fetch. */}
+            <Reveal
+              as={Link}
+              to={BLOG_ROUTE}
+              type="up"
+              delay={360}
+              className={styles.browseAll}
+            >
+              <span className={styles.browseLabel}>BROWSE ALL WRITING</span>
+              <span className={styles.browseChevron} aria-hidden="true">→</span>
+            </Reveal>
           </div>
-        )}
+        </div>
       </div>
     </section>
   );

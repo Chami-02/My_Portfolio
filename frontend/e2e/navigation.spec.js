@@ -34,10 +34,36 @@ test.describe('Navbar Navigation', () => {
     await expect(page.locator('#projects')).toBeInViewport();
   });
 
+  /* PF-100 rebuilt this page. The heading is no longer the numeral.
+   *
+   * ⚠️ `exact: true` is load-bearing, not tidiness. Playwright matches
+   * accessible names by SUBSTRING and case-INSENSITIVELY, so a bare
+   * `{ name: 'Page not found' }` would also resolve anything containing
+   * that phrase. The DOM text is sentence case and the uppercasing is
+   * CSS, which is why this reads 'Page not found' and the identical
+   * assertion in NotFoundPage.test.jsx does too — testing-library
+   * matches in FULL and case-SENSITIVELY, so the two only agree because
+   * both name the DOM string rather than the rendered one. */
   test('404 page shows for unknown route', async ({ page }) => {
     await page.goto('/this-page-does-not-exist');
-    await expect(page.getByRole('heading', { name: '404' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Page not found', exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole('link', { name: /back to home/i })).toBeVisible();
+  });
+
+  /* ⚠️ SCOPED TO <main>, and that is the entire point of the locator.
+   * The Footer carries its own 'Field Notes' link on every route, so a
+   * page-level getByRole for this name resolves two elements and throws
+   * under strict mode — which reads as the feature being gone rather
+   * than as an ambiguous selector. */
+  test('404 offers a Field Notes route out', async ({ page }) => {
+    await page.goto('/this-page-does-not-exist');
+    const notes = page.locator('main').getByRole('link', { name: 'FIELD NOTES →' });
+    await expect(notes).toHaveAttribute('href', '/blog');
+
+    await notes.click();
+    await expect(page).toHaveURL(/\/blog$/);
   });
 
   test('"Back to Home" link on 404 navigates home', async ({ page }) => {
@@ -65,12 +91,15 @@ test.describe('Navbar off the home page', () => {
   test('/blog renders the Blog chrome, with no dead bare hashes', async ({ page }) => {
     await page.goto('/blog');
     const header = page.locator('header');
-    await expect(header.getByRole('link', { name: 'PROJECTS' })).toBeVisible();
-    await expect(header.getByRole('link', { name: 'ABOUT' })).toBeVisible();
-    await expect(header.getByRole('link', { name: /PORTFOLIO/ })).toBeVisible();
-    // On it already — and the Blog prototype's nav has no CONTACT.
+    // PF-103: the portfolio's own sections, left to right, plus GO BACK.
+    for (const label of ['ABOUT', 'SKILLS', 'PROJECTS', 'CONTACT']) {
+      await expect(header.getByRole('link', { name: label })).toBeVisible();
+    }
+    await expect(header.getByRole('link', { name: /GO BACK/ })).toBeVisible();
+    // On it already.
     await expect(header.getByRole('link', { name: 'BLOG' })).toHaveCount(0);
-    await expect(header.getByRole('link', { name: 'CONTACT' })).toHaveCount(0);
+    // The label GO BACK replaced — catches a stale build serving old chrome.
+    await expect(header.getByRole('link', { name: /PORTFOLIO/ })).toHaveCount(0);
     // The bug itself: zero links that go nowhere off the home page.
     await expect(header.locator('a[href^="#"]')).toHaveCount(0);
   });
@@ -78,7 +107,11 @@ test.describe('Navbar off the home page', () => {
   test('a nav link from /blog navigates home AND lands under the header', async ({ page }) => {
     await page.goto('/blog');
     await page.locator('header').getByRole('link', { name: 'PROJECTS' }).click();
-    await expect(page).toHaveURL(/\/\?nosplash=1#projects$/);
+    // ⚠️ PF-106: the href still CARRIES ?nosplash=1 — the link is
+    // unchanged — but HomePage strips it from the address bar on mount, so
+    // the URL settles without it. That strip is what makes a refresh here
+    // replay the intro rather than suppress it, which is the whole point.
+    await expect(page).toHaveURL(/\/#projects$/);
 
     // ⚠️ The URL changing is NOT the assertion. React Router v7 performs
     // the navigation and ignores the fragment, so a version of this
