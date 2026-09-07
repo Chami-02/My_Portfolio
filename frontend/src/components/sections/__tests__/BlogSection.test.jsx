@@ -716,6 +716,198 @@ describe('links', () => {
   });
 });
 
+// ══ the featured card's backdrop image ════════════════════════════════
+describe("the featured card's backdrop image (2026-09-07)", () => {
+  /**
+   * ⚠️ AN ADDITION WITH NO PROTOTYPE SOURCE. The prototype's featured card
+   * has the gradient and `.sweep` and no image. Owner-requested; a
+   * sanctioned deviation, recorded in locked-decisions.md.
+   *
+   * ⚠️ FIXED backdrops, deliberately not per-post. `Blog.coverImage` exists
+   * in the schema with no consumer; the owner chose constant images so
+   * title/excerpt/date/tags keep coming from the API.
+   */
+  /**
+   * ⚠️ `position: absolute` IS LOAD-BEARING BEYOND PLACEMENT, and this is
+   * the assertion most likely to be deleted as redundant.
+   *
+   * `.featuredCard` is `display: flex`. A `::before` is a FLEX ITEM unless
+   * it is out of flow — in flow it would sit above the badge and push
+   * every child down. So dropping `position` does not merely move the
+   * image, it breaks the card's layout, and the failure would present as
+   * a spacing bug with no obvious link to an image rule.
+   */
+  it('is out of flow, or it becomes a flex item and shifts the content', () => {
+    const d = decls('.featuredCard::before');
+    expect(d.position).toBe('absolute');
+    expect(d.inset).toBe('0');
+    // The card is an <a>; the layer must not eat its clicks.
+    expect(d['pointer-events']).toBe('none');
+  });
+
+  /**
+   * ⚠️ BOTH themes are pinned, or a single-theme regression passes.
+   *
+   * The photograph is dark navy, so LIGHT is the tighter constraint: at
+   * `.2` it drags the light card to a cold grey and the surface stops
+   * belonging to the warm-paper palette, even though the text still
+   * measures over 6:1. Contrast does not catch this — it is a palette
+   * failure, not a legibility one. `.1` keeps the paper.
+   *
+   * ⚠️ The scoping must win on SPECIFICITY, not emission order —
+   * `:global(html[data-theme='dark'])` is (0,2,1) against the base rule's
+   * (0,1,0). A second BARE `.featuredCard::before` rule would look
+   * identical in review and depend on which stylesheet the bundler
+   * emitted last. Same guard shape as the PF-91 `.rowMeta` test below.
+   */
+  /**
+   * ⚠️ TWO PHOTOGRAPHS, ONE PER THEME — and two different CROPS, which is
+   * the part that looks like an inconsistency and is not.
+   *
+   * The light image contains the WORD "BLOG" in Scrabble tiles. Rendered
+   * at all three positions: `left center` — which the dark image uses —
+   * SLICES THE G. `center` keeps the word whole. The dark photograph has
+   * no such constraint and its objects sit in its left third, so it wants
+   * `left center`. Normalising the two onto one position breaks one of
+   * them.
+   */
+  it('uses a different photograph and crop per theme', () => {
+    const light = decls('.featuredCard::before').background;
+    expect(light).toContain('blog_section_first_card_Light_Mode.jpg');
+    expect(light).toContain('center');
+    expect(light).not.toContain('left center');
+
+    const dark = [];
+    root.walkRules((rule) => {
+      if (!rule.selector.includes("[data-theme='dark']")) return;
+      if (!rule.selector.includes('.featuredCard::before')) return;
+      rule.walkDecls('background', (d) => dark.push({ sel: rule.selector, v: d.value }));
+    });
+    expect(dark).toHaveLength(1);
+    expect(dark[0].v).toContain('blog_section_first_card.jpg');
+    expect(dark[0].v).toContain('left center');
+    // Specificity (0,2,1) against the base rule's (0,1,0), never emission order.
+    expect(dark[0].sel).toMatch(/:global\(html\[data-theme='dark'\]\)\s*\./);
+    expect(dark[0].sel.trim()).not.toMatch(/^\./);
+  });
+
+  /**
+   * ⚠️ THE LIGHT SCRIM IS A LEGIBILITY REQUIREMENT, NOT A LOOK.
+   *
+   * 19.7% of the light photograph's pixels are dark — the wood between
+   * tiles and the black letters. Its 5th-percentile backdrop luminance
+   * gives **1.07** against `--strong`. Measured as the top alpha rose:
+   * .62 -> excerpt 2.64, .72 -> 3.90, .80 -> 4.64, **.84 -> 5.08**.
+   *
+   * ⚠️ A first estimate of ~.50 was wrong, and wrong in an instructive
+   * way: it eased the wash off across 34-56%, which is exactly the band
+   * the excerpt occupies. The top alpha is not the whole story — the
+   * 56% stop matters as much.
+   *
+   * Pinned as a FLOOR rather than an exact value, so the scrim can be
+   * re-tuned upward but cannot be quietly lightened back under AA.
+   */
+  it('keeps the light scrim heavy enough for dark ink', () => {
+    const bg = decls('.featuredCard::before').background;
+    const alphas = [...bg.matchAll(/rgba\(var\(--gnd\),\s*(\.\d+)\)/g)].map((m) => Number(m[1]));
+    expect(alphas.length).toBeGreaterThanOrEqual(3);
+    expect(alphas[0]).toBeGreaterThanOrEqual(0.8);   // behind the title/meta
+    expect(alphas[2]).toBeGreaterThanOrEqual(0.76);  // behind the excerpt
+  });
+
+  /**
+   * ⚠️ The always-dark card is SUPERSEDED. It was real — the terminal
+   * panel's precedent, "the SURFACE decides, not the colour" — and it was
+   * replaced only because a light-appropriate photograph now exists. This
+   * asserts the token block is GONE, so the two approaches cannot end up
+   * layered on top of each other, which would leave a dark card wearing a
+   * light photograph.
+   */
+  it('no longer forces the dark palette onto the light card', () => {
+    const forced = [];
+    root.walkRules((rule) => {
+      if (!rule.selector.includes("[data-theme='light']")) return;
+      if (!rule.selector.includes('.featuredCard')) return;
+      if (rule.selector.includes('::before')) return;
+      rule.walkDecls((d) => forced.push(d.prop));
+    });
+    expect(forced).toEqual([]);
+  });
+
+  /* The clip to the card's 24px radius comes from the card, not the
+     layer. Pinned because removing it would let the image square off the
+     corners and that reads as a rendering bug, not a CSS one. */
+  it('is clipped by the card, which still hides its overflow', () => {
+    expect(decls('.featuredCard').overflow).toBe('hidden');
+  });
+});
+
+// ══ featured card height ══════════════════════════════════════════════
+describe('the featured card fills its grid cell (2026-09-07)', () => {
+  /**
+   * ⚠️ A SANCTIONED DEVIATION, not a bug fix. The prototype declares
+   * `align-items: start` on this grid (Portfolio Revolution.dc.html:421)
+   * and its featured card has no height of any kind — the transcription
+   * was faithful. Measured live, the card ended 238px above the bottom of
+   * the right column (394px vs 631px) and showed page background beneath
+   * it. Owner called it, 2026-09-07.
+   *
+   * ⚠️ PF-86 explicitly rejected stretching, and that note is NOT wrong —
+   * it is about the RIGHT COLUMN stretching and spreading its 12px gaps,
+   * which only happens when the column is the SHORTER item. At three rows
+   * the column is the taller one, so nothing can spread. Both are true;
+   * they describe different post counts. This is why the deviation is
+   * scoped to the card and the grid keeps `start`.
+   *
+   * ⚠️ ASSERTED THROUGH POSTCSS, NEVER A TEXT SEARCH. The module's own
+   * comments now contain the words `align-self`, `stretch` and
+   * `align-items` while explaining all of the above, so a raw
+   * `toContain('stretch')` would match the explanation and pass whatever
+   * the rules say. This file's header already states the rule; this block
+   * is a live instance of why it exists.
+   */
+  it('.featuredCard stretches to its cell', () => {
+    expect(decls('.featuredCard')['align-self']).toBe('stretch');
+  });
+
+  /**
+   * Where the reclaimed height is spent. `margin-top: auto` moves ONLY the
+   * CTA and leaves every other transcribed spacing intact.
+   *
+   * ⚠️ `justify-content: space-between` on the card was tried and rejected
+   * — it redistributes all six children, floating the LATEST POST badge
+   * alone and pulling the title off its excerpt, overriding the card's own
+   * `gap: 16px`. Pinned as an ABSENCE so it cannot come back as a tidy-up.
+   */
+  it('.featuredFooter is pushed to the card floor, and the card is not redistributed', () => {
+    expect(decls('.featuredFooter')['margin-top']).toBe('auto');
+    expect(decls('.featuredCard')['justify-content']).toBeUndefined();
+  });
+
+  /**
+   * ⚠️ THE PLACEHOLDER MUST MOVE WITH THE CARD OR THE LOAD JUMPS.
+   * `min-height: 394px` was measured by PF-86 specifically to match the
+   * real card so the grid does not shift when data lands. Growing the card
+   * to 631px while leaving this at 394 reintroduces exactly the shift that
+   * measurement exists to prevent. Stretched, it takes the loading
+   * column's height (3×177 + 2×12 + 62 + 12 = 629px) — within ~2px of the
+   * loaded card.
+   */
+  it('.featuredPlaceholder stretches too, so the grid does not shift on load', () => {
+    expect(decls('.featuredPlaceholder')['align-self']).toBe('stretch');
+    expect(decls('.featuredPlaceholder')['min-height']).toBe('394px');
+  });
+
+  /**
+   * ⚠️ The deviation is CARD-SCOPED. `align-items: stretch` here would
+   * also stretch the right column — the case PF-86 was right to prevent.
+   * Pinned so a later "simplification" cannot move it up to the grid.
+   */
+  it('the grid still declares align-items: start', () => {
+    expect(decls('.grid')['align-items']).toBe('start');
+  });
+});
+
 // ══ loading ═══════════════════════════════════════════════════════════
 describe('the loading state', () => {
   const loading = { data: undefined, isLoading: true, isError: false, error: null };

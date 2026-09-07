@@ -1275,6 +1275,41 @@ actually calls.
 
 ### Outstanding work — deferred deliberately, not lost
 
+- **⚠️ `frontend/coverage/` IS COMMITTED TO THE REPO AND NOT GITIGNORED, so
+  running the coverage command dirties the tree with ~100 files.** Found
+  2026-09-07 while running the gate. `backend/.gitignore:5` has
+  `coverage/`; `frontend/.gitignore` has no such entry, and **37 coverage
+  files are tracked**. `npm run test:coverage` modifies those 37 and adds
+  ~70 untracked — so a `git add -A` stages generated HTML reports.
+  ⚠️ Same family as the root `.gitignore`'s missing `node_modules` entry,
+  and worse in one way: **CI runs `test:coverage` on every push**, so this
+  is the documented gate's own artefact.
+  ⚠️ **It reads as an oversight, not a choice**: the same file already
+  ignores `/playwright-report/` (`:37`) and `/test-results/` (`:38`) —
+  Playwright's artefacts — so E2E leaves the tree clean and Vitest's
+  coverage does not. One test runner's output is ignored and the other's
+  is committed. Fix is two steps — add
+  `coverage/` to `frontend/.gitignore` and `git rm -r --cached
+  frontend/coverage` — but untracking 37 committed files is its own change
+  and was deliberately NOT bundled into an unrelated CSS fix.
+
+- **⚠️ THE DOCUMENTED FIVE-COMMAND GATE DOES NOT RUN COVERAGE, AND CI
+  DOES.** Found 2026-09-07. CI's `frontend` job runs lint → test:run →
+  **coverage** → build, and its `backend` job runs **`test:coverage`**
+  where the gate runs plain `npm test`. Thresholds are real and enforced:
+  frontend 70/55/70/70 (`vite.config.js:36-41`), backend 70/60/70/70
+  (`package.json:23-29`). **A green five-command gate can therefore land a
+  red CI**, which is precisely the failure shape already documented for
+  E2E — one step over. Measured headroom on 2026-09-07: frontend
+  **91.5 / 87.45 / 85.46 / 93.85**, comfortable — but backend is
+  **78.58 / 66.66 / 86.77 / 79.36**, and ⚠️ **branch coverage at 66.66%
+  against a 60% threshold is the TIGHTEST margin in the project** (6.66
+  points, where every other metric in both packages sits 15–25 clear).
+  That is the number most likely to cross unnoticed on a backend change,
+  and it is exactly the one the gate does not run. Worth folding into the
+  gate before PF-102 opens the PR.
+
+
 - **⚠️ `<ErrorBoundary>` DOES NOT PROTECT `BlogPage` OR `BlogPostPage`'s
   own inline JSX.** Found and measured in PF-101 (2026-09-07): a bad
   `sections[].body` blanked the entire page — `root.innerHTML.length === 0`
@@ -1366,6 +1401,20 @@ actually calls.
   the baseline run and the PF-98 run — it passes on retry. Playwright buckets
   `flaky` separately from `passed`, so a run reading `39 passed` out of 40 is
   not a skipped test.
+
+  ⚠️ **A SECOND FLAKE IN THE SAME FILE, AND IT IS A DIFFERENT TEST —
+  `footer.spec.js:131`**, "the scroll-to-top link actually returns to the
+  top". Observed across four full runs on 2026-09-07: **failed · passed ·
+  failed · flaky (passed on retry #1)**. In isolation it passes 9/9 in
+  14.5s. Reproducibility is the discriminator this project uses, and it
+  does not reproduce — it is load-sensitive, and the failing runs were the
+  slow ones (3.3–3.9m against 2.0m).
+  ⚠️ **Do not go looking at `:38` for this.** The existing note above
+  names the wrong test for it; they are two distinct flakes in one file.
+  Same documented family as the `ScrollToTop` quiescence work: *"a
+  stability check that accepts the first plateau is a timer wearing a
+  measurement's clothes — under load the main thread stalls, which pauses
+  a smooth scroll."*
 
 - **⚠️ A post slugged `admin` would share a cache entry with the admin list.**
   `useBlogPost(slug)` keys on `['blog', slug]` and `BLOG_ADMIN_KEY` is
@@ -2251,6 +2300,20 @@ than copied forward:
   `eslint.config.js`, plus `dist-*/`, and the file is deleted. Closed here
   because it was blocking a real fix, not as a drive-by — see the
   lint-scope entry in Silent failures.
+  ⚠️ **A THIRD was nearly added, and was resampled first (2026-09-07).**
+  `blog_section_first_card.jpg` arrived at **6016×4016 / 3,849,085 bytes**
+  for a card that renders at ~603×631 CSS px — it would have been the
+  largest asset in the repo, on the home page. `sips -Z 1600 --setProperty
+  formatOptions 75` took it to **1600×1068 / 299,131 bytes (−92.2%)** with
+  no visible difference behind a scrim.
+  ⚠️ **A FOURTH followed the same day** — a light-theme photograph at
+  **6000×4000 / 4,137,524 bytes**, resampled to **1600×1066 / 349,837
+  bytes (−91.5%)**. Two card images now ship, one per theme; only the
+  active theme's file is fetched, so a **theme toggle fetches the other**
+  and can pop. Not preloaded — that would make every visitor pay for both.
+  This is the repo's **first theme-scoped image**. macOS `sips` is present and
+  sufficient; `cwebp` and `magick` are NOT installed. The same one-liner
+  would work on the two above.
 
   Both halves measured rather than assumed:
   - **`ESLintIgnoreWarning` is gone**, and the probe is proven live by the
@@ -3483,6 +3546,30 @@ Five things worth knowing before touching the section:
   three short rows plus a link, and stretching it to the featured card's
   height spreads its 12px gaps out to fill the difference. Measured:
   featured 394px against a column of 629px, not stretched.
+
+  ⚠️ **AMENDED 2026-09-07 — this rule STANDS, but it describes the
+  opposite case to the one that ships, and acting on it as written left a
+  visible defect.** Stretch only ever grows the **shorter** item. With
+  three rows the column is the **taller** one, so `start` was never
+  protecting the column from spreading — it was leaving **238px of page
+  background under the card**, which the owner reported as blank space.
+
+  The fix is `align-self: stretch` on **`.featuredCard` alone**; this grid
+  keeps `align-items: start`, so the low-post-count case above — the one
+  where the column really would spread — is still protected. Both halves
+  are true and they apply to different post counts.
+
+  ⚠️ `.featuredPlaceholder` took `align-self: stretch` in the same change.
+  Its `min-height: 394px` was measured *here* to match the real card;
+  leaving it while the card grew to 631px would have reintroduced the load
+  shift that measurement exists to prevent. Measured after: placeholder
+  629px → card 631px, a **2px** jump, where the unpaired version would
+  have been **237px**.
+
+  Recorded as a sanctioned deviation in `locked-decisions.md` — the
+  prototype declares `align-items: start` (line 421) and the
+  transcription was faithful, so this is an owner-approved departure, not
+  a repair.
 - **`min-width: 0` on the compact row's body is load-bearing, and the
   control proves it.** ⚠️ It takes a genuinely unbreakable token to see:
   a long title of ordinary words wraps, and a hyphenated slug breaks at

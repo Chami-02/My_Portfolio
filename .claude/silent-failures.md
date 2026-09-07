@@ -2322,3 +2322,54 @@ box the design has.
 always trip the self-overflow check. Exclude them by name, or the signal
 drowns again.
 
+
+## ⚠️ Measuring text contrast over an IMAGE: three instruments failed before one worked (2026-09-07)
+
+Adding a photograph behind the blog teaser's featured card needed an AA
+answer. **Three different instruments each produced a confident, wrong
+one.** The only thing that separated them was a control: measure with the
+image removed and require PF-91's already-verified numbers back.
+
+| # | instrument | verdict | why it was wrong |
+| --- | --- | --- | --- |
+| 1 | analytic composite of the background layers | **pass**, worst 5.17 | modelled the gradient OVER the image. `::before` paints **above** the element's own background, so the gradient is under the image and attenuates nothing |
+| 2 | screenshot, worst pixel in the text's bounding box | **fail** | a bounding box contains starfield dots, the `mix-blend-mode: screen` sweep highlight and the gaps between glyphs — pixels no letter sits on |
+| 3 | screenshot diff, worst pixel a glyph covers | **fail**, harder | glyph EDGE pixels are antialiased — part text, part background. Comparing full text colour against a half-blended pixel manufactures failures |
+| 4 | glyph mask from the diff, backdrop colour from the text-hidden capture, **5th percentile** | **correct** | control reproduced 5.81 / 5.79 where PF-91 recorded ~6.3 |
+
+⚠️ **Instruments 2 and 3 both condemned a card that PF-91 had verified.**
+Without the control they would have forced a redesign of something that
+was not broken — and instrument 3's numbers were *internally impossible*
+(contrast got WORSE as the image faded toward nothing), which is the tell
+that should have stopped it sooner.
+
+**Rules this leaves:**
+
+- **WCAG contrast is text colour vs BACKDROP colour.** Antialiasing is not
+  part of it. Never sample the rendered text.
+- **Never take the single worst pixel.** Over an image use a percentile;
+  the minimum is one speck under one antialiased edge.
+- **The backdrop must come from a text-hidden capture**, and the sweep
+  must be frozen or the two captures differ for reasons unrelated to text.
+- ⚠️ **A control is not optional here.** Three of four instruments looked
+  reasonable and produced confident numbers. Measuring the same page with
+  the image removed, and requiring the known-good values back, is the
+  cheapest thing that tells them apart.
+
+## ⚠️ A mutation that never applies reports as "caught" — the shell ate the newline (2026-09-07)
+
+Five mutations against `BlogSection.module.css` were driven through
+`python3 -c` with regexes passed as shell arguments. `\n` arrived as two
+literal characters, so **no substitution ever happened**, every run
+returned the unmutated suite, and all five would have been recorded as
+green guards.
+
+The only reason it was caught: the harness diffed the file against its
+snapshot and printed `changed? NO` each time.
+
+⚠️ **Confirm the file actually changed, every mutation, every time.** The
+documented rule already said so; this is the second mechanism by which it
+fails silently, after "the regex hit a comment naming the value". Prefer a
+script file over `python3 -c` with shell-escaped patterns, and assert the
+anchor exists before replacing it.
+

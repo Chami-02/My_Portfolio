@@ -2472,3 +2472,175 @@ box at **1280px** as well as 320. The teaser's rows and the reading view's
 nav cards were measured and need no guard — `.rowBody`'s `min-width: 0`
 already covers the first.
 
+
+## The blog teaser's featured card fills its cell (2026-09-07)
+
+**Owner-requested, and a DEVIATION — not a repair.** `Portfolio
+Revolution.dc.html:421` declares `align-items: start` on the teaser's outer
+grid and its featured card carries no `height` or `min-height`;
+`BlogSection.module.css` matched it value for value. The transcription was
+faithful. The owner asked for the change after seeing the result.
+
+**What it looked like.** Measured live, both themes: featured card **394px**
+against a right column of **631px**, leaving **238px** of page background
+under the card.
+
+**The change, and why it is scoped the way it is:**
+
+| element | declaration | why |
+| --- | --- | --- |
+| `.featuredCard` | `align-self: stretch` | fills the cell |
+| `.featuredFooter` | `margin-top: auto` | spends the reclaimed height on the CTA alone |
+| `.featuredPlaceholder` | `align-self: stretch` | keeps the load from jumping |
+| `.grid` | **unchanged — `align-items: start`** | see below |
+
+⚠️ **The grid is deliberately NOT changed.** `align-items: stretch` there
+would also stretch the right column, which is the case PF-86 was right to
+prevent: with few rows the column becomes the shorter item and its 12px
+gaps spread to fill. That never happens at three rows — the column is the
+taller one — so PF-86's reasoning was sound about a case that does not
+ship. **Both halves are true; they apply to different post counts.** The
+deviation is one property on one element.
+
+⚠️ **`justify-content: space-between` on the card was tried and REJECTED.**
+It redistributes all six children, floating the `LATEST POST` badge alone
+and pulling the title off its excerpt — it overrides the card's transcribed
+`gap: 16px`. `margin-top: auto` moves only the CTA and leaves every other
+spacing intact. Pinned as an absence so it cannot return as a tidy-up.
+
+⚠️ **`margin-top: auto` REPLACES the prototype's `margin-top: 6px`; it is
+not a floor on top of it.** `auto` resolves to **0** where there is no free
+space, so in the single-column layout the gap above the CTA is the card's
+own 16px rather than 22px. Six pixels, at widths where the card is
+full-bleed. Measured and accepted, recorded so it is not later filed as a
+regression.
+
+⚠️ **The placeholder pairing is load-bearing, not tidiness.**
+`min-height: 394px` was measured by PF-86 to match the real card so the
+grid does not shift when data lands. Stretching the card without it would
+have reintroduced that shift. Measured after: placeholder **629px** →
+card **631px**, a **2px** jump; unpaired it would have been **237px**.
+
+⚠️ **`.empty` does NOT stretch, deliberately.** When the blog is empty the
+rows render `null`, so the column is just `.browseAll` and the panel is
+already the taller item — stretching would inflate a short message to full
+height if the column ever grew.
+
+**Accepted consequence, stated rather than discovered later:** the card is
+**38%** empty inside at 1440/1280, **47%** at 1024 and **54%** at 768. At
+the mid widths the two tracks are only ~340px each, so the rows wrap and
+the column balloons — that emptiness exists today as bare background under
+a short card, and this change relocates it inside the card rather than
+creating it. Owner reviewed the 768px case specifically and chose to keep
+one behaviour at all widths. **The mid-width strain of this two-column
+layout is a separate, pre-existing weakness, not this change's to fix.**
+
+
+## The blog teaser's featured card carries a FIXED BACKDROP PHOTOGRAPH — one per theme (2026-09-07)
+
+**Owner-requested, an ADDITION with no prototype source.** The prototype's
+featured card has its gradient and `.sweep` and no image. **Fixed**
+backdrops, deliberately not per-post — `Blog.coverImage` exists in the
+schema (`Blog.js:113`) with no consumer and is **not** wired to this.
+
+Implemented as `.featuredCard::before` — pure CSS, no JSX change.
+
+### ⚠️ THIS SUPERSEDES AN ALWAYS-DARK CARD DECIDED THE SAME DAY
+
+For part of 2026-09-07 the card was **dark in both themes**, with the light
+theme restoring `tokens.css`'s `:root` palette on `.featuredCard` so
+descendants inherited dark values. **That decision was sound** — the navy
+photograph could not carry the light theme's dark ink, and PF-91's terminal
+panel is the precedent ("the SURFACE decides, not the colour").
+
+It was replaced only because the owner then supplied a **light-appropriate
+photograph**, which removes the constraint that forced it. Both halves are
+recorded so the reversal is legible rather than looking like drift.
+
+⚠️ **Do not re-add the light token block.** A test asserts its absence.
+Layered on top of the current design it would leave a dark card wearing a
+light photograph.
+
+### Two photographs, two crops
+
+| | dark | light |
+| --- | --- | --- |
+| asset | `blog_section_first_card.jpg` (299,131 b) | `blog_section_first_card_Light_Mode.jpg` (349,837 b) |
+| crop | `left center` | **`center`** |
+| scrim (`--gnd` alphas) | .88 → .56 | **.84 / .84 / .80 / .34 / .16** |
+
+⚠️ **The crops differ on purpose and normalising them breaks one.** The
+light photograph contains the WORD "BLOG" in Scrabble tiles; rendered at
+all three positions, `left center` **slices the G**. The dark photograph's
+objects sit in its left third and want `left center`. Vertical has no slack
+to tune — `cover` yields exactly 631px — so the word cannot be moved out of
+the text's way; its upper half is scrimmed.
+
+⚠️ **The light scrim is a legibility requirement, not a look.** 19.7% of
+that photograph's pixels are dark (wood between tiles, black letters); its
+5th-percentile backdrop luminance gives **1.07** against `--strong`.
+Measured as the top alpha rose:
+
+| top alpha | excerpt | meta | |
+| --- | --- | --- | --- |
+| .62 | 2.64 | 3.60 | fail |
+| .72 | 3.90 | 4.50 | fail |
+| .80 | 4.64 | 5.08 | pass, 0.14 margin |
+| **.84** | **5.08** | **5.45** | **shipped** |
+| .88 | 5.54 | 5.82 | pass, visibly more washed |
+
+⚠️ **The two stops BELOW the text were then opened up separately** — 74%
+`.52 → .34` and 100% `.40 → .16`, on the owner's note that the card read
+too "glowy". That band carries no text, so the text-band alphas
+(0/34/56%) were left alone and **excerpt and meta did not move** (5.08 /
+5.45). Only the footer changed, 8.89 → **7.02**, still well clear.
+**This is the lever to reach for if the wash is ever too heavy again** —
+lightening the text band instead costs legibility directly.
+
+⚠️ **A first estimate of ~.50 was wrong in an instructive way**: it eased
+the wash off across 34–56%, exactly the band the excerpt occupies. The top
+alpha is not the whole story — **the 56% stop matters as much.**
+
+### ⚠️ `::before` paints ABOVE the element's own background
+
+The card's transcribed gradient sits **under** this layer and does **not**
+attenuate the photograph. An early attempt assumed gradient-over-image and
+measured as safe; it was not. The scrim lives **inside** `::before`.
+
+⚠️ `position: absolute` is load-bearing beyond placement: `.featuredCard`
+is `display: flex`, so a `::before` is a **flex item** in flow and pushes
+every child down.
+
+### ⚠️ First theme-scoped image in the repo
+
+Only the **active** theme's file is fetched — CSS requests a background
+lazily and only for a rule matching a rendered element — so this costs one
+image per visit, not two. The consequence is that a **theme toggle fetches
+the other one at that moment and can pop.** Not preloaded, deliberately:
+preloading would make every visitor pay for both.
+
+### Contrast, measured against a validated control
+
+| node | light control | light | dark |
+| --- | --- | --- | --- |
+| title | 14.84 | **14.49** | **17.41** |
+| excerpt | 6.47 | **5.08** | **5.80** |
+| meta | 5.92 | **5.45** | **5.80** |
+| footer | 13.82 | **7.02** | **14.42** |
+
+⚠️ **THREE MEASUREMENT INSTRUMENTS FAILED BEFORE ONE WORKED.** Full account
+in `silent-failures.md`. The control — measure with the image removed and
+require the known numbers back — is the only thing that separated them.
+
+### The assets
+
+Both arrived at full camera resolution and were resampled before
+committing, with `sips -Z 1600 --setProperty formatOptions 75`:
+
+| | supplied | shipped |
+| --- | --- | --- |
+| dark | 6016×4016 / 3,849,085 b | 1600×1068 / **299,131 b** (−92.2%) |
+| light | 6000×4000 / 4,137,524 b | 1600×1066 / **349,837 b** (−91.5%) |
+
+They load on the home page; do not replace either with an unresampled
+original.

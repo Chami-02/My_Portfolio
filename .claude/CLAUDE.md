@@ -1150,6 +1150,38 @@ section is the distinction. The prototype's own footer *gradient* is still
 omitted — keep the two straight.
 
 **Additions and overrides:**
+- **The blog teaser's featured card carries a FIXED backdrop photograph —
+  ONE PER THEME** (2026-09-07) — `.featuredCard::before`, pure CSS.
+  ⚠️ **Supersedes an always-dark card decided the same day**; that decision
+  was sound (PF-91's terminal-panel precedent) and was replaced only
+  because a light-appropriate photo arrived. Do not re-add the light token
+  block — a test asserts its absence.
+  ⚠️ **The two crops differ on purpose**: the light photo contains the word
+  "BLOG" and `left center` **slices the G**, while the dark photo's objects
+  need `left center`. Normalising them breaks one.
+  ⚠️ The light scrim (`--gnd` .84 / .84 / .80 / .34 / .16) is a
+  **legibility requirement** —
+  19.7% of that image is dark and its p5 backdrop gives **1.07**; a ~.50
+  estimate put the excerpt at 2.64 because it eased off across the
+  excerpt's own band.
+  ⚠️ `::before` paints **above** the element's background, so the card's
+  gradient does not attenuate it; `position: absolute` is load-bearing
+  (the card is `display: flex`).
+  ⚠️ **First theme-scoped image in the repo** — only the active theme's
+  file downloads, so a toggle fetches the other and can pop. Not preloaded,
+  deliberately. ⚠️ NOT wired to `Blog.coverImage`, which exists unused.
+  Both assets resampled from ~4MB originals to 299KB / 350KB.
+- **The blog teaser's featured card FILLS its grid cell** (2026-09-07) —
+  `align-self: stretch` on `.featuredCard` plus `margin-top: auto` on
+  `.featuredFooter`. The prototype declares `align-items: start` (line 421)
+  and the transcription was faithful; the card ended **238px** above the
+  column's bottom (394 vs 631) and showed background beneath it.
+  ⚠️ **The GRID keeps `align-items: start`** — stretching it would also
+  stretch the right column, which is the case PF-86 was right to prevent
+  (it only arises at a *lower* post count). ⚠️ `.featuredPlaceholder`
+  stretches too, or the load jumps 237px instead of 2px.
+  ⚠️ `justify-content: space-between` was tried and **rejected** — it
+  overrides the card's transcribed `gap: 16px`.
 - **Hero**: a fourth pill-row item (the LOUD CTA), **ten** floating chips
   not eight, a two-layer `mask-image` on the portrait (both radii **50%**,
   both `mask-composite` spellings required), `.blobC` at **z-index 2** not
