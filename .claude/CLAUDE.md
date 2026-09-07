@@ -309,7 +309,7 @@ to PF-59 is intentional.
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed, **+ view counter** | 8 | ✅ built 2026-09-06 (really ~11) |
 | PF-100 | 404 page — Phase 2 treatment | 3 | ✅ built 2026-09-07 |
 | PF-101 | Blog responsive + state audit, both themes | 6 | ✅ built 2026-09-07 |
-| PF-102 | Sprint gate, PR, close | 8 | to do |
+| PF-102 | Sprint gate, PR, close | 8 | ✅ built 2026-09-07 |
 | PF-103 | `/blog` polish — numeral fit, honest reading times, blog nav | 5 | ✅ built 2026-09-06 |
 | PF-104 | `/blog` search depth, search icon + clear controls, full dates, publish-date stamp | 3 | ✅ built 2026-09-06 |
 | PF-105 | `/blog` multi-tag AND filtering + dimming, CLEAR ALL red | 3 | ✅ built 2026-09-06 |
@@ -317,8 +317,10 @@ to PF-59 is intentional.
 
 ⚠️ **PF-99 is BUILT but the board still says To Do** (2026-09-06) — the
 board is the owner's to move. PF-95 through PF-98 and PF-103 through PF-106
-are Done on both; **PF-99, PF-100 and PF-101 are built here and To Do
-there**; only PF-102 is genuinely To Do. For most of the sprint they did NOT agree, which is what the
+are Done on both; **PF-99, PF-100, PF-101 and PF-102 are built here and
+To Do there**. ⚠️ **Every Sprint 13 ticket is now built.** What remains is
+the owner's: open the PR from `new mds/E8/PF-102-sprint-13-pr-body.md`,
+merge, and move the board. For most of the sprint they did NOT agree, which is what the
 `Board` column in `sprint-log.md` exists to track.
 
 ⚠️ **Moving the board is the owner's, and so is CREATING a ticket.** Do not

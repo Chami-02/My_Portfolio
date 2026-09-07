@@ -56,7 +56,7 @@ plan**. PF-95 is built; PF-96 → PF-102 are not.
 | ~~PF-99~~ | 8 | the EMAIL ME removal — ✅ **BUILT 2026-09-06** |
 | ~~PF-100~~ | 3 | three measured contrast failures, raised in PF-91 — ✅ **BUILT 2026-09-07**. ⚠️ The inherited framing ("Phase 1 token work") was WRONG; see the plan entry |
 | ~~PF-101~~ | 6 | the `sweep` keyframe, parked here by owner decision — ✅ **BUILT 2026-09-07**. ⚠️ Its written scope named neither the reading view nor the 404, and missed TWO pre-existing defects it had to fix |
-| PF-102 | 8 | the five-command gate |
+| ~~PF-102~~ | 8 | the five-command gate — ✅ **BUILT 2026-09-07**. ⚠️ It is SIX commands: the documented gate omits `test:coverage` and CI runs it |
 
 Non-ticket sections worth knowing exist:
 
@@ -494,7 +494,7 @@ Transcribed from the Jira backlog board on 2026-09-02.
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed, **+ view counter** | 8 | To Do | ✅ **built 2026-09-06** (really ~11 with the counter) |
 | PF-100 | 404 page — Phase 2 treatment | 3 | To Do | ✅ **built 2026-09-07** |
 | PF-101 | Blog responsive + state audit, both themes | 6 | To Do | ✅ **built 2026-09-07** (really ~8) |
-| PF-102 | Sprint gate, PR, close | 8 | To Do | — |
+| PF-102 | Sprint gate, PR, close | 8 | To Do | ✅ **built 2026-09-07** — gate run fresh, PR body written, sprint closed |
 | PF-103 | `/blog` polish — numeral fit, honest reading times + override, blog nav | 5 | Done | ✅ **built 2026-09-06** |
 | PF-104 | `/blog` search over post bodies, search icon + clear controls, full dates, publish-date stamp, numeral 56px | 3 | Done | ✅ **built 2026-09-06** |
 | PF-105 | `/blog` multi-tag AND filtering with dead-combination dimming, CLEAR ALL in red | 3 | Done | ✅ **built 2026-09-06** |
@@ -1273,7 +1273,92 @@ getaddrinfo ENOTFOUND backend`, which reads exactly like "the backend is
 down" while `/api/health` returns 200 throughout. Probe the URL the app
 actually calls.
 
+### PF-102 — the Sprint 13 gate (2026-09-07)
+
+Run fresh, not aggregated from the ticket reports — PF-84's precedent, and
+PF-92's. PF-84 assembled its gate from reports, came back green, and CI
+then failed on four E2E specs.
+
+| Check | Result |
+| --- | --- |
+| Frontend (`npm run test:run`) | **1068 / 1068**, 51 files |
+| Lint (`--max-warnings=0`) | exit 0 |
+| Build | 233 modules · CSS 82.22 kB (gzip 16.68) · JS 446.16 kB (gzip 137.70) |
+| Backend (`npm test`) | **352 / 352**, 25 suites, 320.0s |
+| E2E | **72 / 72**, 2.1m, **no flaky bucket** |
+| Frontend coverage | 91.58 / 87.57 / 85.46 / 93.85 vs 70/55/70/70 |
+| Backend coverage | **78.58 / 66.66 / 86.77 / 79.36** vs 70/60/70/70 |
+| Commits ahead of `master` | 19 |
+| Diff vs `master` | 69 files, +24,605 / −8,113 |
+
+⚠️ **PR #6 was confirmed MERGED first** (`79835e0`, 2026-08-30) — the check
+CLAUDE.md asks for before trusting `master` as a base.
+
+⚠️ **SIX COMMANDS, NOT FIVE.** `test:coverage` is absent from the
+documented gate and **CI runs it**, in both packages. Sprint 12's PR
+called out "five commands, not four"; this is the next hole in the same
+wall. Logged in Outstanding work.
+
+**What the gate found, beyond the numbers:**
+
+- ⚠️ **Migration 006 has NOT been run against production, and merging will
+  not run it.** Live posts still report `readingTimeMinutes` 6/7/4/5 —
+  values migration 005 wrote on 2026-09-02, transcribed from the design
+  and never true of the bodies (158/123/89/64 words → 1 minute each).
+  PF-103 removed the literals from `seed.js`, but `seed.js` only runs on a
+  fresh environment. **This is the class of defect a production pass
+  exists for: no test, lint or build can see a stale database value.**
+- ⚠️ **`footer.spec.js:131` is a SECOND flake in that file**, distinct
+  from the already-logged `:38`. Observed five times: failed · passed ·
+  failed · flaky · flaky, and 9/9 in isolation. Only fails on slow runs.
+  The existing note named the wrong test; corrected.
+- **32 `429`s in the E2E run** against a documented 27 baseline —
+  pre-existing rate-limiter exhaustion, still unaddressed.
+
+**Production verified READ-ONLY, deliberately.** `/api/health` reports
+`database: "portfolio_prod"` — the field carrying the truth, since the
+route sits in front of `connectDB()` and a 200 alone proves nothing.
+`.env.production` is correct; PF-92's trailing-period bug has not
+regressed. ⚠️ **No Contact POST this time** — PF-92's gate wrote a
+permanent production record that is still outstanding.
+
+⚠️ **Production runs `master`, so PF-96's `?q=`/`?tag=` filtering returns
+every post there.** `utils/blogQuery.js` is branch-only. Expected, not a
+defect — the merge deploys it. Worth writing down because the symptom
+looks exactly like a broken filter.
+
+**Sprint 13 is complete.** PR body: `new mds/E8/PF-102-sprint-13-pr-body.md`.
+The owner opens the PR, merges, and moves the board. There is **no separate
+retrospective document** — this section is the record, matching Sprint 10,
+11 and 12.
+
 ### Outstanding work — deferred deliberately, not lost
+
+- **⚠️ MIGRATION 006 HAS NOT BEEN RUN AGAINST PRODUCTION, and merging the
+  Sprint 13 PR will not run it.** Found by PF-102's read-only production
+  pass, 2026-09-07: live posts still report `readingTimeMinutes` 6/7/4/5.
+  Migration 005 wrote those on 2026-09-02, transcribed from
+  `docs/design/Blog.dc.html`; measured, the four bodies are 158/123/89/64
+  words and every one computes to **1 minute**. PF-103 removed the
+  literals from `seed.js`, but `seed.js` only runs on a fresh environment
+  (it wipes Project/Skill/Blog/About/User first), so a live database keeps
+  the old values until 006 runs.
+  ⚠️ **Its `--dry-run` output is ambiguous BY DESIGN** — the failure mode
+  prints `Already correct: 4`, identical to the correct result, because
+  `validateSync()` runs no middleware. Plant a dirty value and confirm the
+  probe sees it before trusting a dry run.
+  ⚠️ **No test, lint or build can catch this.** It is a stale *data*
+  value, the same class as PF-92's `.env.production` trailing period.
+
+- **⚠️ `e2e/footer.spec.js:131` is a SECOND flake in that file** —
+  "the scroll-to-top link actually returns to the top", distinct from the
+  `:38` entry below. Recorded here as well as inline because the older
+  note names only `:38` and sends people to the wrong test. Observed five
+  times on 2026-09-07: failed · passed · failed · flaky · flaky, against
+  9/9 in isolation in 14.5s. It fails only on slow runs (2.8–3.9m vs
+  2.1m) — load-sensitive, same family as the `ScrollToTop` quiescence
+  work. Not caused by Sprint 13.
+
 
 - **⚠️ `frontend/coverage/` IS COMMITTED TO THE REPO AND NOT GITIGNORED, so
   running the coverage command dirties the tree with ~100 files.** Found
