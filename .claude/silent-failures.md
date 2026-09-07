@@ -1883,9 +1883,55 @@ Nothing about that message points at a rate limiter.
 **The rule this makes concrete, already in the Playwright section above:
 prefer `route.fulfill()` with a fixture.** PF-98's spec now stubs everything
 except one deliberate real-stack test, which took its contribution from ~33
-requests to 2. **Not fixed for the suite as a whole** — raising the limiter
-for `NODE_ENV=test`, or resetting it per spec, is its own ticket. On the
-Outstanding-work list.
+requests to 2.
+
+### ✅ FIXED 2026-09-07 — and the delay cost a red CI
+
+`globalLimiter` now carries `skip: () => process.env.NODE_ENV === 'test'`.
+Both `backend/.env.e2e` and the CI e2e job already set `NODE_ENV=test`, so one
+predicate covers local and CI with nothing to keep in sync — a
+`RATE_LIMIT_MAX` env var would have needed setting in two places, and the one
+that gets forgotten fails exactly this silently. `authLimiter` is deliberately
+NOT skipped: the admin spec logs in a handful of times against a cap of 10 and
+has never tripped it.
+
+Measured, 130 requests past a cap of 100:
+
+```
+NODE_ENV=test         130 × 200,  0 × 429      ← the fix
+NODE_ENV=development   99 × 200, 31 × 429      ← the control
+```
+
+⚠️ **Run the control.** "Zero 429s" is what a broken probe reports too. The
+development run is what proves the instrument can still see one — and doubles
+as proof that production's limit is untouched.
+
+### ⚠️ THE PART THAT WAS NOT UNDERSTOOD UNTIL IT FIRED
+
+**"It passes locally" proved nothing, for a reason nobody had traced.**
+`express-rate-limit`'s window opens on the FIRST request and resets 15 minutes
+later. CI starts the backend fresh in the workflow, so the whole ~4-minute
+suite sits inside ONE window that never rolls. Locally the backend has usually
+been up a while, so a boundary often falls mid-run and silently refills the
+budget. **Identical suite, green or red depending on server uptime** — which
+is why the measured 429 count drifted 27 → 29 → 32 across runs and read as
+noise rather than as a threshold being crossed.
+
+Same family as the `reuseExistingServer` trap: the state a local run inherits
+from a long-lived server is not the state CI gets.
+
+**What finally exposed it.** PF-106's spec
+(`e2e/homepage.spec.js:79`) clicks `main a[href="/blog"]`. That link only
+existed on a SUCCESSFUL fetch, so the 429 removed it and the spec died as a
+30-second `waiting for locator` timeout — a message pointing at the splash it
+was testing, not at the fetch. Third instance of the same shape: a rate-limit
+failure surfacing as an unreadable assertion somewhere else entirely.
+
+⚠️ **The budget was never marginal, and the arithmetic is worth keeping.** A
+homepage load fires FOUR queries (blog, projects, skills, about-for-Contact),
+and TanStack Query's `retry: 1` makes a rejected one cost two. 100 requests is
+~25 homepage loads for a 72-test suite. Exhaustion was structural — the only
+question was which spec happened to land past the line.
 
 ## ⚠️ `validateSync()` runs NO middleware, so a hook-derived field is silently not derived (PF-103, 2026-09-06)
 

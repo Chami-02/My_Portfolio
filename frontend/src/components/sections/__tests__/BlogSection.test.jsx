@@ -2,7 +2,7 @@
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
 import { MemoryRouter } from 'react-router-dom';
@@ -1010,11 +1010,54 @@ describe('the error state', () => {
     spy.mockRestore();
   });
 
-  it('drops the grid', () => {
+  it('drops the cards', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const c = draw(failed);
-    expect(pick(c, 'grid')).toBeNull();
     expect(pick(c, 'featuredCard')).toBeNull();
+    expect(pick(c, 'featuredPlaceholder')).toBeNull();
+    expect(pick(c, 'row')).toBeNull();
+    expect(pick(c, 'rowPlaceholder')).toBeNull();
+    spy.mockRestore();
+  });
+
+  /**
+   * ⚠️ This REPLACES an assertion that the whole grid goes (2026-09-07).
+   *
+   * BROWSE ALL WRITING depends on no query — it is a constant `to`. The
+   * old `showGrid = !isError` wrapper took it out with the cards anyway,
+   * so a failed fetch left the section with a heading and no route onward
+   * to /blog. It also broke `e2e/homepage.spec.js:79`, which clicks this
+   * link: under CI's rate limiter the fetch 429'd, the link was never in
+   * the DOM, and the spec failed as a 30s timeout that read like a splash
+   * bug rather than a fetch one.
+   *
+   * The grid element itself stays too, and that is not incidental: the
+   * link is a child of `.column` inside it, and `.grid`'s
+   * `auto-fit, minmax(min(100%, 340px), 1fr)` collapses to the single
+   * remaining track, so the link spans the section instead of sitting in
+   * a half-width cell beside an empty one.
+   */
+  it('keeps BROWSE ALL WRITING, the one thing that never depended on the fetch', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const c = draw(failed);
+
+    const browse = screen.getByRole('link', { name: /BROWSE ALL WRITING/i });
+    expect(browse).toHaveAttribute('href', '/blog');
+
+    // The link's layout parents survive with it, or it renders orphaned.
+    expect(pick(c, 'grid')).not.toBeNull();
+    expect(pick(c, 'column')).not.toBeNull();
+
+    // ⚠️ The discriminating half. Without it this passes just as well
+    // against the old code IF the fixture ever stops failing, because
+    // every card assertion above is also satisfied by a *successful*
+    // fetch of an empty blog. Pinning it as the ONLY link in the section
+    // is what makes "the cards are gone AND the link is not" the single
+    // state that passes.
+    const links = within(c.querySelector('section#blog')).getAllByRole('link');
+    expect(links).toHaveLength(1);
+    expect(links[0]).toBe(browse);
+
     spy.mockRestore();
   });
 

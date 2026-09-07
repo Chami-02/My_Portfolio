@@ -409,8 +409,9 @@ painted** on either existing consumer (`base.css` animates `transform`; both
 prototypes animate `background-position` — measured with a control, fix
 deferred to PF-101 by owner decision); a **`fullPage` screenshot** captures
 every below-the-fold reveal at opacity 0 and reads as a broken layout; and
-**the E2E suite already exhausts the backend's rate limiter** (27 `429`
-lines in a run that predates PF-98). **Sprint 14, not 13**, owns `/admin`'s light
+~~**the E2E suite already exhausts the backend's rate limiter**~~ (27 `429`
+lines in a run that predates PF-98) — **FIXED 2026-09-07**, `globalLimiter`
+now skips under `NODE_ENV=test`. **Sprint 14, not 13**, owns `/admin`'s light
 theme, `global.css`'s `:root` deletion and the font cutover — one piece of
 work, don't pull it forward.
 
@@ -934,6 +935,13 @@ concluding "this is fine, I read the source".
 - **The backend rate-limits at 100 req / 15 min / IP.** Automated browser
   verification exhausts it easily; it presents as sections rendering their
   error state for no reason. Prefer `route.fulfill()` with a fixture.
+  ⚠️ **The E2E SUITE is exempt as of 2026-09-07** (`globalLimiter` skips
+  under `NODE_ENV=test`) — but a browser-tool probe is NOT, because it drives
+  the dev backend on `NODE_ENV=development`. ⚠️ And the reason this went
+  unnoticed for a sprint generalises: the limiter's window opens on the FIRST
+  request and resets 15 min later, so a long-lived local server refills the
+  budget mid-run while a freshly-started CI one never does. **"It passes
+  locally" is not evidence about a request-budget failure.**
 - **The E2E contact spec writes a row per run and never cleans up** —
   `portfolio_e2e.contacts` grows monotonically. Not a usable signal there.
 

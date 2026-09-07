@@ -1479,15 +1479,45 @@ retrospective document** — this section is the record, matching Sprint 10,
   name-based even then — the `blink` assertion already pinned content, and
   it is the precedent the new one follows.
 
-- **⚠️ The E2E suite exceeds the backend's 100 req / 15 min / IP limiter, and
-  has for some time.** Measured in PF-98: **27** `429` lines in a full run
-  *without* the new blog spec, 29 with it — so this is pre-existing, not
-  PF-98's. Specs after the first few drive a page whose sections have all
-  rendered their error state, and the suite stays green because none of them
-  assert on that data. The first spec that does assert on data late in the
-  run fails with something unreadable — PF-98's first draft failed with
-  `Expected: > 2, Received: 1` chips. Fix is its own ticket: raise or disable
-  the limiter under `NODE_ENV=test`, or reset it per spec.
+- ~~**⚠️ The E2E suite exceeds the backend's 100 req / 15 min / IP
+  limiter**~~ — **FIXED 2026-09-07**, as an unnumbered fix, after it finally
+  turned CI red. `globalLimiter` now carries
+  `skip: () => process.env.NODE_ENV === 'test'`; measured 130 requests past
+  the cap gave **0** `429`s, against **31** in the `NODE_ENV=development`
+  control. `authLimiter` is deliberately still live in test.
+
+  ⚠️ **The thing worth carrying forward is why it stayed hidden.**
+  `express-rate-limit`'s window opens on the first request and resets 15
+  minutes later. CI starts the backend fresh, so the whole suite sits in ONE
+  window; locally the server has usually been up a while and a boundary
+  refills the budget mid-run. Same suite, green or red on server uptime —
+  the reason the count drifted 27 → 29 → 32 and read as noise. Full entry in
+  `silent-failures.md`.
+
+  ⚠️ It surfaced as `e2e/homepage.spec.js:79` timing out for 30s on
+  `waiting for locator('main a[href="/blog"]')` — a message pointing at the
+  splash, not the fetch. **Two defects, not one**: see the `BlogSection`
+  entry below.
+
+- ~~**⚠️ `BlogSection` dropped BROWSE ALL WRITING on a failed fetch**~~ —
+  **FIXED 2026-09-07**, owner-approved the same session. `showGrid = !isError`
+  gated the whole grid, and the browse link is a child of it — so a failed
+  fetch left the section with a heading and **no route onward to `/blog`**,
+  a dead end. The link's own comment claimed it "renders even while loading:
+  it is a fixed link with no dependency on the query"; the gate above it
+  quietly said otherwise for the life of the component.
+
+  Now `showCards = !isError` gates the CARD SLOTS only and the grid is
+  unconditional. ⚠️ Keeping `.grid` is load-bearing, not tidiness: its
+  `auto-fit, minmax(min(100%, 340px), 1fr)` collapses to the single remaining
+  track, so the link spans the section rather than sitting in a half-width
+  cell beside an empty one.
+
+  ⚠️ The old `drops the grid` test asserted the defect and was REPLACED, not
+  worked around. Its successor was mutation-tested: re-gating the link fails
+  it 1-of-82, and it pins the link as the **only** link in `section#blog`,
+  because every card assertion on its own is equally satisfied by a
+  successful fetch of an empty blog.
 
 - **⚠️ `e2e/footer.spec.js:38` is flaky, and it is NOT PF-98's.** "footer nav
   links work from a 404, landing under the header" reported `flaky` in both
