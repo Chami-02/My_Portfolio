@@ -1533,9 +1533,17 @@ fidelity pass must not undo.
   Both facts are asserted in `HeroSection.test.jsx` rather than left
   implied.
 
-  Phase 1's `global.css` has a second, unrelated grid — `.grid-bg`, 60px
-  indigo — which is **not** this one and is still in use by
-  `NotFoundPage.jsx`. Do not delete it while cleaning up.
+  Phase 1's `global.css` had a second, unrelated grid — `.grid-bg`, 60px
+  indigo — which is **not** this one. ⚠️ **This note used to read "still
+  in use by `NotFoundPage.jsx`. Do not delete it while cleaning up."
+  REWRITTEN 2026-09-07: PF-100 rebuilt that page onto the Phase 2 ambient
+  layer, `.grid-bg` lost its only consumer in the same ticket, and the
+  rule was deleted with it.** The instruction is not ignored — its
+  premise expired, and both halves are recorded here rather than leaving
+  a live note contradicting `global.css`.
+
+  Still true, and still the reason the note existed: `.grid-bg` is NOT
+  the Phase 2 grid. Do not restore one while restoring the other.
 
   **Card and panel surfaces are untouched** — `rgba(var(--srf), .52)` on
   Skills' cards, About's stat cards and the rest. Those carry the text and
@@ -2303,3 +2311,88 @@ move it onto. Not an oversight.
   to the top mid-filter; and `'instant'` rather than `'smooth'`, which is
   what page arrival does and which sidesteps the fact that a JS `scrollTo`
   with an explicit behavior ignores `motion.css`'s reduced-motion override.
+
+
+## PF-100 — the 404, and the first screen with no prototype source (2026-09-07)
+
+**⚠️ `docs/design/` HAS NO 404 AND NEVER DID.** Measured, not assumed:
+zero matches for `404` or "not found" across all three `.dc.html` files,
+and `github.md`'s screen map lists ten screens, none an error page. So
+this is the first Phase 2 surface built with nothing to transcribe from.
+
+**The rule that made it safe: recompose, don't invent.** The ARRANGEMENT
+is new and owner-approved; every VALUE in it is transcribed verbatim from
+an existing prototype element, and each names its source in the module.
+
+| element | value | transcribed from |
+| --- | --- | --- |
+| headline | Anton, `clamp(34px,5vw,64px)`, `.95`, uppercase | `Portfolio Revolution.dc.html:210` — the "WHO I AM" heading |
+| eyebrow | mono, `12px`, `.24em`, `var(--acc)` | the five numbered section eyebrows (195, 247, 312, 417, 493) |
+| body | `15px` / `1.75` / `var(--muted)` | `BlogPostPage.module.css`'s `.notFoundBody` |
+| pills | `999px`, `16px 26px`, mono `12.5px`, `.1em`, filled 700 / outlined 500 | `Portfolio Revolution.dc.html:118-119` — the hero CTA pair |
+| entrance | `riseIn`, `.8s`, `cubic-bezier(.16,1,.3,1)`, `both` | `BlogPostPage.module.css:53-57` |
+
+**No new keyframe**, so `keyframes.test.js`'s pinned count is untouched.
+
+### ⚠️ THE GHOST `404` WAS APPROVED AND THEN WITHDRAWN — SAME SESSION
+
+A giant translucent `404` behind the headline was the owner's first
+choice on 2026-09-07. It was **withdrawn once it was pointed out that it
+reinstates the treatment removed on 2026-08-22** — the featured card's
+ghost `01`, gone from the home teaser with "/blog inherits the removal".
+
+**Both halves recorded because the reversal is the useful part:**
+- The design was chosen from a preview, without the removal in view. A
+  visual choice can conflict with a locked decision without anyone
+  noticing, and the preview is exactly where that is invisible.
+- The counter-argument was real and was still not taken: the removed one
+  was clipped in a card corner by `overflow: hidden`, this would have
+  been centred on an open page, and the more recent owner decision wins
+  by this project's own rule. The owner chose consistency anyway.
+
+⚠️ **So the 404 carries NO decorative numeral, and that is DECIDED, not
+overlooked.** Guarded as an absence in `NotFoundPage.test.jsx` — the
+third such guard, after `BlogSection` and `BlogPage`. Mutation-tested:
+adding an `aria-hidden` numeral back fails it.
+
+⚠️ The guard is **scoped to the `<section>`, not the container** —
+`CursorGlow` and `GrainOverlay` each render a legitimate `aria-hidden`
+div inside `PageShell`, so a container-wide count would assert the
+ambient layer is missing, under a name pointing somewhere else.
+
+### The pill pair is a SECOND transcription of the hero's, deliberately
+
+`NotFoundPage.module.css` re-declares the hero CTA pair rather than
+sharing `HeroSection.module.css:275-317`. Composing across would make a
+section module a library; extracting to `patterns.module.css` would
+couple two screens that are free to diverge, and `docs/design/` is frozen
+so the next instruction moves one and not the other. **Same call, same
+reason, as `BlogPostPage`'s byte-identical tag pill.**
+
+### What this page does NOT have, each stated rather than omitted
+
+- **No `Reveal`** — one `riseIn` on the container, `BlogPostPage`'s
+  precedent. ⚠️ PF-93's transition rule is therefore VACUOUS here, which
+  is why the pills correctly declare their own.
+- **No `ErrorBoundary`** — the other two Phase 2 pages wrap content that
+  FETCHES; this markup is static and has nothing to catch.
+- **No `.section-hero`** — noted because it looks like the obvious thing
+  to compose. It is an orphan with **zero consumers**, and its padding
+  was transcribed for the hero specifically.
+
+### Accessible name: sentence case in the DOM, uppercase in CSS
+
+The prototype's own idiom (the hero writes "Parindra", not "PARINDRA").
+⚠️ **Consequence the two suites do not share:** the accessible name is
+`Page not found`. testing-library matches names in FULL and
+case-SENSITIVELY; Playwright matches by SUBSTRING and
+case-INSENSITIVELY. Both specs name the DOM string, and the E2E one
+passes `exact: true`. Asserting `PAGE NOT FOUND` would fail in one suite
+and pass in the other for the wrong reason.
+
+### ⚠️ `FIELD NOTES →` collides with the Footer under Playwright strict mode
+
+The Footer carries its own `Field Notes` link on every route, so a
+page-level locator for the new pill resolves two elements and throws —
+which reads as the feature being gone. The E2E locator is scoped to
+`main`. Built in deliberately, not discovered.

@@ -54,7 +54,7 @@ plan**. PF-95 is built; PF-96 → PF-102 are not.
 | PF-97 | 5 | `POST /api/blog` still requiring Phase 1's `content` field |
 | ~~PF-98~~ | 10 | ✅ **BUILT 2026-09-05.** `/blog` has a route. ⚠️ The "fourth pill variant" warning was about the TEASER's pill — `/blog` needed a fifth and sixth |
 | ~~PF-99~~ | 8 | the EMAIL ME removal — ✅ **BUILT 2026-09-06** |
-| PF-100 | 3 | three measured contrast failures, raised in PF-91 |
+| ~~PF-100~~ | 3 | three measured contrast failures, raised in PF-91 — ✅ **BUILT 2026-09-07**. ⚠️ The inherited framing ("Phase 1 token work") was WRONG; see the plan entry |
 | PF-101 | 6 | — |
 | PF-102 | 8 | the five-command gate |
 
@@ -492,7 +492,7 @@ Transcribed from the Jira backlog board on 2026-09-02.
 | PF-97 | Admin Blog panel repair — posts editable again | 5 | Done | ✅ **built 2026-09-04** (really ~8 pts) |
 | PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | Done | ✅ **built 2026-09-05** |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed, **+ view counter** | 8 | To Do | ✅ **built 2026-09-06** (really ~11 with the counter) |
-| PF-100 | 404 page — Phase 2 treatment | 3 | To Do | — |
+| PF-100 | 404 page — Phase 2 treatment | 3 | To Do | ✅ **built 2026-09-07** |
 | PF-101 | Blog responsive + state audit, both themes | 6 | To Do | — |
 | PF-102 | Sprint gate, PR, close | 8 | To Do | — |
 | PF-103 | `/blog` polish — numeral fit, honest reading times + override, blog nav | 5 | Done | ✅ **built 2026-09-06** |
@@ -537,12 +537,39 @@ three. ⚠️ The tail gap then goes 44px → **38px**, and that is correct: do
 NOT add a margin to preserve 44, which would invent a value to hold a gap
 left by a deleted element.
 
-**PF-100 was raised in PF-91 and deliberately excluded** — its fix is Phase
-1 **token** work where PF-91's was Phase 2 **palette** work. Three measured
-failures are in Outstanding work; the giant `404` numeral fails at **1.91
-in DARK**, the default theme, on a page any broken link reaches. ⚠️ It is
-**not** a pin-to-dark candidate — it fails in the theme pinning would lock
-it into.
+~~**PF-100 was raised in PF-91 and deliberately excluded**~~ — ✅ **BUILT
+2026-09-07.** Raised in PF-91 and excluded there because PF-91's own pass
+was Phase 2 **palette** work. Three measured failures were in Outstanding
+work; the giant `404` numeral failed at **1.91 in DARK**, the default
+theme, on a page any broken link reaches. ⚠️ It was **not** a pin-to-dark
+candidate — it failed in the theme pinning would lock it into.
+
+⚠️ **THIS ENTRY USED TO SAY THE FIX WAS "PHASE 1 TOKEN WORK". THAT WAS
+WRONG, AND ACTING ON IT WOULD HAVE BROKEN `/admin`.** All three failing
+tokens are SHARED with the Phase 1 admin surface — `--text-body` has 15
+consumers across `AdminLayout` and four panels, `--border-bright` drives
+the scrollbar thumb and `.btn-outline`. Re-tuning any of them to fix the
+404 repaints every admin surface, which is Sprint 14's bundle and cannot
+land in a 3-pointer. The correct fix is the ticket's own TITLE: stop
+reading Phase 1 tokens at all. `--acc`, `--strong` and `--muted` are
+dual-theme and already AA-verified by PF-91, so all three failures resolve
+**by construction**, with no token value invented and no admin surface
+touched. Measured after (composited, one clean load per theme):
+
+| node | token before → after | dark before → after | light before → after |
+| --- | --- | --- | --- |
+| headline | `--border-bright` → `--strong` | **1.91 ✗** → **20.26 ✅** | 8.67 → 15.34 ✅ |
+| eyebrow | `--accent` → `--acc` | 6.79 → 10.02 ✅ | **2.44 ✗** → **6.12 ✅** |
+| body | `--text-body` → `--muted` | 7.90 → 7.68 ✅ | **2.10 ✗** → **6.35 ✅** |
+
+Both new pills measured too: **9.79 / 16.08** dark, **7.46 / 12.98** light.
+
+⚠️ **The generalisable lesson, and the reason this is written out rather
+than just corrected:** the ticket note was a HYPOTHESIS about what the code
+does, written by whoever raised the finding, and it survived three sprints
+unchallenged because it sounded right. Tracing the actual consumers took
+one grep. This is the same shape as PF-95's phantom second `pre('validate')`
+hook.
 
 ~~**What PF-98 needs that does not exist yet:**~~ **BUILT 2026-09-05.**
 `/blog` now has a route (`App.jsx`, ahead of the `*` catch-all).
@@ -1422,24 +1449,37 @@ actually calls.
   alone, but it is the same control in the same position and any future
   change should be checked against both.
 
-- **⚠️ THE 404 PAGE NEEDS ITS OWN TICKET, AND SOONER THAN THE ADMIN
-  REBUILD.** Raised in PF-91, which excluded it deliberately: its fix is
-  Phase 1 **token** work and PF-91's was Phase 2 **palette** work.
+- ~~**⚠️ THE 404 PAGE NEEDS ITS OWN TICKET, AND SOONER THAN THE ADMIN
+  REBUILD.**~~ **RESOLVED — PF-100, 2026-09-07.** All three failures are
+  fixed and re-measured. Kept rather than deleted, because the ranking
+  argument below is the reusable part and the framing was WRONG in a way
+  worth recording.
 
-  | node | token | dark | light |
+  | node | token before → after | dark before → after | light before → after |
   | --- | --- | --- | --- |
-  | the giant `404` numeral | `--border-bright` | **1.91 ✗** | 8.67 ✅ |
-  | eyebrow "ERROR 404" | `--accent` | 6.79 ✅ | **2.44 ✗** |
-  | body copy | `--text-body` | 7.90 ✅ | **2.10 ✗** |
+  | the giant `404` numeral (now the headline) | `--border-bright` → `--strong` | **1.91 ✗** → **20.26 ✅** | 8.67 ✅ → 15.34 ✅ |
+  | eyebrow "ERROR 404" | `--accent` → `--acc` | 6.79 ✅ → 10.02 ✅ | **2.44 ✗** → **6.12 ✅** |
+  | body copy | `--text-body` → `--muted` | 7.90 ✅ → 7.68 ✅ | **2.10 ✗** → **6.35 ✅** |
 
-  **⚠️ Why it outranks admin's 1.11, which is a worse number.** The
-  numeral fails at **1.91 in DARK — the default theme, on a page any
+  **⚠️ Why it outranked admin's 1.11, which is a worse number.** The
+  numeral failed at **1.91 in DARK — the default theme, on a page any
   broken link reaches.** Admin's failure needs a deliberate theme toggle
   *and* a deliberate navigation to a route the owner alone visits. Reach
-  beats severity here.
+  beats severity. **That call was right** — this shipped in a 3-pointer
+  while admin is still Sprint 14.
 
-  ⚠️ **And it is NOT a pin-to-dark candidate**, unlike admin: it fails in
-  the theme pinning would lock it into. It needs the real palette.
+  ⚠️ **It was NOT a pin-to-dark candidate**, unlike admin: it failed in
+  the theme pinning would lock it into. It needed the real palette, and
+  that is what it got.
+
+  ⚠️ **"Its fix is Phase 1 token work" — THIS ENTRY'S ORIGINAL CLAIM —
+  WAS WRONG.** All three tokens are shared with the admin surface
+  (`--text-body`: 15 consumers; `--border-bright`: scrollbar +
+  `.btn-outline`), so re-tuning them repaints `/admin` and drags in
+  Sprint 14's bundle. The fix was to stop reading Phase 1 tokens on this
+  page at all. See the corrected Sprint 13 plan entry for the full
+  reasoning; **a finding's proposed fix is a hypothesis, not a fact,
+  and this one went three sprints unchecked because it sounded right.**
 
 - **⚠️ `/admin` AND `/admin/login` ARE UNREADABLE IN LIGHT THEME, AND HAVE
   BEEN SINCE PF-67.** Found in PF-89's Step 1b sweep (2026-08-26),
@@ -1533,19 +1573,27 @@ actually calls.
     Do not normalise them.
 
   **Two more Phase 1-token findings from the same sweep, reported and NOT
-  fixed** — both are on Phase 1 surfaces that go with the same rebuild:
+  fixed** — both were on Phase 1 surfaces. ⚠️ **The two `NotFoundPage`
+  rows are FIXED as of PF-100 (2026-09-07); `ErrorBoundary` is NOT and
+  stays open.**
 
-  | node | dark | light |
-  | --- | --- | --- |
-  | `NotFoundPage` eyebrow "ERROR 404" (`--accent`) | 6.79 ✅ | **2.44 ✗** |
-  | `NotFoundPage` body copy (`--text-body`) | 7.90 ✅ | **2.10 ✗** |
-  | `ErrorBoundary` error detail (`--text-muted`) | **2.67 ✗** | 6.21 ✅ |
+  | node | dark | light | state |
+  | --- | --- | --- | --- |
+  | ~~`NotFoundPage` eyebrow "ERROR 404" (`--accent`)~~ → `--acc` | 6.79 ✅ → 10.02 ✅ | ~~**2.44 ✗**~~ → **6.12 ✅** | fixed, PF-100 |
+  | ~~`NotFoundPage` body copy (`--text-body`)~~ → `--muted` | 7.90 ✅ → 7.68 ✅ | ~~**2.10 ✗**~~ → **6.35 ✅** | fixed, PF-100 |
+  | `ErrorBoundary` error detail (`--text-muted`) | **2.67 ✗** | 6.21 ✅ | **STILL OPEN** |
 
-  ⚠️ **The 404 is NOT a pin-to-dark candidate either, and for a different
-  reason than admin**: its giant `404` numeral is `--border-bright`,
-  which measures **1.91 dark** / 8.67 light. It fails in the theme
-  pinning would lock it into. Genuinely mixed; needs the real palette,
-  not a freeze.
+  ⚠️ **`ErrorBoundary` did NOT go with the 404 and must not be assumed
+  fixed by it.** PF-100 rebuilt `NotFoundPage` only. `ErrorBoundary` is a
+  **Phase 2** surface with its own token (`--text-muted`), reached from a
+  different code path, and PF-100 deliberately did not touch it — the 404
+  renders static markup and mounts no boundary at all.
+
+  ⚠️ ~~**The 404 is NOT a pin-to-dark candidate either**~~ — resolved.
+  Its giant numeral was `--border-bright` at **1.91 dark** / 8.67 light,
+  failing in the theme pinning would lock it into. It needed the real
+  palette and PF-100 gave it one: the headline is now `--strong`, at
+  **20.26 dark / 15.34 light**.
 
   ⚠️ `ErrorBoundary` is the odd one out — it is a **Phase 2** surface
   (it wraps all six sections) failing in **dark**, the default theme. It
@@ -5110,7 +5158,7 @@ deleted**, plus four more the ticket never named:
 | --- | --- |
 | `.section-label` · `.section-title` · `.section-divider` · `.tech-tag` | **0** — the ticket's own list |
 | `.section-wrapper` · `.gradient-text` · `.animate-blink` · `.card-hover` | **0** — found alongside |
-| `.grid-bg` | 1 — `NotFoundPage` |
+| ~~`.grid-bg`~~ | ~~1 — `NotFoundPage`~~ → **0, and DELETED in PF-100 (2026-09-07)**. Its only consumer was the Phase 1 404; rebuilding that page orphaned the rule, so it went in the same ticket rather than being left "in case" |
 | `.skeleton` · `.glass` · `.btn-primary` · `.btn-outline` | 5 · 12 · 7 · 8 — all admin |
 
 All eight left in `global.css` on purpose. Step 6's table is the deletion

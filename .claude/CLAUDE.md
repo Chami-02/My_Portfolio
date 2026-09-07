@@ -307,7 +307,7 @@ to PF-59 is intentional.
 | PF-97 | Admin Blog panel repair — posts editable again | 5 | ✅ built 2026-09-04 (really ~8) |
 | PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | ✅ built 2026-09-05 |
 | PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed, **+ view counter** | 8 | ✅ built 2026-09-06 (really ~11) |
-| PF-100 | 404 page — Phase 2 treatment | 3 | to do |
+| PF-100 | 404 page — Phase 2 treatment | 3 | ✅ built 2026-09-07 |
 | PF-101 | Blog responsive + state audit, both themes | 6 | to do |
 | PF-102 | Sprint gate, PR, close | 8 | to do |
 | PF-103 | `/blog` polish — numeral fit, honest reading times, blog nav | 5 | ✅ built 2026-09-06 |
@@ -317,8 +317,8 @@ to PF-59 is intentional.
 
 ⚠️ **PF-99 is BUILT but the board still says To Do** (2026-09-06) — the
 board is the owner's to move. PF-95 through PF-98 and PF-103 through PF-106
-are Done on both; **PF-99 is built here and To Do there**; PF-100, PF-101
-and PF-102 are genuinely To Do. For most of the sprint they did NOT agree, which is what the
+are Done on both; **PF-99 and PF-100 are built here and To Do there**;
+PF-101 and PF-102 are genuinely To Do. For most of the sprint they did NOT agree, which is what the
 `Board` column in `sprint-log.md` exists to track.
 
 ⚠️ **Moving the board is the owner's, and so is CREATING a ticket.** Do not
@@ -359,8 +359,19 @@ before starting any of them. It is the starting point, not background:
   **view counter** during planning (bottom-right on the cards, in the
   teaser rows' meta line, a chip in admin; nothing below one view).
   Report: `new mds/E8/PF-99-blog-reading-view.md`.
-- **PF-100** inherits three measured contrast failures raised in PF-91.
-  ⚠️ Not a pin-to-dark candidate — it fails in dark, the default theme.
+- ~~**PF-100**~~ — **BUILT 2026-09-07.** The three PF-91 contrast
+  failures are fixed and re-measured (headline **1.91 → 20.26** dark,
+  eyebrow **2.44 → 6.12** light, body **2.10 → 6.35** light).
+  ⚠️ **The inherited framing was WRONG**: `sprint-log.md` called the fix
+  "Phase 1 token work", but all three tokens are SHARED with `/admin`
+  (`--text-body` alone has 15 consumers), so re-tuning them drags in
+  Sprint 14's bundle. The fix was to stop reading Phase 1 tokens at all.
+  ⚠️ **First screen with NO prototype source** — `docs/design/` has no
+  404. Every value is still transcribed from an existing element; only
+  the arrangement is new. ⚠️ A ghost `404` numeral was approved and
+  **withdrawn the same session** — it reinstates the 2026-08-22 removal.
+  `.grid-bg` was deleted with its last consumer.
+  Report: `new mds/E8/PF-100-404-page-phase-2.md`.
 
 **`/blog` and `/blog/:slug` BOTH have routes** (PF-98, PF-99). ⚠️ PF-99
 also narrowed the home teaser's **four post links** to `/blog/${slug}`, the
@@ -388,10 +399,13 @@ lines in a run that predates PF-98). **Sprint 14, not 13**, owns `/admin`'s ligh
 theme, `global.css`'s `:root` deletion and the font cutover — one piece of
 work, don't pull it forward.
 
-The main page is fully Phase 2 — header through footer. `/admin/*` and
-`NotFoundPage` are still Phase 1 layouts, and they go together with
-`global.css`'s `:root` and the `body { font-family }` cutover as **one**
-piece of work (Sprint 14), not three.
+The main page is fully Phase 2 — header through footer — and so is
+`NotFoundPage` as of PF-100. **`/admin/*` is the ONLY Phase 1 layout
+left**, and it goes together with `global.css`'s `:root` and the
+`body { font-family }` cutover as **one** piece of work (Sprint 14), not
+three. ⚠️ PF-100 did NOT shrink that bundle: it deleted only `.grid-bg`,
+whose sole consumer it had just removed. `.btn-primary`, `--text-body`,
+`--border-bright` and `--accent` all keep live admin consumers.
 
 **⚠️ Before cutting any sprint branch, confirm the previous PR actually
 merged** — `gh pr view <N> --json state,mergedAt`. Branch too early and none
@@ -1340,7 +1354,9 @@ omitted — keep the two straight.
   is `BROWSE FIELD NOTES →`, NOT a second `← ALL POSTS` — two links with
   one accessible name to one destination.
 - **A bad slug renders an INLINE not-found panel, keeping the URL** (PF-99)
-  — not `NotFoundPage`, which is Phase 1's layout until PF-100.
+  — not `NotFoundPage`. ⚠️ The original reason (`NotFoundPage` was Phase 1's
+  layout) EXPIRED with PF-100, but the decision stands on its other half:
+  keeping the URL visible so a mistyped link can be seen.
 - **The reading view uses NO `Reveal`** (PF-99) — transcription, not an
   omission. ⚠️ So PF-93's transition rule is VACUOUS there and `.tagPill`'s
   own transition is correct.

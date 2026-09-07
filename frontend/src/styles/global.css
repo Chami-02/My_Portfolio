@@ -137,14 +137,24 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ─── ANIMATED GRID BACKGROUND ──────────────────────────────── */
-/* Add class="grid-bg" to any section for the subtle grid overlay */
-.grid-bg {
-  background-image:
-    linear-gradient(rgba(129, 140, 248, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(129, 140, 248, 0.04) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
+/* ─── ANIMATED GRID BACKGROUND — REMOVED, PF-100 ─────────────── */
+/* `.grid-bg` (60px indigo grid, rgba(129,140,248,.04)) is gone. It had
+   exactly one consumer in the repo, NotFoundPage.jsx, and PF-100 rebuilt
+   that page onto the Phase 2 ambient layer — so the rule became dead in
+   the same ticket that orphaned it, and went with it.
+
+   ⚠️ This REVERSES a standing note. locked-decisions.md said "still in
+   use by NotFoundPage.jsx — do not delete it while cleaning up", written
+   during PF-89's dead-CSS audit when that consumer was live. The note's
+   premise expired here, and the note itself is rewritten rather than
+   left to contradict this file.
+
+   ⚠️ NOT the Phase 2 grid. That is a different, unrelated pattern; this
+   was Phase 1's indigo one. Do not restore this while restoring that.
+
+   ⚠️ Any test asserting this absence must strip comments or parse with
+   postcss — this very comment names the class, so a raw text search
+   matches the note and passes while proving nothing. */
 
 /* ─── GLOW UTILITIES ─────────────────────────────────────────── */
 .glow-accent {
