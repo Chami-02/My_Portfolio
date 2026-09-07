@@ -571,6 +571,21 @@ error message:
   it either: the token is `_pill_f5cf21`, not `pill`. `SkillsSection.test.jsx`
   unwraps the local name and compares it exactly, handling both Vitest's
   template and `vite.config.js`'s own `[name]__[local]`.
+
+  ⚠️ **THE SAME TRAP HAS A SECOND SURFACE: `toContain` ON STYLESHEET
+  TEXT** (found 2026-09-07). Removing About's `.portraitSweep`, the
+  absence guard was paired with a survivor assertion —
+  `expect(stripped).toContain('.portraitFade')` — to stop the sibling
+  being swept up with it. **That is vacuous**: `.portraitFadeX` contains
+  `.portraitFade`, and a mutation renaming the rule exactly that way
+  **passed all 28 tests**.
+  It is worth naming separately because the documented entry above is
+  about a `[class*=]` DOM selector, so it reads as not applying to a
+  string search over CSS source — and the fix is different too. Anchor on
+  the rule's opening brace: `/\.portraitFade\s*\{/`.
+  ⚠️ Generalises: **a containment check cannot answer a question about a
+  NAME**, in either the DOM or the stylesheet. Only mutation testing found
+  it; the guard read correctly and passed against the real code.
 - **⚠️ A guard against a FUTURE change is vacuous unless its fixture can
   tell the two outcomes apart — and "we will notice when it breaks" is
   the belief that stops anyone checking.** PF-95 left an explicit

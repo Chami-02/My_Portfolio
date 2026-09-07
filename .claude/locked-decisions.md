@@ -426,6 +426,10 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   `.portraitFade` and sweep, Blog's card sweep — are all CONTENT layers
   bound to a specific element, not section-spanning bands, and none was
   touched.
+  ⚠️ **About's sweep in that list is STALE as of 2026-09-07** — removed at
+  the owner's request; see the entry at the end of this file. The point the
+  sentence makes still holds for the rest, and `.portraitFade` is very much
+  still there.
 
   Guarded as an absence **three ways** — no `.glow` rule, no
   aria-hidden absolute child, no `radial-gradient` anywhere in the
@@ -2644,3 +2648,47 @@ committing, with `sips -Z 1600 --setProperty formatOptions 75`:
 
 They load on the home page; do not replace either with an unresampled
 original.
+
+
+## The About portrait's sweep is removed (2026-09-07)
+
+**Owner-requested.** `.portraitSweep` — the amber sheen travelling down the
+About photograph — is gone, **element and rule**, not merely its animation.
+
+⚠️ **PF-101 IS WHY IT WAS VISIBLE, and the two are hours apart.** Until
+that commit, `base.css`'s `sweep` animated `transform` where both
+prototypes declare `background-position`, so the gradient's band sat
+outside the paint area for the whole cycle and **the sheen had never
+painted on any consumer**. PF-101 corrected the keyframe, the owner saw
+this animation for the first time, and asked for it gone. Recorded together
+or the removal reads as unrelated to the fix that caused it.
+
+⚠️ **The prototype STILL CARRIES IT** at `Portfolio Revolution.dc.html:204`
+and `docs/design/` is frozen, so a fidelity pass will see the gap. The
+module preserves the full declaration block in prose beside the note.
+
+⚠️ **`.portraitFade` STAYS** — a different absolute child, the soft bottom
+edge, predating the sweep. **This is the second time that sibling has been
+at risk in this file**; it nearly went with the caption in 2026-08. Its
+survival is asserted in the same tests as the removal, deliberately.
+
+⚠️ **`kf-sweep` is NOT dead.** Two consumers remain —
+`BlogSection.module.css` and `BlogPage.module.css` — so the carrier in
+`animations.css` stays. Verified live: the blog card still reports one
+running `sweep` after the removal, and the portrait frame reports **zero**
+running animations across **two** children (img + fade), both themes.
+
+⚠️ **`AboutSection.module.css` now declares NO animation at all**, and its
+header comment asserted the opposite. Corrected rather than left — a reader
+asking "which animation does About run" would otherwise get a stale answer.
+
+### ⚠️ A guard that was vacuous on first write
+
+The absence test pairs "the sweep is gone" with "`.portraitFade` is still
+declared". The survivor half was first written
+`expect(stripped).toContain('.portraitFade')` — **vacuous**: renaming the
+rule to `.portraitFadeX` still contains that substring, and a mutation
+doing exactly that **passed all 28 tests**. Same family as `pill`/`pillRow`
+and `card`/`cardPlaceholder`. Now anchored on the opening brace,
+`/\.portraitFade\s*\{/`, and that mutation fails as it should.
+

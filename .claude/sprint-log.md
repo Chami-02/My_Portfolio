@@ -1362,6 +1362,14 @@ actually calls.
   the band's peak, about +16/+10/+1 RGB through `screen`. That is the
   design's number; do not amplify it without asking.
 
+  ⚠️ **ONE OF THE THREE CONSUMERS IT REVIVED WAS THEN REMOVED, hours
+  later.** Seeing the About portrait's sheen for the first time, the owner
+  asked for it gone (2026-09-07) — element and rule. PF-101's fix stands
+  and the keyframe is still correct, but the count of live consumers is
+  now **two**: `BlogSection`'s `.sweep` and `BlogPage`'s `.sweep`.
+  `kf-sweep`'s carrier stays. ⚠️ **PF-101's own report says three** — it
+  was accurate when written. Full entry in `locked-decisions.md`.
+
   `styles/keyframes/base.css` animates `transform`; both prototypes animate
   `background-position`. With a static `background-position` the gradient's
   band sits `background-size / 2` down from the box top — 515px inside a

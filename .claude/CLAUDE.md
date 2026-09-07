@@ -1140,6 +1140,7 @@ sibling that must NOT be swept up with it:
 | Contact's accent glow layer | `overflow: hidden` — the prototype's own |
 | Blog featured card's ghost `01` | `.sweep`, and the 02/03/04 numerals — ⚠️ which sit at `top: -2px` since PF-103, NOT the export's `-18px`; `.card`'s `overflow: hidden` STAYS |
 | About portrait's caption | `.portraitFade` |
+| About portrait's **sweep** (2026-09-07) — ⚠️ only ever visible because PF-101 fixed the keyframe hours earlier | `.portraitFade` again, and the blog cards' `.sweep` ×2 |
 | Blog reading view's "GOT A QUESTION" block (decision only, unbuilt) | — |
 | REPLAY INTRO + SCROLL BACK UP from the footer | — |
 | All section washes, site-wide | card and panel surfaces |
