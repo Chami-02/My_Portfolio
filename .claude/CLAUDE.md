@@ -287,146 +287,152 @@ only the current position.
 | Sprint 10 — E6 (PF-66 → PF-74) | design system foundations | merged, PR #4 |
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
-| **Sprint 13 — E8 (PF-95 → PF-102)** | **Blog** | **in progress**, branch `sprint-13-blog` |
+| Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **planned 2026-09-08**, branch `sprint-14-admin` |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
 to PF-59 is intentional.
 
-### Sprint 13 — the current sprint
+### Sprint 14 — the current sprint
 
-**31 Aug → 8 Sep · 8 items · 51 points · branch `sprint-13-blog`.**
+**🔒 LOCKED 2026-09-08 · 9 Sep → 22 Sep · 15 items · 103 points · branch
+`sprint-14-admin`, to be cut from `master` at `9b2a1ad`.**
 
-> **Goal.** Field Notes is a real destination — every post is readable at
-> its own URL, findable by tag or search, and editable from the admin panel
-> — and no Phase 1 page is left in the visitor-facing site.
+> **Goal.** The admin panel is a Phase 2 surface — readable in both themes,
+> styled like the rest of the site, and safe to sign into and leave a session
+> in — the last Phase 1 stylesheet is deleted, and every piece of content the
+> public site renders, images included, is managed from it and provably
+> matches what the panel shows.
 
-| Ticket | Title | Pts | State |
+**Full ticket set, with scope, traps and acceptance for each:
+`new mds/E9/PF-107-122-sprint-14-plan.md`.** That file is the sprint's
+authority; this table is the index.
+
+| Ticket | Title | Pri | Pts |
 | --- | --- | --- | --- |
-| PF-95 | Migration 005 — distinct blog publish dates | 3 | ✅ built 2026-09-01 |
-| PF-96 | Blog API — `publishedAt`, update-hook defects, `?q=` search + tag filter, prev/next, one shared sort spec | 8 | ✅ built 2026-09-02 |
-| PF-97 | Admin Blog panel repair — posts editable again | 5 | ✅ built 2026-09-04 (really ~8) |
-| PF-98 | `/blog` index — header, featured card, grid, search, tag chips, empty state | 10 | ✅ built 2026-09-05 |
-| PF-99 | `/blog/:slug` reading view — sections, bullets, prev/next, EMAIL ME removed, **+ view counter** | 8 | ✅ built 2026-09-06 (really ~11) |
-| PF-100 | 404 page — Phase 2 treatment | 3 | ✅ built 2026-09-07 |
-| PF-101 | Blog responsive + state audit, both themes | 6 | ✅ built 2026-09-07 |
-| PF-102 | Sprint gate, PR, close | 8 | ✅ built 2026-09-07 |
-| PF-103 | `/blog` polish — numeral fit, honest reading times, blog nav | 5 | ✅ built 2026-09-06 |
-| PF-104 | `/blog` search depth, search icon + clear controls, full dates, publish-date stamp | 3 | ✅ built 2026-09-06 |
-| PF-105 | `/blog` multi-tag AND filtering + dimming, CLEAR ALL red | 3 | ✅ built 2026-09-06 |
-| PF-106 | Splash once per document load (first open + refresh only) | 3 | ✅ built 2026-09-06 |
+| PF-107 | Admin design foundations — shell chrome, token layer, shared patterns | Highest | 8 |
+| PF-108 | Session handling — validate on entry, refresh, clean expiry | Highest | 8 |
+| PF-109 | `/admin/login` rebuilt in Phase 2 | High | 5 |
+| PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 |
+| PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 |
+| PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 |
+| PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 |
+| PF-114 | Skills panel — rebuild + editing | Medium | 5 |
+| PF-115 | Blog + Messages panels restyled | Medium | 5 |
+| PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 |
+| PF-117 | Admin responsive + state audit, both themes | Medium | 6 |
+| PF-119 | Admin ↔ public-site parity audit | Highest | 8 |
+| PF-120 | Google sign-in for `/admin` + production-standard auth | High | 8 |
+| PF-121 | Security review and hardening | High | 5 |
+| PF-122 | Sprint gate, PR, close | Highest | 8 |
 
-⚠️ **PF-99 is BUILT but the board still says To Do** (2026-09-06) — the
-board is the owner's to move. PF-95 through PF-98 and PF-103 through PF-106
-are Done on both; **PF-99, PF-100, PF-101 and PF-102 are built here and
-To Do there**. ⚠️ **Every Sprint 13 ticket is now built.** What remains is
-the owner's: open the PR from `new mds/E8/PF-102-sprint-13-pr-body.md`,
-merge, and move the board. For most of the sprint they did NOT agree, which is what the
-`Board` column in `sprint-log.md` exists to track.
+⚠️ **PF-118 is deliberately unused** — the gate moved to PF-122 so it stays
+the last number. A gap is cheaper than a gate that does not sort last.
 
-⚠️ **Moving the board is the owner's, and so is CREATING a ticket.** Do not
-invent a `PF-NN` past the end of the sprint plan: a major change gets a
-ticket only with the owner's permission, and everything else is a **fix**
-carrying no number at all. PF-103–106 were made this way in error on
-2026-09-06 and the owner added them to Jira rather than unpick 137
-references.
+⚠️ **103 points is ~1.6× the demonstrated velocity** (Sprint 13 shipped 65,
+Sprint 11 shipped 46). A split to a Sprint 15 was offered and **declined by
+the owner** — the scope is fixed deliberately. **If the sprint runs long, a
+CONTENT ticket slips (PF-114, PF-115) — never PF-121 or PF-122.** In Sprint
+13 the squeeze landed on the last two tickets, and here those are the
+security pass and the gate.
 
-⚠️ **Four of these tickets are the second half of defects already found and
-written up** — read `.claude/sprint-log.md` → **Sprint 13 → The plan**
-before starting any of them. It is the starting point, not background:
+#### ⚠️ THE DEPENDENCY SPINE IS INVERTED FROM WHAT `sprint-log.md` IMPLIES
 
-- ~~**PF-96**~~ — **BUILT 2026-09-02.** Both inherited defects fixed: the
-  ordering bug (now `$ifNull: [publishedAt, createdAt]` desc, `_id` asc,
-  defined once in `backend/src/utils/blogQuery.js`) and `updatePost`'s
-  `findByIdAndUpdate` (now load → assign → `save()`, so `pre('validate')`
-  runs). ⚠️ **The claim that a `BlogSection.test.jsx` guard "fails by
-  design" was FALSE** — measured, 61 of 63 passed against the old rule.
-  PF-96 built the discriminating fixture that was missing. Report:
-  `new mds/E8/PF-96-blog-api-ordering-search-and-update-fix.md`.
-- ~~**PF-97**~~ — **BUILT 2026-09-04.** The inherited `content`-required
-  400 was the SMALLER half. The admin editor was bound to the same dead
-  field, so **no post was editable at all**: `Edit` opened a blank
-  `required` textarea the browser refused to submit, and the post's real
-  `sections[]` body was never shown. Now a structured sections editor
-  (owner-approved deviation — `Admin.dc.html` still shows the Phase 1
-  markdown box), plus the tag vocabulary picker and `?inUse=true`. Report:
-  `new mds/E8/PF-97-admin-blog-panel-sections-editor.md`.
-- ~~**PF-99**~~ — **BUILT 2026-09-06.** The reading view exists, and the
-  locked EMAIL ME removal (2026-08-22) is built with it after three
-  sprints as a decision with nowhere to apply. ⚠️ **Most of the ticket was
-  already written and uncalled**: `GET /api/blog/:slug` has returned
-  `{ post, prev, next }` since PF-96 with zero consumers, and
-  `PATCH /:slug/view` has existed since PF-64 with zero callers — the only
-  reason every view count read 0. The one backend change is `index` +
-  `total`, both already computed to build the neighbours. Owner added a
-  **view counter** during planning (bottom-right on the cards, in the
-  teaser rows' meta line, a chip in admin; nothing below one view).
-  Report: `new mds/E8/PF-99-blog-reading-view.md`.
-- ~~**PF-100**~~ — **BUILT 2026-09-07.** The three PF-91 contrast
-  failures are fixed and re-measured (headline **1.91 → 20.26** dark,
-  eyebrow **2.44 → 6.12** light, body **2.10 → 6.35** light).
-  ⚠️ **The inherited framing was WRONG**: `sprint-log.md` called the fix
-  "Phase 1 token work", but all three tokens are SHARED with `/admin`
-  (`--text-body` alone has 15 consumers), so re-tuning them drags in
-  Sprint 14's bundle. The fix was to stop reading Phase 1 tokens at all.
-  ⚠️ **First screen with NO prototype source** — `docs/design/` has no
-  404. Every value is still transcribed from an existing element; only
-  the arrangement is new. ⚠️ A ghost `404` numeral was approved and
-  **withdrawn the same session** — it reinstates the 2026-08-22 removal.
-  `.grid-bg` was deleted with its last consumer.
-  Report: `new mds/E8/PF-100-404-page-phase-2.md`.
+**`global.css`'s `:root` can only be deleted once NOTHING reads it**, so
+**PF-116 is the LAST styling ticket, not the first.** Every panel must be off
+Phase 1 tokens before the cutover can land. Building it early fails with every
+admin surface unstyled and no obvious cause.
 
-~~**PF-101**~~ — **BUILT 2026-09-07.** The `sweep` keyframe is fixed
-(`background-position`, not `transform`) and its sheen paints for the
-first time on all three consumers. ⚠️ Its written scope was stale in BOTH
-directions — it named neither the reading view nor the 404, and it missed
-**two pre-existing defects** the audit had to fix: `/blog` rendered
-NOTHING on a failed fetch, and the home teaser skeletoned forever on an
-empty blog. Also fixed: unbroken titles clipped `.featuredTitle` and
-`.title` (at 1280 as well as 320). `keyframes.test.js` now pins the
-PROPERTY each keyframe animates. ⚠️ Found and **NOT** fixed:
-`<ErrorBoundary>` does not protect `BlogPage`/`BlogPostPage`'s own inline
-JSX — see Outstanding work.
-Report: `new mds/E8/PF-101-blog-responsive-state-audit.md`.
+```
+PF-107 (foundations) ─┬─→ PF-109 login ──────────→ PF-120 Google sign-in
+                      ├─→ PF-110 overview
+                      ├─→ PF-112 about ──┐
+                      ├─→ PF-113 projects┤
+                      ├─→ PF-114 skills  ├─→ PF-116 cutover ─→ PF-117 audit ─┐
+                      └─→ PF-115 blog/msg┘                                   │
+PF-111 (media backend) ──→ PF-112, PF-113                                    │
+PF-108 (session) ────────→ PF-109, PF-120                                    │
+PF-119 (parity audit) ───────────────────────────────────────────────────────┤
+PF-121 (security) ← needs PF-108, PF-111, PF-120 landed ─────────────────────┤
+                                                                             └─→ PF-122 gate
+```
 
-**`/blog` and `/blog/:slug` BOTH have routes** (PF-98, PF-99). ⚠️ PF-99
-also narrowed the home teaser's **four post links** to `/blog/${slug}`, the
-change `BlogSection.jsx`'s own comment had scheduled since 2026-08-21;
-`BLOG_ROUTE` survives with one consumer, BROWSE ALL WRITING.
-`Blog.dc.html` was the design source for both.
+**PF-119 is scheduled EARLY on purpose** — it is a diagnostic, and what it
+finds should shape the panel tickets rather than arrive after them.
 
-~~**PF-98**~~ — **BUILT 2026-09-05.** `/blog` is a real page: header,
-featured card, grid, server-side search, tag chips and empty state. **No
-backend change** — it is the first caller of PF-96's `?q=`/`?tag=` and
-PF-97's `?inUse=true`, both of which had zero consumers. Filters live in the
-URL and there are TWO empty states, both owner-approved deviations. Report:
-`new mds/E8/PF-98-blog-index-page.md`.
+#### 🎯 The four the owner named for master-level care (2026-09-08)
 
-~~⚠️ **`/blog/:slug` still 404s** — PF-99.~~ **RESOLVED 2026-09-06.**
+1. **The inverted spine above** — PF-116 last, not first.
+2. **The featured-projects mismatch is a LOCKED DECISION, not a defect**
+   (PF-119). `ProjectsSection.jsx:203` takes `projects[0]` — first by
+   `order`, *regardless of `featured`* — and `:234` renders the badge only
+   when that project is itself featured. So a project flagged featured
+   further down the order shows **no badge anywhere**. Owner decision
+   2026-08-19: *"`featured` controls the BADGE and `order` controls the
+   SLOT."* ⚠️ **"Fixing" it reverses the owner silently.** Three options,
+   owner re-decides.
+3. **OAuth account binding** (PF-120). `User.role` is `enum: ['admin']` and
+   **no route reads it**, so any account that authenticates is full admin.
+   An auto-provisioning callback makes **anyone with a Google account** an
+   administrator. Allowlist of one; password login stays as a second door.
+4. **Delete-on-replace across every media field** (PF-111) — owner's explicit
+   requirement. Four fields store a bare URL with no `publicId`; `resume{}`
+   is the one correct pattern. Risk is zero **today** and starts accruing the
+   first time the repaired feature is used, which is this sprint.
 
-⚠️ **THREE FINDINGS FROM PF-98, NONE IN ITS OWN CODE**, all in
-`silent-failures.md` and Outstanding work: **the `sweep` sheen has never
-painted** on either existing consumer (`base.css` animates `transform`; both
-prototypes animate `background-position` — measured with a control, fix
-deferred to PF-101 by owner decision); a **`fullPage` screenshot** captures
-every below-the-fold reveal at opacity 0 and reads as a broken layout; and
-~~**the E2E suite already exhausts the backend's rate limiter**~~ (27 `429`
-lines in a run that predates PF-98) — **FIXED 2026-09-07**, `globalLimiter`
-now skips under `NODE_ENV=test`. **Sprint 14, not 13**, owns `/admin`'s light
-theme, `global.css`'s `:root` deletion and the font cutover — one piece of
-work, don't pull it forward.
+#### Owner decisions taken at planning (2026-09-08)
 
-The main page is fully Phase 2 — header through footer — and so is
-`NotFoundPage` as of PF-100. **`/admin/*` is the ONLY Phase 1 layout
-left**, and it goes together with `global.css`'s `:root` and the
-`body { font-family }` cutover as **one** piece of work (Sprint 14), not
-three. ⚠️ PF-100 did NOT shrink that bundle: it deleted only `.grid-bg`,
-whose sole consumer it had just removed. `.btn-primary`, `--text-body`,
-`--border-bright` and `--accent` all keep live admin consumers.
+- **Upload scope:** About portrait + project card backgrounds + résumé. Every
+  replace **hard-deletes** the old Cloudinary file.
+- **`Blog.coverImage` is DELETED** — a rolled-back idea, zero consumers, and
+  the reason that API surface reads as broken. `Project.imageUrl` goes with
+  it, also zero consumers.
+- **The blog teaser's two theme-scoped photographs stay PERMANENT** — not
+  uploadable. Upholds the 2026-09-07 locked decision.
+- **Overview gets a real `GET /api/dashboard/stats`** — grepped first, nothing
+  like it exists.
+- **Auth gets full session handling** (PF-108) **and Google sign-in** (PF-120).
+- **The résumé admin UI is BUILD, not polish** — the backend is complete and
+  tested; there is no `type="file"` anywhere in `frontend/src`.
 
-**⚠️ Before cutting any sprint branch, confirm the previous PR actually
-merged** — `gh pr view <N> --json state,mergedAt`. Branch too early and none
-of the previous sprint's primitives exist, and the first import fails. Check,
-don't assume.
+⚠️ **Ticket reports for this sprint go to `new mds/E9/`** — Epic 9. Same rule
+as every sprint: OUTSIDE this repo, one folder per epic.
+
+#### The starting state this sprint runs against
+
+**`/admin/*` is the ONLY Phase 1 layout left.** Everything else — header
+through footer, `/blog`, `/blog/:slug`, `NotFoundPage` — is Phase 2. Measured
+inventory, 2026-09-08:
+
+- **~1,900 lines of admin JSX styled entirely with inline `style={{}}`
+  objects.** No Tailwind, no CSS modules, no `.module.css` under
+  `components/admin/`. Hover and focus are dozens of `onMouseEnter` /
+  `onBlur` handlers mutating `e.currentTarget.style`. An `INPUT` constant is
+  copy-pasted into **five** files.
+- **Phase 1 token consumption:** `--font-mono` ×47, `--text-muted` ×40,
+  `--border` ×32, `--accent` ×29, `--text-primary` ×16, `--text-body` ×16;
+  plus `.glass` ×13, `.btn-outline` ×9, `.btn-primary` ×6, `.skeleton` ×6.
+  Roughly 14 hardcoded `#f87171` / `#dc2626` reds that never flip.
+- **`/admin` + `/admin/login` measure 1.11:1 in light** — invisible, since
+  PF-67. The ground flips with the theme and the ink does not.
+- **`keyframes/admin.css` is entirely DEAD** — `flt-admin`, `drift-admin`,
+  `sheen-admin`, `auroraA`, `auroraB` have **zero JSX consumers** and **no
+  `.kf-*` carriers in `animations.css`**. ⚠️ Add the carriers *before* any
+  admin module names one, or it silently resolves to nothing.
+- **Only ONE admin test exists** — `AdminBlogPanel.test.jsx`, 655 lines, ~45
+  behavioural cases, no style assertions. It should survive a restyle
+  unchanged; if it goes red, the restyle changed behaviour.
+- **Finished backend with no UI:** `POST /api/upload` and both
+  `/api/about/resume` routes (no `type="file"` anywhere), `PUT
+  /api/skills/:id` (no service caller, no hook), `authService.getMe` (never
+  called), `GET /api/projects/:id` + `useProject` (orphan).
+- **Two live defects found while planning:** `AdminLayout.jsx:127` matches on
+  `i.activeTab`, a property no nav item has — the clause is always
+  `undefined` and only the fallback saves it; and `ProtectedRoute` captures
+  `state.from` which `AdminLoginPage:29` then discards.
+- **`aboutRoutes.js:16` runs `validate` BEFORE `protect`** — the same
+  ordering PF-97 fixed in `blogRoutes.js`. An anonymous PUT with a bad body
+  gets a 400 describing the schema instead of a 401.
 
 ### What's ready to build with
 
@@ -570,19 +576,34 @@ the next number.
 node src/migrations/005-blog-publish-dates.js --dry-run
 ```
 
-### The gate — run all five, in this order
+### The gate — run all SEVEN, in this order
 
-`npm test` does **not** chain to E2E and CI runs it, so a green
-four-command gate can still land a red CI. Frontend and backend suites are
-separate.
+⚠️ **SEVEN, not five — corrected 2026-09-08.** Two holes in the same wall,
+found one sprint apart. `npm test` does **not** chain to E2E, and CI runs it;
+then PF-102 found that **`test:coverage` is absent from the documented gate
+and CI runs it in BOTH packages**. Each time, a "full" local gate was green
+while CI was red. Frontend and backend suites are separate.
 
 ```bash
 cd frontend && npm run test:run
 cd frontend && npm run lint -- --max-warnings=0     # CI's exact invocation
+cd frontend && npm run test:coverage
 cd frontend && npm run build
 cd backend  && npm test
+cd backend  && npm run test:coverage
 cd frontend && npm run test:e2e
 ```
+
+⚠️ **Backend branch coverage is the TIGHTEST margin in the project** —
+66.66% against a 60% threshold, 6.66 points of headroom where every other
+metric sits 15–25 clear. It is the number most likely to cross unnoticed on
+a backend change, and it is exactly the one the old five-command gate did
+not run.
+
+⚠️ **`frontend/coverage/` is COMMITTED and NOT gitignored**, so running the
+coverage step dirties the tree with ~100 files (37 tracked, ~70 untracked).
+`backend/.gitignore:5` has `coverage/`; `frontend/.gitignore` does not.
+Scheduled for PF-122.
 
 ### Docker & CI
 
@@ -874,7 +895,8 @@ concluding "this is fine, I read the source".
 ### Tooling and gates whose scope is narrower than it reads
 
 - **`npm test` does not run the E2E suite**, and CI runs it. A "full" local
-  gate can be green while CI is red. **Run all five commands.** ⚠️ Unit
+  gate can be green while CI is red. **Run all SEVEN commands** — the two
+  coverage steps are the second hole in this same wall. ⚠️ Unit
   green + E2E red is the signature of a **removed feature whose tests were
   not cleaned up**; unit *red* means broken code — opposite diagnoses.
 - **⚠️ Piping a long run through `tail` buffers everything to the end**, so
@@ -1556,7 +1578,7 @@ including PF-95 was run.
 5. **Test.**
 6. **Recheck, re-test, fix what surfaces** — an explicit second pass, not a
    re-run of the first. This is where mutation testing, the live/browser
-   checks and the five-command gate belong.
+   checks and the seven-command gate belong.
 7. **Write the ticket report as a `.md` FILE** (below). Not a chat summary —
    a file, every time.
 8. **Write the commit message and stop.** The owner reviews and commits by
@@ -1576,7 +1598,8 @@ per Jira epic:
 /Users/chami02/Documents/Personal/Projects/Portfolio/new mds/E<N>/PF-NN-short-description.md
 ```
 
-Sprint 13 is Epic 8, so `new mds/E8/`. Say where it was written when
+**Sprint 14 is Epic 9, so `new mds/E9/`** — confirmed by the owner
+2026-09-08. (Sprint 13 was Epic 8, `new mds/E8/`.) Say where it was written when
 handing over.
 
 ⚠️ **This said `docs/tickets/PF-NN.md` until 2026-09-02 and that was

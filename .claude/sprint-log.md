@@ -43,10 +43,19 @@ grep -n "^### \|^\*\*Built by" .claude/sprint-log.md   # all entry headings
 | PF-93 | Reveal entrance regression — all deletions | Built by PF-93 |
 | PF-94 | `ScrollToHash` quiescence poll | Built by PF-94 |
 | PF-95 | `publishedAt`, real reading times, migration 005 | Sprint 13 |
+| PF-107 → PF-122 | Admin panel rebuild — shell, login, six panels, media pipeline, session + Google auth, `:root` deletion, parity audit, security | Sprint 14 |
 
-**Sprint 13 is IN PROGRESS** — the plan, the sprint goal, and the
-already-documented defects each ticket inherits are in **Sprint 13 → The
-plan**. PF-95 is built; PF-96 → PF-102 are not.
+**⚠️ SPRINT 13 IS CLOSED AND MERGED** — PR #7, 2026-09-07T18:06Z, `9b2a1ad`.
+All twelve tickets (PF-95 → PF-106) shipped; `sprint-13-blog` has zero
+unmerged commits.
+
+**SPRINT 14 — Epic E9, Admin Panel Rebuild — IS THE CURRENT SPRINT**, locked
+2026-09-08 at full scope: **15 items, 103 points, PF-107 → PF-122** (PF-118
+deliberately unused). The plan, the sprint goal, the inverted dependency spine
+and the four items flagged for master-level care are in **Sprint 14 → The
+plan**, and the full ticket set is in
+`new mds/E9/PF-107-122-sprint-14-plan.md`. ⚠️ **The branch is not yet cut and
+no ticket is started** — both are the owner's.
 
 | Ticket | Pts | Inherits |
 | --- | --- | --- |
@@ -471,6 +480,224 @@ allowlist question was **decided and shipped in PF-85** (see below).
 
 There is **no separate Sprint 11 retrospective document**, matching Sprint
 10's rule. That section is the record; do not link to one.
+
+### Sprint 14 — Epic E9, Admin Panel Rebuild. Branch `sprint-14-admin`, to be cut from local `master` at `9b2a1ad`
+
+PR #7 confirmed merged before planning (`gh pr list` → `MERGED`,
+2026-09-07T18:06Z, `9b2a1ad`), and `sprint-13-blog` confirmed to have **zero**
+unmerged commits (`git log origin/master..HEAD` empty), per the standing rule.
+⚠️ The branch is **not yet cut** — that is the owner's, along with the board.
+
+#### The plan — 9 Sep → 22 Sep, 15 items, 103 points · 🔒 LOCKED 2026-09-08
+
+Authored by me from the owner's stated plan on 2026-09-08, per the ticket
+workflow that applies from PF-96 onward, and **locked by the owner the same
+day at full scope**.
+
+**The ticket set with full scope, traps and acceptance for each lives in
+`new mds/E9/PF-107-122-sprint-14-plan.md`.** This section is the index and the
+record; that file is the sprint's authority.
+
+> **Sprint goal.** The admin panel is a Phase 2 surface — readable in both
+> themes, styled like the rest of the site, and safe to sign into and leave a
+> session in — the last Phase 1 stylesheet is deleted, and every piece of
+> content the public site renders, images included, is managed from it and
+> provably matches what the panel shows.
+
+| Ticket | Title | Pri | Pts | Board | Real |
+| --- | --- | --- | --- | --- | --- |
+| PF-107 | Admin design foundations — shell chrome, token layer, shared patterns | Highest | 8 | To Do | not started |
+| PF-108 | Session handling — validate on entry, refresh, clean expiry | Highest | 8 | To Do | not started |
+| PF-109 | `/admin/login` rebuilt in Phase 2 | High | 5 | To Do | not started |
+| PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | not started |
+| PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | not started |
+| PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 | To Do | not started |
+| PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | not started |
+| PF-114 | Skills panel — rebuild + editing | Medium | 5 | To Do | not started |
+| PF-115 | Blog + Messages panels restyled | Medium | 5 | To Do | not started |
+| PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | To Do | not started |
+| PF-117 | Admin responsive + state audit, both themes | Medium | 6 | To Do | not started |
+| PF-119 | Admin ↔ public-site parity audit | Highest | 8 | To Do | not started |
+| PF-120 | Google sign-in for `/admin` + production-standard auth | High | 8 | To Do | not started |
+| PF-121 | Security review and hardening | High | 5 | To Do | not started |
+| PF-122 | Sprint gate, PR, close | Highest | 8 | To Do | not started |
+
+⚠️ **PF-118 IS DELIBERATELY UNUSED.** Three tickets were added after the first
+draft (PF-119 parity audit, PF-120 Google sign-in, PF-121 security), and the
+gate moved from 118 to 122 so it stays the last number in the sprint. **Do not
+re-use 118.** A numbering gap is cheaper than a gate that does not sort last.
+
+⚠️ **103 points is ~1.6× the demonstrated velocity.** Sprint 13 shipped 65
+(51 planned + 14 added mid-sprint); Sprint 11 shipped 46. A split to a Sprint
+15 was offered with a clean line — the rebuild at 68 here, the new-capability
+work at 35 there — and the owner **declined it**, locking full scope
+deliberately. The concern is recorded, not withdrawn. **Mitigation: if the
+sprint runs long, a CONTENT ticket slips (PF-114, PF-115) — never PF-121 or
+PF-122.** In Sprint 13 the squeeze landed on the last two tickets, and here
+those are the security pass and the gate, the two least safe things to rush.
+
+⚠️ **The board is the owner's to move.** Every row above reads To Do on both
+sides today, which is the honest state at planning time.
+
+#### ⚠️ THE DEPENDENCY SPINE IS INVERTED FROM WHAT THIS FILE USED TO IMPLY
+
+Every earlier note here reads as though the cutover comes first. **It cannot.**
+`global.css`'s `:root` can only be deleted once **nothing reads it**, and every
+admin panel reads it today — so **PF-116 is the LAST styling ticket, not the
+first.** Building it early fails with every admin surface unstyled and no
+obvious cause.
+
+```
+PF-107 (foundations) ─┬─→ PF-109 login ──────────→ PF-120 Google sign-in
+                      ├─→ PF-110 overview
+                      ├─→ PF-112 about ──┐
+                      ├─→ PF-113 projects┤
+                      ├─→ PF-114 skills  ├─→ PF-116 cutover ─→ PF-117 audit ─┐
+                      └─→ PF-115 blog/msg┘                                   │
+PF-111 (media backend) ──→ PF-112, PF-113                                    │
+PF-108 (session) ────────→ PF-109, PF-120                                    │
+PF-119 (parity audit) ───────────────────────────────────────────────────────┤
+PF-121 (security) ← needs PF-108, PF-111, PF-120 landed ─────────────────────┤
+                                                                             └─→ PF-122 gate
+```
+
+**PF-119 is scheduled EARLY on purpose** — it is a diagnostic, and what it
+finds should shape the panel tickets rather than arrive after them.
+
+#### 🎯 The four the owner named for master-level care (2026-09-08)
+
+Owner's words: *"we need to carefully implement those features like master
+minds."* These are where a plausible-but-wrong implementation is most likely
+and most expensive.
+
+1. **The inverted spine above.** PF-116 last, not first.
+
+2. **⚠️ THE FEATURED-PROJECTS MISMATCH IS A LOCKED DECISION, NOT A DEFECT.**
+   Owner report: *"some featured projects don't show as featured on the main
+   page but in the admin panel they seem to be featured."* Traced and
+   confirmed 2026-09-08:
+   - `projectController.js:8` sorts `{ order: 1, createdAt: -1 }`.
+   - `ProjectsSection.jsx:203` — `const [featured, ...rest] = projects`. The
+     big card slot goes to **the first project by `order`, regardless of its
+     `featured` flag**.
+   - `ProjectsSection.jsx:234` renders the `FEATURED` badge only when that
+     project is itself featured — so **when `projects[0].featured` is false
+     the slot renders no badge at all**, and a project flagged featured
+     further down the order shows the badge **nowhere**.
+
+   This is the owner decision of **2026-08-19**, already in
+   `locked-decisions.md`: *"`featured` controls the BADGE and `order` controls
+   the SLOT, which keeps reordering an admin action rather than a code
+   change."* **PF-119 does NOT silently fix it** — it surfaces three options
+   and the owner re-decides. Recommendation: make the panel *show* the rule
+   (mark which row holds the big slot) so `featured` stops looking like it
+   does something it does not.
+
+   ⚠️ **This is the PF-100 lesson again.** A finding's proposed fix is a
+   hypothesis; "featured projects aren't showing as featured" sounds exactly
+   like a bug and is a design decision. One grep separated them.
+
+3. **⚠️ OAUTH ACCOUNT BINDING IS THE SECURITY-CRITICAL PART OF PF-120.**
+   `User.role` is `enum: ['admin'], default: 'admin'` (`models/User.js:19-23`)
+   and **no route reads it** — any valid token is full admin. An
+   auto-provisioning OAuth callback therefore turns **anyone with a Google
+   account** into an administrator of this CMS. Bind to an existing `User` on
+   a **verified** email, allowlist of one, never create. Verify `iss`, `aud`,
+   `exp` and the signature against Google's JWKS; `state` and `nonce` on every
+   request. **Keep password login as a second door** — an OAuth outage or a
+   revoked app must not lock the owner out of their own panel.
+
+4. **⚠️ DELETE-ON-REPLACE ACROSS EVERY MEDIA FIELD (PF-111).** Owner's
+   explicit requirement: *every time an image or résumé is uploaded anywhere,
+   the previous file is permanently deleted.* Four fields store a bare URL
+   with no `publicId` — `Project.js:35 imageUrl`, `Project.js:52
+   backgroundImage.src`, `Blog.js:113 coverImage`, `About.js:69 avatarUrl` —
+   and `About.js:94 resume{url, publicId, …}` is the one correct pattern in
+   the codebase. ⚠️ **Accumulated risk is zero TODAY** (all four empty in
+   `portfolio_prod`, bucket holds 0 assets) **and starts accruing the first
+   time the repaired feature is used — which is this sprint.**
+
+#### Owner decisions taken at planning (2026-09-08)
+
+- **Upload scope:** About portrait + project card backgrounds + résumé.
+- **`Blog.coverImage` is DELETED.** Owner: *"Every blog post card should have
+  an image — I thought it early and I rolled back that decision of mine,
+  that's why some APIs are not working."* Zero consumers confirmed; the only
+  other mention is a comment in `BlogSection.module.css:169`.
+  **`Project.imageUrl` goes with it** — also zero consumers.
+- **The blog teaser's two theme-scoped photographs stay PERMANENT** — owner:
+  *"those two images in the light mode and the dark mode are permanent images
+  I don't want to change."* Upholds the 2026-09-07 locked decision; **not**
+  uploadable.
+- **The About portrait becomes uploadable and must inherit its existing
+  treatment.** ⚠️ **Satisfied by changing nothing but the `src`**:
+  `.portraitImg` already declares `aspect-ratio: 3 / 4; object-fit: cover`
+  (`AboutSection.module.css:108-112`). Do not add sizing CSS. Keep the bundled
+  asset as fallback so the site never renders a broken portrait.
+- **Project card background images** — the public render **already exists and
+  already honours opacity** (`ProjectsSection.jsx:98-108`, schema 0.1–1.0
+  default 0.75). Only the admin upload UI and slider are missing. ⚠️ Clamp the
+  slider to the schema range or the save 400s.
+- **The résumé admin UI is BUILD, not polish.** The owner believed it
+  implemented; the *backend* is, completely and with tests. There is no
+  `type="file"` anywhere in `frontend/src`.
+- **Overview gets a real `GET /api/dashboard/stats`** — grepped first per house
+  rule, zero hits across routes, controllers and `app.js`. Genuinely net-new.
+  Feeds the four overview cards, the six sidebar badges and the footer counts
+  from one call.
+- **Auth gets full session handling (PF-108) and Google sign-in (PF-120).**
+- **The full security analysis sits inside this sprint**, immediately before
+  the gate. ⚠️ The owner's phrasing — *"sprint 14 quality and cut over"* —
+  read two ways; placed on the first reading and movable wholesale, since
+  PF-121 has no dependants except PF-122.
+
+#### The measured starting state — taken 2026-09-08, before any work
+
+- **~1,900 lines of admin JSX, styled entirely with inline `style={{}}`.** No
+  Tailwind, no CSS modules, no `.module.css` under `components/admin/`. An
+  `INPUT` constant copy-pasted into **five** files; hover and focus are dozens
+  of handlers mutating `e.currentTarget.style`.
+- **Phase 1 token consumption, heavier than this file previously recorded:**
+  `--font-mono` ×47, `--text-muted` ×40, `--border` ×32, `--accent` ×29,
+  `--text-primary` ×16, `--text-body` ×16, `.glass` ×13, `.btn-outline` ×9,
+  `.btn-primary` ×6, `.skeleton` ×6, plus ~14 hardcoded `#f87171` / `#dc2626`
+  reds that never flip with the theme.
+- **`keyframes/admin.css` is entirely DEAD.** `flt-admin`, `drift-admin`,
+  `sheen-admin`, `auroraA`, `auroraB` — **zero JSX consumers**, and
+  **`animations.css` has no `.kf-*` carrier for any of them.** ⚠️ Add the
+  carriers *before* an admin module names a keyframe, or it is scoped and
+  silently resolves to nothing. The login screen's aurora orbs are the first
+  real consumer.
+- **Only ONE admin test exists** — `AdminBlogPanel.test.jsx`, 655 lines, ~45
+  behavioural cases, no style or snapshot assertions. It should survive a
+  restyle **unchanged**; if it goes red, the restyle changed behaviour.
+  Nothing covers `AdminLayout`, `AdminPage`, `AdminLoginPage`,
+  `ProtectedRoute`, or four of the six panels.
+- **Finished backend with no UI:** `POST /api/upload` and both
+  `/api/about/resume` routes; `PUT /api/skills/:id` (no service caller, no
+  hook — **skills cannot be edited at all**); `authService.getMe`; `GET
+  /api/projects/:id` + `useProject`. The `type: 'tech'` half of the Vocabulary
+  API has zero consumers.
+- **Two live defects found while planning.** `AdminLayout.jsx:127` matches on
+  `i.activeTab`, a property no nav item carries — the clause is always
+  `undefined` and only the fallback saves it. `ProtectedRoute` captures
+  `state.from` which `AdminLoginPage:29` then discards.
+- **`aboutRoutes.js:16` runs `aboutRules, validate, protect`** — the same
+  ordering PF-97 fixed in `blogRoutes.js`. An anonymous PUT with a bad body
+  gets a 400 describing the schema instead of a 401. ⚠️ PF-121 must **grep for
+  the pattern**, not assume those two were the only ones.
+- **`AdminOverviewPanel` fetches three full collections to render three
+  integers**, and reads the **public** `GET /api/blog` — so
+  `posts.filter(p => p.published)` is tautological and the draft count is
+  **unobtainable**.
+- **`AdminMessagesPanel` is the only panel bypassing the hooks layer** (raw
+  `useQuery` with an inline `queryKey: ['messages']`), and its delete has no
+  confirmation.
+
+⚠️ **A ticket described early in a sprint describes the sprint's STARTING
+state, not the state it will run against.** PF-101's scope was stale in both
+directions. Re-read this section against the code before starting any ticket
+here.
 
 ### Sprint 13 — Epic E8, Blog. Branch `sprint-13-blog`, cut from local `master` at `23aa76c`
 
