@@ -43,18 +43,17 @@ grep -n "^### \|^\*\*Built by" .claude/sprint-log.md   # all entry headings
 | PF-93 | Reveal entrance regression — all deletions | Built by PF-93 |
 | PF-94 | `ScrollToHash` quiescence poll | Built by PF-94 |
 | PF-95 | `publishedAt`, real reading times, migration 005 | Sprint 13 |
-| PF-107 → PF-122 | Admin panel rebuild — shell, login, six panels, media pipeline, session + Google auth, `:root` deletion, parity audit, security | Sprint 14 |
+| PF-107 → PF-121 | Admin panel rebuild — shell, login, six panels, media pipeline, session + Google auth, `:root` deletion, parity audit, security | Sprint 14 |
 
 **⚠️ SPRINT 13 IS CLOSED AND MERGED** — PR #7, 2026-09-07T18:06Z, `9b2a1ad`.
 All twelve tickets (PF-95 → PF-106) shipped; `sprint-13-blog` has zero
 unmerged commits.
 
 **SPRINT 14 — Epic E9, Admin Panel Rebuild — IS THE CURRENT SPRINT**, locked
-2026-09-08 at full scope: **15 items, 103 points, PF-107 → PF-122** (PF-118
-deliberately unused). The plan, the sprint goal, the inverted dependency spine
+2026-09-08 at full scope: **15 items, 103 points, PF-107 → PF-121**. The plan, the sprint goal, the inverted dependency spine
 and the four items flagged for master-level care are in **Sprint 14 → The
 plan**, and the full ticket set is in
-`new mds/E9/PF-107-122-sprint-14-plan.md`. ⚠️ **The branch is not yet cut and
+`new mds/E9/PF-107-121-sprint-14-plan.md`. ⚠️ **The branch is not yet cut and
 no ticket is started** — both are the owner's.
 
 | Ticket | Pts | Inherits |
@@ -438,7 +437,6 @@ swapped, because each was built for a stated reason that no longer holds.
 **71px** after each pass. Nineteen mutations across the new guards, all
 caught.
 
-
 **PF-93 was inserted ahead of PF-86 deliberately.** It blocks PF-86/87/88:
 all three are `Reveal`-heavy, and every one of them would have asked "how
 do I give this card a hover transition?" and got the wrong answer straight
@@ -495,7 +493,7 @@ workflow that applies from PF-96 onward, and **locked by the owner the same
 day at full scope**.
 
 **The ticket set with full scope, traps and acceptance for each lives in
-`new mds/E9/PF-107-122-sprint-14-plan.md`.** This section is the index and the
+`new mds/E9/PF-107-121-sprint-14-plan.md`.** This section is the index and the
 record; that file is the sprint's authority.
 
 > **Sprint goal.** The admin panel is a Phase 2 surface — readable in both
@@ -517,23 +515,33 @@ record; that file is the sprint's authority.
 | PF-115 | Blog + Messages panels restyled | Medium | 5 | To Do | not started |
 | PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | To Do | not started |
 | PF-117 | Admin responsive + state audit, both themes | Medium | 6 | To Do | not started |
-| PF-119 | Admin ↔ public-site parity audit | Highest | 8 | To Do | not started |
-| PF-120 | Google sign-in for `/admin` + production-standard auth | High | 8 | To Do | not started |
-| PF-121 | Security review and hardening | High | 5 | To Do | not started |
-| PF-122 | Sprint gate, PR, close | Highest | 8 | To Do | not started |
+| PF-118 | Admin ↔ public-site parity audit | Highest | 8 | To Do | not started |
+| PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 | To Do | not started |
+| PF-120 | Security review and hardening | High | 5 | To Do | not started |
+| PF-121 | Sprint gate, PR, close | Highest | 8 | To Do | not started |
 
-⚠️ **PF-118 IS DELIBERATELY UNUSED.** Three tickets were added after the first
-draft (PF-119 parity audit, PF-120 Google sign-in, PF-121 security), and the
-gate moved from 118 to 122 so it stays the last number in the sprint. **Do not
-re-use 118.** A numbering gap is cheaper than a gate that does not sort last.
+⚠️ **NUMBERING IS CONTIGUOUS — PF-107 → PF-121, NO GAPS.** Worth recording
+because it nearly went the other way. The first draft ended at PF-118 (the
+gate); three tickets were added mid-session and I moved the gate to PF-122
+instead of renumbering them, leaving PF-118 unused — then justified it as *"a
+gap is cheaper than a gate that does not sort last"*, which framed a choice
+that did not exist. Contiguous numbering **and** a last-sorting gate were both
+available. **The owner closed the gap on 2026-09-08.**
+
+⚠️ **The reason it was fixed immediately rather than tolerated is the PF-103–106
+precedent**: numbering churn there became permanent because, by the time anyone
+looked, unpicking *"137 references"* was not worth it. Here it cost 9 note
+deletions and 108 mechanical substitutions across 5 documents, with nothing on
+the board and nothing in code. **The window for cheap renumbering closes the
+moment the Jira tickets are created.**
 
 ⚠️ **103 points is ~1.6× the demonstrated velocity.** Sprint 13 shipped 65
 (51 planned + 14 added mid-sprint); Sprint 11 shipped 46. A split to a Sprint
 15 was offered with a clean line — the rebuild at 68 here, the new-capability
 work at 35 there — and the owner **declined it**, locking full scope
 deliberately. The concern is recorded, not withdrawn. **Mitigation: if the
-sprint runs long, a CONTENT ticket slips (PF-114, PF-115) — never PF-121 or
-PF-122.** In Sprint 13 the squeeze landed on the last two tickets, and here
+sprint runs long, a CONTENT ticket slips (PF-114, PF-115) — never PF-120 or
+PF-121.** In Sprint 13 the squeeze landed on the last two tickets, and here
 those are the security pass and the gate, the two least safe things to rush.
 
 ⚠️ **The board is the owner's to move.** Every row above reads To Do on both
@@ -548,20 +556,20 @@ first.** Building it early fails with every admin surface unstyled and no
 obvious cause.
 
 ```
-PF-107 (foundations) ─┬─→ PF-109 login ──────────→ PF-120 Google sign-in
+PF-107 (foundations) ─┬─→ PF-109 login ──────────→ PF-119 Google sign-in
                       ├─→ PF-110 overview
                       ├─→ PF-112 about ──┐
                       ├─→ PF-113 projects┤
                       ├─→ PF-114 skills  ├─→ PF-116 cutover ─→ PF-117 audit ─┐
                       └─→ PF-115 blog/msg┘                                   │
 PF-111 (media backend) ──→ PF-112, PF-113                                    │
-PF-108 (session) ────────→ PF-109, PF-120                                    │
-PF-119 (parity audit) ───────────────────────────────────────────────────────┤
-PF-121 (security) ← needs PF-108, PF-111, PF-120 landed ─────────────────────┤
-                                                                             └─→ PF-122 gate
+PF-108 (session) ────────→ PF-109, PF-119                                    │
+PF-118 (parity audit) ───────────────────────────────────────────────────────┤
+PF-120 (security) ← needs PF-108, PF-111, PF-119 landed ─────────────────────┤
+                                                                             └─→ PF-121 gate
 ```
 
-**PF-119 is scheduled EARLY on purpose** — it is a diagnostic, and what it
+**PF-118 is scheduled EARLY on purpose** — it is a diagnostic, and what it
 finds should shape the panel tickets rather than arrive after them.
 
 #### 🎯 The four the owner named for master-level care (2026-09-08)
@@ -588,7 +596,7 @@ and most expensive.
    This is the owner decision of **2026-08-19**, already in
    `locked-decisions.md`: *"`featured` controls the BADGE and `order` controls
    the SLOT, which keeps reordering an admin action rather than a code
-   change."* **PF-119 does NOT silently fix it** — it surfaces three options
+   change."* **PF-118 does NOT silently fix it** — it surfaces three options
    and the owner re-decides. Recommendation: make the panel *show* the rule
    (mark which row holds the big slot) so `featured` stops looking like it
    does something it does not.
@@ -597,7 +605,7 @@ and most expensive.
    hypothesis; "featured projects aren't showing as featured" sounds exactly
    like a bug and is a design decision. One grep separated them.
 
-3. **⚠️ OAUTH ACCOUNT BINDING IS THE SECURITY-CRITICAL PART OF PF-120.**
+3. **⚠️ OAUTH ACCOUNT BINDING IS THE SECURITY-CRITICAL PART OF PF-119.**
    `User.role` is `enum: ['admin'], default: 'admin'` (`models/User.js:19-23`)
    and **no route reads it** — any valid token is full admin. An
    auto-provisioning OAuth callback therefore turns **anyone with a Google
@@ -645,11 +653,11 @@ and most expensive.
   rule, zero hits across routes, controllers and `app.js`. Genuinely net-new.
   Feeds the four overview cards, the six sidebar badges and the footer counts
   from one call.
-- **Auth gets full session handling (PF-108) and Google sign-in (PF-120).**
+- **Auth gets full session handling (PF-108) and Google sign-in (PF-119).**
 - **The full security analysis sits inside this sprint**, immediately before
   the gate. ⚠️ The owner's phrasing — *"sprint 14 quality and cut over"* —
   read two ways; placed on the first reading and movable wholesale, since
-  PF-121 has no dependants except PF-122.
+  PF-120 has no dependants except PF-121.
 
 #### The measured starting state — taken 2026-09-08, before any work
 
@@ -684,7 +692,7 @@ and most expensive.
   `state.from` which `AdminLoginPage:29` then discards.
 - **`aboutRoutes.js:16` runs `aboutRules, validate, protect`** — the same
   ordering PF-97 fixed in `blogRoutes.js`. An anonymous PUT with a bad body
-  gets a 400 describing the schema instead of a 401. ⚠️ PF-121 must **grep for
+  gets a 400 describing the schema instead of a 401. ⚠️ PF-120 must **grep for
   the pattern**, not assume those two were the only ones.
 - **`AdminOverviewPanel` fetches three full collections to render three
   integers**, and reads the **public** `GET /api/blog` — so
@@ -1586,7 +1594,6 @@ retrospective document** — this section is the record, matching Sprint 10,
   2.1m) — load-sensitive, same family as the `ScrollToTop` quiescence
   work. Not caused by Sprint 13.
 
-
 - **⚠️ `frontend/coverage/` IS COMMITTED TO THE REPO AND NOT GITIGNORED, so
   running the coverage command dirties the tree with ~100 files.** Found
   2026-09-07 while running the gate. `backend/.gitignore:5` has
@@ -1621,7 +1628,6 @@ retrospective document** — this section is the record, matching Sprint 10,
   and it is exactly the one the gate does not run. Worth folding into the
   gate before PF-102 opens the PR.
 
-
 - **⚠️ `<ErrorBoundary>` DOES NOT PROTECT `BlogPage` OR `BlogPostPage`'s
   own inline JSX.** Found and measured in PF-101 (2026-09-07): a bad
   `sections[].body` blanked the entire page — `root.innerHTML.length === 0`
@@ -1643,7 +1649,6 @@ retrospective document** — this section is the record, matching Sprint 10,
   in this repo has ever used Firefox or WebKit** — every "measured in
   Chromium" line in this file is literal. Both were explicitly out of
   PF-101's scope.
-
 
 - ~~**PF-101's responsive audit does not name the reading view**~~ —
   **RESOLVED 2026-09-07.** It was added to the sweep, along with the 404,
@@ -2106,7 +2111,6 @@ retrospective document** — this section is the record, matching Sprint 10,
   declared in `tokens.css` because the prototype still uses them and the
   Blog and Admin screens are unbuilt — but they are orphaned tokens
   today, and a token sweep should not read them as live.
-
 
 None of this is in Sprint 11's PR. Each was checked on 2026-08-19 rather
 than copied forward:
@@ -6225,8 +6229,6 @@ tap target appeared uncaught; `Footer.module.css` has **three**
 pass, plus this one) and a first-match replace hit the wrong rule.
 Mutating the right line fails the guard correctly. **Six mutations, all
 caught** once the invalid one was redone.
-
-
 
 **⚠️ ONE E2E SPEC PINNED THE OLD DURATION AND WENT RED.**
 `e2e/footer.spec.js:122` asserted `duration === [40000]`; it is now

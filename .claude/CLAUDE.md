@@ -288,7 +288,7 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **planned 2026-09-08**, branch `sprint-14-admin` |
+| **Sprint 14 — E9 (PF-107 → PF-121)** | **Admin panel rebuild** | **planned 2026-09-08**, branch `sprint-14-admin` |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
 to PF-59 is intentional.
@@ -305,7 +305,7 @@ to PF-59 is intentional.
 > matches what the panel shows.
 
 **Full ticket set, with scope, traps and acceptance for each:
-`new mds/E9/PF-107-122-sprint-14-plan.md`.** That file is the sprint's
+`new mds/E9/PF-107-121-sprint-14-plan.md`.** That file is the sprint's
 authority; this table is the index.
 
 | Ticket | Title | Pri | Pts |
@@ -321,18 +321,22 @@ authority; this table is the index.
 | PF-115 | Blog + Messages panels restyled | Medium | 5 |
 | PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 |
 | PF-117 | Admin responsive + state audit, both themes | Medium | 6 |
-| PF-119 | Admin ↔ public-site parity audit | Highest | 8 |
-| PF-120 | Google sign-in for `/admin` + production-standard auth | High | 8 |
-| PF-121 | Security review and hardening | High | 5 |
-| PF-122 | Sprint gate, PR, close | Highest | 8 |
+| PF-118 | Admin ↔ public-site parity audit | Highest | 8 |
+| PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 |
+| PF-120 | Security review and hardening | High | 5 |
+| PF-121 | Sprint gate, PR, close | Highest | 8 |
 
-⚠️ **PF-118 is deliberately unused** — the gate moved to PF-122 so it stays
-the last number. A gap is cheaper than a gate that does not sort last.
+⚠️ **Numbering is CONTIGUOUS — PF-107 → PF-121, no gaps.** An earlier draft
+ended the sprint at PF-118 and, when three tickets were added, pushed the gate
+to PF-122 rather than renumber them — leaving PF-118 as a hole. Closed by owner
+decision on **2026-09-08**, while nothing existed in Jira and no code referenced
+the numbers. The parity audit is **PF-118**, Google sign-in **PF-119**, security
+**PF-120**, the gate **PF-121**.
 
 ⚠️ **103 points is ~1.6× the demonstrated velocity** (Sprint 13 shipped 65,
 Sprint 11 shipped 46). A split to a Sprint 15 was offered and **declined by
 the owner** — the scope is fixed deliberately. **If the sprint runs long, a
-CONTENT ticket slips (PF-114, PF-115) — never PF-121 or PF-122.** In Sprint
+CONTENT ticket slips (PF-114, PF-115) — never PF-120 or PF-121.** In Sprint
 13 the squeeze landed on the last two tickets, and here those are the
 security pass and the gate.
 
@@ -344,34 +348,34 @@ Phase 1 tokens before the cutover can land. Building it early fails with every
 admin surface unstyled and no obvious cause.
 
 ```
-PF-107 (foundations) ─┬─→ PF-109 login ──────────→ PF-120 Google sign-in
+PF-107 (foundations) ─┬─→ PF-109 login ──────────→ PF-119 Google sign-in
                       ├─→ PF-110 overview
                       ├─→ PF-112 about ──┐
                       ├─→ PF-113 projects┤
                       ├─→ PF-114 skills  ├─→ PF-116 cutover ─→ PF-117 audit ─┐
                       └─→ PF-115 blog/msg┘                                   │
 PF-111 (media backend) ──→ PF-112, PF-113                                    │
-PF-108 (session) ────────→ PF-109, PF-120                                    │
-PF-119 (parity audit) ───────────────────────────────────────────────────────┤
-PF-121 (security) ← needs PF-108, PF-111, PF-120 landed ─────────────────────┤
-                                                                             └─→ PF-122 gate
+PF-108 (session) ────────→ PF-109, PF-119                                    │
+PF-118 (parity audit) ───────────────────────────────────────────────────────┤
+PF-120 (security) ← needs PF-108, PF-111, PF-119 landed ─────────────────────┤
+                                                                             └─→ PF-121 gate
 ```
 
-**PF-119 is scheduled EARLY on purpose** — it is a diagnostic, and what it
+**PF-118 is scheduled EARLY on purpose** — it is a diagnostic, and what it
 finds should shape the panel tickets rather than arrive after them.
 
 #### 🎯 The four the owner named for master-level care (2026-09-08)
 
 1. **The inverted spine above** — PF-116 last, not first.
 2. **The featured-projects mismatch is a LOCKED DECISION, not a defect**
-   (PF-119). `ProjectsSection.jsx:203` takes `projects[0]` — first by
+   (PF-118). `ProjectsSection.jsx:203` takes `projects[0]` — first by
    `order`, *regardless of `featured`* — and `:234` renders the badge only
    when that project is itself featured. So a project flagged featured
    further down the order shows **no badge anywhere**. Owner decision
    2026-08-19: *"`featured` controls the BADGE and `order` controls the
    SLOT."* ⚠️ **"Fixing" it reverses the owner silently.** Three options,
    owner re-decides.
-3. **OAuth account binding** (PF-120). `User.role` is `enum: ['admin']` and
+3. **OAuth account binding** (PF-119). `User.role` is `enum: ['admin']` and
    **no route reads it**, so any account that authenticates is full admin.
    An auto-provisioning callback makes **anyone with a Google account** an
    administrator. Allowlist of one; password login stays as a second door.
@@ -391,7 +395,7 @@ finds should shape the panel tickets rather than arrive after them.
   uploadable. Upholds the 2026-09-07 locked decision.
 - **Overview gets a real `GET /api/dashboard/stats`** — grepped first, nothing
   like it exists.
-- **Auth gets full session handling** (PF-108) **and Google sign-in** (PF-120).
+- **Auth gets full session handling** (PF-108) **and Google sign-in** (PF-119).
 - **The résumé admin UI is BUILD, not polish** — the backend is complete and
   tested; there is no `type="file"` anywhere in `frontend/src`.
 
@@ -603,7 +607,7 @@ not run.
 ⚠️ **`frontend/coverage/` is COMMITTED and NOT gitignored**, so running the
 coverage step dirties the tree with ~100 files (37 tracked, ~70 untracked).
 `backend/.gitignore:5` has `coverage/`; `frontend/.gitignore` does not.
-Scheduled for PF-122.
+Scheduled for PF-121.
 
 ### Docker & CI
 
