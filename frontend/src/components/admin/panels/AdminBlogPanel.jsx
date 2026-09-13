@@ -6,17 +6,9 @@ import { emptyForm, emptySection, postToForm, formToPayload,
          formErrors, hasTag, toggleTag, removeTag }               from '../../../utils/blogForm';
 import { useVocabulary, useCreateVocabulary, useDeleteVocabulary,
          useVocabularyImpact }                                    from '../../../hooks/useVocabulary';
+import a from '../../../styles/admin.module.css';
 
-const INPUT = {
-  width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
-  borderRadius: '0.5rem', padding: '0.625rem 0.875rem', color: 'var(--text-primary)',
-  fontFamily: 'var(--font-sans)', fontSize: '0.875rem', outline: 'none', transition: 'border-color 0.2s',
-};
 
-const LABEL = {
-  display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-  fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase',
-};
 
 // Ink for text sitting ON the accent fill. Matches `.btn-primary`
 // (global.css:298) rather than introducing a second literal for the same
@@ -35,10 +27,6 @@ const REMOVE_BUTTON = {
   fontSize: '1.25rem', lineHeight: 1, padding: '0 0.25rem',
 };
 
-const FI = {
-  onFocus: (e) => { e.target.style.borderColor = 'var(--accent)'; },
-  onBlur:  (e) => { e.target.style.borderColor = 'var(--border)'; },
-};
 
 /**
  * One editable line inside a section — a paragraph or a bullet.
@@ -58,11 +46,11 @@ function LineRow({ kind, index, value, onChange, onRemove }) {
       {isParagraph ? (
         <textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)}
           placeholder={`Paragraph ${index + 1}…`}
-          style={{ ...INPUT, resize: 'vertical', flexGrow: 1 }} {...FI} />
+          className={a.textarea} style={{ flexGrow: 1 }} />
       ) : (
         <input value={value} onChange={(e) => onChange(e.target.value)}
           placeholder="Bullet point…"
-          style={{ ...INPUT, flexGrow: 1 }} {...FI} />
+          className={a.input} style={{ flexGrow: 1 }} />
       )}
       <button type="button" onClick={onRemove} aria-label={`Remove ${isParagraph ? 'paragraph' : 'bullet'} ${index + 1}`}
         style={{ ...REMOVE_BUTTON, marginTop: '0.5rem' }}>
@@ -113,16 +101,16 @@ function SectionEditor({ section, index, total, onField, onLine, onAddLine, onRe
       </div>
 
       <div style={{ marginBottom: '0.875rem' }}>
-        <label style={LABEL} htmlFor={`section-heading-${index}`}>Heading *</label>
+        <label className={a.label} htmlFor={`section-heading-${index}`}>Heading *</label>
         <input id={`section-heading-${index}`} value={section.heading}
           onChange={(e) => onField('heading', e.target.value)}
-          placeholder="Introduction" style={INPUT} {...FI} />
+          placeholder="Introduction" className={a.input} />
       </div>
 
       {['body', 'bullets'].map((kind) => (
         <div key={kind} style={{ marginBottom: kind === 'body' ? '0.875rem' : 0 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ ...LABEL, marginBottom: 0 }}>{kind === 'body' ? 'Paragraphs' : 'Bullets'}</span>
+            <span className={a.labelLead}>{kind === 'body' ? 'Paragraphs' : 'Bullets'}</span>
             <button type="button" onClick={() => onAddLine(kind)} style={SMALL_BUTTON}>
               + Add {kind === 'body' ? 'paragraph' : 'bullet'}
             </button>
@@ -355,8 +343,7 @@ function TagPicker({ tags, onToggle, onRemoved, onError }) {
           }}
           placeholder="New tag name…"
           aria-label="New tag name"
-          style={{ ...INPUT, flex: '1 1 160px', minWidth: 160, borderRadius: 999,
-            fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }} {...FI} />
+          className={a.inputPill} style={{ flex: '1 1 160px', minWidth: 160 }} />
         <button type="button" onClick={addTag} disabled={createTag.isPending || !draft.trim()}
           style={{
             flex: 'none', padding: '0.55rem 1rem', borderRadius: 999,
@@ -532,22 +519,22 @@ export function AdminBlogPanel() {
           </h3>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
-              <label style={LABEL} htmlFor="post-title">Title *</label>
+              <label className={a.label} htmlFor="post-title">Title *</label>
               <input id="post-title" name="title" required placeholder="Blog post title"
-                value={form.title} onChange={handleChange} style={INPUT} {...FI} />
+                value={form.title} onChange={handleChange} className={a.input} />
             </div>
             <div>
-              <label style={LABEL} htmlFor="post-excerpt">Excerpt * (max 300 chars)</label>
+              <label className={a.label} htmlFor="post-excerpt">Excerpt * (max 300 chars)</label>
               <textarea id="post-excerpt" name="excerpt" required rows={2}
                 placeholder="Short description shown in blog list..."
                 value={form.excerpt} onChange={handleChange}
-                style={{ ...INPUT, resize: 'vertical' }} {...FI} />
+                className={a.textarea} />
             </div>
 
             {/* ── Sections ── */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <span style={{ ...LABEL, marginBottom: 0 }}>Sections *</span>
+                <span className={a.labelLead}>Sections *</span>
                 <button type="button" onClick={addSection} className="btn-outline"
                   style={{ fontSize: '0.8rem', padding: '0.375rem 0.875rem' }}>
                   + Add Section
@@ -572,9 +559,9 @@ export function AdminBlogPanel() {
             </div>
 
             <div>
-              <label style={LABEL} htmlFor="post-tags">Tags (comma separated)</label>
+              <label className={a.label} htmlFor="post-tags">Tags (comma separated)</label>
               <input id="post-tags" name="tags" placeholder="React, Node.js, Docker"
-                value={form.tags} onChange={handleChange} style={INPUT} {...FI} />
+                value={form.tags} onChange={handleChange} className={a.input} />
             </div>
 
             {/* ── PF-97: the shared tag vocabulary ──────────────────────
@@ -607,14 +594,14 @@ export function AdminBlogPanel() {
                 numbers honest, and this is the escape hatch for a post that
                 genuinely warrants a different one. */}
             <div>
-              <label style={LABEL} htmlFor="post-read-time">
+              <label className={a.label} htmlFor="post-read-time">
                 Reading time override (minutes)
               </label>
               <input id="post-read-time" name="readingTimeOverride" type="number"
                 min="1" max="999" inputMode="numeric"
                 placeholder="Leave blank to calculate from the content"
                 value={form.readingTimeOverride} onChange={handleChange}
-                style={INPUT} {...FI} />
+                className={a.input} />
               <p style={{ margin: '0.375rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 Leave blank to calculate from the content.
                 {editingPost && ` Currently showing ${editingPost.readingTimeMinutes} min read.`}

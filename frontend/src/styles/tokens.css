@@ -14,7 +14,18 @@
 :root {
   /* ── Accent ──────────────────────────────────────────────── */
   --acc:      #FCA311;   /* the loud one */
-  --acc2:     #7AA6D6;   /* secondary steel — theme toggle only */
+  /* ⚠️ --acc2 / --acc2rgb have ZERO consumers and the comment that
+     used to sit here — "theme toggle only" — was stale: the 2026-08-22
+     rework replaced the prototype's switch with a 44x44 sun/moon icon
+     button and its .track/.knob/.label went with it. The stated reason
+     they survived was that the Blog and Admin screens were unbuilt.
+     Blog shipped in Sprint 13; PF-107 built the admin shell and
+     deliberately reuses the site's toggle rather than the prototype's
+     --acc2 pill, so admin does not claim them either. That
+     justification has now expired. They are NOT deleted here — a
+     token removal is its own change with its own test updates, and
+     tokens.test.js pins both names. Logged to Outstanding work. */
+  --acc2:     #7AA6D6;
   --acc2rgb:  122,166,214;
   --accInk:   #0a0a0a;   /* ink placed ON accent fills */
 

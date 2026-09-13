@@ -1,11 +1,8 @@
 import { useState, useEffect }                         from 'react';
 import { useAbout, useUpdateAbout, useToggleAvailability } from '../../../hooks/useAbout';
+import { useAdminFlash } from '../../../hooks/useAdminFlash';
+import a from '../../../styles/admin.module.css';
 
-const INPUT = {
-  width: '100%', background: 'var(--bg)', border: '1px solid var(--border)',
-  borderRadius: '0.5rem', padding: '0.625rem 0.875rem', color: 'var(--text-primary)',
-  fontFamily: 'var(--font-sans)', fontSize: '0.875rem', outline: 'none', transition: 'border-color 0.2s',
-};
 
 export function AdminAboutPanel() {
   const { data: about, isLoading } = useAbout();
@@ -17,7 +14,7 @@ export function AdminAboutPanel() {
     bio: ['', ''], availabilityNote: '',
     social: { github: '', linkedin: '', facebook: '', instagram: '', twitter: '' },
   });
-  const [saved, setSaved] = useState(false);
+  const { showFlash } = useAdminFlash();
 
   // Pre-fill form when data loads
   useEffect(() => {
@@ -60,8 +57,10 @@ export function AdminAboutPanel() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     await updateAbout.mutateAsync(form);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    // PF-107: the shell owns the saved banner now. The old inline
+    // span cleared itself after 3s, so a save you looked away from
+    // left no trace it had happened.
+    showFlash('Profile saved');
   };
 
   if (isLoading) {
@@ -72,7 +71,6 @@ export function AdminAboutPanel() {
     );
   }
 
-  const FocusInput = { onFocus: (e) => { e.target.style.borderColor = 'var(--accent)'; }, onBlur: (e) => { e.target.style.borderColor = 'var(--border)'; } };
 
   return (
     <div>
@@ -108,10 +106,9 @@ export function AdminAboutPanel() {
               { name: 'availabilityNote', label: 'Availability Note', placeholder: 'Open to junior roles' },
             ].map(({ name, label, placeholder }) => (
               <div key={name}>
-                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-                  fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>{label}</label>
+                <label className={a.label}>{label}</label>
                 <input name={name} placeholder={placeholder} value={form[name]}
-                  onChange={handleChange} style={INPUT} {...FocusInput} />
+                  onChange={handleChange} className={a.input} />
               </div>
             ))}
           </div>
@@ -133,7 +130,7 @@ export function AdminAboutPanel() {
                   marginTop: '0.625rem', minWidth: '1.25rem', textAlign: 'right' }}>{i + 1}.</span>
                 <textarea rows={3} placeholder={`Paragraph ${i + 1}...`} value={para}
                   onChange={(e) => handleBioChange(i, e.target.value)}
-                  style={{ ...INPUT, resize: 'vertical', flexGrow: 1 }} {...FocusInput} />
+                  className={a.textarea} style={{ flexGrow: 1 }} />
                 {form.bio.length > 1 && (
                   <button type="button" onClick={() => removeBioParagraph(i)}
                     style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer',
@@ -159,10 +156,9 @@ export function AdminAboutPanel() {
               { name: 'twitter',   label: 'Twitter URL',   placeholder: 'Leave empty — no account yet' },
             ].map(({ name, label, placeholder }) => (
               <div key={name}>
-                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-                  fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>{label}</label>
+                <label className={a.label}>{label}</label>
                 <input name={name} placeholder={placeholder} value={form.social[name] || ''}
-                  onChange={handleSocialChange} style={INPUT} {...FocusInput} />
+                  onChange={handleSocialChange} className={a.input} />
               </div>
             ))}
           </div>
@@ -173,11 +169,6 @@ export function AdminAboutPanel() {
             style={{ opacity: updateAbout.isPending ? 0.7 : 1 }}>
             {updateAbout.isPending ? 'Saving...' : 'Save Profile'}
           </button>
-          {saved && (
-            <span style={{ color: 'var(--green)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
-              ✓ Saved successfully
-            </span>
-          )}
         </div>
       </form>
     </div>

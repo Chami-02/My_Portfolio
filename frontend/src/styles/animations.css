@@ -54,6 +54,7 @@
 .kf-breathe    { animation-name: breathe; }
 .kf-dot        { animation-name: dot; }
 .kf-dot-ok     { animation-name: dot-ok; }
+.kf-fadeIn     { animation-name: fadeIn; }
 .kf-flicker    { animation-name: flicker; }
 .kf-glowdot    { animation-name: glowdot; }
 .kf-glowpulse  { animation-name: glowpulse; }
@@ -62,6 +63,7 @@
 .kf-orbdot     { animation-name: orbdot; }
 .kf-pulsering  { animation-name: pulsering; }
 .kf-riseIn     { animation-name: riseIn; }
+.kf-shimmer    { animation-name: shimmer; }
 .kf-spin       { animation-name: spin; }
 .kf-sweep      { animation-name: sweep; }
 

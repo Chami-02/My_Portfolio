@@ -46,14 +46,41 @@ test.describe('Admin Authentication Flow', () => {
     await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
   });
 
-  test('"View Site" link exists in admin sidebar', async ({ page }) => {
-    // Login first
+  // PF-107 renamed this control and moved it. The Phase 1 sidebar had a
+  // "View Site" link that opened a new tab; the rebuilt shell has the
+  // prototype's "↗ HOME" in the header and "← BACK TO HOME PAGE" in the
+  // new footer, both same-tab react-router links. The feature moved, it
+  // did not disappear — which is exactly the case where a stale E2E
+  // assertion goes red while every unit test stays green.
+  test('the shell offers a way back to the public site', async ({ page }) => {
     await page.goto('/admin/login');
     await page.fill('input[type="email"]',    ADMIN_EMAIL);
     await page.fill('input[type="password"]', ADMIN_PASSWORD);
     await page.click('button[type="submit"]');
     await page.waitForURL('/admin');
 
-    await expect(page.getByRole('link', { name: /view site/i })).toBeVisible();
+    // exact: true — getByRole matches by SUBSTRING in Playwright, and
+    // "HOME" is contained in "BACK TO HOME PAGE". Without it this is a
+    // strict-mode violation, not a pass.
+    const home = page.getByRole('link', { name: '↗ HOME', exact: true });
+    await expect(home).toBeVisible();
+    await expect(home).toHaveAttribute('href', '/?nosplash=1');
+
+    const back = page.getByRole('link', { name: '← BACK TO HOME PAGE', exact: true });
+    await expect(back).toHaveAttribute('href', '/?nosplash=1');
+  });
+
+  test('the shell shows the signed-in account, not a hardcoded address', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.fill('input[type="email"]',    ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('/admin');
+
+    // Scoped to the header: the footer's session column shows the same
+    // address, so an unscoped locator is a strict-mode violation.
+    await expect(
+      page.locator('header').getByText(ADMIN_EMAIL, { exact: true }),
+    ).toBeVisible();
   });
 });

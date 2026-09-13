@@ -1,22 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { contactService }                        from '../../../services/contactService';
+import { useMessages, useMarkMessageRead, useDeleteMessage } from '../../../hooks/useMessages';
 
 export function AdminMessagesPanel() {
-  const qc = useQueryClient();
-  const { data: messages = [], isLoading } = useQuery({
-    queryKey: ['messages'],
-    queryFn:  contactService.getAll,
-  });
-
-  const markRead = useMutation({
-    mutationFn: contactService.markRead,
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['messages'] }),
-  });
-
-  const deleteMsg = useMutation({
-    mutationFn: contactService.remove,
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['messages'] }),
-  });
+  // PF-107: these three were declared inline here with the literal key
+  // ['messages']. They moved to hooks/useMessages.js when the shell's
+  // sidebar badge became a second consumer — same key, same cache
+  // entry, so nothing fetches twice.
+  const { data: messages = [], isLoading } = useMessages();
+  const markRead  = useMarkMessageRead();
+  const deleteMsg = useDeleteMessage();
 
   const unreadCount = messages.filter((m) => !m.read).length;
 

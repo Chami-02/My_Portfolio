@@ -1,5 +1,6 @@
 import { useState }                                      from 'react';
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from '../../../hooks/useProjects';
+import a from '../../../styles/admin.module.css';
 
 const EMPTY = { title: '', description: '', tech: '', githubUrl: '', liveUrl: '', featured: false, order: 0 };
 
@@ -12,11 +13,6 @@ function SectionCard({ children, title }) {
   );
 }
 
-const INPUT = {
-  background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '0.5rem',
-  padding: '0.625rem 0.875rem', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)',
-  fontSize: '0.875rem', outline: 'none', width: '100%', transition: 'border-color 0.2s',
-};
 
 export function AdminProjectsPanel() {
   const { data: projects = [], isLoading } = useProjects();
@@ -80,47 +76,38 @@ export function AdminProjectsPanel() {
               { name: 'order',       placeholder: 'Display order (0, 1, 2...)', required: false },
             ].map(({ name, placeholder, required }) => (
               <div key={name}>
-                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-                  fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                <label className={a.label}>
                   {name.replace(/([A-Z])/g, ' $1').trim()}
                 </label>
                 <input name={name} required={required} placeholder={placeholder}
-                  value={form[name]} onChange={handleChange} style={INPUT}
-                  onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
-                  onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+                  value={form[name]} onChange={handleChange} className={a.input}
                 />
               </div>
             ))}
           </div>
 
           <div style={{ marginBottom: '0.875rem' }}>
-            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-              fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <label className={a.label}>
               Description
             </label>
             <textarea name="description" required rows={3} placeholder="What does this project do? Be honest and specific."
               value={form.description} onChange={handleChange}
-              style={{ ...INPUT, resize: 'vertical' }}
-              onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
-              onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+              className={a.textarea}
             />
           </div>
 
           <div style={{ marginBottom: '0.875rem' }}>
-            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-              fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <label className={a.label}>
               Tech Stack (comma separated)
             </label>
             <input name="tech" placeholder="React, Node.js, MongoDB, Docker"
-              value={form.tech} onChange={handleChange} style={INPUT}
-              onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
-              onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+              value={form.tech} onChange={handleChange} className={a.input}
             />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
             <input type="checkbox" name="featured" id="featured" checked={form.featured} onChange={handleChange}
-              style={{ width: 16, height: 16, accentColor: 'var(--accent)' }} />
+              className={a.checkbox} />
             <label htmlFor="featured" style={{ color: 'var(--text-body)', fontSize: '0.875rem', cursor: 'pointer' }}>
               Mark as featured project
             </label>

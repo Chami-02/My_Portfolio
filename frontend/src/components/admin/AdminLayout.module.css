@@ -1,0 +1,484 @@
+/* frontend/src/components/admin/AdminLayout.module.css
+ *
+ * PF-107. The admin shell — header, sidebar, main column.
+ * Transcribed from docs/design/Admin.dc.html:106-166.
+ *
+ * ⚠️ Zero Phase 1 token names, same contract as admin.module.css.
+ * `styles/__tests__/adminFoundation.test.js` enforces it, and PF-116's
+ * deletion of global.css's :root depends on it holding.
+ */
+
+/* ⚠️ --admin-header-h is MEASURED, not derived on paper.
+ *
+ * The prototype's header is 63px: 11px padding + a 40px logo + 11px
+ * padding + a 1px border. Ours is taller, because the theme toggle we
+ * reuse from the site header is a 44x44 icon button (a locked decision
+ * from 2026-08-22) and 44 > 40, so the toggle — not the logo — is the
+ * tallest child: 11 + 44 + 11 + 1 = 67.
+ *
+ * The sidebar's sticky offset reads this, so a wrong value shows up as
+ * a gap above the sidebar or a strip of it sliding under the header.
+ * Re-measure with header.getBoundingClientRect().height before changing
+ * any header padding — this is exactly how --header-h turned out to be
+ * 71px and not the 70 its ticket estimated. */
+.shell {
+  --admin-header-h: 67px;
+  composes: kf-fadeIn from global;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  animation-duration: .5s;
+  animation-fill-mode: both;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(var(--ftr), .92);
+  /* ⚠️ -webkit- FIRST, standard LAST — order is load-bearing.
+     esbuild's CSS minifier keeps only the last of the pair, so
+     `backdrop-filter` written before `-webkit-backdrop-filter` ships
+     webkit-only; Chrome no longer honours the prefixed form, and the
+     blur silently does not render at all. It is invisible in dark, the
+     theme this project develops in, and it shipped broken on the site
+     header for a full sprint before PF-90 caught it.
+     `styles/__tests__/prefixedPairs.test.js` guards the ordering. */
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(var(--ln), .1);
+}
+
+.headerInner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 11px clamp(14px, 3vw, 26px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--strong);
+  /* The prototype relies on a global `a { text-decoration: none }` that
+     this repo has no equivalent for — without this the lockup renders
+     underlined, a visible mismatch with no error. Same note as
+     Navbar.module.css. */
+  text-decoration: none;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--acc, #FCA311);
+  box-shadow: 0 0 18px rgba(252, 163, 17, .35);
+}
+
+.brandText {
+  display: grid;
+  gap: 2px;
+}
+
+.brandName {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--strong);
+}
+
+.brandDot {
+  color: var(--acc, #FCA311);
+}
+
+.brandSub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .2em;
+  color: var(--muted2);
+}
+
+.cmsPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .09);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--acc, #FCA311);
+}
+
+.cmsDot {
+  composes: kf-glowdot from global;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+  /* Longhands, never the shorthand. The `animation` shorthand resets
+     every longhand it omits, including animation-name — which would
+     undo the composed carrier above and silently stop the dot. */
+  animation-duration: 2.4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.email {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted2);
+  /* The address can be long and must not push the controls off-screen. */
+  max-width: 26ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.homeLink {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+  border: 1px solid rgba(var(--ln), .18);
+  border-radius: 999px;
+  padding: 9px 14px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .25s, border-color .25s;
+}
+
+.homeLink:hover {
+  color: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+.signOut {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--danger);
+  background: none;
+  border: 1px solid rgba(180, 35, 31, .35);
+  border-radius: 999px;
+  padding: 9px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .25s;
+}
+
+.signOut:hover {
+  background: rgba(180, 35, 31, .1);
+}
+
+/* The prototype's own divider, on the toggle's LEFT. Same element as
+   the site header's `.divider`. */
+.divider {
+  width: 1px;
+  height: 26px;
+  margin-left: 6px;
+  background: rgba(var(--ln), .16);
+}
+
+/* ── Body: sidebar + main ───────────────────────────────────────── */
+
+.body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  align-items: start;
+  gap: 0;
+}
+
+.sidebar {
+  position: sticky;
+  top: var(--admin-header-h);
+  align-self: start;
+  padding: 20px 14px;
+  border-right: 1px solid rgba(var(--ln), .1);
+  background: rgba(var(--srf), .34);
+  min-height: calc(100vh - var(--admin-header-h));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.manage {
+  margin: 0 0 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .2em;
+  color: var(--faint);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  padding: 11px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  transition: background .2s, color .2s, border-color .2s, transform .2s;
+}
+
+.navItem:hover {
+  border-color: var(--acc, #FCA311);
+  transform: translateX(3px);
+}
+
+/* The active tab. `aria-current="page"` is the source of truth for
+   both the styling and assistive technology, so the two cannot drift
+   apart the way a separate `isActive` class would allow. */
+.navItem[aria-current='page'] {
+  background: rgba(252, 163, 17, .1);
+  border-color: rgba(252, 163, 17, .28);
+  color: var(--strong);
+  font-weight: 700;
+}
+
+.navIcon {
+  flex: none;
+  width: 24px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted2);
+}
+
+.navItem[aria-current='page'] .navIcon {
+  color: var(--acc, #FCA311);
+}
+
+/* The per-section running count. Composed from the shared layer so the
+   sidebar and the footer's session column cannot drift apart. */
+.navCount {
+  composes: countBadge from '../../styles/admin.module.css';
+}
+
+.sessionCard {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .1);
+}
+
+.sessionLabel {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .18em;
+  color: var(--acc, #FCA311);
+}
+
+.sessionBody {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ── Main column ────────────────────────────────────────────────── */
+
+.main {
+  padding: clamp(18px, 3vw, 30px) clamp(14px, 3vw, 30px) 40px;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 4vw, 44px);
+  line-height: 1;
+  letter-spacing: .015em;
+  text-transform: uppercase;
+  color: var(--strong);
+}
+
+.titleLine {
+  flex: 1;
+  min-width: 40px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(252, 163, 17, .5), transparent);
+}
+
+.titleMeta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  color: var(--muted2);
+}
+
+.flashRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.flashDismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+/* ── Dark-theme contrast pass — PF-107 ───────────────────────────────
+ *
+ * Measured on a real page, one clean load per theme, composited against
+ * the actual backdrop rather than the token's nominal colour:
+ *
+ *     element            dark    light
+ *     ADMIN PANEL        4.29     pass     --muted2  9px
+ *     signed-in email    4.29     pass     --muted2  11px
+ *     MANAGE eyebrow     3.36     pass     --faint   9.5px
+ *     nav icon           4.30     pass     --muted2  12px
+ *     count badge        4.30     pass     --muted2  10px
+ *
+ * WCAG AA wants 4.5 for small text. Light theme measured ZERO failures
+ * across 21 elements, so only dark moves — the same asymmetry PF-91
+ * found and the reason its fix was scoped this way.
+ *
+ * ⚠️ This is NOT a new decision. It applies PF-91's owner-approved
+ * substitution — `--muted2` → `--muted` in DARK ONLY on tinted
+ * surfaces, and `--faint` → `--muted` — to elements of exactly the
+ * shapes that rule was written for. Changing the base rules instead
+ * would move light theme, which was never failing.
+ *
+ * ⚠️ And it wins on SPECIFICITY, not on being declared second.
+ * :global(html[data-theme='dark']) .x is (0,2,1) against the base
+ * rule's (0,1,0). Two rules tying at equal specificity and resolving on
+ * bundle emission order is the bug this project has hit six times. */
+
+:global(html[data-theme='dark']) .brandSub,
+:global(html[data-theme='dark']) .email,
+:global(html[data-theme='dark']) .manage,
+:global(html[data-theme='dark']) .navIcon,
+:global(html[data-theme='dark']) .navCount {
+  color: var(--muted);
+}
+
+/* ── Below 900px ────────────────────────────────────────────────────
+ *
+ * ⚠️ This is PF-107's own judgment call, not a transcription. The
+ * prototype has NO mobile admin treatment at any width — there is
+ * nothing here to be faithful to, the same situation PF-79 was in when
+ * it built the site's mobile nav overlay from scratch.
+ *
+ * What it replaces was worse than nothing: AdminLayout carried a
+ * `mobile` state that was only ever set to `false`, with no control
+ * anywhere to set it `true`, and a media query that translated the
+ * sidebar off-screen below 768px. The result was an admin panel with
+ * NO navigation at all on a phone.
+ *
+ * The fix is deliberately CSS-only. A drawer would need a trigger, a
+ * focus trap, an Escape handler and a scroll lock — four things that
+ * can each break silently — to solve a problem that a horizontally
+ * scrollable strip solves with a grid change. PF-117 audits it. */
+@media (max-width: 899px) {
+  /* ⚠️ The header MUST be allowed to wrap here, and this was measured,
+     not anticipated. At a 500px viewport the single row needed 534px
+     against 492px available: the email and the divider were crushed to
+     zero width and the theme toggle started at x=490, i.e. off the
+     right edge and unreachable — while `document.scrollWidth ===
+     clientWidth` still reported the PAGE as fine, because the overflow
+     was inside the header's own flex row.
+     That is the documented trap in person: a page-level scrollWidth
+     check proves nothing about whether a screen works on a phone. Open
+     it and look. */
+  .headerInner {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* The spacer's flex:1 would claim every leftover pixel on the first
+     wrapped row and force a break behind it. The footer's session
+     column already carries the signed-in address, so the header does
+     not need to repeat it at this width. */
+  .spacer,
+  .email,
+  .divider {
+    display: none;
+  }
+
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    min-height: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 12px clamp(14px, 3vw, 26px);
+    border-right: none;
+    border-bottom: 1px solid rgba(var(--ln), .1);
+    overflow-x: auto;
+  }
+
+  .manage,
+  .sessionCard {
+    display: none;
+  }
+
+  .nav {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .navItem {
+    width: auto;
+    flex: none;
+    padding: 10px 14px;
+    /* 44px minimum touch target — the site's own mobile floor. */
+    min-height: 44px;
+  }
+
+  /* The horizontal lift would be read as a swipe cue on a scrolling
+     strip, and on a touch device there is no hover to justify it. */
+  .navItem:hover {
+    transform: none;
+  }
+
+  .navCount {
+    display: none;
+  }
+}

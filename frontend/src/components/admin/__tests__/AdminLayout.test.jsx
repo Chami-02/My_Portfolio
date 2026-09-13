@@ -1,0 +1,233 @@
+// frontend/src/components/admin/__tests__/AdminLayout.test.jsx
+//
+// PF-107 — the first test for the admin shell. There has never been one.
+//
+// Scope is behaviour, not appearance: Sprint 14 is still rebuilding the
+// panels under this shell, so pinning pixel values here would only
+// manufacture failures for PF-110 → PF-117 to clean up. What is pinned
+// is what must survive every one of them — the six sections and their
+// glyphs, which one is current, that the title and meta line follow the
+// active tab, that the header shows the REAL signed-in account, and
+// that signing out both clears the cache and leaves.
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ThemeProvider } from '../../../providers/ThemeProvider';
+
+// vi.mock over the hook modules rather than a stubbed network: the data
+// layer is not what is under test, and Vite's SSR transform makes each
+// export a getter-only property that vi.spyOn cannot redefine. Same
+// pattern as AdminBlogPanel.test.jsx and BlogSection.test.jsx.
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal()),
+  useNavigate: () => navigate,
+}));
+
+const useMe           = vi.hoisted(() => vi.fn());
+const useProjects     = vi.hoisted(() => vi.fn());
+const useSkills       = vi.hoisted(() => vi.fn());
+const useBlogPostAdmin = vi.hoisted(() => vi.fn());
+const useMessages     = vi.hoisted(() => vi.fn());
+const logout          = vi.hoisted(() => vi.fn());
+
+vi.mock('../../../hooks/useMe',        () => ({ useMe }));
+vi.mock('../../../hooks/useProjects',  () => ({ useProjects }));
+vi.mock('../../../hooks/useSkills',    () => ({ useSkills }));
+vi.mock('../../../hooks/useBlog',      () => ({ useBlogPostAdmin }));
+vi.mock('../../../hooks/useMessages',  () => ({ useMessages }));
+vi.mock('../../../services/authService', () => ({ authService: { logout } }));
+
+const { AdminLayout } = await import('../AdminLayout');
+
+const POSTS = [
+  { _id: 'p1', published: true },
+  { _id: 'p2', published: true },
+  { _id: 'p3', published: false },
+];
+
+const MESSAGES = [
+  { _id: 'm1', read: false },
+  { _id: 'm2', read: true },
+  { _id: 'm3', read: false },
+];
+
+function renderShell({ activeTab = 'overview', onTabChange = vi.fn() } = {}) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const utils = render(
+    <QueryClientProvider client={client}>
+      <ThemeProvider>
+        <MemoryRouter>
+          <AdminLayout activeTab={activeTab} onTabChange={onTabChange}>
+            <p>panel content</p>
+          </AdminLayout>
+        </MemoryRouter>
+      </ThemeProvider>
+    </QueryClientProvider>,
+  );
+  return { ...utils, client, onTabChange };
+}
+
+const nav = () => screen.getByRole('navigation', { name: 'Admin sections' });
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  useMe.mockReturnValue({ data: { email: 'owner@example.com', role: 'admin' } });
+  useProjects.mockReturnValue({ data: [{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }] });
+  useSkills.mockReturnValue({ data: [{ _id: 's1' }, { _id: 's2' }] });
+  useBlogPostAdmin.mockReturnValue({ data: POSTS });
+  useMessages.mockReturnValue({ data: MESSAGES });
+});
+
+describe('AdminLayout — navigation', () => {
+  it('renders all six sections, in the prototype order', () => {
+    renderShell();
+    const labels = within(nav())
+      .getAllByRole('button')
+      .map((b) => b.textContent.replace(/[^A-Za-z]/g, ''));
+
+    // Asserting NAMES rather than a count: a count is a proxy that
+    // breaks under a name pointing at the wrong cause the moment an
+    // unrelated control joins the landmark.
+    expect(labels).toEqual([
+      'Overview', 'Projects', 'Skills', 'About', 'Blog', 'Messages',
+    ]);
+  });
+
+  it('uses the prototype glyphs, not the emoji they replaced', () => {
+    renderShell();
+    const text = nav().textContent;
+    for (const glyph of ['⊞', '◈', '{ }', '◐', '✎', '✉']) {
+      expect(text).toContain(glyph);
+    }
+    // The two that were colour emoji before PF-107. They render at a
+    // different weight and baseline from the glyphs beside them.
+    expect(text).not.toContain('👤');
+    expect(text).not.toContain('📝');
+  });
+
+  it('marks exactly the active section with aria-current', () => {
+    renderShell({ activeTab: 'skills' });
+    const current = within(nav())
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('aria-current') === 'page');
+
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent('Skills');
+  });
+
+  it('reports the chosen section id to its parent', async () => {
+    const user = userEvent.setup();
+    const { onTabChange } = renderShell();
+    await user.click(within(nav()).getByRole('button', { name: /Projects/ }));
+    expect(onTabChange).toHaveBeenCalledWith('projects');
+  });
+
+  it('shows a count beside the countable sections and nothing beside the rest', () => {
+    renderShell();
+    const digits = (name) =>
+      within(nav()).getByRole('button', { name: new RegExp(name) })
+        .textContent.replace(/[^0-9]/g, '');
+
+    expect(digits('Projects')).toBe('3');
+    expect(digits('Skills')).toBe('2');
+    expect(digits('Blog')).toBe('3');       // posts, drafts included
+    expect(digits('Messages')).toBe('2');   // UNREAD only, not total
+
+    // Overview and About have no collection to count — the prototype
+    // renders an empty badge for both, so nothing must appear.
+    expect(digits('Overview')).toBe('');
+    expect(digits('About')).toBe('');
+  });
+});
+
+describe('AdminLayout — title and meta', () => {
+  it.each([
+    ['overview', 'Overview', 'DASHBOARD'],
+    ['projects', 'Projects', '3 ITEMS'],
+    ['skills',   'Skills',   '2 ITEMS'],
+    ['about',    'About',    'PROFILE'],
+    ['blog',     'Blog',     '2 PUBLISHED · 1 DRAFT'],
+    ['messages', 'Messages', '2 UNREAD · 3 TOTAL'],
+  ])('%s renders its own title and meta line', (tab, title, meta) => {
+    renderShell({ activeTab: tab });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(title);
+    expect(screen.getByText(meta)).toBeInTheDocument();
+  });
+
+  it('falls back rather than rendering an empty heading for an unknown tab', () => {
+    renderShell({ activeTab: 'nope' });
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Dashboard');
+  });
+});
+
+describe('AdminLayout — identity', () => {
+  it('shows the signed-in address the API reports', () => {
+    renderShell();
+    expect(screen.getByText('owner@example.com')).toBeInTheDocument();
+  });
+
+  it('never renders the placeholder address it replaced', () => {
+    renderShell();
+    // The Phase 1 header hardcoded this string, which is a lie in any
+    // deployment. A regression here is invisible on a dev machine
+    // seeded with exactly that account, which is why it is pinned.
+    expect(screen.queryByText('admin@portfolio.dev')).not.toBeInTheDocument();
+  });
+
+  it('renders no address at all while /auth/me has not answered', () => {
+    useMe.mockReturnValue({ data: undefined });
+    renderShell();
+    expect(screen.queryByText(/@/)).not.toBeInTheDocument();
+  });
+});
+
+describe('AdminLayout — sign out', () => {
+  it('clears the token, empties the query cache and leaves for the login page', async () => {
+    const user = userEvent.setup();
+    const { client } = renderShell();
+
+    // Plant a cache entry so "the cache was cleared" can actually fail.
+    // Without this the assertion passes against a handler that never
+    // calls clear(), because an empty cache is also empty afterwards.
+    client.setQueryData(['projects'], [{ _id: 'stale' }]);
+    expect(client.getQueryData(['projects'])).toBeTruthy();
+
+    await user.click(screen.getAllByRole('button', { name: /SIGN OUT/i })[0]);
+
+    expect(logout).toHaveBeenCalledTimes(1);
+    expect(client.getQueryData(['projects'])).toBeUndefined();
+    expect(navigate).toHaveBeenCalledWith('/admin/login');
+  });
+
+  it('offers sign out in both the header and the footer', () => {
+    renderShell();
+    // Ordinary top-and-bottom repetition, the prototype's own
+    // structure — not the one-name-two-links defect PF-99 renamed.
+    expect(screen.getAllByRole('button', { name: /SIGN OUT/i })).toHaveLength(2);
+  });
+});
+
+describe('AdminLayout — footer', () => {
+  it('renders the running counts in the session column', () => {
+    renderShell();
+    expect(
+      screen.getByText('3 PROJECTS · 2 SKILLS · 2 POSTS · 2 UNREAD'),
+    ).toBeInTheDocument();
+  });
+
+  it('links back to the home page with the splash suppressed', () => {
+    renderShell();
+    const back = screen.getByRole('link', { name: /BACK TO HOME PAGE/ });
+    expect(back).toHaveAttribute('href', '/?nosplash=1');
+  });
+});
+
+describe('AdminLayout — children', () => {
+  it('renders the active panel inside the main landmark', () => {
+    renderShell();
+    expect(within(screen.getByRole('main')).getByText('panel content')).toBeInTheDocument();
+  });
+});

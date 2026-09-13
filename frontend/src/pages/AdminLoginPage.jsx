@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link }   from 'react-router-dom';
 import { authService }         from '../services/authService';
 import { loginErrorMessage }   from '../utils/loginError';
+import a from '../styles/admin.module.css';
 
 export function AdminLoginPage() {
   const [form,    setForm]    = useState({ email: '', password: '' });
@@ -32,18 +33,6 @@ export function AdminLoginPage() {
     }
   };
 
-  const INPUT = {
-    width:        '100%',
-    background:   'var(--bg-surface)',
-    border:       '1px solid var(--border)',
-    borderRadius: '0.625rem',
-    padding:      '0.875rem 1rem',
-    color:        'var(--text-primary)',
-    fontFamily:   'var(--font-sans)',
-    fontSize:     '0.9rem',
-    outline:      'none',
-    transition:   'border-color 0.2s',
-  };
 
   return (
     <div style={{
@@ -96,8 +85,7 @@ export function AdminLoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem',
-              fontFamily: 'var(--font-mono)', marginBottom: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <label className={a.label}>
               Email Address
             </label>
             <input
@@ -108,15 +96,12 @@ export function AdminLoginPage() {
               placeholder="admin@portfolio.dev"
               value={form.email}
               onChange={handleChange}
-              style={INPUT}
-              onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
-              onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+              className={a.input}
             />
           </div>
 
           <div>
-            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.75rem',
-              fontFamily: 'var(--font-mono)', marginBottom: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <label className={a.label}>
               Password
             </label>
             <input
@@ -127,9 +112,7 @@ export function AdminLoginPage() {
               placeholder="••••••••"
               value={form.password}
               onChange={handleChange}
-              style={INPUT}
-              onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
-              onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+              className={a.input}
             />
           </div>
 

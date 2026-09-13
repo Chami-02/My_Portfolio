@@ -1,18 +1,12 @@
 import { useState }                                from 'react';
 import { useSkills, useCreateSkill, useDeleteSkill } from '../../../hooks/useSkills';
+import a from '../../../styles/admin.module.css';
 
 const CATEGORIES = ['language', 'frontend', 'backend', 'database', 'devops', 'other'];
 const LEVELS     = ['beginner', 'intermediate', 'advanced'];
 
 const EMPTY = { name: '', category: 'frontend', level: 'beginner' };
 
-const INPUT = {
-  background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '0.5rem',
-  padding: '0.625rem 0.875rem', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)',
-  fontSize: '0.875rem', outline: 'none', transition: 'border-color 0.2s',
-};
-
-const SELECT = { ...INPUT, cursor: 'pointer' };
 
 export function AdminSkillsPanel() {
   const { data: skills = [], isLoading } = useSkills();
@@ -57,31 +51,26 @@ export function AdminSkillsPanel() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div style={{ flex: '2 1 160px' }}>
-            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-              fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>
+            <label className={a.label}>
               Skill Name
             </label>
             <input name="name" required placeholder="e.g. TypeScript" value={form.name} onChange={handleChange}
-              style={{ ...INPUT, width: '100%' }}
-              onFocus={(e) => { e.target.style.borderColor = 'var(--accent)'; }}
-              onBlur={(e)  => { e.target.style.borderColor = 'var(--border)'; }}
+              className={a.input}
             />
           </div>
           <div style={{ flex: '1 1 140px' }}>
-            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-              fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>
+            <label className={a.label}>
               Category
             </label>
-            <select name="category" value={form.category} onChange={handleChange} style={{ ...SELECT, width: '100%' }}>
+            <select name="category" value={form.category} onChange={handleChange} className={a.select}>
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div style={{ flex: '1 1 130px' }}>
-            <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.7rem',
-              fontFamily: 'var(--font-mono)', marginBottom: '0.375rem', textTransform: 'uppercase' }}>
+            <label className={a.label}>
               Level
             </label>
-            <select name="level" value={form.level} onChange={handleChange} style={{ ...SELECT, width: '100%' }}>
+            <select name="level" value={form.level} onChange={handleChange} className={a.select}>
               {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
