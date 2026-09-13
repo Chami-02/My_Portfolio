@@ -479,12 +479,19 @@ allowlist question was **decided and shipped in PF-85** (see below).
 There is **no separate Sprint 11 retrospective document**, matching Sprint
 10's rule. That section is the record; do not link to one.
 
-### Sprint 14 — Epic E9, Admin Panel Rebuild. Branch `sprint-14-admin`, to be cut from local `master` at `9b2a1ad`
+### Sprint 14 — Epic E9, Admin Panel Rebuild. Branch `sprint-14-admin_page_rebuild`, cut from local `master` at `d5cd8bd`
 
 PR #7 confirmed merged before planning (`gh pr list` → `MERGED`,
 2026-09-07T18:06Z, `9b2a1ad`), and `sprint-13-blog` confirmed to have **zero**
 unmerged commits (`git log origin/master..HEAD` empty), per the standing rule.
-⚠️ The branch is **not yet cut** — that is the owner's, along with the board.
+⚠️ **The branch was cut by the owner on 2026-09-13 as
+`sprint-14-admin_page_rebuild`** — NOT the `sprint-14-admin` this plan
+predicted — from `d5cd8bd`, not the predicted `9b2a1ad`. `d5cd8bd` is a later
+commit on `master` (the sprint-log numbering fix), so the base is a superset
+and nothing is missing. Upstream verified: reflog reads `Created from HEAD`, so
+it never inherited `autoSetupMerge`, and `branch.<name>.merge` resolves to
+itself. **A bare `git push` lands on the branch, not on `master`** — the PF-75
+failure mode is not live here.
 
 #### The plan — 9 Sep → 22 Sep, 15 items, 103 points · 🔒 LOCKED 2026-09-08
 
@@ -504,7 +511,7 @@ record; that file is the sprint's authority.
 
 | Ticket | Title | Pri | Pts | Board | Real |
 | --- | --- | --- | --- | --- | --- |
-| PF-107 | Admin design foundations — shell chrome, token layer, shared patterns | Highest | 8 | To Do | not started |
+| ~~PF-107~~ | Admin design foundations — shell chrome, token layer, shared patterns | Highest | 8 | To Do | ✅ **BUILT 2026-09-12** |
 | PF-108 | Session handling — validate on entry, refresh, clean expiry | Highest | 8 | To Do | not started |
 | PF-109 | `/admin/login` rebuilt in Phase 2 | High | 5 | To Do | not started |
 | PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | not started |
@@ -519,6 +526,7 @@ record; that file is the sprint's authority.
 | PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 | To Do | not started |
 | PF-120 | Security review and hardening | High | 5 | To Do | not started |
 | PF-121 | Sprint gate, PR, close | Highest | 8 | To Do | not started |
+| PF-122 | Owner email address consolidation → `pcgallege@gmail.com` | Medium | 3 | — | **ADDED 2026-09-12**, not started |
 
 ⚠️ **NUMBERING IS CONTIGUOUS — PF-107 → PF-121, NO GAPS.** Worth recording
 because it nearly went the other way. The first draft ended at PF-118 (the
@@ -543,6 +551,175 @@ deliberately. The concern is recorded, not withdrawn. **Mitigation: if the
 sprint runs long, a CONTENT ticket slips (PF-114, PF-115) — never PF-120 or
 PF-121.** In Sprint 13 the squeeze landed on the last two tickets, and here
 those are the security pass and the gate, the two least safe things to rush.
+
+#### PF-107 — Admin design foundations · ✅ BUILT 2026-09-12
+
+**Report: `new mds/E9/PF-107-admin-design-foundations.md`.** 12 new files,
+11 modified. Frontend 1107 tests (was 1069), lint clean, coverage
+91.67/87.63/85.30/93.97, build clean, admin e2e 6/6.
+`AdminBlogPanel.test.jsx` green **with no edits**, 47/47 — the stated
+condition for the input/label migration counting as a restyle.
+
+**The headline: `/admin` is readable in light theme for the first time since
+PF-67.** Measured composited, one clean load per theme: **zero AA failures in
+both**, against 1.11:1 body ink before. The mechanism was never a colour —
+admin read Phase 1 token names, and `--bg` is the ONE name `tokens.css` also
+declares, so the ground flipped with the theme and the ink did not. The
+rebuilt shell reads no Phase 1 name at all, so both come from one stylesheet.
+
+⚠️ **Light theme is still MIXED and that is the spine working, not a
+regression.** Header/sidebar/footer are Phase 2; panel interiors stay Phase 1
+until PF-110 → PF-115, and `:root` goes last in PF-116.
+
+**Dark needed PF-91's substitution, applied not re-decided.** Six elements
+failed AA in dark and zero in light — the same asymmetry PF-91 found.
+`--muted2` → `--muted` and `--faint` → `--muted`, **dark-scoped**, winning on
+specificity (0,2,1): ADMIN PANEL / email 4.29 → 7.23, MANAGE / nav icon /
+count badge 3.36-4.30 → 7.25, copyright 3.56 → 7.68. Light re-measured
+unchanged as the control.
+
+**Four corrections to the sprint plan's own PF-107 section** — the code wins:
+the `i.activeTab` line is **124, not 127**; the INPUT constants are at `:4`,
+`:15`, `:35`, not `:3`/`:16`/`:36`; only `fadeIn` and `shimmer` carriers have
+consumers here (aurora/sheen are PF-109's); and ⚠️ **`flt-admin` and
+`drift-admin` have NO prototype source** — `Admin.dc.html` defines no
+`@keyframes flt` or `drift`, so they were transcribed by symmetry and can
+never acquire a consumer.
+
+**The `i.activeTab` line was DEAD, not broken.** `NAV_ITEMS` entries are
+`{ id, label, icon }`, so the clause evaluated `undefined === activeTab` six
+times and the correct lookup behind the `||` produced the right title every
+time. Deleted rather than repaired. ⚠️ **Mutation-proven uncatchable**: putting
+it back left all 20 shell tests green, because dead code changes no behaviour.
+
+**Two live defects fixed.** The mobile sidebar was unreachable — a `mobile`
+state nothing ever set `true`, plus a media query sliding it off-screen below
+768px, so admin had **no navigation at all on a phone**. And the header showed
+a hardcoded `admin@portfolio.dev`; `authService.getMe` had been written and
+tested with **no caller at any layer** and this is its first consumer.
+
+⚠️ **A THIRD defect was introduced by this ticket and caught only in the second
+pass.** At 500px the header's flex row needed 534px against 492px: the email
+and divider were crushed to width 0 and the theme toggle started at x=490,
+off-screen and unreachable. **`document.scrollWidth === clientWidth` reported
+the page as fine** — the overflow was inside the header's own row. Found by
+looking at a screenshot, then measuring each child's rect. Fixed with
+`flex-wrap: wrap` and hiding the spacer/email/divider below 899px; desktop
+re-verified after.
+
+**16 `onFocus`/`onBlur` handlers and 5 `outline: none` declarations deleted.**
+All five copies of the `INPUT` constant suppressed the focus ring with nothing
+put back — a real keyboard-accessibility hole, not untidiness. The shared
+`.input` uses the repo's transparent-outline idiom (PF-87/PF-104).
+
+**Mutation testing: 9 of 10 caught, control green before and after.** ⚠️ The
+one that mattered most was the inverse case: `admin.module.css`'s own header
+comment NAMES seven banned tokens in the prose explaining the ban, so a
+raw-text guard would flag its own documentation. Parsing with **postcss**
+correctly ignored the comment (mutation 3 passed) while still catching the real
+declaration (mutation 2 failed). Same trap as the eight known blind guards,
+running forwards.
+
+⚠️ **E2E caught a removed feature whose test was not cleaned up** —
+`admin.spec.js`'s `"View Site"` link is now the header's `↗ HOME` and the
+footer's `← BACK TO HOME PAGE`. The old assertion was **confirmed failing
+before** the rewrite, so the diagnosis was proven rather than assumed.
+`exact: true` is load-bearing in the replacement: Playwright matches by
+SUBSTRING, and `HOME` is inside `BACK TO HOME PAGE`.
+
+#### PF-122 — Owner email address consolidation · ADDED to Sprint 14, 2026-09-12
+
+**Owner decision.** The public site advertises `parindrachameekara@gmail.com`
+in three places — Contact, About and the footer — and the owner reports that
+inbox is too heavily loaded for a portfolio enquiry to surface in it.
+Everything the project controls moves to **`pcgallege@gmail.com`**.
+
+⚠️ **It is a DATA change as well as a code change, and the data half is easy
+to miss.** Measured 2026-09-12: `portfolio_dev`'s `About` document holds
+`email: parindrachameekara@gmail.com`. No code edit touches it — migration
+**007** does (002 is absent from the sequence; 007 is genuinely next).
+
+**Code (6):** `ContactSection.jsx:45`, `AboutSection.jsx:110`, `Footer.jsx:64`,
+`AdminAboutPanel.jsx:105` (placeholder), `seed.js:333`, `About.js:42` (schema
+default). **Tests pinning the old value (4 files, 7 assertions):**
+`ContactSection.test.jsx` ×3, `AboutSection.test.jsx`, `Footer.test.jsx`,
+`about.social.test.js` ×2 — those going red is the proof the swap was
+complete, not a problem.
+
+⚠️ **NOT changed, each deliberately:** `docs/design/`'s three `.dc.html` files
+(FROZEN since 2026-08-22 — the resulting mismatch is sanctioned and recorded
+in `locked-decisions.md`); this log's own historical mentions (they record
+what was true); and the git commit identity, which is the owner's personal
+identity rather than the project's.
+
+⚠️ **It exposes a PF-118 parity gap rather than fixing one.** The public About
+section is transcribed static (PF-81) and does **not** read `About.email` from
+the API, so that field is admin-editable and rendered nowhere. PF-122 makes the
+two copies agree; wiring them together is the parity audit's call.
+
+⚠️ **Numbering note.** PF-107→PF-121 already exist in Jira, so this ticket
+could only be PF-122 — which sorts *after* the gate. The 2026-09-08 decision
+wanted contiguous numbering **and** a last-sorting gate; only the first was
+still available. **The board order is manual — drag PF-122 above PF-121.**
+
+---
+
+### Sprint 15 — Auth + email. PLANNED 2026-09-12, not started
+
+Three tickets, ~21 points, arising from two things that surfaced on
+2026-09-12: a new owner requirement, and a real lockout.
+
+| Ticket | Title | Pri | Pts |
+| --- | --- | --- | --- |
+| PF-123 | Contact-form email notification (**carries the mailer**) | High | 8 |
+| PF-124 | Change admin email and password from the panel | High | 5 |
+| PF-125 | Password reset by email ("forgot password") | High | 8 |
+
+⚠️ **THE DEPENDENCY IS PF-123 → PF-125, and the numbers already say so.**
+PF-123 builds `config/mail.js` + `services/mailer.js` because it is the
+**simplest consumer** of them; PF-125 reuses that. Building the mailer in
+PF-125 instead, or in a ticket of its own, is infrastructure with no consumer —
+which this project's engineering rules forbid.
+
+**Why these three and not Sprint 14:** Sprint 14 is locked at 103 points,
+~1.6× demonstrated velocity, and its own mitigation names PF-120 (security)
+and PF-121 (the gate) as what must be protected if it runs long. Adding 21
+points was offered and **declined by the owner in favour of a Sprint 15**.
+
+**PF-123 — the three decisions that make or break it:**
+1. ⚠️ **A failed email must NOT fail the request.** The message is already
+   persisted when the send is attempted; a 503 would tell the visitor their
+   message was lost when it was not. The `aboutController.js:130-136` 503
+   precedent **does not apply here** — log, record `notifiedAt`, return 201.
+2. ⚠️ **`POST /api/contact` has NO rate limiter of its own** — only
+   `globalLimiter`, which is **skipped entirely under `NODE_ENV=test`**. A
+   public endpoint that triggers outbound email is a way to burn free-tier
+   quota and flood the owner's inbox. Copy `uploadRoutes.js:11-17`.
+3. ⚠️ **A raw mail-SDK error must never reach `errorHandler`** — in
+   development it serialises the whole error object into the HTTP response
+   (`errorHandler.js:14`), which for a mail SDK can include the API key.
+
+⚠️ **`npm test` loads the developer's real `backend/.env`** via
+`scripts/run-jest.js`. Once working mail credentials are there,
+`isConfigured()` returns **true** during Jest and the contact tests will
+attempt real sends unless mocked at the config boundary
+(`storage.upload.test.js:4-12` is the pattern). **The suite must pass with no
+mail account existing** — the same constraint `storage.test.js:4-5` states for
+Cloudinary. `.env.e2e.example` blanks provider credentials for exactly this
+reason and gets a mail block doing the same.
+
+**PF-124** — `PATCH /api/auth/me` requiring `currentPassword` for either
+change, `passwordChangedAt` invalidating older tokens, a SECURITY card on
+PF-107's shared classes. ⚠️ `password` is `select: false`; ⚠️ `email` is
+`unique: true` and `E11000` surfaces as a 500 unless caught; ⚠️ keep
+`validate` AFTER `protect` — the order `aboutRoutes.js:16` still has backwards.
+
+**PF-125** — reset token as 32 random bytes, emailed raw, stored **SHA-256
+hashed** with a 15-minute expiry. ⚠️ Not bcrypt: it is salted per-hash, which
+makes lookup-by-token impossible. ⚠️ The forgot endpoint must return an
+**identical** response for known and unknown addresses, or it is an
+account-enumeration oracle — including in its **timing**. ⚠️ Clearing both
+reset fields on success is what makes the token single-use.
 
 ⚠️ **The board is the owner's to move.** Every row above reads To Do on both
 sides today, which is the honest state at planning time.
@@ -1252,6 +1429,70 @@ that has to be checked in both directions.**
 
 Report: `new mds/E8/PF-98-blog-index-page.md`.
 
+### Admin lockout and credential rotation (2026-09-12)
+
+**The local admin account could not be signed into, and the password was not
+recoverable.** Recorded because the diagnosis is reusable and the cause is a
+shape that will recur.
+
+**The symptom:** `POST /api/auth/login` returned 401 for
+`admin@portfolio.dev` using `backend/.env`'s `SEED_ADMIN_PASSWORD`.
+
+**The diagnosis, read-only** — a script that connected, read the single `User`
+with `.select('+password')`, and ran `bcrypt.compare` against two candidates,
+**printing booleans only, never a value**:
+
+```
+database: portfolio_dev    userCount: 1    createdAt: 2026-09-06
+hashLooksLikeBcrypt:     true
+matchesEnvSeedPassword:  false
+matchesDemoDefault:      false
+```
+
+So the stored hash matched **neither** `.env` **nor** `seed.js`'s
+`Admin@1234!`. The account had been created on 2026-09-06 with a value that no
+longer existed anywhere on disk, and bcrypt is one-way — there was nothing to
+read back. ⚠️ **The two booleans are the whole diagnosis**: without the second
+candidate, "the .env password is wrong" looks like "the .env password is
+stale", and re-seeding looks like the fix.
+
+**The fix: a one-document reset, NOT `npm run seed`.** Seeding would have
+wiped Project, Skill, Blog, About and User to solve a one-field problem.
+The script set `email` and `password` on the existing document and called
+**`.save()`**.
+
+⚠️ **`.save()` is load-bearing and `findByIdAndUpdate` would have failed
+silently.** `User.js` hashes in a `pre('save')` hook, which update queries do
+not run — the password would have been stored as **plaintext**, every login
+would have kept failing, and the document would have looked entirely correct
+in any client. Logged to Silent failures; same family as `validateSync()`
+running no middleware and `insertMany` bypassing `pre('validate')`.
+
+⚠️ **The script verified itself through the REAL login route** rather than
+trusting its own write: `POST /api/auth/login` → 200 with a token, then
+`GET /api/auth/me` → the new address. Assuming the write worked is how the
+original problem went unnoticed.
+
+**Two changes came with it, both owner decisions:**
+- The account email moved from `admin@portfolio.dev` — the **public demo
+  address printed in `seed.js`**, and therefore the first thing anyone reading
+  the repo would try — to `pcgallege@gmail.com`.
+- A `SEED_ADMIN_EMAIL` line was added to `backend/.env`, which had none, so a
+  future `npm run seed` recreates this account rather than the demo one.
+
+⚠️ **The trigger was the FOURTH credential leak into chat in this project's
+history** — one line of `backend/.env`, pasted while asking how to find the
+password. The rotation was folded into the reset. The standing rule is
+unchanged and is the reason this is written down: **read a value's *shape*,
+never its contents** — `length`, `quoted?`, `has spaces?` answered the question
+here without the secret ever being printed.
+
+⚠️ `portfolio_e2e` was **not** touched — it has its own `SEED_ADMIN_EMAIL` and
+`SEED_ADMIN_PASSWORD` in `.env.e2e`. Confirmed by re-running `admin.spec.js`
+after the change: **6 passed**.
+
+---
+
 ### Infrastructure — databases, credentials, Cloudinary (2026-08-31)
 
 Three pieces of work with no ticket between them, done after the Sprint
@@ -1568,6 +1809,53 @@ retrospective document** — this section is the record, matching Sprint 10,
 11 and 12.
 
 ### Outstanding work — deferred deliberately, not lost
+
+- **⚠️ `flt-admin` AND `drift-admin` CAN NEVER HAVE A CONSUMER.** Found in
+  PF-107, 2026-09-12. `frontend/src/styles/keyframes/admin.css` defines both,
+  but `docs/design/Admin.dc.html` contains **no `@keyframes flt` and no
+  `@keyframes drift`** — grepped across all three prototype files. They were
+  transcribed by symmetry with the Portfolio screen during E6 and are
+  unreachable by construction, not merely unused.
+  ⚠️ **Do not add `.kf-flt-admin` / `.kf-drift-admin` carriers** — there is
+  nothing for them to carry. Not deleted in PF-107 because `keyframes.test.js`
+  pins the library by name AND by count, so removal is its own change.
+
+- **⚠️ `sheen-admin` DOES NOT MATCH the prototype it was transcribed from.**
+  Found in PF-107. `Admin.dc.html:32` defines
+  `0%{translateX(-120%)} 55%,100%{translateX(220%)}`; the repo's `sheen-admin`
+  is `translateX(-30%) skewX(-20deg) → translateX(130%)` — a different shape
+  with a skew the export has no trace of. **PF-109 is the first ticket that
+  will consume it** (the login button's travelling sheen) and should reconcile
+  it against the export before doing so. ⚠️ `sheen-portfolio` and `sheen-blog`
+  have no `@keyframes sheen` in their prototypes at all, so the whole `sheen-*`
+  family may be invented; that is a wider question than PF-109.
+
+- **`--acc2` / `--acc2rgb` have ZERO consumers and their last justification has
+  expired.** The `tokens.css:17` comment said "theme toggle only", which went
+  stale when the 2026-08-22 rework replaced the prototype's switch with the
+  44x44 icon button. The stated reason they survived was that the Blog and
+  Admin screens were unbuilt — Blog shipped in Sprint 13, and PF-107 built the
+  admin shell reusing the site's toggle rather than the prototype's `--acc2`
+  pill, so admin does not claim them either. **PF-107 corrected the comment and
+  deliberately did NOT delete the tokens**: `tokens.test.js` pins both names in
+  its `FLAT` and `LIGHT_OVERRIDES` arrays, so removal is its own change.
+
+- **Two `onMouseEnter`/`onMouseLeave` handlers survive in
+  `AdminProjectsPanel`** (row-action buttons, ~`:172-173`). PF-107's scope was
+  bounded to inputs, labels and their FOCUS handlers; button hover work is
+  PF-113's. ⚠️ `adminFoundation.test.js`'s handler guard is written narrowly
+  (`onFocus` only) for exactly this reason — a blanket ban would fail for work
+  that ticket deliberately did not do.
+
+- **`AdminOverviewPanel` has NO loading state.** It destructures `data` and
+  ignores `isLoading`, so the panel renders zeros before the request lands.
+  PF-110 rebuilds it.
+
+- **⚠️ The dead `i.activeTab` clause cannot be protected by any test.**
+  PF-107 deleted it from `AdminLayout.jsx:124`. Mutation-tested: putting it
+  back left all 20 shell tests green, because the clause changed no behaviour —
+  the correct lookup behind the `||` always won. Recorded so nobody re-adds it
+  believing a green suite means it is absent.
 
 - **⚠️ MIGRATION 006 HAS NOT BEEN RUN AGAINST PRODUCTION, and merging the
   Sprint 13 PR will not run it.** Found by PF-102's read-only production

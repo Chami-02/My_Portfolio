@@ -272,6 +272,46 @@ repo and must never be added.
 expected for design reference, and CI's credential scan skips `.html`
 deliberately. Do not strip them; do not copy them into application code.
 
+## Standing product requirements
+
+Requirements the owner has stated that **outlive the ticket implementing
+them**. A ticket can satisfy one of these; nothing here expires when its
+ticket closes. Read before changing behaviour in the area each names.
+
+### Contact messages are emailed to the owner
+
+**Owner requirement, 2026-09-12. Built by PF-123 (Sprint 15) — NOT built yet.**
+
+A submission through the public contact form must **both** persist to the
+`Contact` collection **and** send a copy of the message to the owner's address
+as a notification.
+
+⚠️ **The email is a NOTIFICATION, not the system of record.** The admin
+Messages panel is. Three consequences, and they are the whole shape of the
+requirement:
+
+- **A failed send must never fail the submission.** The message is already
+  saved by the time the mail is attempted; returning an error would tell the
+  visitor their message was lost when it was not.
+- **A failed send must never be silent either.** `Contact.notifiedAt` records
+  it, so "did that email actually go out" is answerable.
+- **Never delete a message because it was emailed.** The panel remains the
+  place messages live.
+
+⚠️ **The backend has ZERO email capability today** — no dependency, no config,
+no service, nothing in `backend/src` mentioning a provider. Do not assume a
+mailer exists; PF-123 builds the first one, and PF-125 reuses it rather than
+building a second.
+
+### The owner's address is `pcgallege@gmail.com`
+
+**Owner decision, 2026-09-12.** Changed from `parindrachameekara@gmail.com`,
+which receives too much other mail for a portfolio enquiry to be noticed in.
+This is both the public contact address and the admin login account. **PF-122
+does the swap; see Locked decisions for what is deliberately NOT changed.**
+
+---
+
 ## Project state
 
 **Full ticket-by-ticket history is in `.claude/sprint-log.md`** — what each
@@ -288,7 +328,8 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-121)** | **Admin panel rebuild** | **planned 2026-09-08**, branch `sprint-14-admin` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12; branch `sprint-14-admin_page_rebuild` |
+| **Sprint 15 (PF-123 → PF-125)** | **Auth + email** — contact notification, credential editing, password reset | **planned 2026-09-12**, not started |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
 to PF-59 is intentional.
@@ -296,7 +337,16 @@ to PF-59 is intentional.
 ### Sprint 14 — the current sprint
 
 **🔒 LOCKED 2026-09-08 · 9 Sep → 22 Sep · 15 items · 103 points · branch
-`sprint-14-admin`, to be cut from `master` at `9b2a1ad`.**
+`sprint-14-admin_page_rebuild`, cut from `master` at `d5cd8bd`.**
+
+⚠️ **The branch is NOT named `sprint-14-admin`** — the sprint plan predicted
+that name and the owner cut `sprint-14-admin_page_rebuild` instead, from
+`d5cd8bd` rather than the predicted `9b2a1ad` (a later commit on `master`, so a
+superset). Its upstream was verified correct on 2026-09-13: created from local
+`HEAD`, so it never inherited Git's `autoSetupMerge` default, and
+`branch.<name>.merge` points at itself rather than `master`. **A bare
+`git push` from it goes to the right place** — which is the thing PF-75 got
+wrong.
 
 > **Goal.** The admin panel is a Phase 2 surface — readable in both themes,
 > styled like the rest of the site, and safe to sign into and leave a session
@@ -310,7 +360,7 @@ authority; this table is the index.
 
 | Ticket | Title | Pri | Pts |
 | --- | --- | --- | --- |
-| PF-107 | Admin design foundations — shell chrome, token layer, shared patterns | Highest | 8 |
+| ~~PF-107~~ | Admin design foundations — shell chrome, token layer, shared patterns ✅ **BUILT 2026-09-12** | Highest | 8 |
 | PF-108 | Session handling — validate on entry, refresh, clean expiry | Highest | 8 |
 | PF-109 | `/admin/login` rebuilt in Phase 2 | High | 5 |
 | PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 |
@@ -325,6 +375,7 @@ authority; this table is the index.
 | PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 |
 | PF-120 | Security review and hardening | High | 5 |
 | PF-121 | Sprint gate, PR, close | Highest | 8 |
+| PF-122 | Owner email address consolidation → `pcgallege@gmail.com` | Medium | 3 |
 
 ⚠️ **Numbering is CONTIGUOUS — PF-107 → PF-121, no gaps.** An earlier draft
 ended the sprint at PF-118 and, when three tickets were added, pushed the gate
@@ -508,6 +559,47 @@ frontend/
 ⚠️ **`src/hooks/__tests__/` now exists** (PF-97, `useVocabulary.test.jsx`),
 as does `src/components/admin/panels/__tests__/` (the first admin component
 test). Both follow the per-module convention; neither existed before.
+
+⚠️ **PF-107 (2026-09-12) added the admin foundation layer.** Everything below
+is on `master`'s working tree, not yet committed:
+
+```
+frontend/src/styles/
+  admin.module.css               THE shared admin layer — panel/card, every
+                                 field variant, 7 button variants, chips,
+                                 badges, list rows, empty states, skeletons,
+                                 banners. ⚠️ Compose from this; adding a
+                                 Phase 1 token to any admin stylesheet turns
+                                 adminFoundation.test.js red and BLOCKS PF-116
+  __tests__/adminFoundation.test.js  18 postcss-parsed structural guards
+frontend/src/components/admin/
+  AdminLayout.jsx + .module.css  rebuilt shell. ⚠️ --admin-header-h is 67px,
+                                 MEASURED — the reused 44px ThemeToggle is the
+                                 tallest child, not the prototype's 40px logo
+  AdminFooter.jsx + .module.css  NEW — the panel never had a footer
+  AdminFlashContext.js           context in its own module, FAILS OPEN
+  AdminFlashProvider.jsx         provider only — lint rule
+  __tests__/AdminLayout.test.jsx 20 tests; the shell had none
+frontend/src/hooks/
+  useAdminFlash.js               raise the saved banner. ⚠️ read+write in ONE
+                                 hook, unlike splash — every panel is a writer
+  useMe.js                       the signed-in account. ⚠️ FIRST consumer of
+                                 authService.getMe, which had none. retry:false
+  useMessages.js                 extracted from AdminMessagesPanel. ⚠️ keeps
+                                 the literal ['messages'] key so the sidebar
+                                 badge and the panel SHARE one cache entry
+```
+
+⚠️ **`.kf-fadeIn` and `.kf-shimmer` carriers now exist.** The other admin
+keyframes still have none, deliberately: `auroraA`/`auroraB`/`sheen-admin`
+belong to the **login** screen (PF-109), and `flt-admin`/`drift-admin` have
+**no prototype source at all** and can never acquire a consumer — see
+Outstanding work.
+
+⚠️ **Light theme on `/admin` is deliberately MIXED until PF-116.** Header,
+sidebar and footer are Phase 2 and measure zero AA failures; panel interiors
+are still Phase 1 and still washed out. That is the dependency spine, not a
+regression.
 
 - **Motion primitives**: `import { Reveal, CountUp, Marquee } from
   '../components/motion'`. `Reveal` needs `type="up"|"pop"|"rise"|"left"`
@@ -994,6 +1086,13 @@ concluding "this is fine, I read the source".
   It sits *in front of* the `connectDB()` middleware and swallows connect
   errors. **`database` is the only field carrying the truth** — assert it
   is a non-null string, ideally the expected name.
+- **⚠️ `findOneAndUpdate` / `findByIdAndUpdate` RUN NO `pre('save')` HOOK**,
+  so a password set that way lands in the database as **plaintext** while
+  every field looks correct — and every subsequent login fails with no clue
+  why, because `matchPassword` bcrypt-compares against a non-hash. ⚠️ The
+  document reads back perfectly in Compass. Same family as the
+  `validateSync()` entry below and as `insertMany` bypassing
+  `pre('validate')`. **Use `.save()` for anything a hook derives.**
 - **⚠️ `validateSync()` runs NO middleware**, so a field derived by
   `pre('validate')` is silently not derived — and it returns `undefined`
   for a valid doc exactly like a success. Measured: a doc pinned at 99
@@ -1099,6 +1198,14 @@ concluding "this is fine, I read the source".
   Chromium keys on input *modality*, so a `.focus()` after an Enter press
   matches. ⚠️ And a UA default ring sits behind ours; only an explicit
   suppression removes it.
+- **⚠️ A FLEX ROW can overflow while the PAGE reports no overflow at all.**
+  Admin's header needed 534px against 492px at 500px wide; two children were
+  crushed to `width: 0` and the theme toggle sat off-screen and unreachable —
+  while `document.scrollWidth === clientWidth` stayed `false`, correctly,
+  because nothing scrolled. Compare the CONTAINER's own `scrollWidth` to its
+  `clientWidth` and print each child's rect. ⚠️ A `width: 0` child still in
+  the DOM is the signature; `offsetParent !== null` cannot tell it from a
+  healthy one. Fourth mechanism under the entry below.
 - **`scrollWidth === clientWidth` proves nothing about whether a page looks
   right on a phone.** Three real defects — a field off-screen, two chips
   sliced in half, the primary nav at 32px — all sat behind an ancestor that
@@ -1459,6 +1566,38 @@ omitted — keep the two straight.
   (0,1,0); a local shape-only class does not.
 - **The `tech` chip picker for Projects is still NOT built** — same API,
   different form, its own ticket.
+- **The owner's address is `pcgallege@gmail.com`** (PF-122, owner decision
+  2026-09-12) — public contact address AND the admin login account, which was
+  `admin@portfolio.dev`, the demo address printed in `seed.js`. ⚠️ **`docs/
+  design/`'s three `.dc.html` files still carry the OLD address and are
+  FROZEN** — the mismatch is deliberate, and a fidelity pass that "fixes" it
+  is editing a frozen export. ⚠️ `.claude/sprint-log.md`'s historical mentions
+  also keep the old address: they record what was true when written.
+  ⚠️ The git commit identity is the owner's personal identity and is **not**
+  part of this swap.
+- **The admin header REUSES the site's 44×44 sun/moon `ThemeToggle`** (PF-107,
+  owner-approved 2026-09-12) — NOT `Admin.dc.html:128-133`'s `--acc2` pill
+  switch with its LIGHT MODE caption. ⚠️ **Consequence: the admin header is
+  67px, not the prototype's 63px** — the 44px toggle is the tallest child, not
+  the 40px logo. Exposed as `--admin-header-h`, read by the sidebar's sticky
+  offset, and **measured**. ⚠️ Declining the pill means `--acc2`/`--acc2rgb`
+  lose their last notional consumer.
+- **The admin footer DOES take the prototype's gradient** (PF-107) —
+  `Admin.dc.html:572`. ⚠️ **Not a contradiction of the 2026-08-27 footer
+  decision**, which is about the PUBLIC site's footer in a different
+  prototype. Keep the two straight in BOTH directions.
+- **Below 899px `/admin`'s sidebar becomes a horizontal scrolling strip**
+  (PF-107) — CSS only, no drawer, no hamburger, no focus trap. ⚠️ **This
+  ticket's own judgment call**, licensed because the prototype has no mobile
+  admin treatment at any width — same position as PF-79's mobile overlay. It
+  replaced a sidebar that was **unreachable**: a `mobile` state nothing set
+  `true` plus a media query sliding it off-screen. ⚠️ The header must
+  `flex-wrap: wrap` there and `.spacer`/`.email`/`.divider` must be hidden, or
+  the theme toggle lands off-screen. PF-117 may reopen it with evidence.
+- **PF-91's contrast substitution was APPLIED, not re-decided, on the admin
+  shell** (PF-107) — six dark-only failures, zero in light, fixed by
+  `--muted2` → `--muted` and `--faint` → `--muted` scoped to dark, winning on
+  specificity (0,2,1). 3.36–4.30 → 7.23–7.68.
 
 ## Environment
 

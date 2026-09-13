@@ -2692,3 +2692,114 @@ doing exactly that **passed all 28 tests**. Same family as `pill`/`pillRow`
 and `card`/`cardPlaceholder`. Now anchored on the opening brace,
 `/\.portraitFade\s*\{/`, and that mutation fails as it should.
 
+
+---
+
+## PF-107 — the admin shell (2026-09-12)
+
+Three decisions, all owner-approved before building except where marked as
+this ticket's own judgment call in a place the prototype is silent.
+
+### The admin header REUSES the site's theme toggle — owner decision
+
+`Admin.dc.html:128-133` gives the admin header its own control: a 30×15 track
+with a 10px knob, bordered in `var(--acc2)`, carrying a `LIGHT MODE` /
+`DARK MODE` caption. **It is not built.** The admin header mounts the same
+`components/layout/ThemeToggle` the site header uses — the 44×44 sun/moon icon
+button.
+
+**Asked and approved on 2026-09-12.** The reasoning is the 2026-08-22 rework's:
+that switch was already replaced everywhere else on the site by owner decision,
+so transcribing it here would have made `/admin` the only surface carrying a
+*different* toggle from every other page. One control, one behaviour, no second
+implementation to keep in step.
+
+⚠️ **Consequence, accepted and load-bearing: the admin header is 67px, not the
+prototype's 63px.** The prototype's number is `11 + 40 + 11 + 1` — padding,
+logo, padding, border. Ours is `11 + 44 + 11 + 1`, because the reused toggle is
+44px and is therefore the tallest child, not the 40px logo.
+`AdminLayout.module.css` exposes this as `--admin-header-h` and the sidebar's
+sticky offset reads it. **Measured, not assumed** —
+`getBoundingClientRect().height` returned exactly 67 — for the same reason
+`--header-h` is 71 and not the 70 its ticket estimated by dropping the border.
+Re-measure before changing any header padding.
+
+⚠️ **This does NOT revive `--acc2` / `--acc2rgb`.** The prototype's pill is
+their last notional consumer, and declining to build it means admin does not
+claim them either. They now have zero consumers and no remaining
+justification — logged to Outstanding work. `tokens.css`'s stale
+"theme toggle only" comment was corrected in this ticket; the tokens themselves
+were deliberately **not** deleted.
+
+### The admin footer DOES take the prototype's gradient — keep this straight
+
+`AdminFooter.module.css` uses
+`linear-gradient(180deg, rgba(var(--srf),.4), rgba(var(--ftr),.94))`,
+transcribed from `Admin.dc.html:572`.
+
+⚠️ **This is not a contradiction of the 2026-08-27 footer decision.** That
+decision — the footer takes the navbar's surface, and *"the prototype's own
+footer gradient is still omitted"* — is about the **public site's** footer in
+`Portfolio Revolution.dc.html`. This is a different element, in a different
+prototype, and nothing has overridden it.
+
+**Keep the two straight in both directions.** "Restoring" the site footer's
+gradient to match this one re-breaks the owner's decision; stripping this one
+to match the site footer breaks a faithful transcription.
+
+### Below 900px the sidebar becomes a horizontal strip — PF-107's own call
+
+⚠️ **This one was NOT approved in advance, because there is nothing to deviate
+from.** The prototype has no mobile admin treatment at any width — the same
+position PF-79 was in when it built the site's mobile nav overlay from scratch,
+and the same licence: filling a gap the export is silent on, not overriding a
+value it states.
+
+Below 899px the sidebar stops being a sidebar. `position: static`,
+`flex-direction: row`, `overflow-x: auto`; `MANAGE`, the `SESSION` card and the
+count badges are hidden; nav items take a 44px minimum height and lose the
+`translateX(3px)` hover.
+
+**What it replaced was worse than nothing.** `AdminLayout` carried a `mobile`
+state that `setMobile(false)` was the only writer of — nothing anywhere set it
+`true`, and no hamburger existed — while an inline `<style>` tag translated the
+sidebar off-screen below 768px. **`/admin` had no navigation at all on a
+phone.**
+
+**Deliberately CSS-only.** A drawer needs a trigger, a focus trap, an Escape
+handler and a scroll lock — four mechanisms that each fail silently — to solve
+a problem a `grid-template-columns` change solves outright. PF-117 audits it
+and may reopen it with evidence.
+
+⚠️ **The header must WRAP at this breakpoint, and that was measured, not
+foreseen.** At 500px the single header row needed 534px against 492px: the
+email and divider were crushed to width 0 and the theme toggle started at
+x=490 — off the right edge and unreachable. `flex-wrap: wrap` plus hiding
+`.spacer` / `.email` / `.divider` fixes it. The spacer must be hidden
+specifically: its `flex: 1` would claim every leftover pixel on the first
+wrapped row and force a break behind it.
+
+⚠️ **`document.scrollWidth === clientWidth` reported the page as FINE
+throughout**, because the overflow was inside the header's own flex row. Third
+entry in the same family as the splash gate and `toBeVisible()`: a
+page-level or position-based check cannot see a problem confined to a
+descendant's layout. It was found by looking at a screenshot and then
+measuring each header child's rectangle individually.
+
+### PF-91's contrast substitution APPLIED, not re-decided
+
+Six shell elements failed AA in dark and zero in light — ADMIN PANEL and the
+email at 4.29 (`--muted2`), MANAGE at 3.36 and the footer copyright at 3.56
+(`--faint`), the nav icon and count badge at 4.30 (`--muted2`).
+
+That asymmetry, and those two tokens, are **exactly** what PF-91's
+owner-approved rule covers: `--muted2` → `--muted` in **dark only** on tinted
+surfaces, and `--faint` → `--muted`. Applying it here is following a locked
+decision, not making a new aesthetic call, and it is recorded as such.
+
+After: 7.23 / 7.23 / 7.25 / 7.25 / 7.25 / 7.68. **Zero AA failures in either
+theme.** Light was re-measured afterwards as the control and was unchanged —
+which is the point of scoping to dark: light was never failing.
+
+⚠️ The overrides win on **specificity**, `(0,2,1)` against the base rules'
+`(0,1,0)`, never on emission order.

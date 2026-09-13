@@ -2434,3 +2434,75 @@ fails silently, after "the regex hit a comment naming the value". Prefer a
 script file over `python3 -c` with shell-escaped patterns, and assert the
 anchor exists before replacing it.
 
+
+---
+
+## A flex row can overflow while `document.scrollWidth === clientWidth` says the page is fine
+
+**PF-107, 2026-09-12.** Found in the second pass, in code that ticket had just
+written.
+
+The rebuilt admin header is one flex row carrying eight children: logo,
+lockup, CMS pill, spacer, email, `↗ HOME`, `⏻ SIGN OUT`, divider, theme toggle.
+At a 500px viewport, measured:
+
+```
+inner.scrollWidth  534      inner.clientWidth  492      → overflowing by 42px
+email      left 235  right 235  width 0                 → crushed to nothing
+divider                        width 0                  → crushed to nothing
+ThemeToggle left 490                                    → off the right edge
+```
+
+The theme toggle — a primary control, and the only way to change theme — was
+**unreachable on a phone**.
+
+### The tell that was not there
+
+```js
+document.documentElement.scrollWidth > document.documentElement.clientWidth
+// → false
+```
+
+The page reported **no horizontal overflow at all**, correctly: the overflow
+was contained inside the header's own flex row, where the default
+`min-width: auto` on flex items let two of them shrink to zero rather than push
+the document wider. Nothing scrolled, so nothing registered.
+
+⚠️ **This is the third member of a family already documented twice.** The
+splash gate lets `toBeVisible()` pass on an occluded element; a box measurement
+reports clean on an element something is painted over. All three are the same
+shape: **a check scoped to the page, or to position, cannot see a problem
+confined to a descendant's layout.** The existing entry — *"`scrollWidth ===
+clientWidth` proves nothing about whether a page looks right on a phone"* —
+already said so for ancestors that clip and media queries that never fire.
+This adds the fourth mechanism: a flex row squashing its own children.
+
+### The instrument that works
+
+Measure each child's rectangle against the viewport, and compare the
+container's own `scrollWidth` to its `clientWidth` — not the document's:
+
+```js
+const inner = header.firstElementChild;
+inner.scrollWidth > inner.clientWidth;                       // the real test
+[...inner.children].map(el => {
+  const r = el.getBoundingClientRect();
+  return { w: Math.round(r.width), offRight: r.right > innerWidth };
+});
+```
+
+⚠️ **And a zero width is the loudest signal, not a quiet one.** Two elements
+reporting `width: 0` while still being in the DOM and still having
+`display: inline` is what a flex squash looks like. An element that is
+`display: none` never appears in that list at all, so the two states are easy
+to tell apart once you print the widths — and indistinguishable if you only
+check `offsetParent !== null`.
+
+⚠️ **It was found by looking at a screenshot first.** The numbers above were
+only gathered because the rendered page showed the lockup and the CMS pill
+visibly colliding. The standing rule holds: **open it at a narrow width and
+look**, then measure to find out why.
+
+The fix was `flex-wrap: wrap` plus hiding the `flex: 1` spacer — which would
+otherwise claim every leftover pixel on the first wrapped row and force a break
+behind it, producing a two-row header with a large hole in row one.
