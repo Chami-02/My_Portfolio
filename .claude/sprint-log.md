@@ -1991,9 +1991,13 @@ retrospective document** — this section is the record, matching Sprint 10,
   2.1m) — load-sensitive, same family as the `ScrollToTop` quiescence
   work. Not caused by Sprint 13.
 
-- **⚠️ `frontend/coverage/` IS COMMITTED TO THE REPO AND NOT GITIGNORED, so
-  running the coverage command dirties the tree with ~100 files.** Found
-  2026-09-07 while running the gate. `backend/.gitignore:5` has
+- **✅ FIXED 2026-09-16 — `frontend/coverage/` was committed and not
+  gitignored, so running the coverage command dirtied the tree with ~110
+  files.** Pulled forward from PF-121 as a standalone chore commit right
+  after PF-108 landed: `/coverage/` added to `frontend/.gitignore`, the 37
+  tracked files untracked with `git rm -r --cached`. The owner's own words:
+  the reports should not be in the repo. Original entry kept below for the
+  reasoning. Found 2026-09-07 while running the gate. `backend/.gitignore:5` has
   `coverage/`; `frontend/.gitignore` has no such entry, and **37 coverage
   files are tracked**. `npm run test:coverage` modifies those 37 and adds
   ~70 untracked — so a `git add -A` stages generated HTML reports.

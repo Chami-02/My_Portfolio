@@ -696,10 +696,10 @@ metric sits 15–25 clear. It is the number most likely to cross unnoticed on
 a backend change, and it is exactly the one the old five-command gate did
 not run.
 
-⚠️ **`frontend/coverage/` is COMMITTED and NOT gitignored**, so running the
-coverage step dirties the tree with ~100 files (37 tracked, ~70 untracked).
-`backend/.gitignore:5` has `coverage/`; `frontend/.gitignore` does not.
-Scheduled for PF-121.
+`frontend/coverage/` is **gitignored and untracked as of 2026-09-16** (pulled
+forward from PF-121 at the owner's request, right after PF-108's commit). It
+had been committed since Sprint 7, so every coverage run dirtied the tree with
+~110 generated files. The report still lands on disk; git no longer sees it.
 
 ### Docker & CI
 
