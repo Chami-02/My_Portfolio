@@ -1,19 +1,38 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, Link }   from 'react-router-dom';
+import { useState }                              from 'react';
+import { useNavigate, useLocation, Navigate, Link } from 'react-router-dom';
 import { authService }         from '../services/authService';
+import { session }             from '../services/session';
 import { loginErrorMessage }   from '../utils/loginError';
 import a from '../styles/admin.module.css';
+
+/**
+ * Where to go after signing in. ProtectedRoute hands over the location the
+ * user was trying to reach as `state.from`; a direct visit has none and
+ * lands on the dashboard. PF-108 — this page used to hard-navigate to
+ * `/admin` and discard the captured destination.
+ */
+const destinationFrom = (location) => {
+  const from = location.state?.from;
+  if (!from?.pathname) return '/admin';
+  return `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`;
+};
 
 export function AdminLoginPage() {
   const [form,    setForm]    = useState({ email: '', password: '' });
   const [error,   setError]   = useState('');
   const [loading, setLoading] = useState(false);
   const navigate              = useNavigate();
+  const location              = useLocation();
+  const destination           = destinationFrom(location);
 
-  // If already logged in, redirect directly to dashboard
-  useEffect(() => {
-    if (authService.isLoggedIn()) navigate('/admin', { replace: true });
-  }, [navigate]);
+  // A stored refresh token means "probably signed in" — send them through
+  // ProtectedRoute, which asks the server. If the token is dead the silent
+  // refresh clears it and ProtectedRoute sends them back here with nothing
+  // in storage, so this cannot loop. Rendered, not an effect: the old
+  // `useEffect` + `isLoggedIn()` painted the form for one frame first.
+  if (session.hasRefreshToken()) {
+    return <Navigate to={destination} replace />;
+  }
 
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -25,7 +44,7 @@ export function AdminLoginPage() {
 
     try {
       await authService.login(form.email, form.password);
-      navigate('/admin', { replace: true });
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(loginErrorMessage(err));
     } finally {

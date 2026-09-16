@@ -29,7 +29,6 @@ services:
       NODE_ENV:       development
       MONGO_URI:      mongodb://mongo:27017/portfolio
       JWT_SECRET:     dev_jwt_secret_replace_in_production
-      JWT_EXPIRES_IN: 7d
     depends_on:
       - mongo
     restart: unless-stopped

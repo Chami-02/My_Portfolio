@@ -522,6 +522,21 @@
   border-radius: 999px;
 }
 
+/* PF-108: what ProtectedRoute paints while /auth/me answers — three
+   skeleton rows in a panel-width column, on the page ground, so the
+   session check reads as "loading" rather than a blank flash before
+   either the shell or the login page. Full-height because it is the
+   only thing on the route. */
+.gate {
+  min-height: 100vh;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 120px 24px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
 /* ═══ Banners ════════════════════════════════════════════════════ */
 
 /* Three error banners existed, all on hardcoded rgba(239,68,68,…) reds
@@ -565,6 +580,15 @@
   height: 7px;
   border-radius: 50%;
   background: currentColor;
+}
+
+/* PF-108: a control at the trailing end of a banner — the session gate's
+   RETRY and the expiry warning's STAY SIGNED IN. Pushes itself right so
+   the banner's text keeps its natural width. */
+.bannerAction {
+  composes: btnGhost;
+  margin-left: auto;
+  flex: none;
 }
 
 /* ═══ Layout helpers ═════════════════════════════════════════════ */

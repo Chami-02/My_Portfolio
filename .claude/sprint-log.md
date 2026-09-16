@@ -512,7 +512,7 @@ record; that file is the sprint's authority.
 | Ticket | Title | Pri | Pts | Board | Real |
 | --- | --- | --- | --- | --- | --- |
 | ~~PF-107~~ | Admin design foundations — shell chrome, token layer, shared patterns | Highest | 8 | To Do | ✅ **BUILT 2026-09-12** |
-| PF-108 | Session handling — validate on entry, refresh, clean expiry | Highest | 8 | To Do | not started |
+| ~~PF-108~~ | Session handling — validate on entry, refresh, clean expiry | Highest | 8 | To Do | ✅ **BUILT 2026-09-16** — re-decided mid-ticket, see entry |
 | PF-109 | `/admin/login` rebuilt in Phase 2 | High | 5 | To Do | not started |
 | PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | not started |
 | PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | not started |
@@ -626,6 +626,115 @@ footer's `← BACK TO HOME PAGE`. The old assertion was **confirmed failing
 before** the rewrite, so the diagnosis was proven rather than assumed.
 `exact: true` is load-bearing in the replacement: Playwright matches by
 SUBSTRING, and `HOME` is inside `BACK TO HOME PAGE`.
+
+#### PF-108 — Session handling · ✅ BUILT 2026-09-16 (re-decided 2026-09-16)
+
+**Report: `new mds/E9/PF-108-session-handling.md`.** Backend 374 tests (was
+352): `auth` 12 (was 10), new `session` 19, new `refreshLimiter` 1. Frontend 1142 (was
+1107): new `services/__tests__/session` 7 + `api` 12, `ProtectedRoute` 6,
+`SessionExpiryBanner` 9, `AdminLayout` +1. Lint clean. Five mutants killed
+with a green control before and after.
+
+**The headline: the design this ticket shipped is NOT the design it was
+approved with, and the switch is measured, not argued.** The approved plan
+(2026-09-13) was an httpOnly cookie delivered through a `vercel.json`
+rewrite tunnel. Four days of measurement produced **three false negatives
+and then one real negative**: (1) the production alias serves `master`, so a
+sprint-branch change is invisible there and reads as a cache bug; (2) the
+probe route was also absent from the production backend, so "no header" was
+about to prove nothing; (3) preview deployments sit behind Vercel SSO, which
+returns its OWN `Set-Cookie` (`_vercel_sso_nonce`) — a grep for the header
+name reports success; (4, the real one) **a Vercel external rewrite does not
+forward the destination's `Set-Cookie` at all.** Test B, owner's browser,
+2026-09-16: `/tunnelprobe` → postman-echo 302 came back, `document.cookie`
+on the frontend host `""`. Matches vercel/next.js#29488. And `vercel.app` is
+on the Public Suffix List, so the two hosts are different *sites* — no direct
+cross-site cookie either. **Cookies are off the table until a custom domain
+exists** (owner: intended, not now).
+
+**What shipped instead — the sprint plan's own fallback recommendation.**
+15-minute access JWT held **in memory only** + opaque 32-byte refresh token in
+`localStorage` (`portfolio_refresh`), **rotated on every use**, backed by a
+`Session` collection holding SHA-256 hashes. Reuse of a rotated token revokes
+the whole **family** — attacker and owner both signed out, owner notices.
+One `issueSession(user)` for every door (PF-119 Google calls it); one
+`revokeAllForUser` for PF-124. The old 7-day `localStorage` JWT, the
+`signToken` helper and `JWT_EXPIRES_IN` are gone.
+
+⚠️ **The JWT names the session FAMILY, not the row.** First cut was `sid`
+(the row); that made an access token die the instant its refresh token
+rotated, so a request already in flight during a rotation would 401 and
+trigger a second rotation. Keying `protect` on `Session.exists({ family,
+revokedAt: null })` means rotation is invisible to access tokens and only
+logout / reuse / revoke-all kill them. Mutation-proven: skipping the check
+fails 5 tests; dropping the family revoke on reuse fails the successor test.
+
+⚠️ **`protect` REFUSES a token with no `fam`** — a pre-PF-108 7-day token
+cannot outlive the deploy. Consequence: the ten backend suites that signed
+`{ id }` JWTs directly (`blog`, `contact`, `resume.routes`, `blog.query`,
+`about`, `projects`, `skills`, `upload`, `vocabulary`, `auth`) now mint through
+`issueSession` — the real path, which is what CLAUDE.md's "trace the call
+path" asks for anyway. One line each; the dead `jwt` require went with it.
+
+⚠️ **`ProtectedRoute` distinguishes 401 from every other error.** A network
+failure with a refresh token still stored would otherwise bounce login ↔
+/admin forever: the gate redirects, login forwards anyone holding a token,
+the gate 401s… Non-401 renders an inline RETRY panel instead. The old
+component checked "a string exists in localStorage" and had **no test**; it
+has six now.
+
+⚠️ **`api.js` no longer touches `window.location`.** On a 401 it refreshes
+ONCE behind a single-flight promise and replays; a failed refresh clears the
+store and writes **`null`** into `['auth','me']` — null, not `removeQueries`,
+because removal makes an active `useMe` refetch, 401, and land back in the
+same path. `ProtectedRoute` treats null as signed out with no request. The
+mutant without the lock fails the 5-concurrent test; the mutant without the
+null write fails the failed-refresh test. `queryClient` moved to
+`lib/queryClient.js` so `api.js` can reach it without a cycle; `ME_KEY` is
+DEFINED in `services/session.js` and re-exported by `useMe` for the same
+reason (`useMe → authService → api`).
+
+⚠️ **Backend `session.test.js` does NOT log in over HTTP.** `authLimiter`
+(10 / 15 min) is deliberately live under `NODE_ENV=test`, and the first run
+429'd from the seventh test. The suite mints via `issueSession`; the login
+ROUTE is `auth.test.js`'s job. `refreshLimiter` (60 / 15 min — not
+`authLimiter`, which would lock a working session out of its own silent
+refreshes) is tested in its **own file**, because express-rate-limit keeps
+the counter on the module instance and Jest caches modules per file. ⚠️
+`express-rate-limit` v8 exposes **no `getOptions()`** — a "looser than
+authLimiter" assertion written against `?? 60` fallbacks would have compared
+two literals; deleted.
+
+**Live, owner signed in at localhost:5173, all four passed:** storage holds
+`portfolio_refresh` (43 chars) + its expiry (168.0 h), no `portfolio_token`;
+reload `/admin` → `/auth/me` 401 @127ms → `/auth/refresh` 200 @151ms →
+`/auth/me` 200 → panels, login page never visited; dead session on
+`/admin?probe=1` → 401/401 → login form with **one** document load and
+`history.state.usr.from = /admin?probe=1`; rotate → replay old → 401 →
+successor 401. The idle banner was NOT verified live (needs a backend restart
+with a short `REFRESH_TOKEN_TTL_DAYS`); nine fake-timer tests cover it.
+
+**Cleanup of the tunnel experiment, all landed:** `frontend/vercel.json` back
+to `master` (the `/api/:path*` rewrite routes but forwards nothing and nothing
+reads it — `.env.production` still targets the backend origin); the
+`cookie-probe` route deleted in `10fa40a`; `JWT_EXPIRES_IN` removed from
+`docker-compose.yml`, `.env.e2e.example`, `ci.yml` ×2. **Also gone from the
+private envs (2026-09-16, ticket close):** the owner deleted it from
+`backend/.env` and Vercel's backend env; `backend/.env.e2e` was the third
+copy and was dropped at wind-up. Unread by any code, so nothing needed a
+restart or redeploy. Deployment Protection was never off;
+`ALLOW_VERCEL_PREVIEWS` was never created.
+
+**Handed to later tickets.** PF-119: with Bearer transport a backend OAuth
+callback cannot place the session in the browser — use Google's ID-token
+(GIS) flow posted from the SPA, or a one-time-code handoff; either ends in
+`issueSession`. PF-124: `revokeAllForUser(userId)` exists; `req.auth.iat` is
+exposed if `passwordChangedAt` is still wanted. Custom domain: move the
+refresh token's TRANSPORT to an httpOnly cookie; the `Session` model,
+rotation and family logic carry over unchanged. Not fixed, recorded: no
+absolute session lifetime (7-day sliding idle only); `protect` still does two
+lookups per request (family + user); multi-tab refresh race is resolved
+conservatively (loser's family dies — both tabs re-login).
 
 #### PF-122 — Owner email address consolidation · ADDED to Sprint 14, 2026-09-12
 

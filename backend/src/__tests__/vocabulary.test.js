@@ -1,6 +1,6 @@
 const request    = require('supertest');
 const mongoose   = require('mongoose');
-const jwt        = require('jsonwebtoken');
+const { issueSession } = require('../services/sessionService');
 const app        = require('../app');
 const Vocabulary = require('../models/Vocabulary');
 const Project    = require('../models/Project');
@@ -71,7 +71,8 @@ const ADMIN = { email: 'admin@test.com', password: 'TestPass@1234!' };
 const authHeader = async () => {
   let user = await User.findOne({ email: ADMIN.email });
   if (!user) user = await User.create(ADMIN);
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  // PF-108: through the real session path, so the token names a live family.
+  const { accessToken: token } = await issueSession(user);
   return { Authorization: `Bearer ${token}` };
 };
 

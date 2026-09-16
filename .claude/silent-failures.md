@@ -2506,3 +2506,95 @@ look**, then measure to find out why.
 The fix was `flex-wrap: wrap` plus hiding the `flex: 1` spacer — which would
 otherwise claim every leftover pixel on the first wrapped row and force a break
 behind it, producing a two-row header with a large hole in row one.
+
+## ⚠️ A Vercel production alias serves the PRODUCTION BRANCH — a pushed sprint-branch change is invisible there, and it looks like a cache bug (PF-108, 2026-09-13)
+
+Measured: `curl https://<production-alias>/api/health` returned `index.html`
+with `x-vercel-cache: HIT`, `age: 368`. The cache header is real and is a
+**symptom**. `origin/master` simply did not contain the new rewrite rule, so
+the deployment's routing table had no `/api` entry and `index.html` was the
+correct answer for the code it was running. A cold cache would have returned
+the identical thing.
+
+⚠️ **Cache-busting "works" — it returns a fresh response that is identically
+wrong**, which is the dangerous half: the instrument appears to have been
+fixed. `?v=1` changes the CDN key; a request-side `Cache-Control: no-cache` is
+ignored by Vercel's edge for static assets. Neither changes what was deployed.
+
+**Test the branch's preview URL** (the dashboard's `…-git-<branch>-…` alias is
+stable across pushes to the branch), and add `?_cb=$RANDOM` so a `HIT` can
+never again be mistaken for a result.
+
+## ⚠️ A tunnel has TWO ends — the absence of a header proves nothing until both are running the change (PF-108, 2026-09-13)
+
+The frontend rewrite hardcoded the **production** backend, whose `master` had
+no probe route. Against a correct frontend preview, the tunnel would have
+forwarded to production, received `notFound`'s 404, and returned no
+`set-cookie` — and "Vercel strips Set-Cookie, the tunnel is dead" would have
+been concluded from a clean-looking zero. Same family as "a broken probe
+reports zero exactly like a clean one": before reading an absence, confirm
+every hop is on the code you think it is.
+
+## ⚠️ Vercel Deployment Protection returns ITS OWN `Set-Cookie` — grep for the cookie's NAME, never for the header (PF-108, 2026-09-14)
+
+Preview deployments sit behind Vercel SSO. A curl gets `302 → vercel.com/sso-api`
+with `set-cookie: _vercel_sso_nonce=…; Secure; HttpOnly; SameSite=Lax`. A grep
+for `^set-cookie` **reports success** on a request that never reached the
+application. Only the cookie's own name (`pf_tunnel_probe`) is the assertion.
+
+⚠️ Both frontend AND backend previews are gated, and the gate survived the
+dashboard toggle being flipped off (re-measured twice; it was already ON as
+Standard Protection, and stayed so). Automation from this machine cannot pass
+it; the owner's signed-in browser can. **Every preview check is owner-driven.**
+And a server-to-server fetch from Vercel's edge (a rewrite destination) has no
+SSO session either — pointing a rewrite at a *preview* backend reproduces this
+failure at one remove.
+
+## ⚠️ A Vercel external rewrite does NOT forward the destination's `Set-Cookie` (PF-108, 2026-09-16 — the real negative)
+
+After the three instrument failures above, the fourth measurement was the
+real one. `frontend/vercel.json` rewrote `/tunnelprobe` to a public
+cookie-setting endpoint (postman-echo; verified by direct curl to answer `302`
++ `Set-Cookie: pf_tunnel_probe=ok; Path=/`). Through the tunnel, in the
+owner's browser, the redirect came back and `document.cookie` on the frontend
+host was `""`. Vercel's rewrite engine is a proxy that drops `Set-Cookie`
+(vercel/next.js#29488). And `vercel.app` is on the Public Suffix List, so a
+direct cross-site cookie is a third-party cookie. **Do not design an httpOnly
+session cookie for this deployment** — see locked-decisions, PF-108.
+
+## ⚠️ `authLimiter` is live under `NODE_ENV=test` and a session suite that logs in over HTTP hits it on the 11th login (PF-108, 2026-09-16)
+
+`session.test.js`'s first run went red from the seventh test with `429` on
+`POST /api/auth/login` — every case started with a real login and the cap is
+10 / 15 min per IP. **The mechanism under test was passing.** The fix was to
+mint sessions through `issueSession` (exactly what the login handler calls)
+and leave the login ROUTE to `auth.test.js`. Corollary for any future
+login-heavy suite: count the logins before trusting a red run.
+
+## ⚠️ `express-rate-limit` v8 has no `getOptions()` — an assertion written against `?? fallback` values compares two literals (PF-108, 2026-09-16)
+
+`expect(refreshLimiter.getOptions?.().limit ?? 60).toBeGreaterThan(authLimiter.getOptions?.().limit ?? 10)`
+passes on `60 > 10` with nothing behind it. Checked in Node: the instance
+exposes only `resetKey` and `getKey`. Deleted. The threshold is pinned the only
+honest way — 60 requests through a stub app, then a 429 — **in its own file**,
+because the limiter's counter lives on the module instance and Jest caches
+modules per file, so inside `session.test.js` every earlier refresh call would
+have counted against it.
+
+## ⚠️ Deleting a stored refresh token does NOT end a session — the in-memory access token is still valid (PF-108, 2026-09-16)
+
+The obvious "simulate expiry" (remove `portfolio_refresh` in DevTools, click
+around) proves nothing: cached queries fire no request, and even a fresh one
+carries a 15-minute access token the server still honours. To produce the
+real end-of-session state, revoke server-side (rotate, then replay the old
+token — reuse kills the family) and THEN load the page. That is what the live
+check did; the redirect it measured was one router navigate with
+`history.state.usr.from` intact and a single document load.
+
+## ⚠️ The browser tool REDACTS any result key containing "token" (2026-09-16)
+
+`{ replayOldToken: 401 }` came back as `"[BLOCKED: Sensitive key]"` — the
+VALUE was a status code, but the KEY name tripped the filter. Name result keys
+after what they mean (`replayStatus`), and keep the actual token inside the
+page script. The redaction is correct behaviour; it just reads as a failed
+measurement.

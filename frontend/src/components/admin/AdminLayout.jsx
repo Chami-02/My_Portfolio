@@ -10,6 +10,7 @@ import { useBlogPostAdmin } from '../../hooks/useBlog';
 import { useMessages } from '../../hooks/useMessages';
 import { useAdminFlash } from '../../hooks/useAdminFlash';
 import { AdminFooter } from './AdminFooter';
+import { SessionExpiryBanner } from './SessionExpiryBanner';
 import logo from '../../assets/logo.png';
 import styles from './AdminLayout.module.css';
 import a from '../../styles/admin.module.css';
@@ -118,8 +119,12 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
   const title = NAV_ITEMS.find((i) => i.id === activeTab)?.label ?? 'Dashboard';
   const meta  = TAB_META[activeTab] ?? '';
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    // PF-108: the server revokes the session (so the still-valid access
+    // token dies with it), THEN the browser forgets. Awaited, because
+    // qc.clear() below would otherwise race a request that still needs
+    // the token.
+    await authService.logout();
     // Drop every cached admin response with the token that fetched it.
     // Without this, signing out and back in paints the previous
     // session's data for as long as the stale entries stay fresh.
@@ -217,6 +222,13 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
             <span aria-hidden="true" className={styles.titleLine} />
             <span className={styles.titleMeta}>{meta}</span>
           </div>
+
+          {/* PF-108. Renders nothing until the last five minutes of an
+              idle session; sits above the flash so the two never
+              compete for the same slot. Its own store, not
+              useAdminFlash — that holds ONE message and belongs to
+              panel saves. */}
+          <SessionExpiryBanner className={styles.flashRow} />
 
           {flash && (
             /* role="status" — a save confirmation is polite news, not an

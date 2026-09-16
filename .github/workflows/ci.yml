@@ -168,7 +168,6 @@ jobs:
           PORT: 5050
           MONGO_URI: mongodb://localhost:27017/portfolio_test
           JWT_SECRET: ci_test_secret_github_actions_only
-          JWT_EXPIRES_IN: 1d
         run: npm run test:coverage
 
       - name: Upload backend coverage
@@ -263,7 +262,6 @@ jobs:
           PORT: 5055
           MONGO_URI: mongodb://localhost:27017/portfolio_e2e
           JWT_SECRET: ci_test_secret_github_actions_only
-          JWT_EXPIRES_IN: 1d
         run: npm start > ../backend-server.log 2>&1 &
 
       - name: Wait for backend server

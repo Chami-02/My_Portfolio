@@ -2803,3 +2803,118 @@ which is the point of scoping to dark: light was never failing.
 
 ⚠️ The overrides win on **specificity**, `(0,2,1)` against the base rules'
 `(0,1,0)`, never on emission order.
+
+## PF-108 — the session model (2026-09-16)
+
+The design this ticket was approved with on 2026-09-13 was an httpOnly cookie
+delivered through a `vercel.json` rewrite tunnel. It was **measured dead** on
+2026-09-16 and replaced the same day, with the owner delegating the choice:
+*"decide what is the best approach to fulfil my requirements … with industry
+standards."* The requirements: one admin (the owner), two doors — email +
+password with a real change-password flow (PF-124), and Google sign-in bound
+to `pcgallege@gmail.com` (PF-119).
+
+### Cookies are OFF THE TABLE until a custom domain exists — measured, not argued
+
+Two independent facts, either sufficient:
+
+- **A Vercel external rewrite does not forward the destination's
+  `Set-Cookie`.** Test B, owner's browser, 2026-09-16: `/tunnelprobe` →
+  postman-echo answered `302` with `Set-Cookie: pf_tunnel_probe=ok; Path=/`
+  (confirmed by curl direct), the redirect came back through the tunnel, and
+  `document.cookie` on the frontend host was `""`. The Next.js team's own
+  tracker records the same behaviour (vercel/next.js#29488). The three
+  earlier "negatives" were instrument failures and are in silent-failures.
+- **`vercel.app` is on the Public Suffix List** (Vercel KB: "it is not
+  possible to set a cookie at the level of `vercel.app`"). The frontend and
+  backend are therefore different *sites*, not two subdomains of one, so a
+  direct cross-site cookie is a third-party cookie — Safari blocks it
+  outright, and `SameSite=None; Partitioned` is browser-dependent.
+
+**Consequence: `frontend/vercel.json` is back to the SPA catch-all only.** The
+`/api/:path*` rewrite was removed WITH the probe rule — it routes but forwards
+no cookie, and nothing reads it (`.env.production` still targets the backend's
+own origin). A proxy hop with no reader is dead code. Do not re-add it "for
+same-origin" without a reader.
+
+**What flips this:** a custom domain with the API on a subdomain
+(`api.<domain>` and `<domain>` are one site). The owner intends one, not now.
+When it lands, ONLY the refresh token's transport changes — from localStorage
+to an httpOnly cookie. The `Session` collection, the rotation, the family
+reuse-detection and `issueSession` carry over unchanged. The full cookie
+write-up (CSRF guard, `trust proxy` depth, `cookie-parser`, Vite-proxy
+parity) is preserved in the PF-108 report so it is not re-derived.
+
+**Rejected alternatives, and why:** a first-party proxy *function* in the
+frontend Vercel project (a new platform experiment on a ticket that had spent
+four days measuring Vercel; two functions per admin call; a prod-only path
+with no local equivalent; a possible 4 MB edge body cap under PF-111's
+uploads); waiting for the domain (blocks a Highest-priority ticket on a
+purchase); `SameSite=None` cookies (Safari).
+
+### The model: short access JWT in memory + rotating opaque refresh token, server-side `Session` rows
+
+- **Access token:** JWT, `ACCESS_TOKEN_TTL` default **15m**, payload
+  `{ id, fam }`. Held in a module variable in `services/session.js`, never
+  written to storage; a reload starts with none and the interceptor renews
+  silently.
+- **Refresh token:** 32 random bytes, base64url, in `localStorage` under
+  `portfolio_refresh` (+ `portfolio_refresh_expires`). Only its SHA-256 is
+  stored server-side (`Session.tokenHash`, unique). `REFRESH_TOKEN_TTL_DAYS`
+  default **7**, sliding — each rotation issues a fresh 7 days.
+- **Rotation on every use.** `POST /api/auth/refresh` revokes the presented
+  row and creates a successor in the same `family`. Presenting an
+  already-rotated (or logged-out) token is **reuse** and revokes the whole
+  family — attacker and owner both signed out; the owner notices.
+- **The JWT names the FAMILY, not the row.** ⚠️ First cut used the row id;
+  that killed an access token the instant its refresh rotated, so a request
+  in flight during a rotation 401'd and triggered a second rotation.
+  `protect` checks `Session.exists({ family, revokedAt: null })`: rotation is
+  invisible to access tokens; logout / reuse / `revokeAllForUser` kill them at
+  once, inside the 15-minute window.
+- **A token with no `fam` is refused** — the pre-PF-108 7-day shape cannot
+  outlive the deploy. Ten backend suites that signed `{ id }` directly now
+  mint through `issueSession`.
+- **`refreshLimiter` is 60 / 15 min, its own limiter.** Not `authLimiter`
+  (10) — a working session would lock itself out of its own silent refreshes.
+- **`JWT_EXPIRES_IN` is retired.** Removed from every committed file; the
+  owner removes it from the private `.env`s and Vercel.
+- **Not built, recorded:** no absolute session lifetime (idle-only); the
+  multi-tab refresh race resolves conservatively (the loser is treated as
+  reuse, both tabs re-login); `protect` does two lookups per request.
+
+### One `issueSession(user)` for every door
+
+Password login calls it today. PF-119's Google callback calls it after the
+allowlist check. PF-124's password change calls `revokeAllForUser(userId)`.
+Nothing else in the codebase signs a JWT — `signToken` in `authController.js`
+is gone. ⚠️ For PF-119: with Bearer transport a backend OAuth callback cannot
+place the session in the browser directly; it needs Google's ID-token (GIS)
+flow posted from the SPA, or a one-time-code handoff. Decided there, flagged
+here.
+
+### The frontend contract
+
+- `api.js` never touches `window.location`. On a 401 (not from
+  `/auth/login|refresh|logout`) it refreshes ONCE behind a **single-flight
+  promise** and replays; a failed refresh clears the store and writes **`null`**
+  into `['auth','me']` — null, not `removeQueries`, because removal makes an
+  active `useMe` refetch, 401, and loop. Mutation-proven on both halves.
+- `ProtectedRoute` reads `useMe` only (PF-107's rule stands): pending → gate
+  skeleton; **401 or `data === null` → one router navigate to `/admin/login`
+  with `state.from`**; **any other error → inline RETRY panel**. ⚠️ The last
+  branch is load-bearing: with a refresh token still stored, a network
+  failure would otherwise bounce login ↔ /admin forever, because login
+  forwards anyone holding a token.
+- `authService.getToken` / `isLoggedIn` are **deleted** — an in-memory access
+  token makes both lie after a reload. `AdminLoginPage` forwards on
+  `session.hasRefreshToken()` during render, not in an effect.
+- `queryClient` lives in `lib/queryClient.js`; `ME_KEY` is DEFINED in
+  `services/session.js` and re-exported by `useMe` (`useMe → authService →
+  api` would be a cycle).
+- The expiry banner (`SessionExpiryBanner`) reads the store via
+  `useSyncExternalStore`, wakes itself at the warn instant with a timer, and
+  is the IDLE-tab case only — an active panel rotates long before. It is not
+  routed through `useAdminFlash` (one message, owned by panel saves). Its
+  STAY SIGNED IN goes through the same exported `refreshSession` as the
+  interceptor, so it shares the lock and the failure path.

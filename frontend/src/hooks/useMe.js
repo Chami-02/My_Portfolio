@@ -1,8 +1,11 @@
 // frontend/src/hooks/useMe.js
 import { useQuery } from '@tanstack/react-query';
 import { authService } from '../services/authService';
+import { ME_KEY }      from '../services/session';
 
-export const ME_KEY = ['auth', 'me'];
+// Re-exported so existing consumers keep importing it from here. It is
+// DEFINED in services/session.js — see the note there for why.
+export { ME_KEY };
 
 /**
  * PF-107. The signed-in account.
@@ -17,9 +20,13 @@ export const ME_KEY = ['auth', 'me'];
  * token is bad, and retrying a bad token just delays the redirect that
  * api.js's response interceptor is already about to perform.
  *
- * PF-108 builds session validation on top of this same call rather than
- * introducing a second one — do not add a parallel "check my token"
- * request beside it.
+ * PF-108 built session validation on top of this same call rather than
+ * introducing a second one — ProtectedRoute reads it; do not add a
+ * parallel "check my token" request beside it.
+ *
+ * ⚠️ `data === null` is a real state, not a loading one: api.js writes
+ * null into this entry when a silent refresh fails, so that ProtectedRoute
+ * redirects without a refetch. A fresh login removes the entry again.
  */
 export const useMe = () =>
   useQuery({ queryKey: ME_KEY, queryFn: authService.getMe, retry: false });

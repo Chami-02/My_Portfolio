@@ -22,7 +22,7 @@
 // they pass under either rule. See the PF-96 report.
 
 const request  = require('supertest');
-const jwt      = require('jsonwebtoken');
+const { issueSession } = require('../services/sessionService');
 const mongoose = require('mongoose');
 const app      = require('../app');
 const Blog     = require('../models/Blog');
@@ -38,7 +38,8 @@ const ADMIN = { email: 'admin-query@test.com', password: 'TestPass@1234!' };
 const authHeader = async () => {
   let user = await User.findOne({ email: ADMIN.email });
   if (!user) user = await User.create(ADMIN);
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  // PF-108: through the real session path, so the token names a live family.
+  const { accessToken: token } = await issueSession(user);
   return { Authorization: `Bearer ${token}` };
 };
 

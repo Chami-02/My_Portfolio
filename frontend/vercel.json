@@ -1,13 +1,3 @@
 {
-  "rewrites": [
-    {
-      "source": "/tunnelprobe",
-      "destination": "https://postman-echo.com/cookies/set?pf_tunnel_probe=ok"
-    },
-    {
-      "source": "/api/:path*",
-      "destination": "https://my-portfoliobackend-xi.vercel.app/api/:path*"
-    },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

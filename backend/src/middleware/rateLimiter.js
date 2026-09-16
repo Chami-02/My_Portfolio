@@ -74,4 +74,29 @@ const authLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter };
+/**
+ * Limiter for `POST /api/auth/refresh` (PF-108).
+ *
+ * ⚠️ Deliberately NOT `authLimiter`. A refresh is not a guess at a password;
+ * it happens silently every time a 15-minute access token dies during
+ * normal use, and a working session would lock itself out against a cap of
+ * 10. A refresh token cannot be brute-forced at any rate this server could
+ * serve (32 random bytes), so the cap here is about abuse of the endpoint,
+ * not credential stuffing. 60 per 15 minutes is four times what one tab
+ * refreshing on schedule could ever need.
+ *
+ * Live under `NODE_ENV=test` like `authLimiter` and for the same reason: the
+ * behaviour is asserted directly in the backend suite.
+ */
+const refreshLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             60,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many session refreshes. Please wait 15 minutes before trying again.',
+  },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter };

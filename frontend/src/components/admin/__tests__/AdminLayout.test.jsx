@@ -9,7 +9,7 @@
 // glyphs, which one is current, that the title and meta line follow the
 // active tab, that the header shows the REAL signed-in account, and
 // that signing out both clears the cache and leaves.
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -32,13 +32,14 @@ const useSkills       = vi.hoisted(() => vi.fn());
 const useBlogPostAdmin = vi.hoisted(() => vi.fn());
 const useMessages     = vi.hoisted(() => vi.fn());
 const logout          = vi.hoisted(() => vi.fn());
+const refresh         = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../hooks/useMe',        () => ({ useMe }));
 vi.mock('../../../hooks/useProjects',  () => ({ useProjects }));
 vi.mock('../../../hooks/useSkills',    () => ({ useSkills }));
 vi.mock('../../../hooks/useBlog',      () => ({ useBlogPostAdmin }));
 vi.mock('../../../hooks/useMessages',  () => ({ useMessages }));
-vi.mock('../../../services/authService', () => ({ authService: { logout } }));
+vi.mock('../../../services/authService', () => ({ authService: { logout, refresh } }));
 
 const { AdminLayout } = await import('../AdminLayout');
 
@@ -198,6 +199,32 @@ describe('AdminLayout — sign out', () => {
     await user.click(screen.getAllByRole('button', { name: /SIGN OUT/i })[0]);
 
     expect(logout).toHaveBeenCalledTimes(1);
+    expect(client.getQueryData(['projects'])).toBeUndefined();
+    expect(navigate).toHaveBeenCalledWith('/admin/login');
+  });
+
+  // PF-108: logout is now a server call (it revokes the session), and the
+  // cache wipe and navigate must WAIT for it. A handler that fired all
+  // three synchronously would pass the test above — logout is a mock that
+  // resolves at once — so this one holds the server call open and checks
+  // that nothing else has happened yet.
+  it('waits for the server logout before clearing the cache and leaving', async () => {
+    let release;
+    logout.mockImplementation(() => new Promise((r) => { release = r; }));
+
+    const user = userEvent.setup();
+    const { client } = renderShell();
+    client.setQueryData(['projects'], [{ _id: 'stale' }]);
+
+    await user.click(screen.getAllByRole('button', { name: /SIGN OUT/i })[0]);
+
+    expect(logout).toHaveBeenCalledTimes(1);
+    // Server has not answered: cache intact, still on the page.
+    expect(client.getQueryData(['projects'])).toBeTruthy();
+    expect(navigate).not.toHaveBeenCalled();
+
+    await act(async () => { release(); });
+
     expect(client.getQueryData(['projects'])).toBeUndefined();
     expect(navigate).toHaveBeenCalledWith('/admin/login');
   });

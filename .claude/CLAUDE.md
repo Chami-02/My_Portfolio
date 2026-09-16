@@ -328,7 +328,7 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12; branch `sprint-14-admin_page_rebuild` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108 built 2026-09-16; branch `sprint-14-admin_page_rebuild` |
 | **Sprint 15 (PF-123 → PF-125)** | **Auth + email** — contact notification, credential editing, password reset | **planned 2026-09-12**, not started |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
@@ -361,7 +361,7 @@ authority; this table is the index.
 | Ticket | Title | Pri | Pts |
 | --- | --- | --- | --- |
 | ~~PF-107~~ | Admin design foundations — shell chrome, token layer, shared patterns ✅ **BUILT 2026-09-12** | Highest | 8 |
-| PF-108 | Session handling — validate on entry, refresh, clean expiry | Highest | 8 |
+| ~~PF-108~~ | Session handling — validate on entry, refresh, clean expiry ✅ **BUILT 2026-09-16** — ⚠️ re-decided mid-ticket: rotating refresh token, NOT a cookie | Highest | 8 |
 | PF-109 | `/admin/login` rebuilt in Phase 2 | High | 5 |
 | PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 |
 | PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 |
@@ -1127,6 +1127,26 @@ concluding "this is fine, I read the source".
   credential sentence. Fixed by `utils/loginError.js`. ⚠️ The
   documentation half matters too: it shipped inside an unrelated commit
   and was invisible here for three sprints.
+- **⚠️ A Vercel PRODUCTION ALIAS serves the production BRANCH**, so a pushed
+  sprint-branch change is invisible there and reads as a stale edge cache
+  (`x-vercel-cache: HIT`). Cache-busting returns a fresh, identically wrong
+  answer. Test the branch's `…-git-<branch>-…` preview alias. ⚠️ Previews
+  sit behind Vercel SSO, which answers with its OWN `Set-Cookie`
+  (`_vercel_sso_nonce`) — **grep the cookie's NAME, never the header** —
+  and only the owner's signed-in browser passes the gate. ⚠️ **A tunnel has
+  two ends**: an absent header proves nothing until both are on the change.
+  Fourth and real: **a Vercel external rewrite drops `Set-Cookie`**
+  (PF-108, four measurements).
+- **⚠️ `authLimiter` (10 / 15 min) is live under `NODE_ENV=test`**, so a
+  suite that logs in over HTTP per case goes red on the 11th login while
+  the mechanism under test passes. Mint through `issueSession`; leave the
+  login route to `auth.test.js`. ⚠️ And `express-rate-limit` v8 has **no
+  `getOptions()`** — an assertion against `?? fallback` values compares
+  literals. A limiter's counter is per module instance, per Jest file.
+- **⚠️ Deleting a stored refresh token does NOT end a session** — the
+  in-memory access token stays valid for 15 min and cached queries fire
+  nothing. To reach the real end-of-session state, revoke server-side
+  (rotate, then replay the old token), THEN load the page.
 
 ### Prototype-specific
 
@@ -1190,6 +1210,9 @@ concluding "this is fine, I read the source".
   the a11y contract. Same shape as a probe that never scrolled far enough
   to mount `ScrollToTop`. **Name what a probe EXCLUDES in the same breath
   as its result.**
+- **⚠️ The browser tool REDACTS any result key containing "token"** — the
+  value was a status code, the key name tripped it, and it read as a failed
+  measurement. Name keys for meaning (`replayStatus`), keep tokens in-page.
 - **Always run the control.** A broken probe reports zero exactly like a
   clean one. ⚠️ A rAF-based counter **self-drives** and reads ~61 in both
   modes — `getAnimations()` filtered on `playState === 'running'` is the
@@ -1598,6 +1621,27 @@ omitted — keep the two straight.
   shell** (PF-107) — six dark-only failures, zero in light, fixed by
   `--muted2` → `--muted` and `--faint` → `--muted` scoped to dark, winning on
   specificity (0,2,1). 3.36–4.30 → 7.23–7.68.
+- **The session model is a 15-min access JWT IN MEMORY + a rotating opaque
+  refresh token in `localStorage`, backed by a `Session` collection** (PF-108,
+  owner-delegated 2026-09-16). ⚠️ **NOT an httpOnly cookie — measured dead**:
+  a Vercel external rewrite does not forward `Set-Cookie`, and `vercel.app` is
+  on the Public Suffix List so frontend/backend are cross-SITE. Deferred, not
+  rejected: a custom domain flips it, and then only the refresh token's
+  transport changes. `frontend/vercel.json` is the SPA catch-all ONLY — do
+  not re-add the `/api/*` rewrite without a reader.
+  ⚠️ The JWT names the session **family** (`fam`), not the row, so rotation
+  never kills an in-flight access token; logout / reuse / `revokeAllForUser`
+  do. A token with no `fam` is refused. **One `issueSession(user)` for every
+  door** — PF-119 calls it; nothing else signs a JWT. ⚠️ PF-119: a backend
+  OAuth callback cannot place a Bearer session in the browser — GIS ID-token
+  POST or a one-time-code handoff.
+  ⚠️ `api.js` never touches `window.location`; a failed refresh writes
+  **`null`** into `['auth','me']` (not `removeQueries` — that loops).
+  `ProtectedRoute`: 401/null → login with `state.from`; **any other error →
+  inline RETRY**, or a network blip bounces login ↔ /admin forever.
+  `refreshLimiter` is 60/15 min, its own — never `authLimiter`.
+  `JWT_EXPIRES_IN` is retired; `ACCESS_TOKEN_TTL` (15m) and
+  `REFRESH_TOKEN_TTL_DAYS` (7) replace it.
 
 ## Environment
 
