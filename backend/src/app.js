@@ -56,29 +56,6 @@ app.get('/api/health', async (_req, res) => {
     database,
   });
 });
-
-// ── TEMPORARY — PF-108 step 1 only ───────────────────────────────────────────
-// Proves a Set-Cookie header survives the Vercel rewrite tunnel and is stored
-// against the FRONTEND host. Carries no authentication meaning, expires in 60s.
-//
-// Placed here deliberately: ahead of the connectDB() middleware below, so it
-// needs no database and cannot fail for a reason unrelated to what it measures.
-//
-// ⚠️ DELETE THIS ROUTE before PF-108 closes.
-app.get('/api/health/cookie-probe', (_req, res) => {
-  res.cookie('pf_tunnel_probe', 'ok', {
-    httpOnly: true,
-    secure:   process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path:     '/',
-    maxAge:   60 * 1000,
-    // no `domain` — host-only, which is the property the whole approach rests
-    // on: the cookie binds to whatever host the browser saw, so attaching a
-    // custom domain to the frontend later needs no code change.
-  });
-  res.json({ status: 'ok', probe: 'set-cookie issued' });
-});
-
 app.use(async (_req, _res, next) => {
   try {
     await connectDB();
