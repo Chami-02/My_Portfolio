@@ -514,7 +514,7 @@ record; that file is the sprint's authority.
 | ~~PF-107~~ | Admin design foundations — shell chrome, token layer, shared patterns | Highest | 8 | To Do | ✅ **BUILT 2026-09-12** |
 | ~~PF-108~~ | Session handling — validate on entry, refresh, clean expiry | Highest | 8 | To Do | ✅ **BUILT 2026-09-16** — re-decided mid-ticket, see entry |
 | ~~PF-109~~ | `/admin/login` rebuilt in Phase 2 | High | 5 | To Do | ✅ **BUILT 2026-09-16** — background re-decided, see entry |
-| PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | not started |
+| ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | ✅ **BUILT 2026-09-16** — see entry |
 | PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | not started |
 | PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 | To Do | not started |
 | PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | not started |
@@ -823,6 +823,107 @@ and both were caught only once the guards existed.
 is no spinner to carry; "both aurora orbs measurably animate" — superseded
 by decision (2). `--acc2`/`--acc2rgb` remain at zero consumers: auroraB
 (`rgba(var(--acc2rgb),.22)`) would have been the first and is not built.
+
+#### PF-110 — `GET /api/dashboard/stats` + Overview panel rebuild · ✅ BUILT 2026-09-16
+
+**Report: `new mds/E9/PF-110-dashboard-stats-and-overview.md`.** 10 new files,
+13 modified. Backend **379** tests (was 374; +5 `dashboard.test.js`), coverage
+**80.22 / 68.72 / 87.96 / 80.98** (branch was 66.66 — the new controller is 100/100/100/100). Frontend **1218** tests (was 1183; +14 `AdminOverviewPanel.test.jsx`,
++13 `useDashboardStats.test.jsx`, +4 `utils/dashboard.test.js`, +2 shell
+loading guards, +2 foundation-sheet rows), lint clean, coverage
+94.18/89.21/88.51/96.56, build clean with **0 unresolved `animation-name`**
+(39 defined, 28 referenced). E2E **75/75** (+2 in `admin.spec.js`, driving the
+REAL endpoint against `portfolio_e2e`). Six mutants killed, control green
+before and after.
+
+**The headline: `/admin` mounts on TWO requests where it took FIVE.** PF-107's
+shell derived the sidebar badges, the meta line and the footer counts from
+four full list fetches — projects, skills, the admin post list, messages — and
+the Phase 1 Overview panel fetched three more of its own (one of them the
+PUBLIC blog list, so `posts.filter(p => p.published)` was tautological and a
+draft count was unobtainable). One protected `GET /api/dashboard/stats` — six
+`countDocuments` in a `Promise.all` — now feeds the four cards, the six
+badges and the footer from a single cache entry, `['dashboard','stats']`.
+Measured on a cold load: `/auth/me` → `/auth/refresh` → `/auth/me` → stats;
+nothing else.
+
+**The response carries SEVEN fields, not the sprint plan's five.**
+`{ projects, skills, posts, published, drafts, messages, unread }`. `posts`
+and `messages` (totals) were added because the shell's blog badge shows total
+posts and its meta line reads `N UNREAD · M TOTAL`; without them the shell
+would have kept a list hook and "one request, three consumers" would have
+been false. ⚠️ `unread` is `read: { $ne: true }` and `drafts` is
+`total − published`, NOT `read: false` / `published: false` — a row with no
+field is unread/draft, which is exactly what the `!m.read` / `!p.published`
+client filters this replaces were counting. Pinned by a raw
+`collection.insertOne` test; mutating to `read: false` fails it.
+
+**Invalidation is explicit, per hook — ten mutations, eleven lines.**
+create/delete on projects and skills; create/UPDATE/togglePublish/delete on
+posts (update is included because the editor's published checkbox goes
+through `updatePost`); markRead/delete on messages. NOT `useUpdateProject`
+(cannot change a count — pinned as a negative), NOT `useRecordView` (locked:
+invalidates nothing — also pinned), NOT vocabulary or about. A global
+`MutationCache.onSuccess` in `main.jsx` was rejected: one line, but it hides
+the invalidation from anyone reading a mutation hook, and every hook here
+lists its own keys. `useDashboardStats.test.jsx` pins all twelve cases.
+Measured live: create a skill → `POST /skills`, `GET /skills`, `GET stats`;
+badge, meta line, card and footer all move 26 → 27 together, and back.
+
+**Loading paints NOTHING count-shaped.** PF-107's `data = []` defaults showed
+`0` beside every section and `0 ITEMS` for the first ~100ms of every visit
+(Outstanding work, now closed). The shell's badges, the four numeric meta
+lines and the footer's counts line are empty until the response lands; the
+two static labels (`DASHBOARD`, `PROFILE`) show regardless. The panel's cards
+keep their size with a shimmer bar in the value slot. Both guarded — mutating
+either back to zeros fails a test.
+
+**Quick actions.** `+ NEW PROJECT` / `+ NEW SKILL` / `EDIT PROFILE` are tab
+switches (those panels mount with their create form showing). `+ NEW POST`
+needs the blog editor OPEN, which that panel does not do at mount — so
+`AdminPage`'s state became `{ tab, compose }`, the Overview receives
+`onNavigate(tab, { compose })`, and `AdminBlogPanel` gained a one-line
+`initialView = 'list'` prop. ⚠️ `AdminBlogPanel.test.jsx` is green with **no
+edits** (47/47) — the PF-107 bar for "behaviour unchanged". `AdminPage` renders
+the Overview and the Blog panel by name now (they take props) and the other
+four through `PANELS` as before.
+
+**Dark contrast: PF-91's substitution applied, not re-decided.** The stat
+label at `--muted2` composited over the card (rgb 13,20,35) measured **4.15**
+in dark — the same failure PF-107 (3.36–4.30) and PF-109 (4.02) found on the
+same shape of 10.5px mono label. `--muted` → **7.00**, dark-scoped at
+(0,2,1). Light: label 5.95, value 16.77, icon 6.68, actions title 6.68,
+action ink 13.75, eyebrow 6.12, lede 6.35 — zero AA failures, untouched.
+Recorded in `locked-decisions.md` under PF-110.
+
+**Transcription notes.** `Admin.dc.html:168-196` verbatim — the welcome
+gradient, the 7px `glowdot` eyebrow dot (composed carrier, longhand timing;
+`getAnimations()` reports `glowdot` running), Anton `clamp(30px,4.4vw,52px)`
+heading with `Parindra` on the site-wide `outline-text` pattern (the name is
+the export's literal, not read from About), the 190px auto-fit grid, the
+`-6px` hover lift with the `.28` shadow, and the 11px/16px action pills with
+the accent-fill hover. The `📝` emoji is gone; the four cards use `◈ { } ✎ ✉`,
+the same swap PF-107 made on the sidebar. The action pill is NOT composed from
+`admin.module.css`'s `.chip` — different padding, size and hover.
+
+**`useMessages` drops back to ONE consumer.** PF-107 extracted it for the
+shell's badge; the shell no longer reads it. The extraction stays: its two
+mutations belong beside the query they invalidate, and the comment now says
+what is true.
+
+**Second pass found one thing, and it was in the build check, not the code:**
+the first bundle grep for `_statCard_`-style names returned 0 matches and
+looked like the sheet had not shipped. Production `generateScopedName` hashes
+class names fully (`.dn2fSg`), so the check was rewritten against VALUES —
+the `0 24px 50px rgba(var(--shd), .28)` hover, the `html[data-theme=dark]`
+`--muted` rule, the `.kf-glowdot` carrier — and all three are present. No
+code change resulted.
+
+**Mutants, control green before and after (52/52 across the three frontend
+files; 5/5 backend):** drop `DASHBOARD_KEY` from `useDeleteSkill` → 1 fails;
+paint `0` in the panel while loading → 1 fails; card reads `posts` instead of
+`published` → 1 fails; shell defaults counts to zeros → 1 fails; `$ne: true`
+→ `read: false` → 1 fails; `drafts: published` → 2 fail.
 
 #### PF-122 — Owner email address consolidation · ADDED to Sprint 14, 2026-09-12
 
@@ -2065,9 +2166,11 @@ retrospective document** — this section is the record, matching Sprint 10,
   (`onFocus` only) for exactly this reason — a blanket ban would fail for work
   that ticket deliberately did not do.
 
-- **`AdminOverviewPanel` has NO loading state.** It destructures `data` and
-  ignores `isLoading`, so the panel renders zeros before the request lands.
-  PF-110 rebuilds it.
+- ~~**`AdminOverviewPanel` has NO loading state.**~~ ✅ **Closed by PF-110
+  (2026-09-16)** — the rebuilt panel shows a shimmer in the value slot and
+  the shell paints no badge/meta/footer number until
+  `GET /api/dashboard/stats` lands; both guarded by tests that fail on a
+  `0` placeholder.
 
 - **⚠️ The dead `i.activeTab` clause cannot be protected by any test.**
   PF-107 deleted it from `AdminLayout.jsx:124`. Mutation-tested: putting it

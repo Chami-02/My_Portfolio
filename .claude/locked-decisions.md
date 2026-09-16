@@ -3056,3 +3056,90 @@ found on the shell, fixed the same way: `--muted2 → --muted` on
 scoped `:global(html[data-theme='dark'])` at (0,2,1) so it wins on
 specificity. Dark after: **6.79 / 6.43**. Light untouched.
 
+
+## PF-110 — the dashboard stats endpoint and the Overview panel (2026-09-16)
+
+### The seven-field response
+
+`GET /api/dashboard/stats` returns `{ projects, skills, posts, published,
+drafts, messages, unread }`. The sprint plan (`new mds/E9/PF-107-121-sprint-14-plan.md`)
+listed five — no `posts`, no `messages`. The two totals were added because the
+shell's blog badge shows total posts and its meta line reads
+`N UNREAD · M TOTAL`; without them the shell keeps one list hook and the
+ticket's own claim — one request feeding the cards, the badges and the footer
+— is false. Rejected: having the client sum `published + drafts` for `posts`
+(fine) but there is no such sum for `messages`, so the field had to come from
+the server anyway, and one shape is simpler than one-and-a-half.
+
+⚠️ **`unread` is `read: { $ne: true }` and `drafts` is `total − published`.**
+Not `read: false`, not `published: false`. A document that never had the
+field — one inserted below the schema, or an older row — has always counted
+as unread/draft on the client (`!m.read`, `!p.published`), and the endpoint
+that replaces those filters must agree. A raw `collection.insertOne` test
+pins each; the `read: false` mutant fails it.
+
+### Invalidation is explicit, per hook — not a global MutationCache hook
+
+Ten mutations name `DASHBOARD_KEY` in their own `onSuccess`: create/delete on
+projects and skills; create/update/togglePublish/delete on posts;
+markRead/delete on messages. Two deliberately do not, and are pinned as
+negatives: `useUpdateProject` (an edit cannot change a count) and
+`useRecordView` (PF-99's locked "invalidates NOTHING"). Vocabulary and About
+mutations change no document count and are untouched.
+
+A `MutationCache({ onSuccess })` in `main.jsx` would have been one line and
+would have covered every future mutation automatically. Rejected: it couples
+the app root to an admin cache key, fires on public mutations (contact
+submit, record-view) where it is a no-op only because nothing observes the
+key, and hides the invalidation from anyone reading a mutation hook — every
+hook in this codebase lists its own keys, and that legibility is the
+convention. If a future ticket adds a count-changing mutation and forgets the
+line, the badge goes stale for `staleTime` (5 min); `useDashboardStats.test.jsx`
+is where the new case goes.
+
+### Loading paints nothing count-shaped
+
+While `useDashboardStats()` has no data: no sidebar badge, no numeric meta
+line, no footer counts line, and a shimmer bar in each card's value slot.
+The two static meta labels (`DASHBOARD`, `PROFILE`) show regardless. PF-107
+defaulted every list to `[]` and painted `0` for the first ~100ms of every
+visit; a number that is not the number is the defect, not a placeholder.
+Guarded in both the shell and the panel — a `0` default fails a test in each.
+The prototype has no loading state at all; this is an implementation
+addition with no visible difference once the request has landed.
+
+### `+ NEW POST` opens the editor; the other three are tab switches
+
+`Admin.dc.html:1093-1098`: NEW PROJECT resets the project form, NEW POST sets
+`blogView: 'edit'`, NEW SKILL and EDIT PROFILE only change the tab. In the
+shipped panels, Projects and Skills mount with their create form already
+showing, so the tab is the whole action; Blog mounts in list view, so
+`AdminPage` carries a `compose` flag beside the tab and passes
+`initialView="edit"` to `AdminBlogPanel` — a one-line, default-`'list'` prop.
+`AdminBlogPanel.test.jsx` stays green with no edits. ⚠️ A sidebar click while
+already on Blog does not close an open editor; the prototype's
+`setState({ tab: 'blog' })` leaves `blogView` alone too.
+
+### Dark-theme contrast — PF-91's substitution applied, not re-decided
+
+Measured composited over the stat card (`rgba(--srf,.5)` over the page
+ground → rgb 13,20,35), one clean load per theme. **Dark:** the 10.5px stat
+label at `--muted2` **4.15** — the same failure PF-107 (3.36–4.30) and PF-109
+(4.02) found on the same shape of small mono label. **Light:** 5.95, passes,
+the control; value 16.77, icon 6.68, actions title 6.68, action ink 13.75,
+eyebrow 6.12, lede 6.35. Fixed the same way as both predecessors: `--muted2 →
+--muted` on `.statLabel`, scoped `:global(html[data-theme='dark'])` at (0,2,1).
+Dark after: **7.00**. Light untouched.
+
+### Transcribed as the export has it, and deliberately so
+
+- **"Parindra" is a literal** (`Admin.dc.html:173`), not read from the About
+  document's `name`. The prototype hardcodes it; so does the panel.
+- **The stat values are printed, not counted up.** The public About section
+  uses `CountUp` because the Portfolio prototype animates its stats; the Admin
+  prototype's cards do not (`{{ stat.value }}`, no keyframe, no script).
+- **The action pill is its own class**, not `admin.module.css`'s `.chip` —
+  7px/12px padding, 12.5px, border-only hover there; 11px/16px, 11.5px,
+  accent-fill hover here. Same silhouette, different values, used once.
+- **`◈ { } ✎ ✉`**, the export's glyphs; the Phase 1 `📝` emoji is gone, for
+  the reason PF-107 gave when it made the same swap on the sidebar.

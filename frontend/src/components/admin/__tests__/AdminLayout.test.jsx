@@ -33,34 +33,24 @@ vi.mock('react-router-dom', async (importOriginal) => ({
   useNavigate: () => navigate,
 }));
 
-const useMe           = vi.hoisted(() => vi.fn());
-const useProjects     = vi.hoisted(() => vi.fn());
-const useSkills       = vi.hoisted(() => vi.fn());
-const useBlogPostAdmin = vi.hoisted(() => vi.fn());
-const useMessages     = vi.hoisted(() => vi.fn());
-const logout          = vi.hoisted(() => vi.fn());
-const refresh         = vi.hoisted(() => vi.fn());
+const useMe             = vi.hoisted(() => vi.fn());
+const useDashboardStats = vi.hoisted(() => vi.fn());
+const logout            = vi.hoisted(() => vi.fn());
+const refresh           = vi.hoisted(() => vi.fn());
 
-vi.mock('../../../hooks/useMe',        () => ({ useMe }));
-vi.mock('../../../hooks/useProjects',  () => ({ useProjects }));
-vi.mock('../../../hooks/useSkills',    () => ({ useSkills }));
-vi.mock('../../../hooks/useBlog',      () => ({ useBlogPostAdmin }));
-vi.mock('../../../hooks/useMessages',  () => ({ useMessages }));
+vi.mock('../../../hooks/useMe',             () => ({ useMe }));
+vi.mock('../../../hooks/useDashboardStats', () => ({ useDashboardStats }));
 vi.mock('../../../services/authService', () => ({ authService: { logout, refresh } }));
 
 const { AdminLayout } = await import('../AdminLayout');
 
-const POSTS = [
-  { _id: 'p1', published: true },
-  { _id: 'p2', published: true },
-  { _id: 'p3', published: false },
-];
-
-const MESSAGES = [
-  { _id: 'm1', read: false },
-  { _id: 'm2', read: true },
-  { _id: 'm3', read: false },
-];
+// PF-110: the shell reads GET /api/dashboard/stats, not four lists. Every
+// figure below is distinct from its neighbours where the shell could
+// confuse them — posts (3) vs published (2) vs drafts (1), and unread (2)
+// vs messages (3) — so a badge wired to the wrong field fails.
+const STATS = {
+  projects: 3, skills: 2, posts: 3, published: 2, drafts: 1, messages: 3, unread: 2,
+};
 
 function renderShell({ activeTab = 'overview', onTabChange = vi.fn() } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -87,10 +77,7 @@ const nav = () => screen.getByRole('navigation', { name: 'Admin sections' });
 beforeEach(() => {
   vi.clearAllMocks();
   useMe.mockReturnValue({ data: { email: 'owner@example.com', role: 'admin' } });
-  useProjects.mockReturnValue({ data: [{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }] });
-  useSkills.mockReturnValue({ data: [{ _id: 's1' }, { _id: 's2' }] });
-  useBlogPostAdmin.mockReturnValue({ data: POSTS });
-  useMessages.mockReturnValue({ data: MESSAGES });
+  useDashboardStats.mockReturnValue({ data: STATS });
 });
 
 describe('AdminLayout — navigation', () => {
@@ -152,6 +139,27 @@ describe('AdminLayout — navigation', () => {
     // renders an empty badge for both, so nothing must appear.
     expect(digits('Overview')).toBe('');
     expect(digits('About')).toBe('');
+  });
+
+  // PF-107 defaulted each list to [] and so painted `0` beside every
+  // section for the first ~100ms of every visit. A number that is not the
+  // number is worse than no number.
+  it('shows no count anywhere while the stats are still loading', () => {
+    useDashboardStats.mockReturnValue({ data: undefined, isLoading: true });
+    renderShell({ activeTab: 'messages' });
+
+    const buttons = within(nav()).getAllByRole('button');
+    for (const b of buttons) expect(b.textContent).not.toMatch(/[0-9]/);
+
+    // Meta line: the static labels still show; the numeric ones are empty.
+    expect(screen.queryByText(/UNREAD|TOTAL|ITEMS|PUBLISHED|DRAFT/)).toBeNull();
+    expect(screen.queryByText(/[0-9] PROJECTS/)).toBeNull();
+  });
+
+  it('keeps the static meta labels while loading', () => {
+    useDashboardStats.mockReturnValue({ data: undefined, isLoading: true });
+    renderShell({ activeTab: 'about' });
+    expect(screen.getByText('PROFILE')).toBeInTheDocument();
   });
 });
 

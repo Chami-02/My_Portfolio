@@ -367,7 +367,14 @@ function TagPicker({ tags, onToggle, onRemoved, onError }) {
   );
 }
 
-export function AdminBlogPanel() {
+/**
+ * `initialView` — PF-110. The Overview's `+ NEW POST` quick action lands
+ * here with the editor already open, the way the prototype's
+ * `setState({ tab: 'blog', blogView: 'edit' })` does (Admin.dc.html:1095).
+ * Read once, at mount: the panel unmounts on every tab change, so the
+ * next arrival gets a fresh initial value.
+ */
+export function AdminBlogPanel({ initialView = 'list' }) {
   const { data: posts = [], isLoading } = useBlogPostAdmin();
   const createPost    = useCreatePost();
   const updatePost    = useUpdatePost();
@@ -377,7 +384,7 @@ export function AdminBlogPanel() {
   const [form,    setForm]    = useState(emptyForm);
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
-  const [view,    setView]    = useState('list'); // 'list' | 'edit'
+  const [view,    setView]    = useState(initialView); // 'list' | 'edit'
   const [errors,  setErrors]  = useState([]);
 
   const resetEditor = () => { setForm(emptyForm()); setEditing(null); setErrors([]); };

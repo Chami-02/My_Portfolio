@@ -1,0 +1,199 @@
+/* frontend/src/components/admin/panels/AdminOverviewPanel.module.css
+ *
+ * PF-110. The Overview panel, transcribed from docs/design/Admin.dc.html
+ * lines 168-196 — every value below is that element's inline style,
+ * re-expressed once here. Nothing is rounded.
+ *
+ * Same three rules as styles/admin.module.css: zero Phase 1 token names
+ * (adminFoundation.test.js lists this sheet), font stacks through
+ * var(--font-*), and nothing generalised that is used once. The stat
+ * card and the quick-action pill each appear ONLY here, which is why
+ * they are declared here and not in the shared layer — .chip in
+ * admin.module.css looks like the pill and is not it (7px/12px padding
+ * and a border-only hover, against 11px/16px and an accent fill).
+ *
+ * ⚠️ Two states the prototype does not have and this panel does:
+ * loading (the value slot shows a shimmer bar; the cards keep their
+ * size, so the grid does not jump when the number arrives) and error
+ * (admin.module.css's .bannerError + RETRY). Both are implementation
+ * additions with no visible difference once the request has landed.
+ */
+
+/* Admin.dc.html:169 — `display:grid;gap:18px` */
+.stack {
+  display: grid;
+  gap: 18px;
+}
+
+/* ═══ Welcome card — Admin.dc.html:170-174 ═══════════════════════ */
+
+.welcome {
+  padding: clamp(20px, 3vw, 30px);
+  border-radius: 20px;
+  background: linear-gradient(150deg, rgba(252, 163, 17, .12), rgba(var(--srf), .6) 46%, rgba(var(--gnd), .7));
+  border: 1px solid rgba(252, 163, 17, .28);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  color: var(--acc, #FCA311);
+}
+
+/* `animation:glowdot 2.4s ease-in-out infinite` — composed, then the
+   timing as longhands. The shorthand would reset animation-name and
+   silently stop the dot; see the .cmsDot note in AdminLayout.module.css. */
+.eyebrowDot {
+  composes: kf-glowdot from global;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+  animation-duration: 2.4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 4.4vw, 52px);
+  line-height: .98;
+  letter-spacing: .015em;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 12px;
+}
+
+/* The outlined name — the site-wide pattern, which also carries the
+   @supports fallback for engines that cannot paint the stroke. */
+.headingOutline {
+  composes: outline-text from '../../../styles/patterns.module.css';
+}
+
+.lede {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+  max-width: 62ch;
+}
+
+/* ═══ Stat grid — Admin.dc.html:176-184 ═════════════════════════ */
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 14px;
+}
+
+.statCard {
+  padding: 22px 20px;
+  border-radius: 18px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .1);
+  transition: transform .25s, border-color .25s, box-shadow .25s;
+}
+
+/* Hover lifts stay ungated under reduced motion — the transition is
+   already collapsed by motion.css, so it is an instant state change. */
+.statCard:hover {
+  transform: translateY(-6px);
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 24px 50px rgba(var(--shd), .28);
+}
+
+.statIcon {
+  margin: 0 0 12px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--acc, #FCA311);
+}
+
+.statValue {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  color: var(--strong);
+}
+
+.statLabel {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--muted2);
+}
+
+/* Loading: the value slot, same 40px line the number will occupy, so
+   the card does not change height when the request lands. Composes the
+   shared shimmer rather than restating it. */
+.statSkeleton {
+  composes: skelBase from '../../../styles/admin.module.css';
+  height: 40px;
+  width: 64px;
+  border-radius: 8px;
+  margin: 0 0 6px;
+}
+
+/* ═══ Quick actions — Admin.dc.html:186-194 ═════════════════════ */
+
+.actionsTitle {
+  margin: 0 0 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .18em;
+  color: var(--acc, #FCA311);
+}
+
+.actionsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgba(var(--gnd), .4);
+  border: 1px solid rgba(var(--ln), .16);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  transition: background .25s, color .25s, border-color .25s, transform .25s;
+}
+
+.action:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-3px);
+}
+
+/* ── Dark-theme contrast ─────────────────────────────────────────────
+ *
+ * Measured 2026-09-16, composited against the card over the page ground
+ * (rgb 13,20,35): the stat label at var(--muted2) reads 4.15:1 in dark —
+ * below AA for 10.5px text — and 7.00:1 at var(--muted). Light was not
+ * measured failing and is untouched.
+ *
+ * ⚠️ NOT a new decision. This applies PF-91's owner-approved
+ * substitution — `--muted2` → `--muted` in DARK ONLY on tinted surfaces
+ * — exactly as PF-107 did on the shell's five small mono labels and
+ * PF-109 on the login's. Same shape of element, same measured failure.
+ *
+ * ⚠️ Wins on SPECIFICITY, (0,2,1) against the base rule's (0,1,0), not
+ * on emission order. */
+:global(html[data-theme='dark']) .statLabel {
+  color: var(--muted);
+}

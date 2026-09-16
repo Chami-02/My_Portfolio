@@ -4,10 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { authService } from '../../services/authService';
 import { ThemeToggle } from '../layout/ThemeToggle';
 import { useMe } from '../../hooks/useMe';
-import { useProjects } from '../../hooks/useProjects';
-import { useSkills } from '../../hooks/useSkills';
-import { useBlogPostAdmin } from '../../hooks/useBlog';
-import { useMessages } from '../../hooks/useMessages';
+import { useDashboardStats } from '../../hooks/useDashboardStats';
 import { useAdminFlash } from '../../hooks/useAdminFlash';
 import { AdminFooter } from './AdminFooter';
 import { SessionExpiryBanner } from './SessionExpiryBanner';
@@ -64,55 +61,48 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
 
   /*
    * The counts behind the sidebar badges, the title meta line and the
-   * footer's session column.
+   * footer's session column — ONE request, GET /api/dashboard/stats
+   * (PF-110), shared with the Overview panel's stat cards through a
+   * single cache entry.
    *
-   * ⚠️ These are the SAME query keys the panels use, so TanStack serves
-   * them from one cache entry and the shell adds no network requests
-   * of its own — mounting the shell simply warms what the panel was
-   * about to ask for. Pointing any of these at a new key would silently
-   * double the request count.
+   * PF-107 derived these from four full list fetches (projects, skills,
+   * the admin post list, messages) because nothing cheaper existed; that
+   * was five requests on every /admin mount, against a 100 / 15 min
+   * limiter, before any panel asked for its own data. It is now two:
+   * /auth/me and this.
    *
-   * PF-110 introduces GET /api/dashboard/stats and may take these over.
-   * Until it exists, deriving from data already in flight is strictly
-   * cheaper than a fifth request.
+   * ⚠️ `counts` is undefined until the response lands, and the shell
+   * renders NOTHING count-shaped in that window — no badge, no
+   * `0 ITEMS`, no `0 PROJECTS · 0 SKILLS`. The PF-107 version defaulted
+   * each list to [] and painted zeros for the first ~100ms; rendering a
+   * number that is not the number is the defect, not a placeholder.
    */
-  const { data: projects = [] } = useProjects();
-  const { data: skills   = [] } = useSkills();
-  const { data: posts    = [] } = useBlogPostAdmin();
-  const { data: messages = [] } = useMessages();
-
-  const published = posts.filter((p) => p.published).length;
-  const drafts    = posts.length - published;
-  const unread    = messages.filter((m) => !m.read).length;
-
-  const counts = {
-    projects:  projects.length,
-    skills:    skills.length,
-    posts:     posts.length,
-    published,
-    drafts,
-    unread,
-    total:     messages.length,
-  };
+  const { data: counts } = useDashboardStats();
 
   // Sidebar badge per tab. '' renders nothing — Overview and About
   // have no collection to count, which is the prototype's own choice.
-  const NAV_COUNTS = {
-    overview: '',
-    projects: String(counts.projects),
-    skills:   String(counts.skills),
-    about:    '',
-    blog:     String(counts.posts),
-    messages: String(counts.unread),
-  };
+  const NAV_COUNTS = counts
+    ? {
+        overview: '',
+        projects: String(counts.projects),
+        skills:   String(counts.skills),
+        about:    '',
+        blog:     String(counts.posts),
+        messages: String(counts.unread),
+      }
+    : {};
 
+  // The two static labels show regardless; the four that carry a number
+  // wait for it.
   const TAB_META = {
     overview: 'DASHBOARD',
-    projects: `${counts.projects} ITEMS`,
-    skills:   `${counts.skills} ITEMS`,
     about:    'PROFILE',
-    blog:     `${published} PUBLISHED · ${drafts} DRAFT`,
-    messages: `${unread} UNREAD · ${counts.total} TOTAL`,
+    ...(counts && {
+      projects: `${counts.projects} ITEMS`,
+      skills:   `${counts.skills} ITEMS`,
+      blog:     `${counts.published} PUBLISHED · ${counts.drafts} DRAFT`,
+      messages: `${counts.unread} UNREAD · ${counts.messages} TOTAL`,
+    }),
   };
 
   /*

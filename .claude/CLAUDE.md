@@ -328,7 +328,7 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108 and PF-109 built 2026-09-16; branch `sprint-14-admin_page_rebuild` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16; branch `sprint-14-admin_page_rebuild` |
 | **Sprint 15 (PF-123 → PF-125)** | **Auth + email** — contact notification, credential editing, password reset | **planned 2026-09-12**, not started |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
@@ -363,7 +363,7 @@ authority; this table is the index.
 | ~~PF-107~~ | Admin design foundations — shell chrome, token layer, shared patterns ✅ **BUILT 2026-09-12** | Highest | 8 |
 | ~~PF-108~~ | Session handling — validate on entry, refresh, clean expiry ✅ **BUILT 2026-09-16** — ⚠️ re-decided mid-ticket: rotating refresh token, NOT a cookie | Highest | 8 |
 | ~~PF-109~~ | `/admin/login` rebuilt in Phase 2 ✅ **BUILT 2026-09-16** — ⚠️ background re-decided: the SITE's ambient layer on login AND the shell, no aurora/scanline stage; `riseIn` split per screen | High | 5 |
-| PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 |
+| ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild ✅ **BUILT 2026-09-16** — seven-field response, not the plan's five; `/admin` mounts on 2 requests, was 5 | High | 5 |
 | PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 |
 | PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 |
 | PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 |
@@ -445,7 +445,7 @@ finds should shape the panel tickets rather than arrive after them.
 - **The blog teaser's two theme-scoped photographs stay PERMANENT** — not
   uploadable. Upholds the 2026-09-07 locked decision.
 - **Overview gets a real `GET /api/dashboard/stats`** — grepped first, nothing
-  like it exists.
+  like it exists. ✅ Built by PF-110.
 - **Auth gets full session handling** (PF-108) **and Google sign-in** (PF-119).
 - **The résumé admin UI is BUILD, not polish** — the backend is complete and
   tested; there is no `type="file"` anywhere in `frontend/src`.
@@ -605,14 +605,30 @@ each had zero consumers, so nothing on screen ever showed it. `scanline` is
 still wrong for both screens and deliberately untouched (both consumers
 removed by decision) — see Outstanding work.
 
+⚠️ **PF-110 (2026-09-16) added the dashboard stats layer.** `backend/src/
+controllers/dashboardController.js` + `routes/dashboardRoutes.js` —
+`GET /api/dashboard/stats`, protected, seven counts in one call;
+`frontend/src/services/dashboardService.js`, `hooks/useDashboardStats.js`
+(`DASHBOARD_KEY = ['dashboard','stats']`), `utils/dashboard.js`
+(`greetingFor`), and `components/admin/panels/AdminOverviewPanel.module.css`
+(registered in `adminFoundation.test.js`). ⚠️ **The shell and the footer no
+longer read any list hook** — badges, meta line and footer counts all come
+from `useDashboardStats()`, and every count-changing mutation hook
+invalidates `DASHBOARD_KEY` explicitly (`useDashboardStats.test.jsx` pins
+which). A new create/delete mutation that forgets the line leaves the badges
+stale for five minutes. ⚠️ `AdminPage`'s state is `{ tab, compose }` and
+`AdminBlogPanel` takes `initialView` — that is how `+ NEW POST` opens the
+editor.
+
 ⚠️ **`/admin` and `/admin/login` mount the SITE's ambient layer** (PF-109):
 `StarfieldCanvas` + `CursorGlow` + `GrainOverlay` as siblings of the shell,
 and `.shell` paints NO background — an opaque one hides the canvas with no
 error. `AdminLayout.test.jsx` guards both.
 
 ⚠️ **Light theme on `/admin` is deliberately MIXED until PF-116.** Header,
-sidebar and footer are Phase 2 and measure zero AA failures; panel interiors
-are still Phase 1 and still washed out. That is the dependency spine, not a
+sidebar, footer and the Overview panel are Phase 2 and measure zero AA
+failures; the other five panel interiors are still Phase 1 and still washed
+out. That is the dependency spine, not a
 regression.
 
 - **Motion primitives**: `import { Reveal, CountUp, Marquee } from
@@ -809,8 +825,8 @@ Skills → Projects → Blog teaser → Contact, each wrapped in
 `<ErrorBoundary>`. API-wired sections: Skills, Projects, Blog, Contact.
 About and Hero are transcribed static (PF-81). `/admin/login` and the
 `/admin` shell are Phase 2 (PF-107, PF-109) and mount the same ambient
-layer; the panel interiors under the shell are still Phase 1 until
-PF-110 → PF-115.
+layer; the Overview panel is Phase 2 (PF-110) and the other five panel
+interiors under the shell are still Phase 1 until PF-112 → PF-115.
 
 ## Stack
 
@@ -1712,6 +1728,25 @@ omitted — keep the two straight.
   `--muted` on `.brandSub`/`.fieldLabel` and `--faint` → `--muted` on the
   placeholder, dark-scoped at (0,2,1). Measured 4.02 / 2.98 → 6.79 / 6.43;
   light was already 6.07 / 5.73 and is untouched.
+- **`GET /api/dashboard/stats` returns SEVEN fields** (PF-110) —
+  `{ projects, skills, posts, published, drafts, messages, unread }`, not
+  the sprint plan's five; the shell's `N TOTAL` and blog badge need the two
+  totals. ⚠️ `unread` is `read: { $ne: true }` and `drafts` is
+  `total − published` — a row with no field counts, matching the `!m.read`
+  client filters it replaced. **Invalidation is explicit per hook**, ten
+  mutations; NOT `useUpdateProject`, NOT `useRecordView` (both pinned as
+  negatives). A global `MutationCache` hook was rejected.
+- **The admin shell paints NOTHING count-shaped while stats load** (PF-110)
+  — no badge, no `0 ITEMS`, no footer counts; the panel's cards show a
+  shimmer in the value slot. A `0` default fails a test in both.
+- **`+ NEW POST` opens the blog editor; the other three quick actions are
+  tab switches** (PF-110) — `AdminPage` carries `{ tab, compose }`,
+  `AdminBlogPanel` takes `initialView`. The Overview's "Parindra" is the
+  export's literal, the stat values are printed not counted up, and the
+  action pill is its own class, not `.chip`.
+- **The Overview's stat label is one token lighter in DARK** (PF-110) —
+  PF-91's substitution again: `--muted2` 4.15 → `--muted` 7.00 on the card;
+  light 5.95, untouched.
 
 ## Environment
 

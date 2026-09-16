@@ -5,6 +5,7 @@ import {
   keepPreviousData,
 } from '@tanstack/react-query';
 import { blogService } from '../services/blogService';
+import { DASHBOARD_KEY } from './useDashboardStats';
 
 export const BLOG_KEY       = ['blog'];
 export const BLOG_ADMIN_KEY = ['blog', 'admin'];
@@ -112,6 +113,11 @@ export const useBlogPost = (slug) =>
 export const useRecordView = () =>
   useMutation({ mutationFn: blogService.recordView });
 
+// PF-110: create, update, togglePublish and delete all invalidate
+// DASHBOARD_KEY too. Update is included on purpose — the editor's
+// published checkbox goes through updatePost, which moves a post between
+// the published and draft counts. useRecordView above stays out: it
+// invalidates nothing, by decision, and a view changes no count.
 export const useCreatePost = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -119,6 +125,7 @@ export const useCreatePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   });
 };
@@ -130,6 +137,7 @@ export const useUpdatePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   });
 };
@@ -141,6 +149,7 @@ export const useTogglePublish = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   });
 };
@@ -152,6 +161,7 @@ export const useDeletePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
   });
 };

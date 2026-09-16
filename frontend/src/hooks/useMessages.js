@@ -1,18 +1,18 @@
 // frontend/src/hooks/useMessages.js
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactService } from '../services/contactService';
+import { DASHBOARD_KEY } from './useDashboardStats';
 
 /**
  * PF-107. Extracted from AdminMessagesPanel, which declared this query
- * inline. It now has two consumers — the panel and the shell's sidebar
- * badge / footer session column — which is the bar for pulling
- * something out rather than duplicating it.
+ * inline, when the shell's sidebar badge became a second consumer.
+ * PF-110 moved the shell onto useDashboardStats, so the panel is the only
+ * consumer again; the extraction stays — the mutations below belong
+ * beside the query they invalidate, and the key is still the literal
+ * ['messages'] the panel has always used.
  *
- * ⚠️ The key stays the literal ['messages'] the panel already used, so
- * the extraction shares the panel's existing cache entry rather than
- * opening a second one beside it. Changing the key here would make the
- * sidebar fetch independently of the panel and quietly double the
- * request count.
+ * ⚠️ markRead and delete both change the unread/total counts the shell
+ * shows, so each invalidates DASHBOARD_KEY as well as this list.
  */
 export const MESSAGES_KEY = ['messages'];
 
@@ -23,7 +23,10 @@ export const useMarkMessageRead = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: contactService.markRead,
-    onSuccess: () => qc.invalidateQueries({ queryKey: MESSAGES_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: MESSAGES_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+    },
   });
 };
 
@@ -31,6 +34,9 @@ export const useDeleteMessage = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: contactService.remove,
-    onSuccess: () => qc.invalidateQueries({ queryKey: MESSAGES_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: MESSAGES_KEY });
+      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+    },
   });
 };

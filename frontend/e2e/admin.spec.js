@@ -89,4 +89,60 @@ test.describe('Admin Authentication Flow', () => {
       page.locator('header').getByText(ADMIN_EMAIL, { exact: true }),
     ).toBeVisible();
   });
+
+  // PF-110. The Overview's four stat cards and the sidebar badges read
+  // ONE request, GET /api/dashboard/stats. This drives the real endpoint
+  // against the seeded e2e database rather than a stub, so a route that
+  // 401s, a badge that stays blank, or a card that never leaves its
+  // skeleton all fail here and nowhere in the unit suite.
+  test('the overview shows the dashboard counts from one request', async ({ page }) => {
+    const statsRequests = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/dashboard/stats')) statsRequests.push(r.url());
+    });
+
+    await page.goto('/admin/login');
+    await page.fill('input[type="email"]',    ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('/admin');
+
+    // Every card's value is a digit once the request lands. Scoped to
+    // main: the sidebar repeats "Projects" / "Skills" as nav labels.
+    const main = page.getByRole('main');
+    for (const label of ['PROJECTS', 'SKILLS', 'PUBLISHED POSTS', 'UNREAD MESSAGES']) {
+      const card = main.getByText(label, { exact: true }).locator('..');
+      await expect(card).toHaveText(/[0-9]+/);
+    }
+
+    // The seed writes projects and skills, so those two badges carry a
+    // number; Overview and About never do (the prototype's own choice).
+    const nav = page.getByRole('navigation', { name: 'Admin sections' });
+    await expect(nav.getByRole('button', { name: /Projects/ })).toHaveText(/[1-9][0-9]*/);
+    await expect(nav.getByRole('button', { name: /Skills/ })).toHaveText(/[1-9][0-9]*/);
+    await expect(nav.getByRole('button', { name: /Overview/ })).not.toHaveText(/[0-9]/);
+
+    // One call feeds the cards, the badges and the footer — not one each.
+    expect(statsRequests).toHaveLength(1);
+  });
+
+  test('the overview quick actions land on their panels', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.fill('input[type="email"]',    ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('/admin');
+
+    // + NEW POST is the one that needs more than a tab switch: the blog
+    // panel mounts in list view and must arrive with its editor open.
+    await page.getByRole('button', { name: '+ NEW POST', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Blog', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'New Post', exact: true })).toBeVisible();
+
+    // Back to the overview by the sidebar, then a plain tab-switch action.
+    await page.getByRole('navigation', { name: 'Admin sections' })
+      .getByRole('button', { name: /Overview/ }).click();
+    await page.getByRole('button', { name: 'EDIT PROFILE', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
+  });
 });

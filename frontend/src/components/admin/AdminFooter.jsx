@@ -22,14 +22,20 @@ import styles from './AdminFooter.module.css';
  * top-and-bottom repetition, the same shape as the reading view's two
  * `← ALL POSTS` controls — not the one-name-two-links defect PF-99
  * renamed. E2E naming which one it means uses .first() / .last().
+ *
+ * `counts` is the dashboard stats payload (PF-110) and is undefined
+ * until it lands; the counts line stays empty rather than reading
+ * `0 PROJECTS · …` for a moment.
  */
 export function AdminFooter({ email, counts, onSignOut }) {
-  const footerCounts = [
-    `${counts.projects} PROJECTS`,
-    `${counts.skills} SKILLS`,
-    `${counts.published} POSTS`,
-    `${counts.unread} UNREAD`,
-  ].join(' · ');
+  const footerCounts = counts
+    ? [
+        `${counts.projects} PROJECTS`,
+        `${counts.skills} SKILLS`,
+        `${counts.published} POSTS`,
+        `${counts.unread} UNREAD`,
+      ].join(' · ')
+    : '';
 
   return (
     <footer className={styles.footer}>

@@ -75,6 +75,7 @@ app.use(async (_req, _res, next) => {
    app.use('/api/resume',   require('./routes/resumeRoutes'));   // PF-60 — public CV download
    app.use('/api/vocabulary', require('./routes/vocabularyRoutes')); 
    app.use('/api/upload', require('./routes/uploadRoutes'));
+   app.use('/api/dashboard', require('./routes/dashboardRoutes')); // PF-110 — admin counts, one call
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────
 app.use(notFound);      // Catch any unmatched routes and create a 404 AppError
