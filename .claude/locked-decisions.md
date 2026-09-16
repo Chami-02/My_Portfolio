@@ -2918,3 +2918,141 @@ here.
   routed through `useAdminFlash` (one message, owned by panel saves). Its
   STAY SIGNED IN goes through the same exported `refreshSession` as the
   interceptor, so it shares the lock and the failure path.
+
+## PF-109 — the login page and the admin background (2026-09-16)
+
+Four owner decisions taken while the ticket was being written, before any
+code. The sprint plan's PF-109 section (`new mds/E9/PF-107-121-sprint-14-plan.md`)
+describes "two aurora orbs and a scanline sweep" and an acceptance line that
+"both aurora orbs measurably animate" — that section is superseded by these,
+not by an implementation choice.
+
+### The login and the admin shell share the MAIN PAGE's background — the prototype's stage is not built
+
+**Decided 2026-09-16.** Asked first about the scanline alone (the sweep at
+`Admin.dc.html:50` is a soft 12%-tall orange band drifting down over 7s; the
+splash's two travelling lines had been removed on 2026-08-17 for reading as
+lines scrolling down the screen). The owner's answer went wider than the
+question: *"dont need the scan line animation for login page keep it simple
+and build according to the theme and the login page background seems to be
+different than the main page background in the prototype. dont build like
+that the main page, admin page and the login page background should be same
+with same attributes and animations and etc."*
+
+Confirmed in a follow-up: **starfield only, no orbs** (the aurora pair at
+`:48-49` goes with the stage), and **the admin shell gets the same layer in
+PF-109** rather than a separate ticket. So both `/admin/login` and the
+`/admin` shell mount `StarfieldCanvas` + `CursorGlow` + `GrainOverlay`,
+exactly `HomePage`'s three, in the same order and z-tiers (0 / 1 / 70).
+
+**Consequences, each deliberate:**
+
+- **DESIGN.md §6.2's "denser node lattice with brighter cursor strands" is
+  REJECTED, not deferred.** PF-107 deferred it as "roughly the size of
+  StarfieldCanvas"; the owner's answer is that there is nothing to build —
+  admin's canvas IS the site's. The PF-107 report's §4.5 is the deferral;
+  this entry is what closed it.
+- **`auroraA` / `auroraB` stay in the keyframe library** (`keyframes.test.js`
+  pins the design's set by name), corrected to the export's bodies in the
+  same ticket, with no carrier and no consumer. A fidelity pass will find two
+  defined-and-unused keyframes and no orbs on the login — both are this
+  decision.
+- **`.shell` paints no background.** The opaque `var(--bg)` PF-107 gave it
+  would hide the canvas. `body` already paints `--bg` (`tokens.css:151`).
+  Guarded in `AdminLayout.test.jsx` as a parsed absence.
+- **The ambient components are SIBLINGS of `.shell`**, mounted in a fragment,
+  not children. The shell's `kf-fadeIn` animates opacity, and an element with
+  an in-progress opacity animation is a stacking context — the fixed canvases
+  would be trapped at the shell's level for the fade's duration. `.shell`
+  itself takes `position: relative; z-index: 2` (the prototype's own value on
+  the panel wrapper, `Admin.dc.html:108`) so its in-flow content paints above
+  the z-0 canvas. Grain at 70 sits above every admin surface including
+  modals, the same relationship it has to the public header.
+- **`--acc2` / `--acc2rgb` stay at zero consumers.** auroraB's
+  `rgba(var(--acc2rgb),.22)` would have been their first; PF-107's note that
+  their justification has expired still stands.
+
+### The login's theme toggle is the site's `ThemeToggle` — PF-107's decision, applied
+
+Not re-asked. `Admin.dc.html:92-98` renders the `--acc2` pill switch with a
+"LIGHT MODE" caption in the login's foot row; PF-107 already had the owner's
+answer for the header ("reuse the site's ThemeToggle"), and the reasoning —
+admin was the last screen that would have carried a different toggle — is
+the same on this page. The foot row keeps the export's layout (`← BACK TO
+PORTFOLIO` left, toggle right, `space-between`, wraps).
+
+### `riseIn` is a per-screen keyframe — the 14px it replaced matched no prototype
+
+**Decided 2026-09-16, "Split into per-screen variants now" chosen over "login
+uses base 14px; log the finding".** The three prototypes define `riseIn` at
+**16px** (Portfolio, line 37), **22px** (Blog) and **18px** (Admin, line 29);
+`base.css` carried a single copy at **14px**, and `keyframes.test.js`'s
+"exact magnitudes" assertion never pinned it. Same situation `flt` / `drift`
+/ `sheen` were given explicit variants for in PF-69, missed for this one.
+
+`riseIn-portfolio`, `riseIn-blog`, `riseIn-admin` now live in the screen
+files; `base.css` has no `riseIn`; `.kf-riseIn` is replaced by three
+carriers. **The four existing consumers changed visibly** — Splash's name
+and role lines, ScrollToTop's button and NotFoundPage's panel now travel
+16px (they are Portfolio-screen elements; the 404 is composed from Portfolio
+elements and carries the Portfolio ambient layer), BlogPostPage's article
+22px. That is the export's own value arriving, not a re-tune, and it is why
+the split was done in one pass rather than adding `riseIn-admin` beside a
+wrong base. `keyframes.test.js` pins all three magnitudes, asserts no bare
+`riseIn` is defined, and asserts no `riseIn*` body carries 14px.
+
+The design's count in that test is **34 names, not 32** — the same 32
+distinct keyframes with `riseIn` counted once per screen, the way `flt`
+already was. `dot-ok` stays the only addition.
+
+### Six admin-only keyframe bodies corrected — and `scanline` deliberately not
+
+Not a decision the owner took; a correction under "the prototype wins",
+recorded here because a later reader will find `git blame` changing six
+keyframes in a login ticket. Compared line-by-line against
+`Admin.dc.html:27-38`: `typeIn` 6px → **14px**; `floatY` -10px → **-9px**;
+`ringPulse` a box-shadow expansion → **`scale(1)/opacity .5` ↔
+`scale(1.12)/opacity 1`** (a different mechanism — the test table had been
+pinning `box-shadow`, i.e. the wrong property, since PF-101 wrote it from the
+repo file); `sheen-admin` `-30% skewX(-20deg) → 130%` → **`0% -120%;
+55%,100% 220%`**, no skew; `auroraA` / `auroraB` px offsets → the export's
+**% offsets and 1 / 1.16 / 1.1 / 1 scales**. All six had zero consumers.
+
+**`scanline` is left wrong on purpose.** It differs per screen (Portfolio
+`-120% → 1200%`, Admin `-10% → 1100%`; base has `-100% → 100vh`) and BOTH
+screens' consumers are removed by owner decision, so there is nothing to
+render and nothing to verify against. Logged to Outstanding work with the
+instruction to split it per screen if a consumer ever appears.
+
+### What the login does NOT transcribe, and why
+
+- **`Admin.dc.html:100`, the "DESIGN PREVIEW — try admin@portfolio.dev /
+  Admin@1234!" line.** Design-tool furniture, and it names the credential
+  CI's `credential-scan` job greps for outside `seed.js` / `admin.spec.js` /
+  `postman/`. A test asserts the page body never contains `DESIGN PREVIEW`
+  or `Admin@`.
+- **A spinner.** The Phase 1 page had one, driven by an injected
+  `<style>@keyframes spin</style>`. The export's busy state is
+  `loginLabel: st.loggingIn ? 'SIGNING IN…' : 'SIGN IN →'` (line 1062) and
+  nothing else — no spinner, no dimming, no cursor change. `disabled` is kept
+  on the button for double-submit protection and changes nothing visible; the
+  hover lift is cancelled with `:not(:disabled)` because `:hover` still
+  matches a disabled button.
+- **`overflow: hidden` on the stage.** It existed to clip the orbs.
+- **`outline: none` on the inputs.** The export's focus treatment (accent
+  border + `0 0 0 3px rgba(252,163,17,.14)` halo) is kept on `:focus`; the
+  outline is the repo's transparent-outline idiom on `:focus-visible` so
+  forced-colors mode restores a ring.
+
+### Dark-theme contrast — PF-91's substitution applied, not re-decided
+
+Measured composited over the card (`rgba(--srf,.62)` over `--bg`), one clean
+load per theme. **Dark:** `--muted2` on the card **4.02** (the 10.5px field
+labels and the 10px `PORTFOLIO CMS`), `--faint` on the input **2.98** (the
+placeholder). **Light:** 6.07 and 5.73 — passes, the control. Every other
+ink 5.27–17.9 in both. The same asymmetry PF-91 found site-wide and PF-107
+found on the shell, fixed the same way: `--muted2 → --muted` on
+`.brandSub` / `.fieldLabel` and `--faint → --muted` on `.input::placeholder`,
+scoped `:global(html[data-theme='dark'])` at (0,2,1) so it wins on
+specificity. Dark after: **6.79 / 6.43**. Light untouched.
+

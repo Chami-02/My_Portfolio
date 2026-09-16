@@ -11,6 +11,7 @@ import { useMessages } from '../../hooks/useMessages';
 import { useAdminFlash } from '../../hooks/useAdminFlash';
 import { AdminFooter } from './AdminFooter';
 import { SessionExpiryBanner } from './SessionExpiryBanner';
+import { StarfieldCanvas, CursorGlow, GrainOverlay } from '../ambient';
 import logo from '../../assets/logo.png';
 import styles from './AdminLayout.module.css';
 import a from '../../styles/admin.module.css';
@@ -28,8 +29,16 @@ import a from '../../styles/admin.module.css';
  *     This upholds the 2026-08-22 locked decision that replaced that
  *     switch everywhere else; admin was the last screen that would
  *     have carried a second, different toggle.
- *   - The full-screen node-lattice canvas the design brief gives admin
- *     (DESIGN.md 6.2) is NOT built here. Deferred to its own ticket.
+ *   - The background is the SITE's ambient layer — StarfieldCanvas,
+ *     CursorGlow and GrainOverlay, exactly what HomePage mounts — and
+ *     NOT the denser node-lattice canvas the design brief gives admin
+ *     (DESIGN.md 6.2). PF-107 deferred the lattice; PF-109 (owner
+ *     decision 2026-09-16) REJECTED it: the main page, the admin panel
+ *     and the login page share one background with the same attributes
+ *     and animations. The three are mounted as siblings of `.shell`,
+ *     not inside it — the shell's fadeIn animates opacity, which makes
+ *     it a stacking context for its duration and would trap the fixed
+ *     canvases at its level instead of the document root's.
  *
  * ⚠️ The ICONS are the prototype's `⊞ ◈ { } ◐ ✎ ✉`. Two of the six were
  * colour emoji (`👤` About, `📝` Blog), which render at a different
@@ -133,6 +142,10 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
   };
 
   return (
+    <>
+      <StarfieldCanvas />
+      <CursorGlow />
+
     <div className={styles.shell}>
 
       {/* ── Header ── */}
@@ -254,5 +267,9 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
 
       <AdminFooter email={me?.email} counts={counts} onSignOut={handleLogout} />
     </div>
+
+      {/* Last. z-index 70 beats page content regardless of DOM order. */}
+      <GrainOverlay />
+    </>
   );
 }

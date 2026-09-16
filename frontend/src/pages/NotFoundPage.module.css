@@ -48,11 +48,12 @@
    `animation` shorthand would additionally reset animation-name to
    `none` and undo the composed class.
 
-   `riseIn` is one of the design's own 32 and already has its carrier in
-   styles/animations.css, so this adds no keyframe and leaves
-   keyframes.test.js's pinned count untouched. */
+   `riseIn-portfolio` — the Portfolio screen's 16px entrance, since
+   PF-109 split riseIn per screen. This page is composed from Portfolio
+   elements and carries the Portfolio ambient layer, so it takes the
+   Portfolio variant. Already has its carrier in styles/animations.css. */
 .panel {
-  composes: kf-riseIn from global;
+  composes: kf-riseIn-portfolio from global;
   animation-duration: .8s;
   animation-timing-function: cubic-bezier(.16, 1, .3, 1);
   animation-fill-mode: both;

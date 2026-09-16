@@ -1,9 +1,46 @@
-import { useState }                              from 'react';
+/* frontend/src/pages/AdminLoginPage.jsx
+ *
+ * /admin/login — PF-109. The Phase 2 sign-in card, transcribed from
+ * docs/design/Admin.dc.html:52-103. The last Phase 1 page on the admin
+ * surface until this: 184 lines of inline style objects, Phase 1 tokens,
+ * a runtime-injected <style>@keyframes spin</style>, and a <label> that
+ * was never associated with its input.
+ *
+ * What is NOT the prototype's, and why (all owner-decided 2026-09-16,
+ * recorded in .claude/locked-decisions.md):
+ *
+ *   - The background is the SITE's ambient layer — the same three
+ *     components HomePage and NotFoundPage mount — not the export's
+ *     aurora-orb + scanline stage. The owner's instruction is that the
+ *     main page, the admin panel and this page share one background.
+ *   - The theme toggle is the site's 44x44 sun/moon button, not the
+ *     export's --acc2 pill (PF-107's decision, applied here).
+ *   - The "DESIGN PREVIEW — try admin@portfolio.dev / Admin@1234!" line
+ *     is not rendered: it prints a credential CI greps for.
+ *   - There is no spinner. The export's busy state is the label
+ *     changing to SIGNING IN…, and that is all this renders. The
+ *     injected @keyframes spin went with it.
+ *
+ * The sign-in LOGIC is PF-108's and is unchanged: `destinationFrom`
+ * honours the location ProtectedRoute captured, a stored refresh token
+ * short-circuits to that destination, and every failure goes through
+ * utils/loginError.js so a wrong password and an unreachable server
+ * produce different sentences.
+ */
+import { useState }                                 from 'react';
 import { useNavigate, useLocation, Navigate, Link } from 'react-router-dom';
-import { authService }         from '../services/authService';
-import { session }             from '../services/session';
-import { loginErrorMessage }   from '../utils/loginError';
-import a from '../styles/admin.module.css';
+import { authService }       from '../services/authService';
+import { session }           from '../services/session';
+import { loginErrorMessage } from '../utils/loginError';
+import { ThemeToggle }       from '../components/layout/ThemeToggle';
+import {
+  PageShell,
+  StarfieldCanvas,
+  CursorGlow,
+  GrainOverlay,
+} from '../components/ambient';
+import logo   from '../assets/logo.png';
+import styles from './AdminLoginPage.module.css';
 
 /**
  * Where to go after signing in. ProtectedRoute hands over the location the
@@ -52,133 +89,106 @@ export function AdminLoginPage() {
     }
   };
 
-
   return (
-    <div style={{
-      minHeight:      '100vh',
-      display:        'flex',
-      alignItems:     'center',
-      justifyContent: 'center',
-      padding:        '2rem',
-      background:     'var(--bg)',
-    }}>
-      <div style={{ width: '100%', maxWidth: '380px' }} className="animate-fade-in-up">
+    <PageShell>
+      {/* Ambient first: the card establishes its own stacking context at
+          z-index 2, and the fixed canvases sit at 0 and 1 beneath it.
+          Same order and reasoning as NotFoundPage. No `Reveal` (a single
+          screen with nothing below the fold animates once as a whole —
+          the card's riseIn) and no ErrorBoundary (nothing here fetches
+          on render). */}
+      <StarfieldCanvas />
+      <CursorGlow />
 
-        {/* Header */}
-        <div style={{ marginBottom: '2rem' }}>
-          <Link to="/" style={{ textDecoration: 'none' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
-              <span style={{ color: 'var(--accent)' }}>&lt;</span>PC<span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>/</span><span style={{ color: 'var(--accent)' }}>&gt;</span>
+      <div className={styles.screen}>
+        <div className={styles.card}>
+
+          <div className={styles.brand}>
+            <span className={styles.logoWrap}>
+              <span aria-hidden="true" className={styles.ring} />
+              <img src={logo} alt="Parindra Gallage" width="54" height="54" className={styles.logo} />
             </span>
-          </Link>
-          <p style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent)', fontSize: '0.75rem',
-            letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '1.5rem', marginBottom: '0.375rem' }}>
-            Portfolio CMS
-          </p>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Admin Sign In
+            <span className={styles.brandText}>
+              <span className={styles.brandName}>
+                PARINDRA<span className={styles.brandDot}>.</span>DEV
+              </span>
+              <span className={styles.brandSub}>PORTFOLIO CMS</span>
+            </span>
+          </div>
+
+          <h1 className={styles.heading}>
+            Admin <span className={styles.headingOutline}>sign in</span>
           </h1>
-        </div>
+          <p className={styles.lede}>
+            Restricted area. Sign in to manage projects, skills, profile, writing and messages.
+          </p>
 
-        {/* Error banner */}
-        {error && (
-          <div style={{
-            background:   'rgba(239,68,68,0.06)',
-            border:       '1px solid rgba(239,68,68,0.3)',
-            borderRadius: '0.625rem',
-            padding:      '0.875rem 1rem',
-            marginBottom: '1.25rem',
-            display:      'flex',
-            gap:          '0.5rem',
-            alignItems:   'flex-start',
-          }}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2"
-              style={{ width: 16, height: 16, flexShrink: 0, marginTop: '2px' }}>
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <p style={{ color: '#f87171', fontSize: '0.875rem' }}>{error}</p>
-          </div>
-        )}
+          {/* role="alert" so a screen reader hears the failure without
+              having to find it — the Phase 1 banner had no role. */}
+          {error && (
+            <div role="alert" className={styles.error}>
+              <span aria-hidden="true" className={styles.errorMark}>!</span>
+              <p className={styles.errorText}>{error}</p>
+            </div>
+          )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className={a.label}>
-              Email Address
+          <form onSubmit={handleSubmit} className={styles.form}>
+            <span aria-hidden="true" className={styles.rule} />
+
+            <label className={`${styles.field} ${styles.fieldEmail}`}>
+              <span className={styles.fieldLabel}>Email address</span>
+              <input
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                placeholder="admin@portfolio.dev"
+                value={form.email}
+                onChange={handleChange}
+                className={styles.input}
+              />
             </label>
-            <input
-              type="email"
-              name="email"
-              required
-              autoComplete="email"
-              placeholder="admin@portfolio.dev"
-              value={form.email}
-              onChange={handleChange}
-              className={a.input}
-            />
-          </div>
 
-          <div>
-            <label className={a.label}>
-              Password
+            <label className={`${styles.field} ${styles.fieldPassword}`}>
+              <span className={styles.fieldLabel}>Password</span>
+              <input
+                type="password"
+                name="password"
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={form.password}
+                onChange={handleChange}
+                className={styles.input}
+              />
             </label>
-            <input
-              type="password"
-              name="password"
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={handleChange}
-              className={a.input}
-            />
+
+            {/* `disabled` guards against a double submit while the request
+                is in flight; it changes nothing visible (see the module).
+                The sheen is decorative-only, so under reduced motion it
+                is removed rather than frozen — frozen, it is a white
+                stripe parked over the label. */}
+            <button type="submit" disabled={loading} className={styles.submit}>
+              <span aria-hidden="true" data-motion-decorative="" className={styles.sheen} />
+              <span className={styles.submitLabel}>
+                {loading ? 'SIGNING IN…' : 'SIGN IN →'}
+              </span>
+            </button>
+          </form>
+
+          <div className={styles.foot}>
+            {/* `?nosplash=1` on every inbound link from admin (DESIGN.md §7),
+                matching the shell's ↗ HOME and ← BACK TO HOME PAGE. */}
+            <Link to="/?nosplash=1" className={styles.back}>← BACK TO PORTFOLIO</Link>
+            <ThemeToggle />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary"
-            style={{
-              width:          '100%',
-              justifyContent: 'center',
-              marginTop:      '0.5rem',
-              opacity:        loading ? 0.7 : 1,
-              cursor:         loading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {loading ? (
-              <>
-                <span style={{
-                  width: 16, height: 16, border: '2px solid currentColor',
-                  borderTopColor: 'transparent', borderRadius: '50%',
-                  display: 'inline-block', animation: 'spin 0.6s linear infinite',
-                }} />
-                Signing in...
-              </>
-            ) : (
-              <>
-                Sign In
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 16, height: 16 }}>
-                  <path d="M5 12h14M12 5l7 7-7 7"/>
-                </svg>
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Back link */}
-        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-          <Link to="/" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'none',
-            fontFamily: 'var(--font-mono)', transition: 'color 0.2s' }}
-            onMouseEnter={(e) => { e.target.style.color = 'var(--accent)'; }}
-            onMouseLeave={(e) => { e.target.style.color = 'var(--text-muted)'; }}>
-            ← Back to Portfolio
-          </Link>
         </div>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
+      {/* Last. z-index 70 beats page content regardless of DOM order, so
+          this is for the reader, not the browser. */}
+      <GrainOverlay />
+    </PageShell>
   );
 }

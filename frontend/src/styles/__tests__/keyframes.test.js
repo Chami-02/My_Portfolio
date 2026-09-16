@@ -25,17 +25,26 @@ const all       = [base, portfolio, blog, admin].join('\n');
 const screens   = [portfolio, blog, admin].join('\n');
 
 const BASE = [
-  'riseIn', 'fadeIn', 'typeIn', 'barGrow',
+  'fadeIn', 'typeIn', 'barGrow',
   'dot', 'glowdot', 'glowpulse', 'pulsering', 'ringPulse', 'boltp',
   'breathe', 'floatY', 'nudge', 'spin', 'orbdot',
   'sweep', 'shimmerline', 'shimmer',
   'scanline', 'flicker', 'marq', 'blink',
 ];
 
+/**
+ * ⚠️ `riseIn` is a per-screen variant since PF-109 (2026-09-16). The
+ * three prototypes define it at 16px / 22px / 18px, and the single copy
+ * that lived in base.css was 14px — matching none of them. It now gets
+ * the flt/drift/sheen treatment: one name per screen, no unsuffixed
+ * fallback. That is why the design's count below is 34, not 32: the
+ * same 32 keyframes, with riseIn counted once per screen the way flt
+ * already was.
+ */
 const VARIANTS = [
-  'flt-portfolio', 'drift-portfolio', 'sheen-portfolio',
-  'flt-blog', 'sheen-blog',
-  'flt-admin', 'drift-admin', 'sheen-admin',
+  'flt-portfolio', 'drift-portfolio', 'sheen-portfolio', 'riseIn-portfolio',
+  'flt-blog', 'sheen-blog', 'riseIn-blog',
+  'flt-admin', 'drift-admin', 'sheen-admin', 'riseIn-admin',
   'auroraA', 'auroraB',
 ];
 
@@ -71,11 +80,12 @@ describe('Keyframe library (PF-69)', () => {
     expect(defines(base, name)).toBe(true);
   });
 
-  it('defines the prototype\'s 32 keyframes plus exactly the listed additions', () => {
+  it('defines the prototype\'s 34 keyframe names plus exactly the listed additions', () => {
     const found = [...all.matchAll(/@keyframes\s+([a-zA-Z0-9_-]+)/g)].map(m => m[1]);
 
-    // The design's own set is still 32 and still asserted as such.
-    expect(BASE.length + VARIANTS.length).toBe(32);
+    // The design's own set — 32 distinct keyframes, with riseIn carried
+    // once per screen (see the VARIANTS note). Still asserted as such.
+    expect(BASE.length + VARIANTS.length).toBe(34);
 
     // Anything defined that is in none of the three lists is drift.
     const known = new Set([...BASE, ...VARIANTS, ...ADDITIONS]);
@@ -118,7 +128,6 @@ describe('Keyframe library (PF-69)', () => {
    */
   const ANIMATES = {
     // base.css
-    riseIn:      ['opacity', 'transform'],
     fadeIn:      ['opacity'],
     typeIn:      ['opacity', 'transform'],
     barGrow:     ['transform'],
@@ -127,7 +136,12 @@ describe('Keyframe library (PF-69)', () => {
     glowdot:     ['box-shadow', 'transform'],
     glowpulse:   ['box-shadow'],
     pulsering:   ['opacity', 'transform'],
-    ringPulse:   ['box-shadow'],
+    // ⚠️ NOT box-shadow. Admin.dc.html:33 scales the ring and breathes
+    // its opacity; the box-shadow body this used to pin had no prototype
+    // source (that mechanism is `pulsering`, the splash's). Corrected in
+    // PF-109 — the second keyframe, after `sweep`, found to ship the
+    // wrong PROPERTY, which is exactly the class this table exists for.
+    ringPulse:   ['opacity', 'transform'],
     boltp:       ['opacity', 'transform'],
     breathe:     ['transform'],
     floatY:      ['transform'],
@@ -145,11 +159,14 @@ describe('Keyframe library (PF-69)', () => {
     'flt-portfolio':   ['transform'],
     'drift-portfolio': ['transform'],
     'sheen-portfolio': ['opacity', 'transform'],
+    'riseIn-portfolio': ['opacity', 'transform'],
     'flt-blog':        ['transform'],
     'sheen-blog':      ['transform'],
+    'riseIn-blog':     ['opacity', 'transform'],
     'flt-admin':       ['transform'],
     'drift-admin':     ['transform'],
     'sheen-admin':     ['transform'],
+    'riseIn-admin':    ['opacity', 'transform'],
     auroraA:           ['transform'],
     auroraB:           ['transform'],
   };
@@ -205,6 +222,29 @@ describe('Keyframe library (PF-69)', () => {
     expect(portfolio).toMatch(/translateY\(-14px\)/);
     expect(blog).toMatch(/translateY\(-12px\)/);
     expect(admin).toMatch(/translateY\(-16px\)/);
+    // PF-109 — the three admin-only bodies corrected against
+    // Admin.dc.html:31-33, and the sheen's no-skew resting point.
+    expect(base).toMatch(/translateY\(-9px\)/);           // floatY
+    expect(base).toMatch(/translateY\(14px\)/);           // typeIn
+    expect(base).toMatch(/scale\(1\.12\)/);              // ringPulse
+    expect(admin).toMatch(/translateX\(220%\)/);          // sheen-admin
+    expect(admin).not.toMatch(/skewX/);                   // sheen-admin has none
+  });
+
+  /**
+   * PF-109. riseIn is the fourth per-screen keyframe, and the split is
+   * the whole point: each screen's magnitude is the prototype's own.
+   * Pinned per screen so a well-meaning "unify them" cannot land quietly.
+   * The 14px that used to live in base.css matched no prototype and
+   * must not come back anywhere.
+   */
+  it('keeps the three riseIn variants at their own prototype magnitudes', () => {
+    const rise = (css, name) => bodyOf(css, name);
+    expect(rise(portfolio, 'riseIn-portfolio')).toMatch(/translateY\(16px\)/);
+    expect(rise(blog,      'riseIn-blog')).toMatch(/translateY\(22px\)/);
+    expect(rise(admin,     'riseIn-admin')).toMatch(/translateY\(18px\)/);
+    expect(defines(base, 'riseIn')).toBe(false);
+    expect(all).not.toMatch(/riseIn[a-z-]*\s*\{[^}]*translateY\(14px\)/);
   });
 
   it('keeps the three flt variants distinct', () => {

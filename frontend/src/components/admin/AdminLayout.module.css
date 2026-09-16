@@ -21,13 +21,20 @@
  * Re-measure with header.getBoundingClientRect().height before changing
  * any header padding — this is exactly how --header-h turned out to be
  * 71px and not the 70 its ticket estimated. */
+/* ⚠️ No `background` here. PF-107 painted `var(--bg)` on the shell;
+   PF-109 removed it because an opaque shell hides the StarfieldCanvas
+   mounted beneath it (fixed, z-index 0). body already paints --bg
+   (tokens.css), so nothing is lost — and the header's rgba(--ftr,.92)
+   and the sidebar's rgba(--srf,.34) are translucent on purpose, so the
+   field shows through them the way it does through the site header. */
 .shell {
   --admin-header-h: 67px;
   composes: kf-fadeIn from global;
+  position: relative;
+  z-index: 2;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
   animation-duration: .5s;
   animation-fill-mode: both;
 }

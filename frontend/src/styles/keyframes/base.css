@@ -1,10 +1,20 @@
 /*
-* Animation vocabulary — PF-69.
- * Transcribed verbatim from the Portfolio Revolution prototype.
+ * Animation vocabulary — PF-69.
+ * Transcribed from the three prototypes in docs/design/.
  *
- * These 22 are identical across all three screens. Three others
- * (flt, drift, sheen) differ per screen and live in the sibling
- * portfolio/blog/admin files under explicit variant names.
+ * ⚠️ This file is NOT "the keyframes shared by every screen" — only
+ * four of them appear in all three prototypes. The real rule is
+ * "everything that is not a per-screen variant": flt, drift, sheen and
+ * — since PF-109 — riseIn differ per screen and live in the sibling
+ * portfolio/blog/admin files under explicit variant names. auroraA/B
+ * are admin-only and live in admin.css. 21 here.
+ *
+ * ⚠️ PF-109 (2026-09-16) corrected three admin-only bodies here that
+ * had been transcribed from something other than Admin.dc.html:27-38
+ * (typeIn 6px → 14px, floatY -10px → -9px, ringPulse box-shadow →
+ * scale+opacity). Each had zero consumers, so nothing on screen changed
+ * — which is exactly why they survived three sprints. Verify a keyframe
+ * against the prototype that OWNS it, not against a sibling screen's.
  *
  * Timings and magnitudes are exact. Do not round.
  * scale(1.022) is not scale(1.02). translateY(-14px) is not -12px.
@@ -12,11 +22,10 @@
 
 /* ── Entrance ────────────────────────────────────────────── */
 
-/* The workhorse — scroll reveals, staggered form fields */
-@keyframes riseIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
-}
+/* riseIn used to live here at translateY(14px) — a value that matched
+   NONE of the three prototypes (Portfolio 16px, Blog 22px, Admin 18px).
+   PF-109 moved it to the screen files as riseIn-portfolio / riseIn-blog
+   / riseIn-admin, the same treatment flt/drift/sheen already had. */
 
 /* Plain opacity fade. Admin banners, panel shell, modal overlay. */
 @keyframes fadeIn {
@@ -24,10 +33,11 @@
   to   { opacity: 1; }
 }
 
-/* Splash boot-log line reveal */
+/* Admin login — the staggered brand / heading / field reveals.
+   Admin.dc.html:36. Admin-only; the splash does not use it. */
 @keyframes typeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none;             }
 }
 
 /* Decorative accent rule that draws itself in.
@@ -86,11 +96,13 @@
   50%      { transform: scale(1.06); opacity: 1;   }
 }
 
-/* Splash logo ring — expands a shadow, does NOT scale the element */
+/* Admin login logo ring — Admin.dc.html:33. Scales the ring element
+   itself and breathes its opacity; it is NOT a box-shadow ring (that
+   is `pulsering`, the splash's). The body shipped here until PF-109
+   was a box-shadow expansion with no prototype source. */
 @keyframes ringPulse {
-  0%   { box-shadow: 0 0 0 0    rgba(252,163,17,.5); }
-  70%  { box-shadow: 0 0 0 22px rgba(252,163,17,0);  }
-  100% { box-shadow: 0 0 0 0    rgba(252,163,17,0);  }
+  0%, 100% { transform: scale(1);    opacity: .5; }
+  50%      { transform: scale(1.12); opacity: 1;  }
 }
 
 /* Lightning bolt decoration */
@@ -107,10 +119,11 @@
   50%      { transform: scale(1.02);  }
 }
 
-/* Slow vertical float — logo, decorative elements */
+/* Slow vertical float — the admin login's logo. Admin.dc.html:31.
+   -9px, not -10: this is the one place the value is defined. */
 @keyframes floatY {
-  0%, 100% { transform: translateY(0);     }
-  50%      { transform: translateY(-10px); }
+  0%, 100% { transform: translateY(0);    }
+  50%      { transform: translateY(-9px); }
 }
 
 /* Scroll-down cue */

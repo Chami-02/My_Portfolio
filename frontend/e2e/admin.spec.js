@@ -22,7 +22,11 @@ test.describe('Admin Authentication Flow', () => {
 
   test('admin login page displays the form', async ({ page }) => {
     await page.goto('/admin/login');
-    await expect(page.getByRole('heading', { name: 'Admin Sign In' })).toBeVisible();
+    // PF-109 — the Phase 2 heading is "Admin sign in" (the second word
+    // is the outlined one). exact: true pins the copy; without it
+    // Playwright matched the old casing by substring, case-insensitive,
+    // and this line would have kept passing against either page.
+    await expect(page.getByRole('heading', { name: 'Admin sign in', exact: true })).toBeVisible();
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();

@@ -2598,3 +2598,59 @@ VALUE was a status code, but the KEY name tripped the filter. Name result keys
 after what they mean (`replayStatus`), and keep the actual token inside the
 page script. The redaction is correct behaviour; it just reads as a failed
 measurement.
+
+## ⚠️ A library keyframe transcribed from the WRONG SCREEN — or from nothing — stays green for as long as nothing consumes it (PF-109, 2026-09-16)
+
+**What happened.** PF-107 flagged `sheen-admin` as not matching the export.
+PF-109, the first ticket to consume any admin-only keyframe, compared every
+one it would use against `Admin.dc.html:27-38` and found **six** wrong
+bodies, not one:
+
+| keyframe | repo | prototype | class |
+| --- | --- | --- | --- |
+| `typeIn` | `translateY(6px)` | `translateY(14px)` | magnitude |
+| `floatY` | `-10px` | `-9px` | magnitude |
+| `ringPulse` | `box-shadow` expansion | `scale(1)/opacity .5 → scale(1.12)/opacity 1` | **mechanism** |
+| `sheen-admin` | `-30% skewX(-20deg) → 130%` | `0% -120%; 55%,100% 220%` | shape |
+| `auroraA` / `auroraB` | px offsets, 1.15 / 1.1 | % offsets, 1→1.16 / 1.1→1 | magnitude |
+| `riseIn` | `14px` (one copy) | 16 / 22 / 18 per screen | **per-screen, transcribed as one** |
+
+`base.css`'s header said "these 22 are identical across all three screens";
+the PF-85 pre-flight had already corrected that sentence (only 4 of 22 are),
+but the bodies were never re-checked against the screen that owns them —
+they had been transcribed by symmetry with the Portfolio file, or from a
+description, during E6.
+
+**Why nothing caught it.** `keyframes.test.js` pins names (all present),
+and since PF-101 pins the animated PROPERTY (correct for five of six — only
+`ringPulse` was a mechanism error, and the table had been written from the
+repo file so it pinned `box-shadow`, the wrong answer, and passed). No
+consumer existed to look wrong on screen. `animations.test.js` checks that
+every carrier points at a defined keyframe, and there were no carriers. A
+green suite said nothing about any of them, for three sprints.
+
+**The rule.** Verify a body against the prototype that OWNS it, and grep all
+three `.dc.html` files before calling any keyframe "shared" — a name that
+appears in two files can carry two bodies (`riseIn`, `scanline`). When a
+screen's keyframes are first consumed, re-read every one, not just the one a
+previous ticket happened to flag. `keyframes.test.js` now pins the corrected
+magnitudes (`-9px`, `14px`, `scale(1.12)`, `translateX(220%)`, no `skewX` in
+admin, and the three `riseIn` values), so the same bodies cannot drift back.
+
+## ⚠️ An opaque `background` on an ancestor hides a `position: fixed; z-index: 0` canvas with no error at all (PF-109, 2026-09-16)
+
+`AdminLayout.module.css`'s `.shell` declared `background: var(--bg)` (PF-107).
+Mounting `StarfieldCanvas` for the shell (owner decision: admin shares the
+main page's background) would have rendered a full-viewport canvas at
+z-index 0 under a full-viewport opaque plate. Every instrument that reads the
+canvas reports healthy — `getContext('2d')` non-null, the rAF loop running,
+`canvas.width` 3420 at dpr 2, `getAnimations()` irrelevant — because the
+canvas IS painting; it is just painted over. Same family as the splash gate
+and `toBeVisible()`: a measurement of the element cannot see what is on top
+of it. **Hit-test or screenshot**, and check whether any ancestor between
+the canvas's stacking context and the content paints an opaque background.
+The fix was deleting the declaration (`body` already paints `--bg`, so the
+plate was redundant) and giving `.shell` `position: relative; z-index: 2` so
+its in-flow content paints above the canvas. Guarded as a parsed absence in
+`AdminLayout.test.jsx`, mutation-proven.
+

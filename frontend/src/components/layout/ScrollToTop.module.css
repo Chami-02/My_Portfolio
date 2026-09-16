@@ -21,8 +21,9 @@
 
 .button {
   /* Entrance. Phase 1 used `animation: fadeInUp .3s ease both` inline;
-     riseIn is the Phase 2 library's equivalent (14px vs 24px) and the
-     carrier already exists. `composes` must be the first declaration,
+     riseIn-portfolio is the Phase 2 library's equivalent (16px vs 24px;
+     the Portfolio prototype's own value since PF-109 split riseIn per
+     screen) and the carrier already exists. `composes` must be the first declaration,
      and the timing must be longhands — the `animation` shorthand resets
      animation-name and undoes the carrier.
 
@@ -33,7 +34,7 @@
      browser drops it on completion, so that footnote goes away. The
      animation starts on mount and runs forwards to the element's own
      resting state, so there is nothing for a fill to hold. */
-  composes: kf-riseIn from global;
+  composes: kf-riseIn-portfolio from global;
   animation-duration: .3s;
   animation-timing-function: ease;
 

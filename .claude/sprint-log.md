@@ -513,7 +513,7 @@ record; that file is the sprint's authority.
 | --- | --- | --- | --- | --- | --- |
 | ~~PF-107~~ | Admin design foundations — shell chrome, token layer, shared patterns | Highest | 8 | To Do | ✅ **BUILT 2026-09-12** |
 | ~~PF-108~~ | Session handling — validate on entry, refresh, clean expiry | Highest | 8 | To Do | ✅ **BUILT 2026-09-16** — re-decided mid-ticket, see entry |
-| PF-109 | `/admin/login` rebuilt in Phase 2 | High | 5 | To Do | not started |
+| ~~PF-109~~ | `/admin/login` rebuilt in Phase 2 | High | 5 | To Do | ✅ **BUILT 2026-09-16** — background re-decided, see entry |
 | PF-110 | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | not started |
 | PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | not started |
 | PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 | To Do | not started |
@@ -735,6 +735,94 @@ rotation and family logic carry over unchanged. Not fixed, recorded: no
 absolute session lifetime (7-day sliding idle only); `protect` still does two
 lookups per request (family + user); multi-tab refresh race is resolved
 conservatively (loser's family dies — both tabs re-login).
+
+#### PF-109 — `/admin/login` rebuilt in Phase 2 · ✅ BUILT 2026-09-16
+
+**Report: `new mds/E9/PF-109-admin-login-rebuild.md`.** 2 new files, 19 code
+modified. Frontend **1183** tests (was 1142; +32 `AdminLoginPage.test.jsx`,
++7 keyframe guard changes, +2 shell guards), lint clean, coverage
+93.23/89.06/87.16/95.43, build clean with **0 unresolved `animation-name`**
+in the bundle (39 defined, 25 referenced). Backend 374 ×2 untouched. E2E
+**73/73**. Ten mutants killed with a green control before and after.
+
+**The headline: the ticket the plan described is not the ticket that
+shipped, and the difference is four owner decisions taken at planning
+(2026-09-16), all recorded in `locked-decisions.md`.** (1) No scanline
+sweep. (2) The login's background is the SITE's ambient layer —
+`StarfieldCanvas` + `CursorGlow` + `GrainOverlay` — NOT `Admin.dc.html:48-50`'s
+aurora-orb stage; the orbs go with it. Owner: *"the main page, admin page and
+the login page background should be same with same attributes and
+animations."* (3) The admin SHELL gets the same layer in this ticket, which
+turns PF-107's "lattice canvas deferred" into **rejected**. (4) `riseIn`
+is split per screen. The sprint plan's acceptance line "both aurora orbs
+measurably animate" is therefore superseded: what was measured instead is
+the card entrance, logo float, ring pulse, sheen and bar (`getAnimations()`
+filtered on `running`, against a non-animating control that read `[]`).
+
+**The trace found six wrong keyframe bodies, not one.** PF-107 had flagged
+`sheen-admin`; compared line-by-line against `Admin.dc.html:27-38`, `typeIn`
+(6px vs 14px), `floatY` (-10 vs -9), `ringPulse` (a box-shadow ring vs the
+export's `scale(1)→1.12` + opacity — a different **mechanism**, the
+PF-101 `sweep` class of bug, and `keyframes.test.js` was pinning the wrong
+property), `auroraA` and `auroraB` (px offsets, wrong scales) were all wrong
+too. Every one had **zero consumers**, which is exactly how they survived
+three sprints. All six corrected; `scanline` deliberately NOT (below).
+⚠️ **`riseIn` was 14px in `base.css` and the three prototypes say 16 / 22 /
+18** — it matched none of them. Now `riseIn-portfolio` / `-blog` / `-admin`,
+the four existing consumers re-pointed (Splash ×2, ScrollToTop,
+NotFoundPage → portfolio; BlogPostPage → blog), `.kf-riseIn` gone. The
+design's count in `keyframes.test.js` is **34 names** (32 distinct, riseIn
+thrice) + `dot-ok`; the test pins all three magnitudes and asserts the 14px
+never returns under any `riseIn*` name.
+
+**What the login itself fixes beyond styling.** The Phase 1 `<label>` had no
+`htmlFor` beside an `<input>` with no `id` — visually labelled, not
+associated; the export's wrapping `<label>` fixes it and the new test asserts
+both fields `getByLabelText`. The error banner gains `role="alert"`. The
+injected `<style>@keyframes spin</style>` and the spinner are gone: the
+export's busy state is the label becoming `SIGNING IN…`, nothing more. The
+"DESIGN PREVIEW — try … / Admin@1234!" line (`Admin.dc.html:100`) is not
+rendered — CI's credential scan greps for it. `?nosplash=1` on the back link,
+matching the shell. PF-108's `destinationFrom` / `hasRefreshToken` /
+`loginErrorMessage` logic is byte-identical.
+
+**Measured, one clean load per theme, composited over the card
+(`rgba(--srf,.62)` over `--bg`).** Dark: `--muted2` 4.02 ✗ (labels, brand
+sub) and `--faint` 2.98 ✗ (placeholder); everything else 6.47–17.9. Light:
+zero failures (6.07 / 5.73 on the same two), the control. PF-91's
+substitution applied dark-scoped at (0,2,1): 6.79 / 6.43. Live in Chrome:
+`floatY`, `ringPulse`, `sheen-admin` running, `riseIn-admin` and `barGrow`
+finished, control `[]`; canvas fixed at z 0 (3420px wide, dpr 2);
+`elementFromPoint` on the submit returns the button through the z-70 grain;
+`backdrop-filter` computes to `blur(14px)`. `/admin?probe=1` with no session
+→ login with `history.state.usr.from.search === '?probe=1'`. Headless
+Playwright at 400px, both themes: page 400/400, card 358/358, heading one
+line. Real `emulateMedia({ reducedMotion })`, asserted taken: sheen
+`display: none` (first consumer of `motion.css`'s `data-motion-decorative`
+rule — frozen, it is a white stripe parked over the label), zero infinite
+animations running.
+
+**The shell over the starfield.** `.shell` painted `background: var(--bg)`,
+an opaque plate that would have hidden the canvas with no error — removed
+(`body` already paints `--bg`), and `.shell` takes `position: relative;
+z-index: 2` so its in-flow content paints above the z-0 canvas (the
+prototype's own `z-index:2` on the panel wrapper). The three ambient
+components are siblings of `.shell`, not children: the shell's `fadeIn`
+animates opacity and is a stacking context while it runs, which would trap
+the fixed canvases at its level. `AdminLayout.test.jsx` wraps in
+`MotionProvider` now (StarfieldCanvas calls `useReducedMotion`) and gains two
+guards: a `<canvas>` is mounted, and `.shell` declares no `background`
+(parsed). Both mutation-proven.
+
+**Second pass found nothing to fix in the code; it found one gap in the
+tests** — nothing guarded the shell's ambient mount or the removed
+background, so mutants 9 and 10 were written after the eight login mutants
+and both were caught only once the guards existed.
+
+**Sprint-plan corrections, the code wins:** "use a carrier for spin" — there
+is no spinner to carry; "both aurora orbs measurably animate" — superseded
+by decision (2). `--acc2`/`--acc2rgb` remain at zero consumers: auroraB
+(`rgba(var(--acc2rgb),.22)`) would have been the first and is not built.
 
 #### PF-122 — Owner email address consolidation · ADDED to Sprint 14, 2026-09-12
 
@@ -1918,6 +2006,27 @@ retrospective document** — this section is the record, matching Sprint 10,
 11 and 12.
 
 ### Outstanding work — deferred deliberately, not lost
+
+- **⚠️ `scanline` is WRONG FOR BOTH SCREENS and deliberately untouched.**
+  Found in PF-109, 2026-09-16. `base.css` has `-100% → 100vh`; the Portfolio
+  prototype says `-120% → 1200%` and Admin says `-10% → 1100%` — it is a
+  per-screen keyframe like `riseIn`, transcribed as one and matching neither.
+  Not fixed because it has **no consumer on either screen by owner
+  decision**: the splash's two travelling lines were removed 2026-08-17 and
+  the login's sweep was declined 2026-09-16. If a consumer ever appears, split
+  it per screen first (`scanline-portfolio` / `scanline-admin`), the riseIn
+  precedent; do not "fix" the base body to one screen's value.
+- **The login's email placeholder still reads `admin@portfolio.dev`**
+  (`AdminLoginPage.jsx`, the export's own copy). Once PF-122 makes the real
+  account `pcgallege@gmail.com`, a placeholder naming the demo account is
+  either stale or, if updated, a public hint at the admin address. PF-122's
+  file list does not include the login page — **PF-122 decides**; PF-109 left
+  the prototype's value.
+- **`auroraA` / `auroraB` are corrected and STILL unconsumed** (PF-109). The
+  login's aurora stage was replaced by the site's ambient layer, so there is
+  no carrier and no consumer. They stay in the library because
+  `keyframes.test.js` pins the design's set by name; a removal is its own
+  change and would drop the design's count to 32 names.
 
 - **⚠️ `flt-admin` AND `drift-admin` CAN NEVER HAVE A CONSUMER.** Found in
   PF-107, 2026-09-12. `frontend/src/styles/keyframes/admin.css` defines both,

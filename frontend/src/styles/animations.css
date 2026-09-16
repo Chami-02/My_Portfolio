@@ -50,26 +50,35 @@
  * but the name.
  */
 
+.kf-barGrow    { animation-name: barGrow; }
 .kf-blink      { animation-name: blink; }
 .kf-breathe    { animation-name: breathe; }
 .kf-dot        { animation-name: dot; }
 .kf-dot-ok     { animation-name: dot-ok; }
 .kf-fadeIn     { animation-name: fadeIn; }
 .kf-flicker    { animation-name: flicker; }
+.kf-floatY     { animation-name: floatY; }
 .kf-glowdot    { animation-name: glowdot; }
 .kf-glowpulse  { animation-name: glowpulse; }
 .kf-marq       { animation-name: marq; }
 .kf-nudge      { animation-name: nudge; }
 .kf-orbdot     { animation-name: orbdot; }
 .kf-pulsering  { animation-name: pulsering; }
-.kf-riseIn     { animation-name: riseIn; }
+.kf-ringPulse  { animation-name: ringPulse; }
 .kf-shimmer    { animation-name: shimmer; }
 .kf-spin       { animation-name: spin; }
 .kf-sweep      { animation-name: sweep; }
+.kf-typeIn     { animation-name: typeIn; }
 
 /* Per-screen variants. The screen suffix is part of the keyframe's real
-   name — `flt` and `drift` differ per screen, so there is no unsuffixed
-   carrier to fall back on. Portfolio's are the only ones a module needs
-   so far; blog/admin get their own lines when a screen uses them. */
-.kf-drift-portfolio { animation-name: drift-portfolio; }
-.kf-flt-portfolio   { animation-name: flt-portfolio; }
+   name — `flt`, `drift`, `sheen` and (since PF-109) `riseIn` differ per
+   screen, so there is no unsuffixed carrier to fall back on. A screen
+   gets a line here when one of its modules composes the name.
+   ⚠️ `.kf-riseIn` no longer exists. The three below replaced it when
+   the single 14px body — matching none of the prototypes — was split. */
+.kf-drift-portfolio  { animation-name: drift-portfolio; }
+.kf-flt-portfolio    { animation-name: flt-portfolio; }
+.kf-riseIn-portfolio { animation-name: riseIn-portfolio; }
+.kf-riseIn-blog      { animation-name: riseIn-blog; }
+.kf-riseIn-admin     { animation-name: riseIn-admin; }
+.kf-sheen-admin      { animation-name: sheen-admin; }

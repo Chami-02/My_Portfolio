@@ -13,8 +13,15 @@ import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import postcss from 'postcss';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ThemeProvider } from '../../../providers/ThemeProvider';
+import { MotionProvider } from '../../../providers/MotionProvider';
 
 // vi.mock over the hook modules rather than a stubbed network: the data
 // layer is not what is under test, and Vite's SSR transform makes each
@@ -60,11 +67,15 @@ function renderShell({ activeTab = 'overview', onTabChange = vi.fn() } = {}) {
   const utils = render(
     <QueryClientProvider client={client}>
       <ThemeProvider>
-        <MemoryRouter>
-          <AdminLayout activeTab={activeTab} onTabChange={onTabChange}>
-            <p>panel content</p>
-          </AdminLayout>
-        </MemoryRouter>
+        {/* PF-109: the shell mounts StarfieldCanvas, which calls
+            useReducedMotion — it throws outside MotionProvider, by design. */}
+        <MotionProvider>
+          <MemoryRouter>
+            <AdminLayout activeTab={activeTab} onTabChange={onTabChange}>
+              <p>panel content</p>
+            </AdminLayout>
+          </MemoryRouter>
+        </MotionProvider>
       </ThemeProvider>
     </QueryClientProvider>,
   );
@@ -256,5 +267,31 @@ describe('AdminLayout — children', () => {
   it('renders the active panel inside the main landmark', () => {
     renderShell();
     expect(within(screen.getByRole('main')).getByText('panel content')).toBeInTheDocument();
+  });
+});
+
+/* ── PF-109: the shell shares the site's background ─────────────── */
+
+describe('AdminLayout — ambient layer (PF-109)', () => {
+  it('mounts the starfield canvas — the same background as the main page', () => {
+    // Owner decision 2026-09-16: main page, admin panel and login share
+    // one background. PF-107 had deferred a separate lattice canvas;
+    // this is the thing that replaced it. jsdom has no 2D context, so
+    // the canvas draws nothing here — its presence is the assertion.
+    const { container } = renderShell();
+    expect(container.querySelector('canvas')).not.toBeNull();
+  });
+
+  it('paints no opaque background on the shell, or the canvas is hidden', () => {
+    // .shell used to declare `background: var(--bg)`. Over a fixed
+    // z-index:0 canvas that is a full-page opaque plate — the starfield
+    // renders and nobody sees it. Parsed, never text-searched: the rule's
+    // own comment names the property it must not declare.
+    const css = readFileSync(resolve(HERE, '../AdminLayout.module.css'), 'utf8');
+    const shell = {};
+    postcss.parse(css).walkRules('.shell', (r) => r.walkDecls((d) => { shell[d.prop] = d.value; }));
+    expect(shell.composes).toBe('kf-fadeIn from global');   // proves the rule was found
+    expect(shell.background).toBeUndefined();
+    expect(shell['background-color']).toBeUndefined();
   });
 });

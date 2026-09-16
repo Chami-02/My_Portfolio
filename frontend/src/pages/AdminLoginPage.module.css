@@ -1,0 +1,442 @@
+/* frontend/src/pages/AdminLoginPage.module.css
+ *
+ * PF-109. The sign-in card, transcribed from docs/design/Admin.dc.html
+ * lines 52-103 — every value below is that element's inline style,
+ * re-expressed once here. Nothing is rounded.
+ *
+ * ── Three sanctioned deviations, all owner-decided 2026-09-16 ─────
+ *
+ * 1. THE STAGE IS NOT THE PROTOTYPE'S. Lines 48-50 put two drifting
+ *    aurora orbs (auroraA / auroraB) and a 12%-tall scanline sweep
+ *    behind the card. None of that is built. The owner's instruction:
+ *    the main page, the admin panel and this page share ONE background
+ *    with the same attributes and animations — so the card sits over
+ *    the site's ambient layer (StarfieldCanvas + CursorGlow +
+ *    GrainOverlay, exactly what HomePage and NotFoundPage mount). The
+ *    scanline also extends the 2026-08-17 splash decision that removed
+ *    the travelling lines there. auroraA/auroraB stay in the keyframe
+ *    library, corrected but unconsumed. Do not "restore" the orbs from
+ *    the export: a fidelity pass will flag their absence, and the
+ *    absence is deliberate.
+ *
+ * 2. THE THEME TOGGLE IS THE SITE'S 44x44 SUN/MOON BUTTON, not lines
+ *    92-98's --acc2 pill with its "LIGHT MODE" caption. Same decision
+ *    PF-107 applied to the admin header, for the same reason: the
+ *    2026-08-22 rework replaced that switch everywhere, and this was
+ *    the last screen that would have carried a different one.
+ *
+ * 3. THE "DESIGN PREVIEW — try admin@portfolio.dev / Admin@1234!" LINE
+ *    (line 100) IS NOT TRANSCRIBED. It is design-tool furniture, and it
+ *    prints a credential that CI's credential-scan job greps for.
+ *
+ * ── Rules this file inherits ──────────────────────────────────────
+ *
+ * - Zero Phase 1 token names (adminFoundation.test.js lists this sheet
+ *   and walks its declarations with postcss). --acc, --strong, --muted,
+ *   --muted2, --faint, --text, --danger, --accInk and the --srf/--ln/
+ *   --shd triplets are all tokens.css's.
+ * - Font stacks go through var(--font-*), never the export's literal
+ *   'JetBrains Mono' / 'Anton' / 'Space Grotesk' — the tokens carry the
+ *   metric-matched fallback faces.
+ * - Every keyframe arrives through `composes: kf-<name> from global` as
+ *   the FIRST declaration, timing as longhands. A name written here
+ *   would be scoped to nothing; the shorthand would reset the name to
+ *   `none`. Eight animated elements, eight carriers.
+ * - Nothing here is <Reveal>-wrapped, so declaring `transition` on the
+ *   input and the submit is correct (PF-93's rule is vacuous here).
+ * - These values are used on this page only, so they live here and not
+ *   in styles/admin.module.css — PF-107 §4.4 rejected an `.inputLogin`
+ *   variant for exactly that reason.
+ */
+
+/* ── Stage ──────────────────────────────────────────────────────── */
+
+/* Admin.dc.html:48. `overflow: hidden` is NOT carried over — it existed
+   to clip the orbs, and there are none. `z-index: 2` keeps the card
+   above the z-index:0 starfield and the z-index:1 cursor glow; grain
+   at 70 paints over everything and is pointer-events: none. */
+.screen {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+
+/* ── Card ───────────────────────────────────────────────────────── */
+
+/* Admin.dc.html:52. `-webkit-backdrop-filter` FIRST, standard last —
+   esbuild keeps only the last of a prefixed pair, and Chrome ignores
+   the prefix, so the other order ships a blur that never renders. */
+.card {
+  composes: kf-riseIn-admin from global;
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 440px;
+  padding: clamp(24px, 4vw, 36px);
+  border-radius: 26px;
+  background: rgba(var(--srf), .62);
+  border: 1px solid rgba(var(--ln), .14);
+  box-shadow: 0 40px 90px rgba(var(--shd), .42);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation-duration: .9s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-fill-mode: both;
+}
+
+/* ── Brand row ──────────────────────────────────────────────────── */
+
+/* Admin.dc.html:54 */
+.brand {
+  composes: kf-typeIn from global;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 26px;
+  animation-duration: .7s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-delay: .05s;
+  animation-fill-mode: both;
+}
+
+/* Admin.dc.html:55 — the float carries the ring with it */
+.logoWrap {
+  composes: kf-floatY from global;
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  animation-duration: 6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* Admin.dc.html:56. ringPulse scales THIS element and breathes its
+   opacity — it is not a box-shadow ring (that is `pulsering`). */
+.ring {
+  composes: kf-ringPulse from global;
+  position: absolute;
+  inset: -9px;
+  border-radius: 50%;
+  border: 1px solid rgba(252, 163, 17, .35);
+  animation-duration: 3.4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* Admin.dc.html:57 */
+.logo {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--acc, #FCA311);
+  box-shadow: 0 0 26px rgba(252, 163, 17, .4);
+}
+
+.brandText {
+  display: grid;
+  gap: 4px;
+}
+
+.brandName {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--strong);
+}
+
+.brandDot {
+  color: var(--acc, #FCA311);
+}
+
+.brandSub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .22em;
+  color: var(--muted2);
+}
+
+/* ── Heading and lede ───────────────────────────────────────────── */
+
+/* Admin.dc.html:65 */
+.heading {
+  composes: kf-typeIn from global;
+  font-family: var(--font-display);
+  font-size: clamp(38px, 7vw, 60px);
+  line-height: .92;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 10px;
+  animation-duration: .7s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-delay: .14s;
+  animation-fill-mode: both;
+}
+
+/* The outlined second word — byte-identical to the site-wide pattern
+   (1.5px accent stroke, transparent fill), and composing it brings the
+   @supports fallback for engines that cannot paint the stroke. */
+.headingOutline {
+  composes: outline-text from '../styles/patterns.module.css';
+}
+
+/* Admin.dc.html:66 */
+.lede {
+  composes: kf-typeIn from global;
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+  margin: 0 0 26px;
+  animation-duration: .7s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-delay: .22s;
+  animation-fill-mode: both;
+}
+
+/* ── Error banner ───────────────────────────────────────────────── */
+
+/* Admin.dc.html:69-72. The 180,35,31 red is the export's literal and is
+   theme-neutral by construction (it is a tint, not ink); the ink itself
+   is var(--danger), which flips. */
+.error {
+  composes: kf-fadeIn from global;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 13px 15px;
+  margin-bottom: 18px;
+  border-radius: 12px;
+  background: rgba(180, 35, 31, .08);
+  border: 1px solid rgba(180, 35, 31, .4);
+  animation-duration: .3s;
+  animation-fill-mode: both;
+}
+
+.errorMark {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 1.5px solid var(--danger);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 13px;
+  text-align: center;
+}
+
+.errorText {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* ── Form ───────────────────────────────────────────────────────── */
+
+/* Admin.dc.html:75 */
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+/* Admin.dc.html:76 — the accent rule that draws itself in.
+   transform-origin: left is what barGrow requires. */
+.rule {
+  composes: kf-barGrow from global;
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  transform-origin: left;
+  background: linear-gradient(90deg, var(--acc, #FCA311), transparent);
+  animation-duration: .9s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-delay: .3s;
+  animation-fill-mode: both;
+}
+
+/* Admin.dc.html:77 and :81 — a WRAPPING <label>, which is what makes
+   the field reachable by its name. The Phase 1 page had a <label> with
+   no htmlFor beside an <input> with no id: visually labelled, and not
+   associated at all. The two fields differ only in their delay. */
+.field {
+  composes: kf-typeIn from global;
+  display: grid;
+  gap: 8px;
+  animation-duration: .6s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-fill-mode: both;
+}
+
+.fieldEmail    { animation-delay: .34s; }
+.fieldPassword { animation-delay: .42s; }
+
+.fieldLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+
+/* Admin.dc.html:79 / :83. The export writes `outline: none` and paints
+   focus with a border + a 3px accent halo. The halo and border are kept
+   on :focus (ANY focus — a clicked field must not look inert); the
+   outline is the repo's transparent-outline idiom instead of `none`,
+   so forced-colors mode restores a system-colour ring. No
+   border-radius in the focus rule: it would reshape the element. */
+.input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .16);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  transition: border-color .25s, box-shadow .25s;
+}
+
+.input::placeholder {
+  color: var(--faint);
+}
+
+.input:focus {
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 0 0 3px rgba(252, 163, 17, .14);
+}
+
+.input:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+/* Admin.dc.html:85. `overflow: hidden` clips the travelling sheen. */
+.submit {
+  composes: kf-typeIn from global;
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  border-radius: 999px;
+  background: var(--acc, #FCA311);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  box-shadow: 0 12px 34px rgba(252, 163, 17, .28);
+  transition: transform .25s, box-shadow .25s;
+  animation-duration: .6s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-delay: .5s;
+  animation-fill-mode: both;
+}
+
+/* `:not(:disabled)` — `:hover` still matches a disabled button, so
+   without it the button rises under the cursor mid-sign-in. The
+   prototype's busy state is only the label change; there is no
+   dimming and there must not be (see admin.module.css on why a low
+   opacity is the wrong disabled look anyway). */
+.submit:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 46px rgba(252, 163, 17, .42);
+}
+
+/* Admin.dc.html:86. No `left`: the span sits at its static position
+   and the keyframe's -120% → 220% (of its own 38% width) carries it
+   clear across the button and off the far side.
+   ⚠️ Under reduced motion this element is HIDDEN via
+   data-motion-decorative in the JSX, not merely frozen. motion.css
+   collapses the run to 0.01ms with no fill, after which the span sits
+   at translateX(0) — a static white stripe over the label. */
+.sheen {
+  composes: kf-sheen-admin from global;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+  animation-duration: 3.6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.submitLabel {
+  position: relative;
+}
+
+/* ── Foot row ───────────────────────────────────────────────────── */
+
+/* Admin.dc.html:90 */
+.foot {
+  composes: kf-typeIn from global;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(var(--ln), .1);
+  animation-duration: .6s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-delay: .58s;
+  animation-fill-mode: both;
+}
+
+/* Admin.dc.html:91. `text-decoration: none` because the export relies
+   on a global `a { text-decoration: none }` this repo does not have —
+   same note as AdminLayout.module.css's .homeLink, whose transition
+   pair this also matches. */
+.back {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: var(--muted);
+  border: 1px solid rgba(var(--ln), .18);
+  border-radius: 999px;
+  padding: 10px 16px;
+  text-decoration: none;
+  transition: color .25s, border-color .25s;
+}
+
+.back:hover {
+  color: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+/* ── Dark-theme contrast (PF-91's substitution, applied not re-decided) ──
+ *
+ * Measured 2026-09-16, composited over the card (rgba(--srf,.62) over
+ * --bg): in DARK, --muted2 on the card is 4.02:1 and --faint on the
+ * input is 2.98:1 — both under AA for 10.5px text. In LIGHT every ink
+ * clears it (--muted2 6.07, --faint 5.73), so the swap is scoped to
+ * dark, the same asymmetry PF-91 found on the public site and PF-107
+ * on the admin shell. --muted → 6.79 on the card.
+ *
+ * :global(html[data-theme='dark']) .x is (0,2,1) against the base
+ * rule's (0,1,0) — wins on specificity, never on emission order. */
+
+:global(html[data-theme='dark']) .brandSub,
+:global(html[data-theme='dark']) .fieldLabel {
+  color: var(--muted);
+}
+
+:global(html[data-theme='dark']) .input::placeholder {
+  color: var(--muted);
+}
