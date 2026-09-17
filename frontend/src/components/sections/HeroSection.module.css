@@ -100,6 +100,40 @@ section.hero {
   text-shadow: 0 0 14px rgba(252, 163, 17, .7);
 }
 
+/* ── badge, OFF state — owner decision 2026-09-16 ─────────────────────
+   Rendered when About.availableForWork is false (the admin toggle). No
+   prototype source: the design has only the available state. The box
+   is .badge's, with every accent replaced by the neutral pair the admin
+   layer uses (rgba(--gnd,.4) / rgba(--ln,.18)) so it flips with the
+   theme, and NO `composes` — .badge carries kf-glowpulse and .badgeDot
+   carries kf-dot, and the off variants must not, so that the animation
+   stops completely rather than pausing. No `transition`: the badge is
+   Reveal-wrapped. */
+.badgeOff {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(var(--ln), .18);
+  background: rgba(var(--gnd), .4);
+  border-radius: 999px;
+  padding: 8px 16px;
+  margin-bottom: 26px;
+}
+
+.badgeDotOff {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.badgeTextOff {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .16em;
+  color: var(--muted);
+}
+
 /* ── eyebrow + heading ────────────────────────────────────────────── */
 
 .eyebrow {

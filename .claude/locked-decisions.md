@@ -1105,6 +1105,16 @@ the prototype's switch, its loud ADMIN pill and its inboard logo.
   the badge sits where the numeral would be. Do not "fix" either half.
   An unfeatured first project renders **nothing** in that slot — never a
   `01`.
+  ⚠️ **Second half, 2026-09-16, owner re-decided:** EVERY featured project
+  carries the badge — a small card flagged featured renders `FEATURED`
+  beside its numeral (`.cardHead` row, badge right). The slot rule above is
+  UNCHANGED; what changed is that "featured" outside the slot used to
+  render nothing at all, and the owner reported ClearDrive.lk (order 2,
+  featured) as "not looking featured". Of PF-118's three options the owner
+  chose the badge, not the slot. ⚠️ The badge is NOT `position: absolute`:
+  `.card > *:not(.cardBg):not(.cardScrim)` pins every direct child
+  `relative` at (0,3,0) and outranked it — measured, the badge landed in
+  flow at the card's left edge. A flex head row was the fix.
 
 - **ClearDrive.lk keeps 10 tech pills; the prototype's 9 is stale
   (2026-08-19, owner decision).** The prototype omits `Tailwind CSS` for
@@ -3143,3 +3153,68 @@ Dark after: **7.00**. Light untouched.
   accent-fill hover here. Same silhouette, different values, used once.
 - **`◈ { } ✎ ✉`**, the export's glyphs; the Phase 1 `📝` emoji is gone, for
   the reason PF-107 gave when it made the same swap on the sidebar.
+
+## Fix batch 2026-09-16 — availability drives the public site; the unread dot
+
+### `About.availableForWork` is read by the public site — two states
+
+The admin About panel's toggle has flipped `availableForWork` since Phase
+1, and until this fix **nothing public read it**: the hero's OPEN TO
+OPPORTUNITIES badge, the About section's "…Open to Work ✔" line and the
+footer's AVAILABLE FOR WORK row were PF-81's transcribed literals. PF-81's
+own comment called that "a content-source regression … needs its own
+ticket". The owner reported it as "the toggle is not working".
+
+**Source of truth is `useAbout().availableForWork`**, shared with
+ContactSection's existing query — zero extra requests. The owner's pasted
+spec asked for a `const isAvailable = true` constant; declined, because a
+constant is exactly why the toggle did nothing. `?? true` while the query
+is in flight: on a first load the splash holds every reveal ~4.5s, so the
+answer is in before anything paints; on `?nosplash` navigations the cache
+is warm.
+
+| Spot | ON (unchanged, the prototype's) | OFF (owner copy, no design source) |
+| --- | --- | --- |
+| Hero badge | OPEN TO OPPORTUNITIES, accent, glowpulse + dot | CURRENTLY BUILDING, `--muted` dot, no animation, neutral tint |
+| Footer row | AVAILABLE FOR WORK, `--ok` + `[data-ok]` | CURRENTLY BUILDING, `--muted`, no `[data-ok]`, no animation |
+| About line | the panel's `availabilityNote`, falling back to the transcribed sentence | **hidden** — a sentence, not a badge |
+
+⚠️ **The OFF variants compose NO carrier.** `.badge` composes
+`kf-glowpulse` and `.badgeDot` composes `kf-dot`; `.badgeOff` /
+`.badgeDotOff` (and the footer pair) compose nothing, so the animation
+STOPS rather than pauses — measured `animation-name: none` and
+`getAnimations()` on the dot `[]`. Neutral pair is the admin layer's
+`rgba(var(--gnd),.4)` + `rgba(var(--ln),.18)`; ink `var(--muted)`.
+Measured OFF: **7.68 dark / 6.72 light** on both labels. No `transition`
+on any variant — all three spots are Reveal-wrapped.
+
+⚠️ **The ON-state visuals are untouched.** The owner's spec said "the dot
+remains green (`var(--green)`)" and named `animate-pulse-glow` — Phase 1
+names. The shipped hero badge is the prototype's ORANGE; it stays orange.
+
+⚠️ **Vitest never resolves `composes`**, so "the OFF badge carries no
+`kf-` class" passes vacuously against the DOM. The guard is the PARSED
+sheet: the OFF rules declare no `composes`, `animation-*` or
+`transition`, and the ON rules still do (the control). Mutation-proven.
+
+**NOT changed:** the footer marquee `OPEN TO OPPORTUNITIES ✦ LET'S BUILD
+SOMETHING LOUD ✦` — the band, not a badge. Flagged to the owner; one
+word makes it state-driven.
+
+**About's line now shows the panel's note** — on the live data that is
+"Currently seeking Software Engineering Internship opportunities", not
+the transcribed sentence. First field of the About section to read the
+API; the rest is still hardcoded (PF-118).
+
+### The unread-message dot is GREEN, not the prototype's orange
+
+`Admin.dc.html:545`: `top:17px; right:17px`, 8px, `var(--acc)`, glowdot,
+header row `padding-right:20px`. The shipped Phase 1 panel had it in
+indigo `--accent` at `1rem` with no row padding, so the date ran under it.
+**Owner decision 2026-09-16: `var(--ok)` green**, same geometry as the
+export, pulsing on the GLOBAL `kf-glowdot` carrier with inline longhand
+timing (the keyframe name cannot be written inline any more than in a
+module, and the shorthand would reset it). The unread card's border
+follows: `rgba(52,211,153,.35)`. Measured: 18px from the card's top-right,
+`glowdot: running`, date clear of the dot. PF-115 transcribes the rest of
+the card around this and keeps the green.

@@ -1,6 +1,7 @@
 // frontend/src/components/sections/HeroSection.jsx
 import { useEffect, useRef } from 'react';
 import { Reveal, Marquee } from '../motion';
+import { useAbout } from '../../hooks/useAbout';
 import heroImg from '../../assets/hero-ai.png';
 import styles from './HeroSection.module.css';
 
@@ -68,6 +69,10 @@ const MARQUEE_TEXT =
  * pills are the real on-screen content. Not building a typewriter.
  */
 export function HeroSection() {
+  // Shared cache entry with ContactSection's useAbout() — no extra request.
+  const { data: about } = useAbout();
+  const isAvailable = about?.availableForWork ?? true;
+
   return (
     <>
       <section id="hero" className={styles.hero}>
@@ -84,9 +89,20 @@ export function HeroSection() {
             AboutSection's portrait still uses it at 0.05. */}
         <div className={styles.inner}>
           <div>
-            <Reveal type="up" className={styles.badge}>
-              <span aria-hidden="true" className={styles.badgeDot} />
-              <span className={styles.badgeText}>OPEN TO OPPORTUNITIES</span>
+            {/* Two states, driven by the admin panel's availability toggle
+                (About.availableForWork) — owner decision 2026-09-16. The
+                ON state is the prototype's badge, untouched. OFF swaps the
+                CLASS, not a property: .badge composes the glowpulse carrier
+                and .badgeDot the dot carrier, so the off variants, which
+                compose nothing, stop both animations outright rather than
+                pausing them. `?? true` while the query is in flight — the
+                splash holds every reveal ~4.5s on a first load, so the
+                answer is in before this paints. */}
+            <Reveal type="up" className={isAvailable ? styles.badge : styles.badgeOff}>
+              <span aria-hidden="true" className={isAvailable ? styles.badgeDot : styles.badgeDotOff} />
+              <span className={isAvailable ? styles.badgeText : styles.badgeTextOff}>
+                {isAvailable ? 'OPEN TO OPPORTUNITIES' : 'CURRENTLY BUILDING'}
+              </span>
             </Reveal>
 
             <Reveal as="p" type="up" delay={60} className={styles.eyebrow}>

@@ -306,8 +306,41 @@ describe('card background layers', () => {
 describe('featured slot and numerals', () => {
   it('gives the big card the FEATURED badge and no numeral', () => {
     const { container } = render(withMotion(<ProjectsSection />));
-    expect(screen.getByText('FEATURED')).toBeTruthy();
+    const big = pick(container, 'bigCard');
+    expect(big.textContent).toContain('FEATURED');
     expect(pickAll(container, 'featuredBadge')).toHaveLength(1);
+    expect(pickAll(big, 'numeral')).toHaveLength(0);
+  });
+
+  // Owner decision 2026-09-16. The fixture has TWO featured projects and
+  // the second is not in the big slot; before this it rendered no badge
+  // anywhere and "featured" in the admin panel looked inert for it.
+  it('badges every featured project, in the grid as well as the big slot', () => {
+    const { container } = render(withMotion(<ProjectsSection />));
+    expect(screen.getAllByText('FEATURED')).toHaveLength(2);
+    const grid = pick(container, 'grid');
+    const small = pickAll(grid, 'featuredBadgeSm');
+    expect(small).toHaveLength(1);
+    // On the featured one, not on an arbitrary card.
+    expect(small[0].closest('[data-projectcard]').textContent).toContain('Personal Portfolio');
+    // And the grid keeps its numerals — the badge is added, not swapped in.
+    expect(pickAll(grid, 'numeral').map((n) => n.textContent)).toEqual(['02', '03', '04']);
+  });
+
+  it('keeps the slot rule: a featured project further down does NOT take the big card', () => {
+    // First by order is unfeatured, third is featured. The big slot still
+    // goes to the first; the badge appears once, in the grid.
+    const p = [
+      { ...PROJECTS[0], featured: false },
+      { ...PROJECTS[1], featured: false },
+      { ...PROJECTS[2], featured: true },
+      PROJECTS[3],
+    ];
+    useProjects.mockReturnValue(ok(p));
+    const { container } = render(withMotion(<ProjectsSection />));
+    expect(pick(container, 'bigCard').textContent).toContain(PROJECTS[0].title);
+    expect(pickAll(container, 'featuredBadge')).toHaveLength(0);
+    expect(pickAll(pick(container, 'grid'), 'featuredBadgeSm')).toHaveLength(1);
   });
 
   it('renders NOTHING in that slot when projects[0] is not featured', () => {
@@ -319,7 +352,7 @@ describe('featured slot and numerals', () => {
     useProjects.mockReturnValue(ok(unfeatured));
     const { container } = render(withMotion(<ProjectsSection />));
 
-    expect(screen.queryByText('FEATURED')).toBeNull();
+    expect(pickAll(container, 'featuredBadge')).toHaveLength(0);
     expect(screen.queryByText('01')).toBeNull();
     expect(pickAll(container, 'numeral').map((n) => n.textContent))
       .toEqual(['02', '03', '04']);

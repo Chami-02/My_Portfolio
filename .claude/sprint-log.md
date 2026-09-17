@@ -925,6 +925,46 @@ paint `0` in the panel while loading → 1 fails; card reads `posts` instead of
 `published` → 1 fails; shell defaults counts to zeros → 1 fails; `$ne: true`
 → `read: false` → 1 fails; `drafts: published` → 2 fail.
 
+#### Fix batch — featured badge · availability toggle · unread dot · 2026-09-16 (built 2026-09-17)
+
+**Report: `new mds/E9/fixes-2026-09-16-featured-availability-unread-dot.md`.**
+Not a PF ticket. Three owner-reported items, all traced before a line was
+written; three decisions taken by the owner (`locked-decisions.md`).
+Frontend **1236** tests (was 1218; +2 ProjectsSection, +4 Hero, +4 Footer,
++4 About, +4 the first `AdminMessagesPanel.test.jsx`), lint clean, coverage
+94.05/89.38/88.04/96.39, build clean with 0 unresolved `animation-name`,
+E2E **75/75**. Backend untouched. Five mutants killed, control 155/155 before
+and after.
+
+1. **ClearDrive.lk "not featured".** Data: Personal Portfolio order 1,
+   ClearDrive order 2, BOTH featured; small cards had no badge markup at
+   all. Owner chose "badge on every featured card" over reversing the slot
+   rule. ⚠️ First attempt as `position: absolute` was silently overridden by
+   the `.card > *` layering rule at (0,3,0) — measured in flow at the card's
+   left edge — so the numeral and badge share a `.cardHead` flex row.
+2. **"Open to work toggle not working".** It worked; nothing public read it.
+   Hero badge, About line and footer row now read `useAbout()`, two states,
+   owner copy CURRENTLY BUILDING; the About line shows the panel's
+   `availabilityNote`. Measured live: toggle OFF → all three swap,
+   `animation-name: none`, dots `[]`; ON → restored, `glowpulse` and `dot`
+   running. Contrast OFF 7.68 dark / 6.72 light.
+3. **Purple dot over the date.** Phase 1 `--accent` at `1rem`, no row
+   padding. Now `--ok` green, prototype geometry, global `kf-glowdot`
+   carrier, row padded 20px. Verified with a probe message (created via the
+   contact endpoint, deleted from the panel after): 18/18px from the corner,
+   date clear.
+
+**Items 4–6 of the same report, answered not built:** (4) "check everything"
+is PF-118 — owner: *"no need to rush, keep it in mind"*; see the PF-118 note
+in Outstanding work. (5) CV uploader = PF-112, project background uploader =
+PF-113, both behind PF-111. (6) Analytics — see the proposed epic below.
+
+**Second pass found two things, both in the fix's own tests:** a Hero
+assertion that checked for `kf-` classes on the DOM (vacuous — Vitest does
+not resolve `composes`; replaced by a parsed-sheet guard), and a zsh
+word-splitting slip that made the first mutation run execute zero tests
+(`$T` unsplit; `"${T[@]}"` fixed it — the tell was no `Tests` line at all).
+
 #### PF-122 — Owner email address consolidation · ADDED to Sprint 14, 2026-09-12
 
 **Owner decision.** The public site advertises `parindrachameekara@gmail.com`
@@ -2107,6 +2147,37 @@ retrospective document** — this section is the record, matching Sprint 10,
 11 and 12.
 
 ### Outstanding work — deferred deliberately, not lost
+
+- **⚠️ PF-118 — owner's own priority list, 2026-09-16.** The owner asked for
+  "everything — buttons and backend editing" to be checked and then said
+  *"no need to rush, keep it in mind; when the audit comes check areas I
+  critically mentioned."* Those areas, plus what the 2026-09-16 trace found:
+  - **The public About section is entirely hardcoded** — name, title, bio,
+    stats, location; editing the About panel changes NOTHING public except
+    (since the fix batch) the availability line. PF-81's known regression;
+    needs its own wiring ticket with owner sign-off on which fields.
+  - The featured/order rule is now DECIDED (badge on every featured card) —
+    PF-118's three options are superseded; do not re-present them.
+  - `Skill.order` and `About.stats[]` not editable; messages delete has no
+    confirm; `PUT /api/skills/:id` has no UI (PF-114).
+  - The footer marquee copy is still a literal (flagged, owner undecided).
+- **⚠️ PROPOSED EPIC — Analytics panel (owner asked 2026-09-16, discussion
+  only). Full plain-English plan, verified against Vercel's docs 2026-09-17:
+  `new mds/E9/analytics-panel-plan.md` — Vercel Web Analytics (free, 1-month
+  window, NO custom events on Hobby) + its public API for traffic, our own
+  daily-totals ping for clicks + `Contact.country`, three tickets A/B/C ~18
+  pts. ⚠️ Ticket A's two-line script install could ship early so history
+  starts accumulating; Vercel cannot backfill.** Day-by-day visitors, messages, and country of origin, inside the
+  admin panel. Nothing exists today. Shape agreed in discussion: a
+  cookie-free beacon `POST /api/analytics/visit` (daily-rotating hash of
+  IP+UA, no IP stored), country from Vercel's `x-vercel-ip-country` header
+  (free, absent locally → "unknown"), `Contact.country` stamped at
+  submission, `GET /api/analytics?from&to` daily rows, an admin panel with
+  hand-drawn SVG bars + a country table. ⚠️ "Emailed me" is NOT knowable —
+  only mailto-link CLICKS can be counted; label it that. Decisions still
+  open: privacy stance, bot filtering, own limiter (30/min like the view
+  counter), retention/roll-up, build vs buy (Plausible/Umami do not feed the
+  panel). ~13 pts over two tickets; Sprint 15/16, not 14.
 
 - **⚠️ `scanline` is WRONG FOR BOTH SCREENS and deliberately untouched.**
   Found in PF-109, 2026-09-16. `base.css` has `-100% → 100vh`; the Portfolio

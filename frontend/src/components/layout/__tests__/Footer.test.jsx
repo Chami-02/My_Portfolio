@@ -10,13 +10,18 @@
 // matches the COMMENT explaining the absence and reports PASS while
 // asserting nothing. postcss never visits a comment node.
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import postcss from 'postcss';
 
+// The AVAILABLE FOR WORK row reads useAbout() since 2026-09-16 (owner
+// decision: the admin toggle drives it). vi.mock, not vi.spyOn — Vite's
+// SSR transform makes each export a getter-only property. ON by default.
+const useAbout = vi.hoisted(() => vi.fn());
+vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
 import { Footer } from '../Footer';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { leadsWithIcon } from '../../../test/leadsWithIcon';
@@ -107,6 +112,10 @@ function renderFooter({ path = '/' } = {}) {
     </MemoryRouter>,
   );
 }
+
+beforeEach(() => {
+  useAbout.mockReturnValue({ data: { availableForWork: true } });
+});
 
 describe('Footer (PF-88)', () => {
 
@@ -811,5 +820,53 @@ describe('PF-91 contrast', () => {
       // would be a design change wearing an accessibility fix's clothes.
       expect(base('availabilityDot').background).toBe('#34d399');
     });
+  });
+});
+
+// ── availability, two states — owner decision 2026-09-16 ─────────────
+describe('availability row', () => {
+  it('ON: AVAILABLE FOR WORK on the [data-ok] label with the animated dot', () => {
+    const { container } = renderFooter();
+    const row = pick(container, 'availability');
+    expect(row.textContent).toContain('AVAILABLE FOR WORK');
+    expect(pick(row, 'availabilityLabel').getAttribute('data-ok')).toBe('');
+    expect(pick(row, 'availabilityDot')).not.toBeNull();
+    expect(pick(container, 'availabilityOff')).toBeNull();
+  });
+
+  it('OFF: CURRENTLY BUILDING on the neutral row, no [data-ok], ON classes gone', () => {
+    useAbout.mockReturnValue({ data: { availableForWork: false } });
+    const { container } = renderFooter();
+    const row = pick(container, 'availabilityOff');
+    expect(row).not.toBeNull();
+    expect(row.textContent).toContain('CURRENTLY BUILDING');
+    expect(screen.queryByText('AVAILABLE FOR WORK')).toBeNull();
+    expect(row.querySelector('[data-ok]')).toBeNull();
+    expect(pick(row, 'availabilityDotOff')).not.toBeNull();
+    expect(pick(container, 'availability')).toBeNull();
+    expect(pick(container, 'availabilityDot')).toBeNull();
+  });
+
+  it('defaults to ON while the About document is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    renderFooter();
+    expect(screen.getByText('AVAILABLE FOR WORK')).toBeInTheDocument();
+  });
+
+  // ⚠️ Vitest never resolves `composes`, so "the OFF dot has no kf- class"
+  // would pass vacuously against the DOM. Parsed CSS is the guard: the OFF
+  // classes compose nothing and animate nothing, and the ON dot still does.
+  it('the OFF classes compose no carrier and declare no transition (parsed)', () => {
+    const declsOf = (cls) => Object.fromEntries(
+      baseDeclsFor(footerCss, (sel) => sel === `.${cls}`).map((d) => [d.prop, d.value]),
+    );
+    for (const cls of ['availabilityOff', 'availabilityDotOff', 'availabilityLabelOff']) {
+      const keys = Object.keys(declsOf(cls));
+      expect(keys.length).toBeGreaterThan(0);   // the rule exists — a typo'd name would pass the next line vacuously
+      expect(keys.some((k) => k.startsWith('animation') || k === 'transition' || k === 'composes')).toBe(false);
+    }
+    expect(declsOf('availabilityDotOff').background).toBe('var(--muted)');
+    // and the ON dot still carries its carrier — the control
+    expect(declsOf('availabilityDot').composes).toBe('kf-dot from global');
   });
 });

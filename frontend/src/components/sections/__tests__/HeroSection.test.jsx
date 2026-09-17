@@ -5,6 +5,14 @@ import { fileURLToPath } from 'url';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
+
+// The availability badge reads useAbout() since 2026-09-16 (owner
+// decision: the admin toggle drives it). vi.mock, not vi.spyOn — Vite's
+// SSR transform makes each export a getter-only property. ON by default;
+// the OFF tests override per case. `mockReturnValue` inside a test is
+// reset by the file's own restoreAllMocks/afterEach, never bleeding.
+const useAbout = vi.hoisted(() => vi.fn());
+vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
 import { HeroSection } from '../HeroSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
@@ -45,6 +53,7 @@ const pickAll = (container, name) => container.querySelectorAll(`[class*="${name
 
 describe('HeroSection (PF-80)', () => {
   beforeEach(() => {
+    useAbout.mockReturnValue({ data: { availableForWork: true } });
     window.innerWidth = 1440;
     window.innerHeight = 900;
   });
@@ -577,5 +586,62 @@ describe('PF-91 SCROLL label contrast', () => {
     const d = declsOf(":global(html[data-theme='dark']) .scrollLabel");
     expect(d).not.toBeNull();
     expect(d.color).toBe('var(--muted)');
+  });
+});
+
+// ── availability, two states — owner decision 2026-09-16 ─────────────
+describe('availability badge', () => {
+  const badgeOf = () => screen.getByText(/OPEN TO OPPORTUNITIES|CURRENTLY BUILDING/).parentElement;
+  // Vitest scopes CSS-module classes as `_badge_f5cf21`; global carriers
+  // (`kf-dot`) come through unscoped. Unwrap the former, keep the latter.
+  const localName = (t) => /^_(.+)_[^_]+$/.exec(t)?.[1] ?? t;
+  const names = (el) => [...el.classList].map(localName);
+  // Declarations of one rule, as a name → value map, comments stripped.
+  const decls = (selector) => Object.fromEntries(
+    ruleBody(selector).replace(/\/\*[\s\S]*?\*\//g, '').split('\n')
+      .map((l) => l.trim()).filter((l) => l.includes(':'))
+      .map((l) => { const i = l.indexOf(':'); return [l.slice(0, i).trim(), l.slice(i + 1).replace(/;$/, '').trim()]; }),
+  );
+
+  // ⚠️ Vitest does not resolve `composes`, so the DOM never carries the
+  // `kf-` carrier classes here and a "no kf- class on the OFF badge"
+  // assertion would pass vacuously. The DOM tests pin WHICH module class
+  // each state uses; the parsed-CSS test below pins that the OFF classes
+  // compose nothing — together they are the guard.
+  it('ON: the prototype badge and its classes', () => {
+    render(withMotion(<HeroSection />));
+    const badge = badgeOf();
+    expect(badge.textContent).toContain('OPEN TO OPPORTUNITIES');
+    expect(names(badge)).toContain('badge');
+    expect(names(badge.querySelector('span[aria-hidden]'))).toContain('badgeDot');
+  });
+
+  it('OFF: CURRENTLY BUILDING on the neutral classes, the ON classes gone', () => {
+    useAbout.mockReturnValue({ data: { availableForWork: false } });
+    render(withMotion(<HeroSection />));
+    const badge = badgeOf();
+    expect(badge.textContent).toContain('CURRENTLY BUILDING');
+    expect(screen.queryByText('OPEN TO OPPORTUNITIES')).toBeNull();
+    expect(names(badge)).toContain('badgeOff');
+    expect(names(badge)).not.toContain('badge');
+    const dot = badge.querySelector('span[aria-hidden]');
+    expect(names(dot)).toContain('badgeDotOff');
+    expect(names(dot)).not.toContain('badgeDot');
+  });
+
+  it('defaults to ON while the About document is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    render(withMotion(<HeroSection />));
+    expect(screen.getByText('OPEN TO OPPORTUNITIES')).toBeInTheDocument();
+  });
+
+  it('the OFF variants declare no transition, no animation and no composes', () => {
+    for (const cls of ['badgeOff', 'badgeDotOff', 'badgeTextOff']) {
+      const d = decls(`.${cls}`);
+      expect(Object.keys(d).filter((k) => k.startsWith('animation') || k === 'transition' || k === 'composes')).toEqual([]);
+    }
+    expect(decls('.badgeDotOff').background).toBe('var(--muted)');
+    // and the ON badge still carries its carrier — the control
+    expect(decls('.badge').composes).toBe('kf-glowpulse from global');
   });
 });

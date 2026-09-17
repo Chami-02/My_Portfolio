@@ -9,6 +9,7 @@ import {
   InstagramIcon,
 } from '../icons';
 import { sectionHref } from '../../utils/nav';
+import { useAbout } from '../../hooks/useAbout';
 import logo from '../../assets/logo.png';
 import styles from './Footer.module.css';
 
@@ -68,6 +69,10 @@ const COPYRIGHT =
   '© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM SCRATCH';
 
 export function Footer() {
+  // Shared cache entry with ContactSection's useAbout() — no extra request.
+  const { data: about } = useAbout();
+  const isAvailable = about?.availableForWork ?? true;
+
   const { pathname } = useLocation();
 
   return (
@@ -154,15 +159,29 @@ export function Footer() {
               shipped with CI/CD.
             </p>
 
-            <div className={styles.availability}>
-              <span aria-hidden="true" className={styles.availabilityDot} />
-              {/* data-ok is the prototype's own hook — applyTheme() (line
-                  868) recolours every [data-ok] element per theme. Ported
-                  as a theme-scoped CSS rule; see the module. */}
-              <span data-ok="" className={styles.availabilityLabel}>
-                AVAILABLE FOR WORK
-              </span>
-            </div>
+            {/* Two states from the admin panel's availability toggle —
+                owner decision 2026-09-16, same shape as the hero badge.
+                The OFF variants compose no keyframe carrier, so the dot
+                stops rather than pauses, and the label drops [data-ok]
+                because the theme-scoped green belongs to the ON state. */}
+            {isAvailable ? (
+              <div className={styles.availability}>
+                <span aria-hidden="true" className={styles.availabilityDot} />
+                {/* data-ok is the prototype's own hook — applyTheme() (line
+                    868) recolours every [data-ok] element per theme. Ported
+                    as a theme-scoped CSS rule; see the module. */}
+                <span data-ok="" className={styles.availabilityLabel}>
+                  AVAILABLE FOR WORK
+                </span>
+              </div>
+            ) : (
+              <div className={styles.availabilityOff}>
+                <span aria-hidden="true" className={styles.availabilityDotOff} />
+                <span className={styles.availabilityLabelOff}>
+                  CURRENTLY BUILDING
+                </span>
+              </div>
+            )}
           </Reveal>
 
           {/* ⚠️ NAVIGATE and ELSEWHERE are wrapped, owner-requested

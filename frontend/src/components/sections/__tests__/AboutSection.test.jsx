@@ -5,6 +5,11 @@ import { fileURLToPath } from 'url';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
+// The "seeking" line reads useAbout() since 2026-09-16 (owner decision:
+// the admin toggle and its availability note drive it). vi.mock, not
+// vi.spyOn — Vite's SSR transform makes each export getter-only.
+const useAbout = vi.hoisted(() => vi.fn());
+vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
 import { AboutSection } from '../AboutSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { leadsWithIcon } from '../../../test/leadsWithIcon';
@@ -71,6 +76,7 @@ const portrait = (container) => container.querySelector('img[class*="portraitImg
 
 describe('AboutSection (PF-81)', () => {
   beforeEach(() => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, availabilityNote: '' } });
     window.innerWidth = 1440;
     window.innerHeight = 900;
     queueRaf();
@@ -506,5 +512,37 @@ describe('AboutSection (PF-81)', () => {
     unmount();
 
     expect(removeSpy).toHaveBeenCalledWith('scroll', expect.any(Function));
+  });
+});
+
+// ── the seeking line, two states — owner decision 2026-09-16 ──────────
+describe('availability line', () => {
+  it('ON with no note: the transcribed sentence', () => {
+    render(withMotion(<AboutSection />));
+    expect(screen.getByText(/Open to Work/)).toBeInTheDocument();
+  });
+
+  it('ON with a note: the panel\'s availability note replaces the sentence', () => {
+    useAbout.mockReturnValue({
+      data: { availableForWork: true, availabilityNote: 'Seeking a 2027 graduate role' },
+    });
+    const { container } = render(withMotion(<AboutSection />));
+    expect(pick(container, 'seeking').textContent).toBe('Seeking a 2027 graduate role');
+    expect(screen.queryByText(/Open to Work/)).toBeNull();
+  });
+
+  it('OFF: the line is not rendered at all', () => {
+    useAbout.mockReturnValue({
+      data: { availableForWork: false, availabilityNote: 'Seeking a 2027 graduate role' },
+    });
+    const { container } = render(withMotion(<AboutSection />));
+    expect(pick(container, 'seeking')).toBeNull();
+    expect(screen.queryByText(/Open to Work|Seeking a 2027/)).toBeNull();
+  });
+
+  it('defaults to ON while the About document is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    render(withMotion(<AboutSection />));
+    expect(screen.getByText(/Open to Work/)).toBeInTheDocument();
   });
 });

@@ -411,6 +411,35 @@ section.projects {
   line-height: 1;
 }
 
+/* Owner decision 2026-09-16: a featured project outside the big slot
+   carries the badge too. The numeral and the badge share one head row —
+   numeral left, badge right, both top-aligned — so the badge sits in
+   the card's top-right corner WITHOUT `position: absolute`. The
+   `.card > *` layering rule further down pins every direct child
+   `position: relative` at (0,3,0) and would outrank an absolute badge
+   (measured: it landed in flow at the card's left edge). No
+   `transition`: the card is Reveal-wrapped. */
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Same type, ink and fill as .featuredBadge — restated rather than
+   composed because that one is `align-self: flex-start` in the big
+   card's flex column and this one is a flex-row end item. */
+.featuredBadgeSm {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+
 /* Space Grotesk 700 sentence-case here against the big card's Anton
    uppercase. The two headings differ by design (prototype lines 322 and
    361) — not an inconsistency to smooth over. */

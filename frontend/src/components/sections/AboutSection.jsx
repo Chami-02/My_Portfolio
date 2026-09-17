@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Reveal, CountUp } from '../motion';
 import { MailIcon } from '../icons';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { useAbout } from '../../hooks/useAbout';
 import { computeParallaxTransform } from '../../utils/parallax';
 import aboutPortrait from '../../assets/about-portrait.jpg';
 import styles from './AboutSection.module.css';
@@ -39,7 +40,15 @@ const STATS = [
  * (PF-75/78), so every entrance and every count below is already held
  * behind the splash.
  */
+// The prototype's line (Portfolio Revolution.dc.html), used when the
+// About document has no availabilityNote.
+const SEEKING_FALLBACK = 'Interested in Software Engineering Job opportunities and Open to Work ✔';
+
 export function AboutSection() {
+  // Shared cache entry with ContactSection's useAbout() — no extra request.
+  const { data: about } = useAbout();
+  const isAvailable = about?.availableForWork ?? true;
+
   return (
     <section id="about" className={styles.about}>
       <div className={styles.inner}>
@@ -74,9 +83,17 @@ export function AboutSection() {
               and Agile development using Jira.
             </Reveal>
 
-            <Reveal as="p" type="up" delay={180} className={styles.seeking}>
-              Interested in Software Engineering Job opportunities and Open to Work ✔
-            </Reveal>
+            {/* Owner decision 2026-09-16: the first field of this section
+                to read the API. Shown only while available; the sentence
+                is the panel's "Availability note", falling back to the
+                transcribed copy when the note is empty. When the toggle is
+                off the line is hidden — it is a sentence, not a badge, and
+                "Currently building" as a paragraph reads wrong. */}
+            {isAvailable && (
+              <Reveal as="p" type="up" delay={180} className={styles.seeking}>
+                {about?.availabilityNote || SEEKING_FALLBACK}
+              </Reveal>
+            )}
 
             <div className={styles.statGrid}>
               {STATS.map((stat) => (

@@ -32,16 +32,32 @@ export function AdminMessagesPanel() {
             {messages.map((msg) => (
               <div key={msg._id} style={{
                 padding: '1.25rem', background: 'var(--bg)', borderRadius: '0.75rem',
-                border: `1px solid ${msg.read ? 'var(--border)' : 'rgba(129,140,248,0.3)'}`,
+                border: `1px solid ${msg.read ? 'var(--border)' : 'rgba(52,211,153,.35)'}`,
                 position: 'relative',
               }}>
+                {/* Unread marker — owner decision 2026-09-16: the site's
+                    green (--ok), top-right, pulsing, and the header row
+                    padded so the date clears it. The prototype
+                    (Admin.dc.html:545) has the same geometry in orange;
+                    green is the owner's deviation. `kf-glowdot` is the
+                    GLOBAL carrier — the keyframe name cannot be written
+                    inline any more than in a module — and the timing is
+                    longhands, never the shorthand, which would reset the
+                    name. Phase 1 inline styling otherwise; PF-115
+                    transcribes the rest of this card. */}
                 {!msg.read && (
-                  <span style={{
-                    position: 'absolute', top: '1rem', right: '1rem',
-                    width: 8, height: 8, borderRadius: '50%', background: 'var(--accent)', display: 'block',
-                  }} />
+                  <span
+                    aria-hidden="true"
+                    data-unread-dot=""
+                    className="kf-glowdot"
+                    style={{
+                      position: 'absolute', top: 17, right: 17,
+                      width: 8, height: 8, borderRadius: '50%', background: 'var(--ok)', display: 'block',
+                      animationDuration: '2.4s', animationTimingFunction: 'ease-in-out', animationIterationCount: 'infinite',
+                    }}
+                  />
                 )}
-                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', flexWrap: 'wrap', paddingRight: 20 }}>
                   <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{msg.name}</span>
                   <a href={`mailto:${msg.email}`} style={{ color: 'var(--accent)', fontSize: '0.85rem', textDecoration: 'none', fontFamily: 'var(--font-mono)' }}>{msg.email}</a>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', marginLeft: 'auto' }}>

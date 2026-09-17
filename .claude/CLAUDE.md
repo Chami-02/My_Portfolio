@@ -418,14 +418,11 @@ finds should shape the panel tickets rather than arrive after them.
 #### 🎯 The four the owner named for master-level care (2026-09-08)
 
 1. **The inverted spine above** — PF-116 last, not first.
-2. **The featured-projects mismatch is a LOCKED DECISION, not a defect**
-   (PF-118). `ProjectsSection.jsx:203` takes `projects[0]` — first by
-   `order`, *regardless of `featured`* — and `:234` renders the badge only
-   when that project is itself featured. So a project flagged featured
-   further down the order shows **no badge anywhere**. Owner decision
-   2026-08-19: *"`featured` controls the BADGE and `order` controls the
-   SLOT."* ⚠️ **"Fixing" it reverses the owner silently.** Three options,
-   owner re-decides.
+2. **The featured-projects mismatch — RE-DECIDED 2026-09-16, no longer
+   open for PF-118.** The slot rule stands (`order` picks the big card) and
+   the owner added its second half: **every featured project carries the
+   badge**, small cards included. Built in the 2026-09-16 fix batch. PF-118
+   does not re-present the three options.
 3. **OAuth account binding** (PF-119). `User.role` is `enum: ['admin']` and
    **no route reads it**, so any account that authenticates is full admin.
    An auto-provisioning callback makes **anyone with a Google account** an
@@ -1532,6 +1529,19 @@ omitted — keep the two straight.
 - **Projects: the big card is chosen by `order`, the badge by `featured`.**
   ⚠️ An unfeatured first project renders **nothing** in that slot, never a
   `01`. Reordering is an admin-panel edit, not a code change.
+  ⚠️ **Since 2026-09-16 EVERY featured project shows the badge** — small
+  cards too, beside their numeral in a `.cardHead` row. NOT `position:
+  absolute`: the `.card > *` layering rule at (0,3,0) overrides it silently.
+- **`About.availableForWork` drives the hero badge, the footer row and the
+  About line** (2026-09-16) — OFF is `CURRENTLY BUILDING`, `--muted`,
+  neutral tint, and the OFF classes compose NO carrier so the animation
+  stops. ON is untouched (the hero badge stays ORANGE, not the Phase 1
+  green a pasted spec named). About's line shows the panel's
+  `availabilityNote`; hidden when OFF. The footer MARQUEE is still a
+  literal, flagged. `?? true` while loading. Never a constant.
+- **The admin unread-message dot is `--ok` GREEN**, not the prototype's
+  orange (2026-09-16) — prototype geometry (17/17px, row padded 20px),
+  global `kf-glowdot` carrier with inline longhands. PF-115 keeps it.
 - **ClearDrive keeps 10 tech pills**; the prototype's 9 is stale. The API
   wins here — opposite resolution to PF-82's skill-order finding, and
   deliberately so.
