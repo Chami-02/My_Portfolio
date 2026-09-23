@@ -328,7 +328,7 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16; branch `sprint-14-admin_page_rebuild` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, **PF-111 built 2026-09-23**; branch `sprint-14-admin_page_rebuild` |
 | **Sprint 15 (PF-123 → PF-125)** | **Auth + email** — contact notification, credential editing, password reset | **planned 2026-09-12**, not started |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
@@ -364,7 +364,7 @@ authority; this table is the index.
 | ~~PF-108~~ | Session handling — validate on entry, refresh, clean expiry ✅ **BUILT 2026-09-16** — ⚠️ re-decided mid-ticket: rotating refresh token, NOT a cookie | Highest | 8 |
 | ~~PF-109~~ | `/admin/login` rebuilt in Phase 2 ✅ **BUILT 2026-09-16** — ⚠️ background re-decided: the SITE's ambient layer on login AND the shell, no aurora/scanline stage; `riseIn` split per screen | High | 5 |
 | ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild ✅ **BUILT 2026-09-16** — seven-field response, not the plan's five; `/admin` mounts on 2 requests, was 5 | High | 5 |
-| PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 |
+| ~~PF-111~~ | Media pipeline — `publicId` everywhere, hard-delete on replace ✅ **BUILT 2026-09-23** — ⚠️ scope grew: delete-on-record-delete, and two live write holes closed | Highest | 8 |
 | PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 |
 | PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 |
@@ -1553,6 +1553,30 @@ omitted — keep the two straight.
   impact-count confirm.
 - **Cloudinary for file storage**, behind a provider interface.
 - **Résumé is PDF only; a new upload hard-deletes the old.**
+- **Every media field is written by a DEDICATED route, never by a save**
+  (PF-111) — `PUT|DELETE /api/about/avatar` and
+  `PUT|DELETE /api/projects/:id/background`, each doing upload → save →
+  destroy-old in one handler. ⚠️ **The reason is SECURITY, not symmetry:**
+  the rejected generic-upload-then-diff design makes a destructive Cloudinary
+  delete depend on a **client-supplied publicId**. So `PUT /api/about` strips
+  `avatar`/`resume` and `PUT|POST /api/projects` strips
+  `backgroundImage.src`/`.publicId`, keeping `opacity` — written as the **dot
+  path** `backgroundImage.opacity`, because a nested object makes Mongoose
+  `$set` the whole sub-document and wipe `src`/`publicId`. ⚠️ `POST
+  /api/upload` now has ZERO consumers; kept + given its missing 503 guard,
+  deletion is PF-120's call. ⚠️ Folding the two handlers into one helper was
+  REJECTED — six parameters, each a place to destroy the wrong file.
+- **A media file is destroyed on REPLACE *and* on RECORD DELETE** (PF-111,
+  owner 2026-09-23). ⚠️ The **row goes first**, the file second, non-fatally:
+  an outage must not block a delete. ⚠️ `storage.destroy(id, 'image')` — a
+  wrong `resourceType` returns `{ result: 'not found' }`, an HTTP success that
+  deletes nothing and orphans silently. `'raw'` is the résumé's alone.
+- **Uploaded images are PNG / JPEG / WebP, by MAGIC BYTES** (PF-111, owner).
+  SVG rejected — XML that can carry `<script>`, same reason `backgroundImage.
+  src` rejects `data:`. GIF offered and declined. ⚠️ `utils/fileType.js`'s
+  `MEDIA_IMAGE_MIME` is deliberately NARROWER than `middleware/upload.js`'s
+  `ALLOWED_IMAGE_MIME` (which has `avif`) — multer screens the *claimed* type,
+  the handler's list *decides*. Do not unify them.
 - **Blog content is `sections[]`**, not a flat string.
 - **`readingTimeMinutes` is DERIVED, one writer, client value IGNORED**
   (PF-103). The author's pin is a **separate** field,

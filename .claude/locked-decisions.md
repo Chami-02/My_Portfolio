@@ -1954,6 +1954,87 @@ fidelity pass must not undo.
 - Vocabulary deletion is hard-delete with cascade, behind an impact-count confirm.
 - Cloudinary for file storage, behind a provider interface.
 - Résumé is PDF only; a new upload hard-deletes the old.
+
+### PF-111 — every media field is written by a DEDICATED route, never by a save (2026-09-23)
+
+**Four routes own the whole lifecycle** — `PUT|DELETE /api/about/avatar`,
+`PUT|DELETE /api/projects/:id/background` — each doing upload → save →
+destroy-old inside one handler, mirroring `uploadResume` (PF-60), which was
+already the only correct media lifecycle in the codebase.
+
+⚠️ **THE REASON IS SECURITY, NOT PATTERN SYMMETRY, and the difference
+matters if anyone reopens this.** The rejected alternative was the obvious
+one and fits the existing admin flow: upload through the generic
+`POST /api/upload`, get `{url, publicId}` back, PUT it with the rest of the
+form, and let the controller destroy whatever publicId it previously held.
+That makes a **destructive Cloudinary delete depend on a value supplied by
+the client** — and combined with the `$set: req.body` writes this same
+ticket had to close, a crafted save could have named any publicId in the
+bucket and had the server destroy it. A dedicated multipart route means the
+server derives every publicId from its own upload response and the client
+never names one at all.
+
+Two lesser reasons reinforce it and are not sufficient alone:
+`findOneAndUpdate`/`findByIdAndUpdate` run **no `pre('save')` hook**, and the
+upload → save → destroy ordering only holds inside a single handler.
+
+**Consequences, all deliberate:**
+- `PUT /api/about` STRIPS `avatar` and `resume` from `$set`; `PUT|POST
+  /api/projects` strips `backgroundImage.src` and `.publicId` and keeps
+  `opacity`, which is content. ⚠️ Opacity is written as the **dot path**
+  `backgroundImage.opacity` — a nested object makes Mongoose `$set` the
+  whole sub-document and wipe `src`/`publicId`.
+- `POST /api/upload` therefore has **zero consumers**. Kept, and given the
+  `isConfigured()` 503 guard it never had; deleting an endpoint is PF-120's
+  call.
+- ⚠️ **REJECTED: folding the two upload handlers into one shared helper.**
+  They differ in resource type, folder, size limit, accepted formats, stored
+  metadata, the document loaded and the shape returned — six parameters,
+  every one a place a portrait could be destroyed with a project's
+  arguments. Two readable handlers beat one clever one where the failure
+  mode is deleting the wrong file.
+
+### PF-111 — a media file is destroyed on REPLACE **and** on RECORD DELETE (owner, 2026-09-23)
+
+Owner's answer to a direct question: deleting a project also destroys its
+background image; removing the portrait or résumé destroys the file. The
+2026-08-31 orphan finding only ever named *replacement*, and `deleteProject`
+never touched Cloudinary at all.
+
+⚠️ **The ROW is deleted FIRST and the file second, non-fatally.** A
+Cloudinary outage must not be able to block a delete. The failure this
+ordering produces is the recoverable one — a logged orphan — rather than a
+project the admin cannot remove. Same reasoning as `removeResume` clearing
+the slot before destroying the file.
+
+⚠️ **`storage.destroy(publicId, 'image')` — the resourceType is
+load-bearing.** `storage.js:70-77`: a wrong one returns
+`{ result: 'not found' }`, an HTTP success that deletes nothing, creating the
+orphan silently from inside the code written to prevent orphans. `'raw'` is
+correct for the résumé and wrong for everything else. Pinned by tests.
+
+### PF-111 — uploaded images are PNG, JPEG or WebP, checked by MAGIC BYTES (owner, 2026-09-23)
+
+**SVG is rejected**, and that is the entry worth reading before "adding SVG
+support for logos": SVG is not a picture format, it is an XML document that
+may carry `<script>`, so one served from our own delivery URL is a
+stored-XSS vector. It is the same reason `Project.backgroundImage.src`
+already rejects `data:` URIs. GIF was offered and declined.
+
+⚠️ **The gate is `utils/fileType.js`'s `MEDIA_IMAGE_MIME`, which is NARROWER
+than `middleware/upload.js`'s `ALLOWED_IMAGE_MIME`** — the latter also lists
+`image/avif`, because `POST /api/upload` accepts it. That is not drift: the
+multer list screens the CLAIMED mimetype for every upload route, and the
+handler's list is what actually decides. A test pins AVIF → 415 on the
+portrait route specifically. ⚠️ Do NOT "unify" the two lists; they answer
+different questions.
+
+⚠️ **SVG returns `null` from the sniffer rather than being recognised and
+named**, unlike GIF/BMP/TIFF which are detected purely to produce a precise
+415. SVG has no magic number — it is XML, optionally preceded by whitespace,
+a BOM or an `<?xml?>` declaration — so any rule loose enough to catch every
+real SVG is loose enough to mislabel other XML. Unrecognised-therefore-
+rejected is the correct outcome.
 - Blog content is `sections[]`, not a flat string.
 
 ### PF-97 — the admin Blog editor is a SECTIONS editor, not a markdown box (2026-09-04)

@@ -25,7 +25,7 @@ const PROJECTS = [
     // Empty on purpose — real background images are uploaded through the
     // admin panel in Sprint 14. Stated explicitly rather than left to the
     // schema defaults so re-seeding visibly clears any previous upload.
-    backgroundImage: { src: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   },
   {
     title:       'ClearDrive.lk',
@@ -35,7 +35,7 @@ const PROJECTS = [
     liveUrl:     'https://cleardrive.lk/' ,
     featured:    true,
     order:       2,
-    backgroundImage: { src: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   },
   {
     title:       'Smart Campus API',
@@ -45,7 +45,7 @@ const PROJECTS = [
     liveUrl:     null,
     featured:    false,
     order:       3,
-    backgroundImage: { src: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   },
    {
     title:       'Life Below Water',
@@ -55,7 +55,7 @@ const PROJECTS = [
     liveUrl:     null,
     featured:    false,
     order:       4,
-    backgroundImage: { src: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   }
 ];
 
@@ -355,6 +355,14 @@ const ABOUT_DATA = {
   // defaults so re-seeding visibly clears any previous résumé.
   resume: {
     url: '', publicId: '', fileName: '', ext: '', bytes: 0, uploadedAt: null,
+  },
+
+  // Same rule for the portrait (PF-111). The public About section falls
+  // back to its bundled photograph when this is empty, so a fresh seed
+  // renders correctly rather than showing a broken image.
+  avatar: {
+    url: '', publicId: '', fileName: '', format: '',
+    bytes: 0, width: 0, height: 0, uploadedAt: null,
   },
 
   stats: [

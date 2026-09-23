@@ -110,10 +110,13 @@ const blogSchema = new mongoose.Schema(
       default: [],
     },
     // ──────────────────────────────────────────────────────────
-    coverImage: {
-      type:    String,
-      default: null,
-    },
+    // ⚠️ `coverImage` WAS HERE AND WAS DELETED IN PF-111. It was a bare
+    // String from an abandoned feature attempt — added, never pursued,
+    // null on every post in production, and with zero consumers in
+    // either package. It is the reason this API surface read as broken.
+    // Migration 007 unsets it. Do NOT re-add it to give the blog teaser
+    // a per-post image: the featured card's backdrop is a deliberate
+    // fixed photograph per theme (locked decision, 2026-09-07).
     tags: {
       type:    [String],
       default: [],

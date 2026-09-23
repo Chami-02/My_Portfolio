@@ -32,10 +32,6 @@ const projectSchema = new mongoose.Schema(
       default: null,
       trim:    true,
     },
-    imageUrl: {
-      type:    String,
-      default: null,
-    },
     featured: {
       type:    Boolean,
       default: false,
@@ -45,10 +41,14 @@ const projectSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // ── NEW IN PF-52 ────────────────────────────────────────────
-    // Background image shown BEHIND the project card content.
-    // Different from imageUrl, which is displayed as content.
-    // The admin panel uploads to Cloudinary and stores the URL here.
+    // ── NEW IN PF-52 · publicId added in PF-111 ─────────────────
+    // Background image shown BEHIND the project card content, at the
+    // opacity stored beside it. Rendered by ProjectsSection.jsx:98.
+    //
+    // ⚠️ PF-111 DELETED the sibling `imageUrl` field this comment used
+    // to contrast against. It was a bare String with zero consumers in
+    // either package — never seeded, never written, never read — so the
+    // contrast it drew no longer exists. There is ONE image per project.
     backgroundImage: {
       src: {
         type:    String,
@@ -64,6 +64,14 @@ const projectSchema = new mongoose.Schema(
           message: 'Background image must be an http(s) URL',
         },
       },
+      // ── NEW IN PF-111 ─────────────────────────────────────────
+      // Cloudinary's public_id for the file at `src`. Without it the
+      // old file can never be deleted, so replacing a background would
+      // orphan one in the bucket forever. Written ONLY by
+      // PUT /api/projects/:id/background, never by a normal save —
+      // see the strip in updateProject().
+      publicId: { type: String, default: '' },
+
       opacity: {
         type:    Number,
         default: 0.75,

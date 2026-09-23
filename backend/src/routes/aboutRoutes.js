@@ -9,6 +9,8 @@ const {
   toggleAvailability,
   uploadResume,
   removeResume,
+  uploadAvatar,
+  removeAvatar,
 } = require('../controllers/aboutController');
 
 
@@ -23,6 +25,10 @@ router.patch('/availability', protect, toggleAvailability);
 // token. Reversing these two is a free denial-of-service.
 router.put('/resume',    protect, uploadSingle, uploadResume);
 router.delete('/resume', protect, removeResume);
+
+// PF-111 — the portrait, same ordering and the same reasoning.
+router.put('/avatar',    protect, uploadSingle, uploadAvatar);
+router.delete('/avatar', protect, removeAvatar);
 // ─────────────────────────────────────────────────────────────
 
 module.exports = router;

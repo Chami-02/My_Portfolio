@@ -65,11 +65,45 @@ const aboutSchema = new mongoose.Schema(
       default: 'Currently open to junior developer roles',
     },
 
-    // Profile image
-    avatarUrl: {
-      type:    String,
-      default: null,
+    // ── REPLACED IN PF-111: avatarUrl (bare String) → avatar {} ───
+    // The About portrait. Same shape and same reasoning as `resume`
+    // below, and for the same reason: Cloudinary can only delete a
+    // file by its public_id, so a bare URL means every replacement
+    // orphans the previous file in the bucket FOREVER, with nothing
+    // anywhere that could later identify it.
+    //
+    // ⚠️ `avatarUrl` was never read by anything — no seed entry, no
+    // controller, no frontend component (AboutSection renders a
+    // bundled asset). It is renamed rather than extended because the
+    // old name would otherwise survive as a second, writable place a
+    // portrait could live. Migration 007 unsets it.
+    //
+    // Field → where it appears in the admin About panel (PF-112):
+    //   url        → the <img> preview, and the public portrait
+    //   publicId   → not rendered; required to DELETE the old file
+    //   fileName   → the filename under the preview
+    //   format     → 'png' | 'jpg' | 'webp', from Cloudinary
+    //   bytes      → rendered as "248 KB"
+    //   width/height → rendered as "1200 × 1600"
+    //   uploadedAt → rendered as "replaced Sep 23, 2026"
+    avatar: {
+      url: {
+        type:    String,
+        default: '',
+        validate: {
+          validator: v => !v || /^https?:\/\//i.test(v),   // no data: URIs
+          message:   'Avatar URL must be an http(s) URL',
+        },
+      },
+      publicId:   { type: String, default: '' },
+      fileName:   { type: String, default: '' },
+      format:     { type: String, default: '' },
+      bytes:      { type: Number, default: 0 },
+      width:      { type: Number, default: 0 },
+      height:     { type: Number, default: 0 },
+      uploadedAt: { type: Date,   default: null },
     },
+    // ──────────────────────────────────────────────────────────────
 
     // ── REPLACED IN PF-60: cvUrl → resumeUrl → resume {} ─────────
     // Single résumé slot. A new upload REPLACES this entirely and
@@ -147,6 +181,19 @@ const aboutSchema = new mongoose.Schema(
 // a résumé exists if, and only if, it has a url.
 aboutSchema.virtual('hasResume').get(function () {
   return Boolean(this.resume && this.resume.url);
+});
+
+// ── NEW IN PF-111 ─────────────────────────────────────────────
+// The same rule, one field over: a portrait exists if, and only if,
+// it has a url. Drives the admin card's preview-vs-empty state and
+// lets the public About section decide between the uploaded portrait
+// and its bundled fallback without reaching into the sub-document.
+//
+// ⚠️ A publicId with no url is FALSE here, deliberately — that is the
+// state a half-failed replacement leaves behind, and it must not read
+// as "there is a portrait".
+aboutSchema.virtual('hasAvatar').get(function () {
+  return Boolean(this.avatar && this.avatar.url);
 });
 
 // Virtuals are excluded from JSON by default — turn them on, or

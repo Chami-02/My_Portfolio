@@ -515,7 +515,7 @@ record; that file is the sprint's authority.
 | ~~PF-108~~ | Session handling — validate on entry, refresh, clean expiry | Highest | 8 | To Do | ✅ **BUILT 2026-09-16** — re-decided mid-ticket, see entry |
 | ~~PF-109~~ | `/admin/login` rebuilt in Phase 2 | High | 5 | To Do | ✅ **BUILT 2026-09-16** — background re-decided, see entry |
 | ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | ✅ **BUILT 2026-09-16** — see entry |
-| PF-111 | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | not started |
+| ~~PF-111~~ | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | ✅ **BUILT 2026-09-23** — ⚠️ scope GREW: delete-on-record-delete too, see entry |
 | PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 | To Do | not started |
 | PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | not started |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 | To Do | not started |
@@ -964,6 +964,83 @@ assertion that checked for `kf-` classes on the DOM (vacuous — Vitest does
 not resolve `composes`; replaced by a parsed-sheet guard), and a zsh
 word-splitting slip that made the first mutation run execute zero tests
 (`$T` unsplit; `"${T[@]}"` fixed it — the tell was no `Tests` line at all).
+
+#### PF-111 — Media pipeline: `publicId` everywhere, hard-delete on replace · ✅ BUILT 2026-09-23
+
+**Report:** `new mds/E9/PF-111-media-pipeline.md`.
+
+**Closes the 2026-08-31 orphan finding above, and grew past it.** That entry
+named three bare-URL fields and framed the fix as "give each a publicId".
+Tracing found the gap was wider in two directions nobody had written down:
+`deleteProject` never touched Cloudinary at all, and **`updateAbout` /
+`updateProject` were wholesale `$set: req.body` writes**, so an ordinary
+profile save carrying `resume: {}` blanked the slot — publicId included —
+while the real file stayed in the bucket. No attack needed; the save button
+was enough.
+
+**Schemas.** `About.avatarUrl` → `About.avatar { url, publicId, fileName,
+format, bytes, width, height, uploadedAt }` + a `hasAvatar` virtual;
+`Project.backgroundImage` gains `publicId`; `Project.imageUrl` and
+`Blog.coverImage` DELETED (zero consumers, confirmed by a repo-wide sweep).
+⚠️ **`Blog.content` was NOT deleted with them** — its own comment invites
+removal ("kept for two weeks… then removed in a follow-up ticket", six weeks
+ago) and it is load-bearing: `Blog.js:36` and `:205` use it as the
+reading-time fallback for any post not yet on `sections[]`.
+
+**Four new routes**, each owning upload → save → destroy-old end to end:
+`PUT|DELETE /api/about/avatar` and `PUT|DELETE /api/projects/:id/background`,
+`protect` before `uploadSingle` in all four.
+
+⚠️ **THE DESIGN DECISION, and it is a security one, not a style one.** The
+obvious build — upload through the generic `POST /api/upload`, then PUT the
+returned `{url, publicId}` and diff against the stored one — makes a
+**destructive Cloudinary delete depend on a client-supplied value**. Combined
+with `$set: req.body`, a crafted save could name any publicId in the bucket
+and have the server destroy it. Dedicated multipart routes mean the server
+derives every publicId from its own upload result and the client never names
+one. See Locked decisions.
+
+⚠️ **`storage.destroy(id, 'image')` — the resourceType is load-bearing.**
+`storage.js:70-77` documents that a wrong one returns `{ result: 'not found' }`
+— an HTTP success that deletes nothing. The orphan would be created silently
+by the code written to prevent orphans. Pinned by a test; mutating `'image'`
+→ `'raw'` turns it red.
+
+⚠️ **A LIVE SUB-DOCUMENT CLOBBER was found and fixed on the way past.**
+`findByIdAndUpdate(id, { backgroundImage: { opacity: 0.5 } })` makes Mongoose
+`$set` the WHOLE sub-document, wiping `src` and `publicId` — the image
+vanishes and its file is orphaned, from an ordinary save. Zero symptom today
+because nothing sends opacity; **PF-113's slider would have hit it on its
+first save.** Fixed by flattening to the dot path `backgroundImage.opacity`
+inside `sanitiseProjectBody()`, which also strips client `src`/`publicId`.
+
+**Migration 007** (`007-media-public-ids.js`). ⚠️ **Goes through the RAW
+DRIVER throughout**, and must: it runs AFTER the schema change, so Mongoose's
+strict mode makes `doc.avatarUrl` read `undefined` on a document that plainly
+has one, and a model-based script reports "nothing to do" against a database
+full of work. A test pins that as a fact about Mongoose rather than a claim in
+a comment. Dev run: 9 documents updated, second run `Updated: 0 Already
+correct: 9`. **NOT run against production** — that is PF-121, alongside the
+still-outstanding 006.
+
+**⚠️ The recheck pass found a real bug in the migration's own dry run.** See
+the new Outstanding-work entry: `--dry-run` was captured at module scope, so
+importing `run()` gave a LIVE run whatever argv said. Caught only because the
+test passed `--dry-run` and then checked the database was untouched — the
+control, again, doing the work.
+
+**Verified against the REAL Cloudinary account, not a mock**, because a mock
+cannot prove a deletion: upload → replace → `oldDeleted: true` → Admin API
+confirms file A is **gone**; remove → file B gone; upload a background →
+delete the project → file C gone. Rejections against the real stack:
+svg-as-png 415, pdf 415, 2.4 MB png 413.
+
+**Gate:** frontend 1236/62 · lint clean · coverage 94.05/89.38/88.04/96.39 ·
+build ok · backend **445 passed / 32 suites** · coverage 82.85/**73.61**/
+88.51/83.50 · e2e 75 passed. ⚠️ **Backend BRANCH coverage 66.66% → 73.61%** —
+headroom on the project's tightest margin roughly doubled. 61 new test cases
+across four files; 3 mutants planted, 3 killed, both controllers verified
+byte-identical to their post-edit snapshots afterwards.
 
 #### PF-122 — Owner email address consolidation · ADDED to Sprint 14, 2026-09-12
 
@@ -2148,6 +2225,37 @@ retrospective document** — this section is the record, matching Sprint 10,
 
 ### Outstanding work — deferred deliberately, not lost
 
+- **⚠️ MIGRATIONS 001–006 CAPTURE `--dry-run` AT MODULE SCOPE.** Found in
+  PF-111, 2026-09-23, by 007's own control test — which passed `--dry-run`
+  and watched the script WRITE. `const DRY_RUN = process.argv.includes(…)`
+  binds the flag to whatever argv held when the file was first `require()`d.
+  Correct for `node script.js --dry-run`, where argv precedes the require;
+  **silently wrong for any programmatic caller, who gets a LIVE run** no
+  matter what argv says afterwards. 007 reads it inside `run()` instead.
+  Not fixed in 001–006: out of PF-111's scope, and nothing imports them
+  today — but "import `run` and call it" is exactly what a migration test
+  or an orchestration script does, and 007's test is the precedent.
+  ⚠️ **005 has run in production and is frozen** — a fix there is a new
+  numbered script, not an edit.
+- **`POST /api/upload` now has ZERO consumers** (PF-111). The four dedicated
+  media routes superseded it for every real use; it was **kept** and given
+  the `isConfigured()` 503 guard it never had, because deleting an endpoint
+  is its own decision. **PF-120's call.** ⚠️ It is still the only path that
+  accepts AVIF and PDF for generic storage, so removing it is not purely
+  subtractive.
+- **`aboutRoutes.js:16` still runs `validate` BEFORE `protect`** — an
+  anonymous PUT gets a 400 describing the schema instead of a 401.
+  ⚠️ PF-111 edited this exact file and deliberately did NOT fix it: it is
+  PF-112's listed scope and PF-120 re-checks the pattern repo-wide, and
+  silently absorbing it would have left both tickets looking done when one
+  of them had not run. One line, when PF-112 reaches it.
+- **A portrait migrated from a legacy bare URL carries NO `publicId`** and
+  its file can never be deleted (PF-111). Structurally unfixable — a
+  Cloudinary `public_id` is not derivable from a delivery URL in general,
+  since transformations, versions and folder prefixes all appear in the
+  path. Zero impact in practice: the field is empty in every environment.
+  Migration 007 prints a warning naming the consequence when it happens.
+
 - **⚠️ PF-118 — owner's own priority list, 2026-09-16.** The owner asked for
   "everything — buttons and backend editing" to be checked and then said
   *"no need to rush, keep it in mind; when the audit comes check areas I
@@ -3220,11 +3328,17 @@ than copied forward:
   Dropping it removes the one remaining way an E2E run could be pointed
   at real data.
 
-- **⚠️ IMAGE UPLOADS LEAK ORPHANS IN CLOUDINARY — THREE FIELDS STORE A
-  URL WITH NO `publicId`.** Found 2026-08-31 while auditing the same
-  subsystem that turned up the missing production config above.
-  **Reported, not fixed — this is a schema change and wants its own
-  ticket.**
+- ~~**⚠️ IMAGE UPLOADS LEAK ORPHANS IN CLOUDINARY — THREE FIELDS STORE A
+  URL WITH NO `publicId`.**~~ ✅ **CLOSED BY PF-111 (2026-09-23).** Every
+  surviving media field now carries a `publicId`; the two dead ones were
+  deleted; four dedicated routes own upload → save → destroy-old; and the
+  scope grew to cover **record delete**, which this entry never named —
+  `deleteProject` orphaned its background too. Verified against the real
+  Cloudinary account, not a mock: the replaced file was confirmed GONE via
+  the Admin API. Original finding kept below, because the reasoning about
+  WHY a bare URL is unrecoverable is still the thing to read before adding
+  a fifth media field. Found 2026-08-31 while auditing the same subsystem
+  that turned up the missing production config above.
 
   | model | field | stores |
   | --- | --- | --- |

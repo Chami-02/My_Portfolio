@@ -134,4 +134,39 @@ describe('Upload API (PF-63)', () => {
     }
   });
 
+
+  // ── PF-111 ────────────────────────────────────────────────────────────────
+  it('returns a clean 503 when storage is not configured', async () => {
+    // ⚠️ THIS ROUTE HAD NO isConfigured() GUARD until PF-111. A missing .env
+    // surfaced here as whatever the SDK happened to throw, while the résumé
+    // route next door returned a clear 503 — an asymmetry nothing could see
+    // from outside, because both simply failed.
+    const { isConfigured } = require('../config/cloudinary');
+    isConfigured.mockReturnValueOnce(false);
+
+    const res = await request(app)
+      .post('/api/upload')
+      .set(await authHeader())
+      .attach('file', TINY_PNG, { filename: 'real.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(503);
+    expect(res.body.message).toMatch(/not configured/i);
+  });
+
+  it('still judges the FILE before the server state', async () => {
+    // A GIF is wrong whether or not storage is configured, and the caller can
+    // act on a 415 but can do nothing at all about a 503. Same ordering as
+    // uploadResume, now shared by every upload path.
+    const { isConfigured } = require('../config/cloudinary');
+    isConfigured.mockReturnValueOnce(false);
+
+    const GIF = Buffer.concat([Buffer.from('GIF89a', 'latin1'), Buffer.alloc(10)]);
+    const res = await request(app)
+      .post('/api/upload')
+      .set(await authHeader())
+      .attach('file', GIF, { filename: 'a.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(415);
+  });
+
 });
