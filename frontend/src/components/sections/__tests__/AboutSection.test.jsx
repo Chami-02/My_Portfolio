@@ -175,6 +175,70 @@ describe('AboutSection (PF-81)', () => {
     expect(svg.getAttribute('fill')).toBe('currentColor');
   });
 
+  // ── PF-112: the portrait is now the ADMIN-MANAGED one, with a fallback ────
+  // `About.avatar` had zero consumers before this — PF-111 built the routes and
+  // the schema for exactly this reading.
+  describe('the portrait source (PF-112)', () => {
+    const AVATAR = {
+      url: 'https://cdn.test/uploaded.webp', publicId: 'profile/me', fileName: 'uploaded.webp',
+    };
+
+    it('prefers the uploaded portrait', () => {
+      useAbout.mockReturnValue({
+        data: { availableForWork: true, availabilityNote: '', avatar: AVATAR },
+      });
+      const { container } = render(withMotion(<AboutSection />));
+
+      expect(portrait(container)).toHaveAttribute('src', 'https://cdn.test/uploaded.webp');
+    });
+
+    // ⚠️ The fallback is not a nicety. `avatar.url` is empty in every
+    // environment today and is cleared by REMOVE, so this is the ordinary case —
+    // and a bundled asset is what stops the section rendering a broken image.
+    it('falls back to the bundled asset when nothing is uploaded', () => {
+      useAbout.mockReturnValue({
+        data: { availableForWork: true, availabilityNote: '', avatar: { url: '' } },
+      });
+      const { container } = render(withMotion(<AboutSection />));
+
+      expect(portrait(container).getAttribute('src')).not.toMatch(/^https?:/);
+      expect(portrait(container).getAttribute('src')).toMatch(/about-portrait/);
+    });
+
+    it('falls back when the document has no avatar field at all', () => {
+      useAbout.mockReturnValue({ data: { availableForWork: true, availabilityNote: '' } });
+      const { container } = render(withMotion(<AboutSection />));
+
+      expect(portrait(container).getAttribute('src')).toMatch(/about-portrait/);
+    });
+
+    // ⚠️ THE ALT TEXT HAS TO FOLLOW THE SOURCE. The bundled photograph's
+    // description names the green Mini in it; reusing that sentence for an
+    // arbitrary upload describes a picture that is not there — worse than a
+    // generic alt, because a screen-reader user cannot tell it is wrong.
+    it('drops the green-Mini description once the photo is a different one', () => {
+      useAbout.mockReturnValue({
+        data: { availableForWork: true, availabilityNote: '', avatar: AVATAR },
+      });
+      const { container } = render(withMotion(<AboutSection />));
+
+      expect(portrait(container)).toHaveAttribute('alt', 'Portrait of Parindra Gallage');
+      expect(screen.queryByAltText(/green Mini/)).toBeNull();
+    });
+
+    // The crop is the stylesheet's job and this ticket adds no CSS: any aspect
+    // ratio is handled by `.portraitImg`'s own aspect-ratio + object-fit.
+    it('adds no inline sizing for the uploaded image', () => {
+      useAbout.mockReturnValue({
+        data: { availableForWork: true, availabilityNote: '', avatar: AVATAR },
+      });
+      const { container } = render(withMotion(<AboutSection />));
+      const style = portrait(container).getAttribute('style') || '';
+
+      expect(style).not.toMatch(/width|height|object-fit|aspect-ratio/);
+    });
+  });
+
   it('renders the portrait with its alt text', () => {
     mockMatchMedia(false);
     const { container } = render(withMotion(<AboutSection />));

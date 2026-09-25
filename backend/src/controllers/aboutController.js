@@ -38,6 +38,19 @@ const aboutRules = [
   body('email')
     .optional()
     .isEmail().withMessage('Must be a valid email'),
+  // ⚠️ PF-112 — availableForWork now arrives on the profile PUT.
+  // The admin About panel stages every edit and commits them together, so the
+  // availability flag travels with the rest of the form rather than through
+  // PATCH /about/availability. Without a rule the value reaches `$set`
+  // unvalidated and Mongoose's Boolean cast decides: a stray string becomes a
+  // CastError surfacing as an opaque 400 that says nothing about the field.
+  //
+  // ⚠️ `.optional()` skips only `undefined`, so `false` IS validated — which is
+  // the case that matters. A rule (or a payload builder) treating "absent" and
+  // "false" alike would silently refuse to ever mark the owner unavailable.
+  body('availableForWork')
+    .optional()
+    .isBoolean().withMessage('Availability must be true or false'),
 ];
 
 // ── GET /api/about ────────────────────────────────────────────────────────────

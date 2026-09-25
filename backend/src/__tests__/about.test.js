@@ -74,6 +74,68 @@ describe('PUT /api/about', () => {
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/required/i);
   });
+
+  // ── PF-112: authentication is the FIRST gate ────────────────────────────
+  // The route used to run `aboutRules, validate, protect`, so express-validator
+  // rejected the body before `protect` ever looked at the headers. An anonymous
+  // caller therefore received a 400 NAMING THE FIELD IT DISLIKED — a free
+  // description of the schema to someone with no credentials at all.
+  //
+  // ⚠️ The body has to be one `aboutRules` actually rejects, or this passes for
+  // the wrong reason: a payload nothing validates reaches `protect` regardless
+  // of the ordering, and the test would stay green through a revert.
+  it('answers an anonymous PUT with 401, not a 400 describing the schema', async () => {
+    const res = await request(app)
+      .put('/api/about')
+      .send({ email: 'not-an-email' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).not.toMatch(/valid email/i);
+  });
+
+  // ── PF-112: availableForWork travels on the profile PUT ──────────────────
+  // The admin panel stages every edit and commits them together, so the
+  // availability flag arrives here rather than through PATCH /availability.
+  describe('availableForWork', () => {
+    it('rejects a non-boolean availability', async () => {
+      const res = await request(app)
+        .put('/api/about')
+        .set(await authHeader())
+        .send({ availableForWork: 'yes' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/true or false/i);
+    });
+
+    // ⚠️ THE CASE THAT MATTERS. `false` is falsy, so a rule or a payload builder
+    // that conflates "absent" with "false" would validate fine and then simply
+    // never write it — leaving the owner permanently marked as available with
+    // every request reporting success.
+    it('persists availableForWork: false', async () => {
+      await About.create({ availableForWork: true });
+
+      const res = await request(app)
+        .put('/api/about')
+        .set(await authHeader())
+        .send({ availableForWork: false });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.availableForWork).toBe(false);
+      await expect(
+        About.findOne({}).then((d) => d.availableForWork)
+      ).resolves.toBe(false);
+    });
+
+    it('accepts availableForWork: true', async () => {
+      const res = await request(app)
+        .put('/api/about')
+        .set(await authHeader())
+        .send({ availableForWork: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.availableForWork).toBe(true);
+    });
+  });
 });
 
 describe('PATCH /api/about/availability', () => {

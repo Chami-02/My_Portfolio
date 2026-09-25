@@ -59,7 +59,7 @@ export function AboutSection() {
 
         <div className={styles.grid}>
           <Reveal type="left" className={styles.portraitCard}>
-            <AboutPortrait />
+            <AboutPortrait avatar={about?.avatar} />
           </Reveal>
 
           <div>
@@ -156,9 +156,10 @@ export function AboutSection() {
  * driving it, and the mismatch is the named vestibular trigger. A 1:1
  * pointer follow is not.
  */
-function AboutPortrait() {
+function AboutPortrait({ avatar }) {
   const imgRef = useRef(null);
   const reduced = useReducedMotion();
+  const uploaded = avatar?.url || null;
 
   useEffect(() => {
     if (reduced) return undefined;
@@ -195,8 +196,24 @@ function AboutPortrait() {
           motion. */}
       <img
         ref={imgRef}
-        src={aboutPortrait}
-        alt="Parindra Gallage leaning against a classic green Mini"
+        // ⚠️ PF-112 — the uploaded portrait, with the BUNDLED asset as fallback.
+        // `avatar.url` is only ever set alongside a stored publicId, so a crash
+        // between upload and save reads as "no portrait" and the site shows the
+        // shipped photograph rather than a broken image.
+        //
+        // ⚠️ NO CSS CHANGES GO WITH THIS. `.portraitImg` already declares
+        // `aspect-ratio: 3/4` and `object-fit: cover`, so any upload is cropped
+        // to the frame without help. See the note in the stylesheet about
+        // `object-position`.
+        src={uploaded || aboutPortrait}
+        // ⚠️ The alt text has to follow the SOURCE. The bundled photograph's
+        // description names the green Mini in it; reusing that sentence for an
+        // arbitrary upload would describe a picture that is not there, which is
+        // worse than a generic alt because a screen-reader user has no way to
+        // tell it is wrong. The generic wording matches the hero portrait's.
+        alt={uploaded
+          ? 'Portrait of Parindra Gallage'
+          : 'Parindra Gallage leaning against a classic green Mini'}
         className={styles.portraitImg}
         style={{ transform: 'scale(1.02)' }}
       />

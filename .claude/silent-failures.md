@@ -2654,3 +2654,68 @@ plate was redundant) and giving `.shell` `position: relative; z-index: 2` so
 its in-flow content paints above the canvas. Guarded as a parsed absence in
 `AdminLayout.test.jsx`, mutation-proven.
 
+
+## ⚠️ A `FormData` body is silently converted to JSON by the axios instance's own `Content-Type` default, and the File is destroyed (PF-112, 2026-09-25)
+
+**`services/api.js:10-12` sets `Content-Type: application/json` on the shared
+axios instance.** That is correct for every call the frontend made before
+PF-112, because every one of them sent JSON. PF-112 added the first multipart
+uploads in the project, and the default turns them into JSON too.
+
+axios 1.18.1's own `transformRequest`
+(`node_modules/axios/lib/defaults/index.js:56`):
+
+```js
+if (isFormData) {
+  return hasJSONContentType ? JSON.stringify(formDataToJSON(data)) : data;
+}
+```
+
+`formDataToJSON` walks the entries and builds a plain object. A `File` is not
+JSON-serialisable, so it becomes `{}`. **Measured in this repo, both ways:**
+
+```
+WITH the json default  ->  string  '{"file":{}}'
+WITHOUT                ->  FormData, the File intact
+```
+
+### Why it is expensive rather than merely wrong
+
+Nothing throws anywhere on the client. The request is well-formed JSON, gets a
+real HTTP response, and the server answers **400 `No file uploaded — send a
+"file" field`** — because multer parsed no multipart body and `req.file` is
+`undefined`.
+
+That message points at the client's field NAME. The field name is correct. So
+the evidence indicts the one thing that is not broken, and the actual cause is
+a header set in a different file that the upload code never mentions.
+
+### The fix, and the way that looks like the fix and is not
+
+**Pass `headers: { 'Content-Type': undefined }` on the request.** Deleting the
+header is what makes `hasJSONContentType` false, so axios detects the FormData
+and lets the **browser** set `multipart/form-data; boundary=…`.
+
+⚠️ **Setting `'multipart/form-data'` explicitly is also broken**, and it is the
+obvious first attempt. It omits the `boundary` parameter — which only the
+browser can generate, because only it knows the delimiter it used — and multer
+then fails to parse a body that genuinely IS multipart. One wrong fix produces
+"no file", the other produces a parse error; neither names the header.
+
+### How it is guarded
+
+`services/__tests__/aboutService.test.js`, driven through the **real axios
+pipeline** with a scripted adapter, following `api.test.js`'s precedent. That is
+not a stylistic choice here: the transform under test runs *between* the service
+call and the transport, so a test that mocked `api` would pass against the
+broken version while asserting nothing.
+
+The load-bearing assertion is `expect(config.data).toBeInstanceOf(FormData)`.
+Mutation-proven — removing the header override turns **5 of 10** cases red, and
+the failure is `TypeError: body.get is not a function`, because the body is the
+string.
+
+⚠️ **This applies to every future upload, not just About's two.** PF-113's
+project-background upload goes through the same instance. Anything that builds a
+`FormData` and hands it to `api` must override the header, or it will look like
+it works and send `{"file":{}}`.

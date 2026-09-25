@@ -13,6 +13,7 @@ import postcss from 'postcss';
 // reset by the file's own restoreAllMocks/afterEach, never bleeding.
 const useAbout = vi.hoisted(() => vi.fn());
 vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
+const { cvAnchorProps } = await import('../../../utils/resume');
 import { HeroSection } from '../HeroSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
@@ -157,8 +158,53 @@ describe('HeroSection (PF-80)', () => {
 
     expect(screen.getByText('VIEW MY WORK →').closest('a'))
       .toHaveAttribute('href', '#projects');
+    // The empty-state branch: no résumé stored, so DOWNLOAD CV is the
+    // prototype's own inert anchor. See the describe below for the other half.
     expect(screen.getByText('DOWNLOAD CV').closest('a'))
       .toHaveAttribute('href', '#contact');
+  });
+
+  // ── PF-112: the hero's DOWNLOAD CV was UNWIRED and it was a real defect ────
+  // `applyResume()` (Portfolio Revolution.dc.html:675) sweeps `[data-cv]` and
+  // the prototype has TWO — this CTA and Contact's. PF-87 wired only Contact's.
+  //
+  // ⚠️ The old single assertion above passed both before and after the fix,
+  // because the default mock stores no résumé and both branches then agree on
+  // `#contact`. That agreement is exactly why the defect stayed invisible for
+  // three sprints, so the case that matters is the one where a résumé EXISTS.
+  describe('DOWNLOAD CV follows the stored résumé (PF-112)', () => {
+    const cv = () => screen.getByText('DOWNLOAD CV').closest('a');
+
+    it('becomes a real download once a résumé is stored', () => {
+      useAbout.mockReturnValue({ data: { availableForWork: true, hasResume: true } });
+      mockMatchMedia(false);
+      render(withMotion(<HeroSection />));
+
+      expect(cv()).toHaveAttribute('href', '/api/resume');
+      expect(cv()).toHaveAttribute('download');
+      expect(cv()).not.toHaveAttribute('title');
+    });
+
+    it('stays inert and explains itself when there is none', () => {
+      useAbout.mockReturnValue({ data: { availableForWork: true, hasResume: false } });
+      mockMatchMedia(false);
+      render(withMotion(<HeroSection />));
+
+      expect(cv()).toHaveAttribute('href', '#contact');
+      // ⚠️ `download` must be ABSENT here, not merely falsy — left on an inert
+      // `#contact` href the browser tries to download the page itself.
+      expect(cv()).not.toHaveAttribute('download');
+      expect(cv()).toHaveAttribute('title', expect.stringMatching(/admin panel/i));
+    });
+
+    it('matches what Contact renders, which is the bug that existed', () => {
+      useAbout.mockReturnValue({ data: { availableForWork: true, hasResume: true } });
+      mockMatchMedia(false);
+      render(withMotion(<HeroSection />));
+
+      // Both CV controls read the same helper now, so they cannot disagree.
+      expect(cv().getAttribute('href')).toBe(cvAnchorProps(true).href);
+    });
   });
 
   it('renders the portrait with its alt text and the marquee strip', () => {

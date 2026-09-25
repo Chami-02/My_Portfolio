@@ -15,7 +15,13 @@ const {
 
 
 router.get('/', getAbout);
-router.put('/', aboutRules, validate, protect, updateAbout);
+// ⚠️ PF-112 — `protect` FIRST, then the rule array.
+// This used to read `aboutRules, validate, protect`, which is the exact
+// ordering PF-97 fixed in blogRoutes.js: `validate` 400s on a malformed body
+// before `protect` ever runs, so an anonymous PUT with a bad payload was
+// answered with a description of the schema instead of a 401. Authentication
+// has to be the first gate, or the 400 is an information leak.
+router.put('/', protect, aboutRules, validate, updateAbout);
 router.patch('/availability', protect, toggleAvailability);
 
 // ── NEW IN PF-60 ─────────────────────────────────────────────

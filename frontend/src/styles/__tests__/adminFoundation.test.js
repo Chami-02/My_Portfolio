@@ -106,6 +106,7 @@ const PHASE_2_SHEETS = [
   'components/admin/AdminFooter.module.css',
   'pages/AdminLoginPage.module.css',           // PF-109
   'components/admin/panels/AdminOverviewPanel.module.css', // PF-110
+  'components/admin/panels/AdminAboutPanel.module.css',    // PF-112
 ];
 
 describe("PF-107's stylesheets read no Phase 1 token", () => {

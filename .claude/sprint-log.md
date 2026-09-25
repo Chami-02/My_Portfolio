@@ -7085,3 +7085,74 @@ documented trap, triggered by the suite's own repeated page loads. All 37
 passed regardless; no spec depends on that data.
 
 **PF-90 created no orphans and removed none.**
+
+---
+
+## PF-112 — About panel rebuild, portrait upload, résumé card (2026-09-25)
+
+**Report:** `new mds/E9/PF-112-about-panel-and-media-uploads.md`.
+
+Built: the panel on the PF-107 layer (176 → 561 lines, last inline Phase 1
+tokens and both hardcoded `#f87171` reds gone); `utils/aboutForm.js` and
+`utils/resume.js`; four media methods and four hooks; the portrait wired into
+`AboutSection` with the bundled asset as fallback; the hero's `DOWNLOAD CV`
+wired at last; `aboutRoutes.js`'s middleware order fixed.
+
+**⚠️ The panel STAGES — owner decision mid-ticket, and it is a STANDING rule.**
+See `locked-decisions.md`. It supersedes PF-111 §3.4's résumé half, moved
+`availableForWork` onto the profile PUT, and deleted
+`useToggleAvailability` / `aboutService.toggleAvailability`.
+
+**⚠️ First frontend multipart, and it has a silent trap** — see
+`silent-failures.md`. `api.js`'s JSON instance default makes axios convert a
+`FormData` body to `'{"file":{}}'`. Every upload must pass
+`headers: { 'Content-Type': undefined }`. **PF-113's background upload uses the
+same instance.**
+
+**Tests:** frontend 66 files / 1325 tests green; lint clean at
+`--max-warnings=0`; coverage 94.09 / 89.91 / 88.17 / 96.35; build ✓ 464 ms.
+Backend `npm test` 32 suites / 449 tests green (609 s). New: aboutService 10,
+aboutForm 21, resume 6, AdminAboutPanel 42 (the panel had none), Hero 35→38,
+About 34→37, adminFoundation 22→24, backend about 7→11.
+
+**⚠️ Mutation testing found a VACUOUS GUARD OF MY OWN.** Dropping
+`type="button"` from the résumé card's REMOVE left **all 36 tests green** — the
+sweep rendered only the default fixture, where no résumé is stored, so the button
+was never on the page. Strengthened *while the mutation was still applied* to
+`it.each` over four fixtures, plus a behavioural "REMOVE does not submit the
+form" pair; it then caught it (2 red, confirming the form really was submitted).
+The other three mutations were caught first time: the content-type override
+(5/10 red, `body.get is not a function`), the résumé staging (8/36 red), and the
+route ordering (1 red).
+
+### Outstanding work added by PF-112
+
+- **⚠️ `en-GB` renders September as `SEPT` — four letters where every other month
+  has three.** Measured across all twelve. `formatDate` (`utils/blogMeta.js`) is
+  shared with the **blog cards**, and its own comment says `day: '2-digit'` was
+  chosen so stacked dates do not form a ragged column — which a four-character
+  month undoes. **Pre-existing and live.** Not fixed: it changes copy on a
+  shipped surface, so it is the owner's call.
+- **⚠️ `object-position: 50% 32%` (`AboutSection.module.css:108-114`) is tuned to
+  the BUNDLED photograph.** Every uploaded portrait inherits that framing —
+  right for a similar composition, arbitrary otherwise. Needs the owner's eye on
+  a real upload.
+- **Bio and stats still do not reach the public site.** `AboutSection` is
+  transcribed static. **Owner decision: PF-118.** `About.stats[]` stays
+  uneditable until then, since editing it would change nothing.
+- **`PATCH /api/about/availability` now has NO CLIENT**, joining
+  `POST /api/upload`. Backend route and its three tests kept; PF-120's call.
+- **The live LinkedIn URL is still `gallege`** — a one-field edit the owner makes
+  through this panel once deployed.
+- **⚠️ CLAUDE.md calls `adminFoundation.test.js` "18 postcss-parsed structural
+  guards."** True at three sheets; with six it expands to **24**. And its
+  "`INPUT` constant copy-pasted into five files" line is a dated
+  pre-PF-107 inventory — zero matches remain.
+- **⚠️ The backend suite's timeout shape fired again.** `test:coverage` went red
+  on `project.background.routes.test.js`'s `afterEach` → `clearDB()` exceeding
+  30 s, in a file this ticket never touched. **949 s for that one 19-test file
+  alone** was the tell; a latency probe straight after showed the link healthy
+  (connect 1086 ms, pings 94–140 ms). Coverage thresholds themselves were fine
+  (**73.61 % branch** vs 60 %). Same code passed in `npm test` at 609 s.
+  ⚠️ Reproducibility is still the discriminator — but it reproduces for as long
+  as the link stays degraded, so pair it with a latency measurement.

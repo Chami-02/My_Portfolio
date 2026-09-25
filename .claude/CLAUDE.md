@@ -303,6 +303,31 @@ no service, nothing in `backend/src` mentioning a provider. Do not assume a
 mailer exists; PF-123 builds the first one, and PF-125 reuses it rather than
 building a second.
 
+### Admin panels STAGE — the public site changes only on SAVE
+
+**Owner requirement, 2026-09-25. Built for About by PF-112; binds every panel
+after it.** Owner's words: *"when i upload a new resume then it will upload but
+until i press the save changes it should [not] appear on the main page — that's
+how usually happen in the admin portals isn't it?"*
+
+**Nothing in an admin panel reaches the public site until SAVE is pressed.**
+Three consequences, each worked out in PF-112 and each non-obvious:
+
+- **REMOVE must stage too.** A REMOVE that fires its `DELETE` immediately makes
+  the file vanish from the live site *before* SAVE, breaking the same rule the
+  upload deferral exists to keep. Stage `'remove'`; delete on SAVE.
+- **A toggle that drives the public site must stage.** `availableForWork` moved
+  onto `PUT /api/about` for this reason, which left `useToggleAvailability` dead
+  (deleted; the backend PATCH route stays, clientless).
+- **Deferring costs error feedback, and it is paid back client-side.** Type and
+  size are readable from the `File`, so a wrong pick is refused instantly with
+  the server's own wording. ⚠️ **That check is a COURTESY, never a gate** — a
+  `.jpg` renamed `.pdf` passes every browser test and is refused by the
+  magic-byte check in `utils/fileType.js`, which is the real control.
+
+⚠️ **This SUPERSEDES PF-111 §3.4**, which deferred only the portrait and left
+the résumé uploading on pick. **PF-113 → PF-115 inherit it.**
+
 ### The owner's address is `pcgallege@gmail.com`
 
 **Owner decision, 2026-09-12.** Changed from `parindrachameekara@gmail.com`,
@@ -328,7 +353,7 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, **PF-111 built 2026-09-23**; branch `sprint-14-admin_page_rebuild` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, PF-111 built 2026-09-23, **PF-112 built 2026-09-25**; branch `sprint-14-admin_page_rebuild` |
 | **Sprint 15 (PF-123 → PF-125)** | **Auth + email** — contact notification, credential editing, password reset | **planned 2026-09-12**, not started |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
@@ -365,7 +390,7 @@ authority; this table is the index.
 | ~~PF-109~~ | `/admin/login` rebuilt in Phase 2 ✅ **BUILT 2026-09-16** — ⚠️ background re-decided: the SITE's ambient layer on login AND the shell, no aurora/scanline stage; `riseIn` split per screen | High | 5 |
 | ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild ✅ **BUILT 2026-09-16** — seven-field response, not the plan's five; `/admin` mounts on 2 requests, was 5 | High | 5 |
 | ~~PF-111~~ | Media pipeline — `publicId` everywhere, hard-delete on replace ✅ **BUILT 2026-09-23** — ⚠️ scope grew: delete-on-record-delete, and two live write holes closed | Highest | 8 |
-| PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 |
+| ~~PF-112~~ | About panel — rebuild, portrait upload, résumé card ✅ **BUILT 2026-09-25** — ⚠️ scope widened mid-ticket: the panel STAGES everything, incl. the availability toggle | High | 8 |
 | PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 |
 | PF-115 | Blog + Messages panels restyled | Medium | 5 |
@@ -460,7 +485,13 @@ inventory, 2026-09-08:
   objects.** No Tailwind, no CSS modules, no `.module.css` under
   `components/admin/`. Hover and focus are dozens of `onMouseEnter` /
   `onBlur` handlers mutating `e.currentTarget.style`. An `INPUT` constant is
-  copy-pasted into **five** files.
+  copy-pasted into **five** files. ⚠️ **That clause is HISTORY, not the
+  present** — PF-107 deleted all five and `adminFoundation.test.js` bans
+  re-introducing them; zero matches remain. Read this whole list as the dated
+  2026-09-08 inventory it is. ⚠️ It also under-reports the problem: some Phase 1
+  tokens live in **inline JSX `style={{}}`**, which the stylesheet-parsing guard
+  cannot see — which is how `AdminAboutPanel` blocked PF-116 with every guard
+  green until PF-112.
 - **Phase 1 token consumption:** `--font-mono` ×47, `--text-muted` ×40,
   `--border` ×32, `--accent` ×29, `--text-primary` ×16, `--text-body` ×16;
   plus `.glass` ×13, `.btn-outline` ×9, `.btn-primary` ×6, `.skeleton` ×6.
@@ -570,7 +601,13 @@ frontend/src/styles/
                                  banners. ⚠️ Compose from this; adding a
                                  Phase 1 token to any admin stylesheet turns
                                  adminFoundation.test.js red and BLOCKS PF-116
-  __tests__/adminFoundation.test.js  18 postcss-parsed structural guards
+  __tests__/adminFoundation.test.js  postcss-parsed structural guards — **24
+                                 cases as of PF-112**, not the 18 once written
+                                 here. The count tracks PHASE_2_SHEETS, grown
+                                 from 3 entries to 6. ⚠️ That list is EXPLICIT,
+                                 not globbed: a sheet left out of it is silently
+                                 exempt from the Phase-1-token guard, the only
+                                 thing gating PF-116
 frontend/src/components/admin/
   AdminLayout.jsx + .module.css  rebuilt shell. ⚠️ --admin-header-h is 67px,
                                  MEASURED — the reused 44px ThemeToggle is the
@@ -1105,6 +1142,17 @@ concluding "this is fine, I read the source".
   returned every post. **Grep every `typeof … === 'string'` on a value
   before widening it to an array, and always assert a ZERO case** — every
   positive assertion passes under a filter that matches everything.
+- **⚠️ A `FormData` body sent through `api.js` is SILENTLY CONVERTED TO JSON
+  and the File is destroyed.** The instance sets `Content-Type:
+  application/json`, and axios's own `transformRequest` answers
+  `hasJSONContentType ? JSON.stringify(formDataToJSON(data)) : data` — so the
+  request leaves as **`'{"file":{}}'`**. Measured both ways. Multer then parses
+  no multipart body and the server answers **400 "No file uploaded — send a
+  'file' field"**, which indicts the field NAME while the name is correct.
+  **Fix: `headers: { 'Content-Type': undefined }` on every multipart call.**
+  ⚠️ Naming `'multipart/form-data'` explicitly is ALSO broken — it omits the
+  boundary, which only the browser can generate. Applies to every future
+  upload, PF-113's background included.
 - **⚠️ axios serialises arrays as `tag[]=a&tag[]=b`; `URLSearchParams`
   writes `tag=a&tag=b`.** `qs` parses both, so it "works" while the address
   bar and the wire disagree. `paramsSerializer: { indexes: null }` on the
@@ -1781,6 +1829,38 @@ omitted — keep the two straight.
 - **The Overview's stat label is one token lighter in DARK** (PF-110) —
   PF-91's substitution again: `--muted2` 4.15 → `--muted` 7.00 on the card;
   light 5.95, untouched.
+- **The admin About panel is a STAGED FORM** (PF-112, owner 2026-09-25) — see
+  Standing product requirements above; it is a site-wide rule, not a panel
+  detail. ⚠️ **Supersedes PF-111 §3.4's résumé half.** `availableForWork` rides
+  `PUT /api/about` (new `isBoolean()` rule — ⚠️ `.optional()` validates `false`,
+  the case that matters), and `useToggleAvailability` +
+  `aboutService.toggleAvailability` are **DELETED**; the backend PATCH route
+  stays with no client, for PF-120. SAVE is **sequential, profile first** — not
+  `Promise.all` — so a storage outage still lets a text edit land and the banner
+  can name which file was refused. ⚠️ **A partial failure never flashes "Profile
+  saved."**
+- **Two NEW badge states, `PENDING SAVE` and `REMOVE ON SAVE`** (PF-112) — the
+  prototype's `LIVE`/`MISSING` cannot express "picked but not committed". Both
+  on the existing accent `a.badge`; no new colour. ⚠️ The prototype's toggle
+  flash copy is **dropped** — it announces a save that has not happened.
+- **The résumé picker is `accept=".pdf"` and the portrait caption says 2 MB**
+  (PF-112) — two deliberate deviations from the frozen export, both because the
+  prototype contradicts the backend. The export offers `.doc,.docx` and
+  `uploadResume` 415s them; `MAX_IMAGE_BYTES` is **2 MB** while multer's cap is
+  5, so a 3 MB portrait passes multer and 413s in the handler.
+- **The About portrait card has NO prototype source and mirrors the résumé
+  card** (PF-112, owner) — nothing in `Admin.dc.html` or DESIGN.md §6.3.
+  ⚠️ The two cards are deliberately **NOT** one parameterised component: four
+  differing axes, and the failure mode of confusing them is destroying the wrong
+  file — PF-111's reasoning, reapplied.
+- **The portrait's ALT TEXT follows the source** (PF-112) — the bundled photo's
+  alt names the green Mini in it, so an upload gets `Portrait of Parindra
+  Gallage` instead. Reusing the specific sentence would describe a picture that
+  is not there, which a screen-reader user cannot detect.
+- **The upload input is CLIPPED, not `display: none`** (PF-112) — the
+  prototype's `<label>` + `display:none` pill cannot be reached or operated by a
+  keyboard. The label draws the ring with `:focus-within`, and carries no
+  `border-radius` there.
 
 ## Environment
 

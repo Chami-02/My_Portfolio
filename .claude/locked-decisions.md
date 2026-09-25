@@ -3299,3 +3299,97 @@ module, and the shorthand would reset it). The unread card's border
 follows: `rgba(52,211,153,.35)`. Measured: 18px from the card's top-right,
 `glowdot: running`, date clear of the dot. PF-115 transcribes the rest of
 the card around this and keeps the green.
+
+### PF-112 — the admin About panel is a STAGED FORM; nothing is public until SAVE (owner, 2026-09-25)
+
+Owner's words: *"when i upload a new resume then it will upload but until i
+press the save changes it should [not] appear on the main page — that's how
+usually happen in the admin portals isn't it?"*
+
+**Every control in the panel stages. `SAVE PROFILE` commits.** Basic info, bio
+and social go in `PUT /api/about`; a picked portrait or résumé is held in the
+browser and sent to its own route on save.
+
+⚠️ **This is a STANDING requirement, not an About detail.** It governs PF-113's
+background upload and opacity slider, and PF-114/PF-115.
+
+⚠️ **It SUPERSEDES PF-111 §3.4**, which deferred only the portrait and left the
+résumé uploading on pick. My own recommendation that evening was to keep the
+résumé immediate *because it has its own routes and its own REMOVE* — that
+reasoning was about the backend's shape and answered the wrong question. Which
+route a change travels on has nothing to do with when a visitor sees it.
+
+**Three consequences, each non-obvious:**
+
+- **REMOVE stages too.** A REMOVE that fired its `DELETE` immediately would make
+  the file vanish from the live site *before* SAVE — breaking the same rule the
+  upload deferral exists to keep. It stages `'remove'`; SAVE performs the
+  delete; `UNDO` discards it.
+- **The availability TOGGLE stages**, because it drives the hero badge, the
+  footer row and the About line live. `availableForWork` moved onto the profile
+  PUT and gained a `body('availableForWork').optional().isBoolean()` rule.
+  ⚠️ `.optional()` skips only `undefined`, so `false` IS validated — the case
+  that matters, since anything conflating "absent" with "false" would silently
+  never mark the owner unavailable.
+- **`useToggleAvailability` and `aboutService.toggleAvailability` were DELETED** —
+  zero consumers the moment the panel changed, and left in place their own
+  coverage would have kept reporting them alive. ⚠️ The **backend** `PATCH
+  /api/about/availability` route STAYS: it has three passing tests and is a
+  reasonable affordance. It now has no client, joining `POST /api/upload` on
+  PF-120's list.
+
+**What deferring costs, and how it is paid.** The 415 / 413 / 503 errors now
+arrive on SAVE rather than at pick time. Type and size are both readable from
+the `File`, so a wrong pick is refused instantly with the server's own wording,
+and only the genuinely server-side answers wait.
+⚠️ **That client check is a COURTESY, NEVER A GATE.** A `.jpg` renamed `.pdf`
+passes every browser-side test and is refused by the magic-byte check on save.
+Anyone "trusting the client check to skip the server's" removes the actual
+security control.
+
+**Rejected: `Promise.all` for the commit.** Sequential, profile first — the
+profile PUT is the only call that cannot fail for environmental reasons, so a
+storage outage still lets a text edit land, and two concurrent failures make the
+banner ambiguous about which file was refused.
+⚠️ **A partial failure must not flash "Profile saved."** It reports what landed
+and what did not, and the failed item stays staged so SAVE can be pressed again.
+
+### PF-112 — two new badge states, and the résumé picker is PDF-only (2026-09-25)
+
+- **`PENDING SAVE` and `REMOVE ON SAVE`** join the prototype's `LIVE` /
+  `MISSING` (`Admin.dc.html:1175`), which cannot express "picked but not
+  committed". Both use the accent `a.badge` that already sits beside
+  `a.badgeOk` (green = LIVE) and `a.badgeMuted` — no new colour, no new class.
+- **The prototype's toggle flash copy is DROPPED.** `Marked as open to work` /
+  `Marked as not available` (`:1158`) announce a save that has not happened.
+- **`accept=".pdf"`, and the caption reads `PDF ONLY · MAX 5 MB`.** The export
+  offers `.pdf,.doc,.docx` and captions it so, but *"résumé is PDF only"* is
+  locked and `uploadResume` 415s anything whose magic bytes are not `%PDF-`.
+  Offering DOCX promises a file the server refuses.
+- **The portrait caption reads `MAX 2 MB`, not 5.** `MAX_IMAGE_BYTES` is
+  `2 * 1024 * 1024` (`middleware/upload.js:10`) while multer's cap is 5 MB — so
+  a 3 MB portrait passes multer and is rejected by the handler at 413.
+
+### PF-112 — the portrait card has NO prototype source, and mirrors the résumé card (owner, 2026-09-25)
+
+`Admin.dc.html`'s About panel has no portrait card and DESIGN.md §6.3 does not
+list one. Owner chose to **mirror the résumé card** — same chrome, badge,
+62×80 tile footprint, REPLACE/REMOVE — as its own card **after Basic info,
+before Bio paragraphs**, so the addition stays in the design's own vocabulary.
+
+⚠️ **The two cards are deliberately NOT one parameterised component.** They
+differ in accepted formats, size cap, preview rendering and route, and the
+failure mode of confusing them is destroying the wrong file — the same reasoning
+PF-111 used to reject folding its two handlers into a six-parameter helper.
+
+**Also PF-112, and both are corrections rather than preferences:**
+- **`AboutSection`'s portrait alt text follows the SOURCE.** The bundled
+  photograph's description names the green Mini in it; reusing that sentence for
+  an arbitrary upload describes a picture that is not there — worse than a
+  generic alt, because a screen-reader user cannot tell it is wrong. An uploaded
+  portrait gets `Portrait of Parindra Gallage`, matching the hero's.
+- **The file input is CLIPPED, not `display: none`.** The prototype's pill is a
+  `<label>` wrapping a `display:none` input, which is unreachable and
+  inoperable by keyboard. Clipped-but-focusable keeps the look, and the label
+  draws the focus ring with `:focus-within` — no `border-radius` in that rule,
+  or it squares off the 999px pill while focused.

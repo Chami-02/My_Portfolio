@@ -1,0 +1,317 @@
+/* frontend/src/components/admin/panels/AdminAboutPanel.module.css
+ *
+ * PF-112 — the About panel's own structure. Transcribed from
+ * docs/design/Admin.dc.html:362-452.
+ *
+ * ⚠️ REGISTERED IN adminFoundation.test.js's PHASE_2_SHEETS. That list is
+ * explicit, not globbed, so a sheet left out of it is silently exempt from the
+ * Phase-1-token guard — and that guard is the only thing standing between this
+ * file and PF-116's :root deletion. Nothing here may name --border, --accent,
+ * --green, --text-muted, --text-body or any other Phase 1 token.
+ *
+ * ⚠️ What lives here vs in styles/admin.module.css: the shared layer owns
+ * anything a second panel will want (panels, fields, buttons, badges, banners,
+ * skeletons). This file owns the status bar, the two media cards and the bio
+ * row — shapes that exist only on this screen.
+ */
+
+/* ── Availability bar ─────────────────────────────────────────────────────── */
+
+/* Not composed from `panel`: the prototype gives this bar its own 16px radius
+ * and 16px/20px padding, against the panel's 18px and clamp(). */
+.statusRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .1);
+}
+
+.statusOn,
+.statusOff {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.statusOn  { color: var(--ok); }
+.statusOff { color: var(--danger); }
+
+/* `currentColor` so the dot follows the label without a second pair of rules —
+ * the prototype repeats the colour expression on both. */
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ── Card head: a title with a badge pushed to the right ──────────────────── */
+
+/* A LOCAL title rather than admin.module.css's `.panelTitle`, because that one
+ * carries `margin: 0 0 20px` — correct for a title stacked above its content,
+ * wrong for one sitting in a flex row, where the margin pushes the whole row's
+ * baseline. The prototype's own flex-row headings are `margin: 0`. */
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--strong);
+}
+
+.cardNote {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.7;
+  max-width: 66ch;
+}
+
+.cardNote strong { color: var(--strong); }
+
+/* ── The shared media row shape ───────────────────────────────────────────── */
+
+/* Not composed from `panelInset` either: that is 12px radius with a .18 line,
+ * and the prototype's media row is 14px with .14 and its own padding. Composing
+ * the near-miss and overriding three declarations reads as if the values were
+ * the same and one was adjusted, which is exactly the drift the transcription
+ * rule exists to prevent. */
+.mediaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(var(--gnd), .32);
+  border: 1px solid rgba(var(--ln), .14);
+}
+
+.mediaBody {
+  flex: 1;
+  min-width: 220px;
+  display: grid;
+  gap: 8px;
+}
+
+.mediaName {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--strong);
+  word-break: break-all;
+}
+
+.mediaMeta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted2);
+}
+
+.mediaActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+/* ── Résumé: the dog-eared sheet ──────────────────────────────────────────── */
+
+.sheet {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 80px;
+  border-radius: 8px;
+  background: rgba(var(--srf), .7);
+  border: 1px solid rgba(var(--ln), .2);
+}
+
+/* The prototype tints the sheet's border and wordmark with the same green it
+ * gives the LIVE badge (Admin.dc.html:1176-1177), so the tile reads as active
+ * at a glance. A literal, matching admin.module.css's own `.badgeOk`: this
+ * green is deliberately the same in both themes. */
+.sheetLive { border-color: rgba(52, 211, 153, .4); }
+
+.sheetExt {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--muted2);
+}
+
+.sheetExtLive { color: var(--ok); }
+
+.sheetFold {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  background: rgba(var(--gnd), .6);
+  clip-path: polygon(0 0, 100% 100%, 100% 0);
+}
+
+/* ── Portrait: the image thumb, same footprint as the sheet ───────────────── */
+
+.thumb {
+  flex: none;
+  width: 62px;
+  height: 80px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--ln), .2);
+  object-fit: cover;
+  background: rgba(var(--srf), .7);
+}
+
+.thumbEmpty {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 80px;
+  border-radius: 8px;
+  background: rgba(var(--srf), .7);
+  border: 1px dashed rgba(var(--ln), .2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--muted2);
+}
+
+/* ── The upload control ───────────────────────────────────────────────────── */
+
+/* A <label> wrapping a real <input type="file">. `position: relative` is
+ * load-bearing — it is what `.fileInput`'s absolute clip is positioned against,
+ * so the clipped input cannot add a scroll region to the page. */
+.uploadPill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .08);
+  color: var(--acc, #FCA311);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: color .2s, background .2s, transform .2s;
+}
+
+.uploadPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  transform: translateY(-2px);
+}
+
+/* The focus ring has to be drawn by the LABEL, because the input it belongs to
+ * is clipped to a single pixel and its own ring would be invisible. No
+ * `border-radius` in here: a radius inside a focus rule reshapes the element
+ * rather than the ring, squaring off this 999px pill while focused. */
+.uploadPill:focus-within {
+  outline: 2px solid var(--acc, #FCA311);
+  outline-offset: 3px;
+}
+
+/* ⚠️ Clipped, NOT `display: none` and NOT the `hidden` attribute. Either of
+ * those removes the input from the focus order, which is how the prototype's
+ * version of this pill ends up unreachable by keyboard. Clipping keeps it
+ * focusable and in the accessibility tree while the label carries the look. */
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.caption {
+  margin: 12px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  color: var(--faint);
+}
+
+/* ── Bio rows ─────────────────────────────────────────────────────────────── */
+
+.bioList {
+  display: grid;
+  gap: 12px;
+}
+
+.bioRow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.bioNo {
+  flex: none;
+  width: 22px;
+  text-align: right;
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted2);
+}
+
+/* `min-width: 0` is what lets this shrink inside the flex row — without it the
+ * textarea's default intrinsic width keeps the row wider than its container and
+ * the remove button is pushed out of view at narrow widths. */
+.bioText {
+  composes: textarea from '../../../styles/admin.module.css';
+  flex: 1;
+  min-width: 0;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+/* ── Save row ─────────────────────────────────────────────────────────────── */
+
+.saveRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.unsaved {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--acc, #FCA311);
+}
+
+/* ── PF-91's contrast substitution, APPLIED not re-decided ────────────────── */
+/* `--faint` on a tinted surface fails AA in dark; the pass that fixed this
+ * site-wide substitutes `--muted`. Dark-scoped, winning on specificity (0,2,1)
+ * rather than emission order — the same shape as AdminOverviewPanel.module.css's
+ * `.statLabel` rule and AdminLoginPage.module.css's placeholder. */
+:global(html[data-theme='dark']) .caption { color: var(--muted); }

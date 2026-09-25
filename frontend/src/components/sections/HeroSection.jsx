@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { Reveal, Marquee } from '../motion';
 import { useAbout } from '../../hooks/useAbout';
+import { cvAnchorProps } from '../../utils/resume';
 import heroImg from '../../assets/hero-ai.png';
 import styles from './HeroSection.module.css';
 
@@ -72,6 +73,8 @@ export function HeroSection() {
   // Shared cache entry with ContactSection's useAbout() — no extra request.
   const { data: about } = useAbout();
   const isAvailable = about?.availableForWork ?? true;
+  // `hasResume` is a schema virtual — true only when a url is actually stored.
+  const hasResume  = Boolean(about?.hasResume);
 
   return (
     <>
@@ -169,12 +172,15 @@ export function HeroSection() {
               <a href="#projects" className={styles.ctaPrimary}>
                 VIEW MY WORK →
               </a>
-              {/* The prototype's data-cv hook rewrites this href to a
-                  localStorage résumé data-URL when one exists, falling back
-                  to #contact. That bridge is an admin-panel concern and
-                  belongs with the résumé ticket, not here — the fallback
-                  href is the transcribed default either way. */}
-              <a href="#contact" className={styles.ctaSecondary}>
+              {/* ⚠️ WIRED IN PF-112, and it was a live defect before that.
+                  `applyResume()` (Portfolio Revolution.dc.html:675) sweeps
+                  `[data-cv]` and the prototype has TWO — this CTA (line 119)
+                  and Contact's (line 505). PF-87 wired only Contact's and left
+                  this one a hardcoded `#contact`, which was invisible while no
+                  résumé existed because both hrefs agreed. The moment one is
+                  uploaded they diverge: Contact's becomes a real download and
+                  this stays an anchor pointing at the section below it. */}
+              <a {...cvAnchorProps(hasResume)} className={styles.ctaSecondary}>
                 DOWNLOAD CV
               </a>
             </Reveal>

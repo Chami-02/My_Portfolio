@@ -4,43 +4,22 @@ import { Reveal } from '../motion';
 import { MailIcon, GitHubIcon, LinkedInIcon } from '../icons';
 import { useAbout } from '../../hooks/useAbout';
 import { contactService } from '../../services/contactService';
-import { apiUrl } from '../../services/api';
+import { cvAnchorProps } from '../../utils/resume';
 import styles from './ContactSection.module.css';
 
-/**
- * Where `↓ DOWNLOAD CV` points when there is no résumé to download.
+/*
+ * ── The DOWNLOAD CV constants MOVED to utils/resume.js in PF-112 ────────────
  *
- * ⚠️ This is the PROTOTYPE'S OWN empty state, not a fallback invented
- * here. The markup's `href="#contact" download` (line 505) looks like the
- * same dead-anchor artefact as PF-86's `href="#blog"`, and it is not —
- * `applyResume()` (line 676) rewrites it at runtime:
+ * They lived here from PF-87, when this was the only wired `[data-cv]` element
+ * of the prototype's two. PF-112 wires the hero's as well, so there is a second
+ * consumer and the same bar applies that moved formatMonth into blogMeta.js:
+ * one consumer is a local constant, two is a module.
  *
- *   résumé present → href = the file, download = its name, title removed
- *   résumé absent  → href = '#contact', download removed,
- *                    title = 'Upload a résumé in the admin panel to enable this'
- *
- * So the design does answer the empty-state question: always show the
- * button, leave it inert, and explain why on hover. The localStorage hop
- * is a design-tool affordance — the same shape as `applyProjectBgs()`,
- * which PF-85 mapped one-to-one onto `Project.backgroundImage` — and the
- * visual contract maps just as cleanly onto `About.hasResume` here.
+ * The reasoning that used to sit here — that `href="#contact" download` is the
+ * PROTOTYPE'S OWN empty state rather than a dead anchor, because
+ * `applyResume()` rewrites both branches at runtime — moved with them, because
+ * that is the note whoever next reads `cvAnchorProps` needs.
  */
-const CV_EMPTY_HREF = '#contact';
-const CV_EMPTY_TITLE = 'Upload a résumé in the admin panel to enable this';
-
-/**
- * The public download endpoint — `GET /api/resume`, a 302 to the forced-
- * download URL. Its own mount rather than `/api/about/resume` so the URL
- * is short and survives every replacement (resumeRoutes.js).
- *
- * Built with `apiUrl()` rather than a literal `/api/resume`, because the
- * backend is on a different origin in production: a hardcoded path in an
- * href would 404 on the live site while working fine behind the dev
- * proxy. `apiUrl` has been an orphan since PF-81 removed its last
- * consumer, and its own doc comment names this exact case — this section
- * is the first caller the résumé subsystem has ever had.
- */
-const CV_HREF = apiUrl('/resume');
 
 const EMAIL = 'parindrachameekara@gmail.com';
 const GITHUB_URL = 'https://github.com/Chami-02';
@@ -221,12 +200,7 @@ export function ContactSection() {
                   entirely when false — which is what the empty branch
                   needs, since a `download` on an inert `#contact` href
                   would try to download the page itself. */}
-              <a
-                href={hasResume ? CV_HREF : CV_EMPTY_HREF}
-                download={hasResume}
-                title={hasResume ? undefined : CV_EMPTY_TITLE}
-                className={styles.cvLink}
-              >
+              <a {...cvAnchorProps(hasResume)} className={styles.cvLink}>
                 ↓ DOWNLOAD CV
               </a>
             </Reveal>
