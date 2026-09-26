@@ -3393,3 +3393,310 @@ PF-111 used to reject folding its two handlers into a six-parameter helper.
   inoperable by keyboard. Clipped-but-focusable keeps the look, and the label
   draws the focus ring with `:focus-within` — no `border-radius` in that rule,
   or it squares off the 999px pill while focused.
+
+### PF-112 batch 2 — the panel drives the public site (owner, 2026-09-25)
+
+Four requests after the owner reviewed batch 1 in a browser and found that
+**editing the panel still changed nothing on the site.** Root cause: the panel
+and the site were transcribed separately, so the panel edited fields nobody
+rendered while the site rendered literals nobody could edit. Measured: only
+**four** of nine `About` fields reached the public site — `availableForWork`,
+`availabilityNote`, `avatar`, `hasResume`.
+
+**1. The sidebar order is Overview · About · Skills · Projects · Blog · Messages.**
+⚠️ A **sanctioned deviation from the frozen export** — `Admin.dc.html:991+` has
+Projects and Skills before About. `AdminLayout.test.jsx`'s assertion was renamed
+from *"in the prototype order"* to *"in the owner-requested order"*, because the
+old name would have made a later fidelity pass "restore" it.
+
+**2. `name` and `title` are REMOVED from the panel; `location`, `email` and
+`availabilityNote` now drive the site.**
+⚠️ **The premise needed correcting and the correction is the useful part:** name
+and title are NOT absent from the site. The hero prints the name as a two-line
+styled heading, the footer and splash print it again, and the job title appears
+in the splash, the footer and a hero role pill — **six hardcoded literals**. They
+only looked pointless because editing them changed nothing. Owner's rule settles
+it: location, email and the availability note change with a career, a name does
+not. So the schema and the literals stay and the two fields leave the form.
+⚠️ Omitting them from the payload is safe **because `updateAbout` does
+`$set: safe`** — it writes only the keys given, so an omitted field keeps its
+value. A `name: ''` slipping through would blank a required field.
+
+**3. SAVE is dim until dirty, with a REVERT beside it.** See Standing product
+requirements in `CLAUDE.md` — it binds every panel, not just About.
+
+**4. Social links are real.** Blank URL → the row is not rendered at all.
+⚠️ **This was specified in `About.js` in August and never built.** A `+ ADD LINK`
+control adds custom named rows (`socialExtra[]`), rendered with a generic link
+glyph.
+- ⚠️ **The `×` means two different things, deliberately.** On one of the five
+  fixed platforms it **clears the URL** — the key is a schema field with a
+  default and cannot cease to exist, and clearing is what hides the icon. On a
+  custom row it **removes the whole row**. Both are staged; REVERT undoes either.
+- ⚠️ **No confirm modal**, and that is a deliberate contrast with the Vocabulary
+  chip `×`, which *does* carry an impact-count confirm because it hard-deletes a
+  tag across every post with no undo. Here staging **is** the undo.
+- ⚠️ Custom keys are namespaced `extra:<label>` so a custom link named "github"
+  cannot take the GitHub brand mark.
+- ⚠️ **Contact stays GitHub + LinkedIn only**, the prototype's own two-link row.
+  The FOOTER is the complete list. A test pins that Contact renders no custom
+  links — do not "unify" them.
+
+**Also PF-112 batch 2:**
+- **`TwitterIcon` (the X mark, labelled "Twitter") and `LinkIcon` are new.**
+  ⚠️ There was **no Twitter icon in the repo at all**, which is why
+  `social.twitter` has been fillable since PF-60 and never renderable — adding
+  the schema key without the glyph is what made that invisible. The glyph is X's
+  and the label and field name stay "Twitter": renaming both to match the rebrand
+  would touch the schema, seed, form and three tests to change nothing visible.
+- **`About.location`'s default gained its missing space** — it was
+  `'Galle,Sri Lanka'` while `seed.js` had `'Galle, Sri Lanka'`, so a
+  default-created document rendered differently from a seeded one, and it reads
+  as a CSS bug rather than a data one.
+- ⚠️ **`· UTC+5:30` stays a literal** on both location lines — it is a timezone,
+  not part of the field, so a move abroad leaves it wrong. Flagged deliberately
+  rather than silently coupled.
+- **The About portrait's alt text follows the source** (batch 1) and **the email
+  fallbacks are deliberately the old literals** — so a failed fetch degrades to
+  what the page has always shown rather than to a blank `mailto:`.
+
+---
+
+## The About section reads the About document — bio and stat cards (2026-09-25)
+
+**Owner-reported defect, fixed the same day. Continues PF-112's scope.**
+
+Owner's words: *"in the admin panel about section when i edit and hit the save
+button it wont appear in the home page… i change the paragrapgh and hit the save
+and it didnt change only working thing is status toggled is working."*
+
+**The save was never broken** — `updatedAt` on the live document read
+`2026-09-25T16:20:11Z`, i.e. that day's edits. The defect was on the READING
+side: `AboutSection.jsx` rendered two hardcoded `<p>` elements and a hardcoded
+`STATS` const.
+
+### What is now wired, and what deliberately is not
+
+| Field | Public consumer |
+| --- | --- |
+| `bio[]` | About section — **NEW** |
+| `stats[]` | About section — **NEW**, and newly editable in the panel |
+| `location` | Contact, Footer status line, `/blog` byline (already wired, PF-112) |
+| `email` | About CTA, Contact, Footer |
+| `availabilityNote` / `availableForWork` | About, Hero badge, Footer |
+| `avatar` / `resume` | About portrait, Hero + Contact CV buttons |
+| `social` / `socialExtra` | Footer, Contact |
+| `name`, `title` | **NOTHING — deliberate**, owner 2026-09-25 |
+
+⚠️ **`location` was ALREADY wired and was reported as broken.** It is simply not
+rendered anywhere in the About *section* — the prototype has no location there
+and none was added. A future report of "location doesn't change" should check
+Contact and the Footer before looking for a bug.
+
+### The bio's THREE copies, and why they must stay identical
+
+The same two paragraphs live in three places, in two packages that cannot import
+from each other:
+
+1. `backend/src/migrations/008-about-bio-from-site.js` → `SITE_BIO`
+2. `backend/src/seed.js` → `bio`
+3. `frontend/src/components/sections/AboutSection.jsx` → `BIO_FALLBACK`
+
+⚠️ A drift between 1 and 2 shows up only as *"the wording is different on the
+server"*; a drift with 3 shows up only while the API is DOWN, which is exactly
+when nobody is comparing paragraphs. Neither has a natural moment of discovery,
+so `008-about-bio-from-site.test.js` pins all three against each other by
+parsing the two source files.
+
+### Migration 008 matches TWO defaults, not one
+
+⚠️ `About.create({})` (what `getAbout` does on an empty collection) writes the
+**schema's** bio; `npm run seed` writes **seed.js's** longer one. They differ.
+Matching only one leaves half the environments unmigrated. The guard is an
+EXACT match, never a length or emptiness check — the owner may legitimately have
+typed two paragraphs, and *"looks like the default"* is a different question from
+*"is the default"*.
+
+### Fallbacks key on `Array.isArray`, never `?.length`
+
+⚠️ They differ on exactly one case and it is the one that matters. An emptied
+bio or stats list is `[]`, and `?.length` would hand the built-in copy straight
+back — **text the owner just deleted, reappearing**, which is indistinguishable
+from the panel refusing to save. `undefined` (query in flight, or a document
+predating the field) still takes the fallback.
+
+### A stat counts or prints, decided by the DATA
+
+`utils/aboutStats.js`'s `parseStatValue` anchors on a leading digit: `'5+'`
+counts, `'Continuous'` renders as the static word card at 26px rather than 38px.
+That split already existed as three counters plus a hand-written fourth; only the
+basis changed, from POSITION to VALUE. ⚠️ `decimals` is derived from the digits
+typed — `CountUp` renders `to.toFixed(decimals)`, so a fixed `0` counts `'4.5+'`
+up to a visible `'5+'`.
+
+### ⚠️ The stat card delays were WRONG and are corrected
+
+The deleted `STATS` const said `delay: 50` on all three counters and `350` on the
+static fourth. `docs/design/Portfolio Revolution.dc.html:215,219,223,227` says
+**200 / 250 / 300 / 350** — a 50ms stagger. `50` is the STEP between the export's
+values, not any one of them. The first three cards had been landing together.
+Corrected in `aboutStats.js`; the prototype wins, and this is a correction to the
+export's own value rather than a re-tune — same category as PF-109's `riseIn`.
+**It is a visible change** and was flagged as one.
+
+### `.statLabel` gains `text-transform: uppercase`
+
+Changes nothing on screen — the labels were hardcoded capitals and the stored
+ones are title case (`Projects Built`). ⚠️ In CSS rather than `.toUpperCase()`,
+following `.statNumberStatic`'s own note, so the accessible name stays the text
+the owner typed.
+
+### NOT changed
+
+- **The Footer's bio blurb stays a literal.** It is a *different, shorter*
+  sentence from `About.bio`, not a stale copy. Merging them would put a
+  three-paragraph bio in the footer.
+- **`UTC+5:30`** stays beside the location — a timezone, not a location field.
+
+---
+
+## `/admin`'s sidebar rail runs the FULL panel depth, and the sticky moved (2026-09-25)
+
+**Owner-requested.** Owner's words: *"the left side bar in the admin panel should
+render to bottom according to the panel depth… in the about section in the admin
+panel the left side bar is end in the middle of the scrolling in to the bottom."*
+
+### Two separate defects behind one symptom
+
+1. **`position: sticky` was completely inert** — see the Silent-failures entry
+   on `overflow-x: hidden`. The admin HEADER was broken the same way and nobody
+   had noticed.
+2. **`.body` declared `align-items: start`**, which sizes a grid column to its
+   CONTENT rather than the row. The `<aside>` carrying the background and
+   `border-right` was 885px inside a 1946px row.
+
+### The shape that fixes both
+
+⚠️ **One element cannot be the full-height rail AND the sticky box** — stretch it
+and there is no room to travel; size it to its content and the rail is short. So:
+
+- **`.sidebar`** — the RAIL. Surface + divider, grid-default `stretch`. Keeps
+  `min-height: calc(100vh - var(--admin-header-h))` as a FLOOR so a short panel
+  (Overview) does not leave a stub of divider hanging.
+- **`.sidebarInner`** — NEW, carries `position: sticky` and the flex column.
+
+⚠️ **The 899px block must reset BOTH.** Resetting only `.sidebar` leaves a sticky
+column inside a ~60px strip.
+
+### ⚠️ The sticky column is CONTENT HEIGHT — the prototype's min-height is DROPPED
+
+`Admin.dc.html:137` puts `min-height: calc(100vh - 63px)` plus a `flex:1` spacer
+on this box, hanging the SESSION card at the bottom of the viewport. **Dropped
+deliberately, and measured.** A sticky box travels only inside its containing
+block, and the grid row ends where the FOOTER starts, not the viewport: at the
+bottom of the About panel the viewport-tall column sat at `top: -170px`, with
+MANAGE, Overview, About and Skills all scrolled out of reach. The nav is what a
+sidebar is FOR. Content height keeps the whole nav visible at every scroll
+position (re-measured, `top: 67`), and the full-height SURFACE the min-height
+implied now comes from the rail.
+
+⚠️ **The prototype's `<span style="flex:1">` spacer went with it** — dead markup
+in a content-height column. `.spacer` the CLASS stays; the header needs it.
+
+⚠️ **The prototype has this defect too** — same single-`<aside>` shape — and it
+never showed because a design-tool preview's panels are short. The owner's
+instruction overrides the export here.
+
+---
+
+## Admin panels refuse an invalid save — the shared guard (2026-09-25)
+
+**Owner requirement. Built for About and Blog; binds every panel after it.
+The rule itself is in `CLAUDE.md`'s Standing product requirements — this is
+what was rejected on the way to it.**
+
+### `shake` is the 34th keyframe, and the SECOND with no prototype source
+
+After `dot-ok`. Registered in `keyframes.test.js`'s `ADDITIONS` budget and in
+its `ANIMATES` table as `['transform']` only.
+
+⚠️ **Transform only, deliberately.** Shaking a button's colour or opacity as
+well reads as an error STATE rather than as a refusal, and the colour is
+already carried by the field markers. ⚠️ Small and decaying (6 → 4 → 2px over
+400ms) — a refusal that throws the button across the screen reads as breakage,
+and it fires on a control the owner is looking straight at.
+
+⚠️ **No reduced-motion guard, and none is needed.** `motion.css` forces
+`animation-duration: 0.01ms !important` globally, and because that is
+NEAR-ZERO rather than `none`, `animationend` still fires — so the JS that
+removes the class keeps working. `none` would strand the class forever. That
+near-zero choice was made for a different reason years earlier and is what
+makes this free.
+
+### The invalid state keys on `aria-invalid`, NOT on a class
+
+Rejected: an `.inputInvalid` class alongside `aria-invalid`. Two things to
+remember, and the ARIA half is the one that gets forgotten — producing a field
+that looks wrong and announces fine. One attribute means the visual and
+semantic states cannot disagree.
+
+⚠️ The rule is declared AFTER `.input:focus` on purpose. Both are (0,2,0), so
+it resolves on emission order, and the error has to survive focusing the field
+— the guard focuses the first invalid input, so the focus ring would otherwise
+paint over the very thing it just pointed at. Raising the specificity instead
+would also beat `:disabled`.
+
+### SAVE is disabled by DIRTINESS, never by validity
+
+⚠️ This does **not** reopen the 2026-09-25 "SAVE is dim until dirty" decision.
+Dirty still gates the button. What changed is that an INVALID form is dirty —
+it has to be, or SAVE cannot be pressed and the panel has no way to say what
+is wrong. Disabling on invalidity is precisely the behaviour the owner
+reported as broken.
+
+### `shakeKey` is STATE, not a ref
+
+Rejected: `useRef` + reading `.current` during render. It fails
+`react-hooks`'s "Cannot access refs during render" at `--max-warnings=0`, and
+the rule is right — a value read during render must be one React can see
+change, or a concurrent re-render paints a stale key and skips the remount
+that restarts the animation. Cost one lint cycle.
+
+### The banner counts; the fields carry the detail
+
+Rejected: the previous Blog behaviour of listing every sentence at the top.
+It duplicates each message and leaves two places to read, one of which cannot
+say which input it means. ⚠️ Blog's old banner was also `#f87171` /
+`rgba(239,68,68,…)` in a JSX `style={{}}` object — Phase 1 literals that do not
+flip with the theme AND are invisible to `adminFoundation.test.js`, which
+parses stylesheets. Exactly the shape that blocked PF-116 until PF-112.
+
+### Server failures are a SEPARATE channel from validation
+
+`AdminBlogPanel` keeps `serverErrors` beside the guard. A rejected request, a
+dead backend and a failed delete have no field to mark; routing them through
+the guard would print "Cannot reach the server" under the title input and count
+it as a field needing attention. `utils/loginError.js` exists because this repo
+once collapsed exactly these two categories into one sentence.
+
+### `clearField` clears, and never re-validates
+
+Rejected: re-running the validator on every keystroke. It marks a URL invalid
+halfway through typing it. And it is per FIELD, never the whole list — clearing
+everything on the first keystroke wipes marks off fields that are still wrong
+while the banner's count disagrees with the screen.
+
+### What is deliberately NOT an error in the About form
+
+`email` blank (the site falls back), any fixed `social.*` blank (the icon
+hides), `bio` empty (no paragraphs render), `stats` empty (the four built-in
+cards render). Each is a state the public site handles on purpose. The owner
+chose the blank-email exemption explicitly when the rule was agreed.
+
+### ⚠️ `.rowHint` was DELETED, not kept alongside
+
+`AdminAboutPanel.module.css`'s proactive accent-coloured nudge existed only
+because SAVE went dim on an incomplete row — the owner could see something was
+wrong and had no control to press. With SAVE pressable and refusing with a
+reason, it became a second mechanism saying the same thing in a different
+colour. Removed in the same ticket rather than left "in case".

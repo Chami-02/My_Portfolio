@@ -2719,3 +2719,302 @@ string.
 project-background upload goes through the same instance. Anything that builds a
 `FormData` and hands it to `api` must override the header, or it will look like
 it works and send `{"file":{}}`.
+
+---
+
+## `overflow-x: hidden` on `<body>` kills every descendant `position: sticky`
+
+**Found 2026-09-25, on an owner report about the admin sidebar. Live since
+PF-107 — three sprints.**
+
+### The mechanism
+
+`overflow-x: hidden` on an element makes it a **scroll container**. A `sticky`
+descendant does not stick to the viewport; it sticks to its nearest
+**scrollport**. Once `<body>` becomes one, that is the scrollport for everything
+inside it — and the body box is exactly as tall as its content, so it **never
+scrolls**. The real scrolling happens on the viewport, one level up. The sticky
+element therefore has nothing to stick inside and travels with the page exactly
+like a static element.
+
+Nothing errors. Nothing warns. `getComputedStyle(el).position` still reports
+`"sticky"`.
+
+### Measured
+
+`/admin`, About tab, 1702×952, at `scrollY 1200`:
+
+| element | `top` | should be |
+| --- | --- | --- |
+| `.header` (`position: sticky; top: 0`) | **−1200** | 0 |
+| `.sidebar` (`position: sticky; top: 67px`) | **−1133** | 67 |
+
+Both scrolled clean off the page.
+
+Three rules were responsible, all on `body`:
+
+- `styles/global.css:124` — inside the `body { … }` block
+- `styles/global.css:365` — `html, body { max-width: 100vw; overflow-x: hidden }`
+- `styles/tokens.css:153` — `overflow-x: hidden;  /* canvas and marquee overflow by design */`
+
+### ⚠️ Why it hid for three sprints
+
+`.header` and `.sidebar` in `AdminLayout.module.css` are the **only two
+`position: sticky` declarations in the entire repo.** Everything else that stays
+put — the public navbar, `SkipLink`, `Splash`, `StarfieldCanvas`, `CursorGlow`,
+`GrainOverlay`, `ScrollToTop` — is `position: fixed`, which is unaffected by an
+ancestor's overflow.
+
+So the defect had exactly two victims, both on the same screen, and no third
+element anywhere to contradict them. The public site looked perfect, which is
+the thing that made it invisible: there was no working sticky to compare
+against.
+
+### The fix, and why `html` is left alone
+
+**`overflow-x: clip`.** It clips identically and **does not establish a scroll
+container** — that is what it was added to CSS for.
+
+| probe | header top @ `scrollY 1200` | `scrollWidth === clientWidth` |
+| --- | --- | --- |
+| `hidden` (before) | −1200 | yes |
+| `html` + `body` → `clip` | **0** | yes |
+| **`body` → `clip`, `html` left `hidden`** | **0** | yes, on `/`, `/blog`, `/admin` |
+
+The last row shipped. ⚠️ **`html` keeps `hidden` deliberately** — the root
+element's overflow **propagates to the viewport**, which is already the scroll
+container, so it costs nothing there and `hidden` has the wider support.
+
+⚠️ **`overflow-x: clip` requires `overflow-y: visible` to stay visible.** Writing
+`overflow-x: hidden; overflow-y: visible` computes the `y` to `auto`; with `clip`
+the `y` stays `visible`. Verified in-browser: `computedBodyY === "visible"`.
+
+### It is not only `body`
+
+`components/ambient/PageShell.module.css`'s `.shell` had the same declaration,
+and that component wraps **HomePage, BlogPage, BlogPostPage, NotFoundPage and
+AdminLoginPage** — five of the site's six surfaces. Inert today because nothing
+inside it uses sticky, which is precisely how the `body` rule sat
+harmless-looking for three sprints. Changed to `clip` too.
+
+⚠️ The `/admin` SHELL is **not** inside `PageShell` — `App.jsx` renders
+`AdminLayout` directly — so it was never the cause of the reported defect. It was
+the next place it would have appeared.
+
+### Guard
+
+`styles/__tests__/stickyOverflow.test.js`, **postcss-parsed, never text-matched**
+— every one of these stylesheets documents the retired `hidden` value in prose
+right where the rule lives, so a string search would match the comment and pass
+while asserting nothing.
+
+⚠️ It carries **three** assertions, not one, and the third is the one people
+miss: *"does clip the horizontal overflow, in every sheet that sets it"*.
+Deleting the declaration outright would also make sticky work, and would let the
+starfield canvas and the 29 marquee elements produce a horizontal scrollbar on
+every page. There is also an explicit **control** (`finds the body overflow
+declarations at all`), because "none of them is hidden" is satisfied by a walker
+that matches nothing.
+
+**Mutation-tested:** `clip` → `hidden` in `tokens.css` turns 2 of 7 red; moving
+the sticky back onto `.sidebar` turns 1 of 9 red.
+
+---
+
+## `align-items: start` sizes a grid column to its content, and a stretched sticky cannot travel
+
+**Found 2026-09-25, same report as the entry above. A SECOND, independent defect
+behind the same symptom.**
+
+`.body` in `AdminLayout.module.css` declared `align-items: start`. In a grid that
+sizes each item to its own content rather than to the row, so the `<aside>`
+carrying the sidebar's background and `border-right` was **885px** tall inside a
+row that was **1946px** tall on the About tab. The surface and the divider simply
+stopped 1061px above the bottom of the page.
+
+⚠️ **Every box measurement reads clean** — the aside's own rect is correct, it is
+just short. Same family as CLIPPED-vs-OCCLUDED: compare the element's height to
+its **grid row's**, not to itself.
+
+### ⚠️ One element cannot be both the rail and the sticky box
+
+- size it to its content → the rail is short
+- stretch it → there is no room left for sticky to travel within
+
+There is no third option, so the fix is structural: `.sidebar` stretches and
+paints, a new `.sidebarInner` carries `position: sticky`.
+
+### ⚠️ And a viewport-tall sticky column gets PUSHED at the page bottom
+
+The obvious next move — keep the prototype's `min-height: calc(100vh - 63px)` on
+the inner box so the SESSION card hangs at the bottom — is wrong here, and it was
+measured rather than assumed. A sticky box travels only inside its containing
+block, and **the grid row ends where the FOOTER starts, not where the viewport
+does.** At the bottom of the About panel the column's top sat at **−170px**, with
+MANAGE, Overview, About and Skills scrolled out of reach while the owner was
+still on the page.
+
+Content height instead: `top: 67` at the same scroll position, whole nav
+reachable. The full-height surface comes from the rail.
+
+---
+
+## A native `required` pre-empts `onSubmit`, so custom validation never runs
+
+**Found 2026-09-25. Live in `AdminBlogPanel` since `formErrors` was written.**
+
+`blogForm.js`'s `formErrors()` has always contained:
+
+```js
+if (!payload.title)   errors.push('Title is required.');
+if (!payload.excerpt) errors.push('Excerpt is required.');
+```
+
+Neither branch had ever executed from the UI. `#post-title` and `#post-excerpt`
+carry the HTML `required` attribute, and the `<form>` had no `noValidate` — so
+the browser runs constraint validation on submit, shows its own bubble, and
+**`handleSubmit` is never called**. The panel's own message could not be
+reached by any route.
+
+⚠️ **`blogForm.test.js` passed throughout**, because a unit test calls
+`formErrors(form)` directly and never goes near the form element. This is the
+documented "a green test suite actively HIDES dead code" trap wearing a
+different coat: the module's test proves the FUNCTION works while nothing
+proves the function is *reached*.
+
+⚠️ **And jsdom reproduces it**, which is the useful part — measured by
+mutation: removing `noValidate` again turns **four** of the panel's tests red,
+not just the one asserting the attribute. So the behaviour is testable and this
+does not need a real browser to catch. (The initial assumption was the
+opposite — that jsdom ignored constraint validation and only the attribute
+could be asserted. It does not.)
+
+**Fix: `noValidate` on the form.** Keep `required` on the inputs for its
+semantics; suppress only the browser's UI. Any panel that validates in JS needs
+it, and `CLAUDE.md`'s standing admin-validation requirement now says so.
+
+---
+
+## `animationend` cannot be fired at all in this jsdom
+
+**Found 2026-09-25, while testing the admin SAVE shake.**
+
+jsdom defines **no `AnimationEvent` constructor**. Measured directly:
+
+```js
+typeof globalThis.AnimationEvent   // 'undefined'
+```
+
+Consequences, all silent:
+
+- `fireEvent.animationEnd(el)` dispatches without error and React's
+  `onAnimationEnd` **never runs**
+- `fireEvent.animationEnd(el, { bubbles: true })` — same
+- `el.dispatchEvent(new Event('animationend', { bubbles: true }))` — same
+
+A test written the obvious way ("the class comes off when the animation ends")
+therefore fails **as though the component were broken**, and the failure message
+points at the component.
+
+⚠️ There is a second, independent trap underneath it, worth knowing for other
+events: testing-library's eventMap gives `animationEnd` `bubbles: false`, and
+React 19 delegates handlers to the root container — so even with a working
+constructor the default would not reach the listener.
+
+**What to do instead:** test the handler where it can simply be called
+(`renderHook` + `result.current.onShakeEnd()` in
+`hooks/__tests__/useFormGuard.test.jsx`), and test the COMPONENT for the
+mechanism that does not need the event — a changed `key` producing a new DOM
+node, which is what restarts the animation.
+
+---
+
+## `scrollIntoView` does not exist in jsdom, and a throw inside rAF is invisible
+
+**Found 2026-09-25, in `useFormGuard`.**
+
+`element.scrollIntoView` is unimplemented in jsdom, so a bare call throws. The
+call sat inside a `requestAnimationFrame` callback, where **nothing catches it**
+— so it surfaced as an unhandled error rather than a failed assertion, and
+because `focus()` ran on the line above, every test asserting focus **still
+passed** while an exception was thrown on every single run.
+
+⚠️ The real cost is not the noise: anything added after that line would simply
+not have run, and nothing would have said so.
+
+**Fix: `target.scrollIntoView?.({ … })`**, plus a test that supplies a
+`vi.fn()` and asserts the arguments — otherwise the optional call could be
+skipping silently in a real browser too and nothing would notice.
+
+---
+
+## `formToPayload` filters rows, so payload indexes cannot address a form input
+
+**Found 2026-09-25, reshaping `blogForm.formErrors` to name fields.**
+
+`formToPayload` drops empty sections (`blogForm.js`, the `.filter()` on the
+sections map). A validator that walks `payload.sections` numbers them 0, 1, 2…
+**with the gaps closed up**, so an empty section anywhere shifts every later
+index — and an error carrying that index marks the inputs of the **wrong
+card**, one row up for each empty section above it.
+
+Harmless while an error was only a sentence ("Section 02 needs a heading");
+wrong the moment it has to address an element.
+
+**Rule: validate against the PAYLOAD for "would anything be sent", and against
+the FORM for anything that names a field.** `formErrors` now does both — the
+emptiness check reads `payload.sections.length`, the per-section loop walks
+`form.sections` and applies the payload's trimming by hand.
+
+⚠️ Pinned by a test with an empty section deliberately sitting **between** a
+good one and the broken one. A fixture without that gap passes under either
+implementation — the same "a guard needs a fixture that can tell the two
+outcomes apart" trap this file already records twice.
+
+---
+
+## ⚠️ The browser tool drives a HIDDEN tab, so `requestAnimationFrame` never fires
+
+**Found 2026-09-26, verifying the admin SAVE guard's focus behaviour. Cost two
+wrong conclusions in a row.**
+
+A tab driven by the browser tool sits at `document.visibilityState === 'hidden'`
+with `document.hasFocus() === false` between calls. Chrome **does not run
+`requestAnimationFrame` callbacks in a hidden tab**. So any behaviour scheduled
+in a rAF simply does not happen while a probe is measuring it, and reads as
+broken.
+
+Measured on `/admin`:
+
+```
+document.visibilityState  'hidden'
+document.hasFocus()        false
+requestAnimationFrame(cb)  cb never runs
+```
+
+⚠️ **Two distinct failures came out of this, and the first one is the dangerous
+shape:**
+
+1. **A false NEGATIVE reported as a product bug.** `useFormGuard` focuses the
+   first invalid field from inside a rAF. Five samples across 900ms all read
+   `activeElement === BODY`, and the honest-looking conclusion was "focus never
+   moves in a real browser". It moves fine — the callback was queued, not
+   dropped. Taking a **screenshot** makes the tab visible, the queued callback
+   runs, and the very next probe read `activeElement === 'post-title'`.
+
+2. **A false POSITIVE from a missing control.** An earlier diagnostic in the
+   same session called `t.focus()` itself inside the expression it was
+   measuring, then reported `activeElement` as proof the feature worked. It was
+   proof that `.focus()` works. **Always run the control** — and never let the
+   probe perform the action it is checking for.
+
+⚠️ It also explains a second symptom that looks unrelated: `await new
+Promise(r => requestAnimationFrame(r))` inside a probe **hangs**, and the tool
+returns `CDP "Runtime.evaluate" timed out after 45000ms — the renderer may be
+frozen`. The renderer is fine; the promise is simply never settling.
+
+**What to do:** for anything rAF-driven, take a screenshot (or otherwise make
+the tab visible) and measure on the NEXT call, and print
+`document.visibilityState` beside any result that depends on a frame. Same
+family as the `?nosplash` entry — the instrument took a path the product does
+not.

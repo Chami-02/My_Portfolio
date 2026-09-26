@@ -328,6 +328,141 @@ Three consequences, each worked out in PF-112 and each non-obvious:
 ⚠️ **This SUPERSEDES PF-111 §3.4**, which deferred only the portrait and left
 the résumé uploading on pick. **PF-113 → PF-115 inherit it.**
 
+### Admin panels STAGE, and SAVE is dim until there is something to save
+
+**Owner requirement, 2026-09-25 (extends the staging rule above). Built for About
+by PF-112; binds every panel after it.**
+
+- **SAVE is disabled until the form is dirty**, and carries its normal accent glow
+  once it is. Costs no new colour: `admin.module.css`'s `.btnPrimary:disabled`
+  already dims, and `.btnPrimary` already glows.
+- **A REVERT control appears beside it while dirty**, and it **restores the last
+  SAVED state — it never empties the section.** ⚠️ That distinction is the whole
+  requirement. `AdminProjectsPanel.jsx:51`'s `cancelEdit` sets the form to
+  `EMPTY`, so mis-clicking it mid-edit loses the record's content out of the form.
+  **PF-113 must fix that**; it is on Outstanding work.
+- **Reverting must discard staged FILES too.** A revert that restores the text and
+  leaves a picked portrait staged is a half-revert, and the tell is nasty: the
+  fields look restored, then SAVE uploads a file the owner thought they discarded.
+- Keep the `UNSAVED CHANGES` marker. Deliberately a marker, **not** a navigation
+  blocker or a `beforeunload` dialog.
+
+### Admin panels REFUSE an invalid save — shake, count, and mark the field
+
+**Owner requirement, 2026-09-25. Built for About and Blog; binds every panel
+after it.** Owner's words: *"when i add a stat it must reqired a value.
+otherwise cant save the change… when miss something if i try to save the save
+button should shake and say check the changes again and pop up the text feild
+or somthing around the missing field saying fill the missing values… this is a
+common rule for all other sections as well in admin panel."*
+
+**Four parts, and all four are required for the behaviour to make sense:**
+
+1. **SAVE stays PRESSABLE while the form is dirty** — never disabled *because*
+   something is invalid. ⚠️ This does NOT reopen "SAVE is dim until dirty";
+   dirty still gates it, validity does not. A button that will not light up
+   cannot explain why, and that is the confusion this replaces.
+2. **An invalid save is refused and NO REQUEST IS SENT.** A save that fires and
+   then reports a 400 has already told the owner the wrong thing about which
+   system refused them.
+3. **A banner names the SCALE, never the detail** — `CHECK THE CHANGES AGAIN —
+   N fields need attention.` Listing every message duplicates all of them and
+   leaves two places to read, one of which cannot say which input it means.
+4. **Every offending field is marked in place**, and the FIRST one is focused
+   and scrolled to centre.
+
+**The shared layer — compose from it, do not reinvent it:**
+
+- `utils/formErrors.js` — an error is `{ field, message }` where `field` is a
+  PATH (`'email'`, `'stats.0.value'`, `'sections.2.heading'`). Plus
+  `fieldProps()`, `fieldId()`, `isUsableUrl()`, `isUsableEmail()`.
+- `hooks/useFormGuard.js` — `check()` / `clearField()` / `shaking` / `shakeKey`.
+- `admin.module.css` — `.fieldError`, `.shake`, and
+  `.input[aria-invalid='true']`.
+
+⚠️ **The invalid state keys on `aria-invalid`, NOT a class.** With a class the
+red border and the screen-reader state are two things to remember and the ARIA
+half is the one that gets forgotten. One attribute means what LOOKS wrong is
+guaranteed to ANNOUNCE wrong.
+
+⚠️ **A field's `id` is DERIVED from the error's path**, never typed twice. Two
+independently written strings for one identity drift, and when they do the
+error renders nowhere at all while every test that checks "an error was
+reported" still passes.
+
+⚠️ **`noValidate` ON THE FORM IS MANDATORY.** A native `required` fires the
+browser's own bubble, which pre-empts `onSubmit` entirely so the panel's
+validation never runs. That is not hypothetical: `blogForm.js`'s `'Title is
+required.'` and `'Excerpt is required.'` branches had NEVER executed since they
+were written, while `blogForm.test.js` passed throughout because a unit test
+calls the validator directly. Keep `required` for its semantics; suppress only
+the bubble.
+
+⚠️ **Clear a mark, never re-validate, on keystroke** — per field. Re-running
+the validator as someone types marks a URL invalid halfway through writing it,
+and clearing the whole list wipes marks off fields that are still wrong while
+the banner's count disagrees with the screen.
+
+⚠️ **SERVER failures are a SEPARATE CHANNEL.** A rejected request or a dead
+backend has no field to mark. Routing one through the guard prints "Cannot
+reach the server" under a text input and counts it as a field needing
+attention. `utils/loginError.js` exists because this repo once collapsed
+exactly these two categories.
+
+⚠️ **The panel's check is a COURTESY, never the gate** — the same rule PF-112
+recorded for uploads. Every client rule mirrors one the server already
+enforces.
+
+**Applied to About and Blog. PF-113 → PF-115 inherit it** for Projects, Skills
+and Messages, which still use native `required` or nothing.
+
+### A blank FIXED field may be empty; a row you ADDED may not
+
+**Owner clarification, 2026-09-25.** Owner's words: *"social links tab there is
+twitter Url and its empty its ok. but when add link press the button we need to
+fill it out before hit the save button if not it will shake the save button and
+giving error. it is the only thing with a empty block so thats fine."*
+
+Two cases that sit side by side in the same card, look identical — an empty
+text input — and are **opposite**:
+
+- **A fixed schema key may be blank.** `social.github`…`social.twitter` have
+  defaults; the key cannot cease to exist, and clearing the value is the ONLY
+  way to hide the icon — the rule `About.js` has stated since PF-60. Twitter
+  ships blank on purpose. **Never an error, in any state.**
+- **A row created with `+ ADD LINK` / `+ ADD STAT` must be complete before
+  SAVE.** It exists only because the owner made it, and its `×` is how that is
+  undone. Blank or half-filled, it is unfinished work rather than a blank
+  value.
+
+⚠️ **Pin both halves in one test.** The only thing separating them is which
+control produced the field, so a guard on the error case alone passes against
+an implementation that also refuses a blank Twitter — and that implementation
+makes `socialEntries()`'s "an empty URL renders nothing" rule unreachable from
+the panel.
+
+⚠️ **Consequence: adding a row must make the form DIRTY.** `formToPayload`
+drops incomplete rows, so a payload-based dirty check could not see an added
+row at all — SAVE stayed dim, nothing could be reported, and the row vanished
+on the next render from cache. That was the owner's original report.
+
+### A blank social URL renders NOTHING — never a dead link
+
+**Stated in `backend/src/models/About.js` since PF-60, unimplemented until
+PF-112.** The model's own words, on the deliberately-empty twitter field: *"Fill
+it in from the admin panel if one is created — the public site must treat an empty
+value as 'hide this icon', not render a dead link."*
+
+`utils/social.js`'s `socialEntries(about)` is the one place that decides which
+rows exist; `components/icons/socialIcons.js` decides how they look.
+⚠️ **`iconFor` FALLS BACK to a generic link glyph rather than returning
+undefined** — React does not reliably throw for `<undefined />`, so an unmapped
+key would render a label with no mark and no error.
+
+⚠️ **The FOOTER is the complete list; CONTACT is deliberately GitHub + LinkedIn
+only** (the prototype's own choice, reaffirmed by the owner 2026-09-25). Do not
+"unify" the two rows — a test pins that Contact renders no custom links.
+
 ### The owner's address is `pcgallege@gmail.com`
 
 **Owner decision, 2026-09-12.** Changed from `parindrachameekara@gmail.com`,
@@ -390,7 +525,7 @@ authority; this table is the index.
 | ~~PF-109~~ | `/admin/login` rebuilt in Phase 2 ✅ **BUILT 2026-09-16** — ⚠️ background re-decided: the SITE's ambient layer on login AND the shell, no aurora/scanline stage; `riseIn` split per screen | High | 5 |
 | ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild ✅ **BUILT 2026-09-16** — seven-field response, not the plan's five; `/admin` mounts on 2 requests, was 5 | High | 5 |
 | ~~PF-111~~ | Media pipeline — `publicId` everywhere, hard-delete on replace ✅ **BUILT 2026-09-23** — ⚠️ scope grew: delete-on-record-delete, and two live write holes closed | Highest | 8 |
-| ~~PF-112~~ | About panel — rebuild, portrait upload, résumé card ✅ **BUILT 2026-09-25** — ⚠️ scope widened mid-ticket: the panel STAGES everything, incl. the availability toggle | High | 8 |
+| ~~PF-112~~ | About panel — rebuild, portrait upload, résumé card ✅ **BUILT 2026-09-25** — ⚠️ scope widened TWICE: everything STAGES (incl. the availability toggle), and then a second batch made the panel actually drive the public site (sidebar order, `name`/`title` dropped, location/email wired, dynamic social links). **~21 pts, not 8** | High | 8 |
 | PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 |
 | PF-115 | Blog + Messages panels restyled | Medium | 5 |
@@ -579,6 +714,15 @@ frontend/
       blogMeta.js                PF-98: formatMonth/formatReadTime — MOVED
                                  here from BlogSection.jsx once /blog became
                                  a second consumer. ⚠️ byRecency did NOT move
+      aboutStats.js              2026-09-25: DEFAULT_STATS/statDelay/
+                                 parseStatValue/statCards — the About
+                                 section's stat cards, read from About.stats.
+                                 ⚠️ Falls back to the built-in four on
+                                 `undefined` ONLY; `[]` renders NOTHING, or a
+                                 deleted card reappears
+      social.js                  PF-112: socialEntries() — which social rows
+                                 exist and in what order. ⚠️ An empty URL
+                                 renders NOTHING, never a dead link
       blogForm.js                PF-97: postToForm/formToPayload/formErrors
                                  + tagList/hasTag/toggleTag/removeTag.
                                  ⚠️ emptySection()/emptyForm() are FACTORIES,
@@ -857,7 +1001,11 @@ paths. `apiUrl()` is for URLs the browser fetches itself (anchor hrefs,
 `CursorGlow`, `GrainOverlay`) + `Splash` gate + sections Hero → About →
 Skills → Projects → Blog teaser → Contact, each wrapped in
 `<ErrorBoundary>`. API-wired sections: Skills, Projects, Blog, Contact.
-About and Hero are transcribed static (PF-81). `/admin/login` and the
+⚠️ **About is API-wired too as of 2026-09-25** — bio, stat cards, portrait,
+availability line and email all read the About document, so "About and Hero
+are transcribed static (PF-81)" is HISTORY. Hero stays static apart from
+`availableForWork` and `hasResume`; its name, title and body copy are
+literals by owner decision. `/admin/login` and the
 `/admin` shell are Phase 2 (PF-107, PF-109) and mount the same ambient
 layer; the Overview panel is Phase 2 (PF-110) and the other five panel
 interiors under the shell are still Phase 1 until PF-112 → PF-115.
@@ -979,6 +1127,28 @@ concluding "this is fine, I read the source".
 - **Two stacked full-size layers: only the top one gets clicks.** Neither
   `z-index: -1` nor ordering saves a backdrop under a full-viewport panel.
   The overlay root must *be* the backdrop.
+- **⚠️ `overflow-x: hidden` on `<body>` SILENTLY DISABLES EVERY DESCENDANT
+  `position: sticky`.** It makes body a scroll container, and the body box is
+  exactly as tall as its content so it never scrolls — a sticky element has no
+  scrollport to stick inside and travels with the page. Measured on `/admin` at
+  `scrollY 1200`: the admin **header** read `top: -1200` and the sidebar
+  `-1133`, both gone, no error. Hid for three sprints because `.header` and
+  `.sidebar` are the repo's ONLY two `sticky` rules — everything else that
+  stays put is `position: fixed` and unaffected, so there was no second
+  witness. **Fix: `overflow-x: clip`**, which clips identically and creates no
+  scrollport. ⚠️ `html` keeps `hidden` deliberately — the root's overflow
+  propagates to the VIEWPORT, already the scroll container. ⚠️ Applies to any
+  full-width wrapper, not just body: `PageShell.module.css` had it too, over
+  five routes. Guarded by `styles/__tests__/stickyOverflow.test.js`.
+- **⚠️ `align-items: start` on a grid sizes a column to its CONTENT, not the
+  row** — so a sidebar's background and border stop mid-page on a long panel
+  while every box measurement reads clean. And a sticky element cannot be
+  stretched *and* travel: one element cannot be both the full-height rail and
+  the sticky box. **Split them** — `.sidebar` stretches, `.sidebarInner`
+  sticks. ⚠️ A viewport-tall sticky column is then PUSHED where its containing
+  block ends, and the grid row ends at the FOOTER, not the viewport: measured
+  `top: -170px` at the bottom of `/admin`'s About panel, with four nav items
+  unreachable. Keep that column at content height.
 - **Inline custom property on `<html>`** beats the `html[data-theme]`
   block, making every later `tokens.css` edit dead code. Set `data-theme`
   and nothing else.

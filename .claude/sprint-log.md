@@ -7156,3 +7156,307 @@ route ordering (1 red).
   (**73.61 % branch** vs 60 %). Same code passed in `npm test` at 609 s.
   ⚠️ Reproducibility is still the discriminator — but it reproduces for as long
   as the link stays degraded, so pair it with a latency measurement.
+
+### PF-112 batch 2 — the panel drives the public site (2026-09-25)
+
+Four owner requests after reviewing batch 1 in a browser. Full reasoning in
+`locked-decisions.md`; report `new mds/E9/PF-112-about-panel-and-media-uploads.md`.
+
+**The measurement worth keeping:** only **four** of nine `About` fields reached
+the public site — `availableForWork`, `availabilityNote`, `avatar`, `hasResume`.
+`name`, `title`, `location`, `email`, all five social links, `bio[]` and `stats[]`
+were hardcoded literals, so most of the panel was decorative.
+
+Built: sidebar reorder; `name`/`title` dropped from the form; `location` and
+`email` wired to **four** render sites (`ContactSection` ×2, `Footer` ×2,
+`AboutSection`, `BlogPage`); dim-until-dirty SAVE + REVERT; `socialExtra[]` with
+add/remove; blank-URL rows hidden everywhere; `TwitterIcon` + `LinkIcon`;
+`utils/social.js` and `components/icons/socialIcons.js`.
+
+**Tests:** frontend 67 files / **1391** tests green; lint clean; coverage
+93.79 / 90.25 / 88.09 / 95.97; build ✓ 337 ms. New: `utils/social.test.js` 17;
+`AdminAboutPanel.test.jsx` 43 → **63**; `aboutForm.test.js` 21 → **32**;
+`about.social.test.js` 10 → **21**; backend `about.test.js` 11 → **15**; Footer,
+Contact and About gained wiring tests.
+
+⚠️ **THE SAME VACUOUS-GUARD LESSON FIRED A SECOND TIME, in the same ticket.**
+Batch 1 found the `type="button"` sweep green under a mutation because its fixture
+never rendered the button. Batch 2 **widened the sweep to four fixtures and then
+added new buttons the four fixtures still did not reach** — dropping `type` from a
+custom-link `×` left the sweep green again, and only a behavioural test caught it.
+Fixed by adding a custom-link fixture. **Generalises: widening a guard's scope
+without widening its FIXTURES re-creates the hole it was widened to close.**
+
+Mutation results, all restored with a passing control: blank-URL filter removed →
+**12 red**; REVERT leaving files staged → **2 red**; custom-link `type` dropped →
+1 red before the fixture fix, **2 after**.
+
+### Outstanding work added by PF-112 batch 2
+
+- **⚠️ `AdminProjectsPanel.jsx:51` `cancelEdit` sets the form to `EMPTY` instead of
+  restoring saved values** — so mis-clicking Cancel mid-edit loses that project's
+  content out of the form. A live bug, and the behaviour the owner objected to.
+  **PF-113 must fix it** under the new standing requirement.
+- **⚠️ Two surnames ship side by side.** `frontend/index.html:7` titles the site
+  *"Parindra **Chameekara** — Full-Stack Developer"* while every in-page render
+  says *"Parindra **Gallage**"*. `homepage.spec.js:15` pins the title spelling.
+  Not touched — it is a title/meta copy decision.
+- **`stats[]` still has no admin editor AND a shape mismatch** — the schema stores
+  `value` as a String while the About cards need a number plus a suffix for
+  `CountUp`, and the fourth card (`Continuous / LEARNING`) has no numeric form. So
+  wiring it is a build, not a read.
+- **`bio[]` is still hardcoded in three places** (`AboutSection` ×2, `Footer` ×1)
+  — PF-118.
+- **`· UTC+5:30` is a literal beside a now-dynamic location** (×2). A move abroad
+  leaves it wrong.
+- **PF-122 is partly absorbed.** `email` is panel-driven now, so PF-122 shrinks to
+  setting the value, fixing the seed and model default, and changing the admin
+  login account. ⚠️ Until then the site renders whatever `About.email` holds —
+  the **old** address.
+
+---
+
+## Fixes, 2026-09-25 — About panel ↔ public-site parity, and the dead `position: sticky`
+
+**Two owner reports, unrelated causes. Continues PF-112's scope (parity) and
+pulls PF-117's area forward (the sticky defect). No new PF number invented.**
+
+**Full teaching report:
+`new mds/E9/fixes-2026-09-25-about-parity-and-admin-sticky.md`.**
+
+### The reports
+
+> *"in the admin panel about section when i edit and hit the save button it wont
+> appear in the home page… i tested changing the location and it didnt change i
+> change the paragrapgh and hit the save and it didnt change only working thing
+> is status toggled is working."*
+
+> *"the left side bar in the admin panel should render to bottom according to the
+> panel depth… in the about section in the admin panel the left side bar is end
+> in the middle of the scrolling in to the bottom."*
+
+### ⚠️ The save was never broken
+
+`GET /api/about` showed `updatedAt: 2026-09-25T16:20:11Z` — that day's edits,
+already persisted. The defect was entirely on the READING side. Establishing
+that first is what stopped the whole investigation going into `formToPayload`,
+the validators and the Mongoose write, none of which had anything wrong with
+them.
+
+⚠️ **`location` was ALREADY wired and was reported as broken.** Contact, the
+Footer status line and the `/blog` byline all read it. It is simply not rendered
+in the About *section*. A future "X doesn't change" report is worth checking
+against the field's real consumers before assuming a bug.
+
+### What was actually unwired
+
+- **`bio[]`** — `AboutSection.jsx` rendered two hardcoded `<p>`. Proved by
+  reading the DOM and the API in one expression: two different sentences.
+- **`stats[]`** — in the model since Phase 1, written by `seed.js`, read by
+  **nothing**, and not editable from the panel either. ⚠️ A field wired to
+  neither end, which a green suite reports as healthy, because a field nobody
+  consumes still round-trips through every API test it has.
+
+### Files
+
+| File | Change |
+| --- | --- |
+| `styles/global.css` | `body` overflow-x → `clip` ×2; `html, body` rule SPLIT |
+| `styles/tokens.css` | `body` overflow-x → `clip` |
+| `components/ambient/PageShell.module.css` | overflow-x → `clip` |
+| `components/admin/AdminLayout.module.css` | `.body` loses `align-items: start`; `.sidebar` split into rail + new `.sidebarInner`; 899px block resets both |
+| `components/admin/AdminLayout.jsx` | sidebar children wrapped; the `flex:1` spacer DELETED |
+| `utils/aboutStats.js` | **NEW** |
+| `components/sections/AboutSection.jsx` | `STATS` const DELETED; bio and cards from the document; `BIO_FALLBACK` added |
+| `components/sections/AboutSection.module.css` | `.statLabel` gains `text-transform: uppercase` |
+| `utils/aboutForm.js` | `stats` in all three functions |
+| `components/admin/panels/AdminAboutPanel.jsx` | **Stat cards** editor |
+| `controllers/aboutController.js` | `body('stats').optional().isArray()` |
+| `migrations/008-about-bio-from-site.js` | **NEW** |
+| `seed.js` | `bio` aligned to the site's copy |
+
+Tests: 3 new files (`stickyOverflow`, `aboutStats`, `008-…`) + 42 cases added to
+5 existing files.
+
+### Gate — all seven, both passes
+
+| # | Command | Result |
+| --- | --- | --- |
+| 1 | frontend `test:run` | **1452 passed**, 69 files |
+| 2 | frontend `lint -- --max-warnings=0` | clean |
+| 3 | frontend `test:coverage` | 93.9 / 90.36 / 88.43 / 96.05 |
+| 4 | frontend `build` | ok |
+| 5 | backend `npm test` | **486 passed**, 33 suites |
+| 6 | backend `test:coverage` | 83.25 / **74.09** / 88.46 / 83.86 |
+| 7 | frontend `test:e2e` | **75 passed** |
+
+⚠️ **Backend BRANCH coverage is 74.09%**, up from the 66.66% this file has
+recorded as the project's tightest margin. The migration and controller tests
+added the headroom.
+
+### Live measurements, `/admin` About tab, 1500×773
+
+| | before | after |
+| --- | --- | --- |
+| header top @ scrollY 1200 | **−1200** | **0** |
+| sticky column top @ scrollY 1200 | −1133 | **67** |
+| rail height vs grid row | 885 / 1946 | **2358 / 2358** |
+| rail bottom at page end | 1061px short | **= footer top** |
+
+At 500px the 899px strip is unchanged: `static`, `row`, `overflow-x: auto`, rail
+84px, page overflow 0. Screenshotted, not only measured.
+
+### Round trip, driven through the real UI
+
+Edited Location, bio paragraph 1 and a stat in the panel → SAVE → `/`: the
+contact pill, the footer status line, both About paragraphs and the stat card
+(counting `42+`) all matched `GET /api/about`. **All probe data was reverted
+through the same panel afterwards and re-verified.**
+
+### Mutation testing — 5 mutants, all killed, control clean
+
+| Mutation | Result |
+| --- | --- |
+| `tokens.css` `clip` → `hidden` | 2 failed / 5 passed |
+| `AboutSection` bio → always the literals | 5 failed / 46 passed |
+| `statCards` → always the built-in four | 9 failed / 57 passed |
+| migration `isUntouched` → `() => true` | 3 failed / 12 passed |
+| `.sidebarInner` min-height restored | 1 failed / 28 passed |
+| sticky moved back onto `.sidebar` | 1 failed / 8 passed |
+
+Control after restore: 38 passed, 66 passed. Each mutant was applied by script,
+the file **confirmed changed** before running, and restored from a **copy** taken
+after the edit.
+
+### Found during recheck
+
+1. **The admin HEADER was broken too** — not reported, found only because the
+   measurement printed it beside the sidebar's.
+2. **`PageShell` carries the identical landmine** over five routes. Inert today,
+   fixed and pinned.
+3. **Two comments described the opposite of their code** — both fallbacks were
+   written `?.length` under comments explaining why `?.length` is wrong. The
+   comments were right.
+4. **⚠️ The stat card delays were a transcription error.** The deleted const said
+   50/50/50/350; the prototype says **200/250/300/350**. `50` is the STEP, not a
+   value. Corrected — a visible change, flagged as one.
+
+### Outstanding work added
+
+- ~~**The admin session ended mid-verification with NO refresh token left in
+  `localStorage`**~~ — **RESOLVED 2026-09-26, and it was not a session defect.**
+  Re-measured with the backend running: `portfolio_refresh` and
+  `portfolio_refresh_expires` are both present and `/admin` restores the session
+  across a reload. The original observation was real but the cause was a **dead
+  backend** — `curl` to `:5050` returned connection-refused while `lsof` still
+  showed a listener, and `ProtectedRoute` correctly showed its inline
+  `COULDN'T CHECK YOUR SESSION` RETRY panel rather than bouncing to login.
+  Restarting the backend restored everything. ⚠️ Recorded because the original
+  note pointed at PF-108's rotation and would have sent the next session
+  hunting a bug that was not there — a listening socket is not a running
+  server.
+- **The Footer's bio blurb is a third, unmanaged piece of copy.** A *different,
+  shorter* sentence from `About.bio`, deliberately not merged. Making it editable
+  needs its own field.
+- `POST /api/upload` still has zero consumers — PF-120's call, unchanged.
+
+---
+
+## Fixes, 2026-09-26 — admin form validation: refuse, shake, mark the field
+
+**Owner requirement, stated 2026-09-25 as a STANDING RULE for every admin
+panel. Built for About and Blog; PF-113 → PF-115 inherit it.**
+
+**Full teaching report:
+`new mds/E9/fixes-2026-09-26-admin-form-validation.md`.**
+**The rule itself is in `CLAUDE.md` → Standing product requirements.**
+
+### The two defects behind the report
+
+1. **A half-filled row was INVISIBLE to the panel.** `formToPayload` drops
+   incomplete stat/link rows and `isAboutDirty` compared PAYLOADS, so a row
+   with a label and no value compared equal to no row at all: SAVE stayed dim,
+   nothing could be reported, and the row vanished on the next render from
+   cache. That is the owner's original report, and it is why the fix starts at
+   the dirty check rather than at a message.
+2. **⚠️ Blog's `'Title is required.'` and `'Excerpt is required.'` had NEVER
+   RUN.** `#post-title`/`#post-excerpt` carry `required` and the form had no
+   `noValidate`, so the browser's bubble pre-empted `onSubmit` entirely.
+   `blogForm.test.js` passed throughout — a unit test calls the validator
+   directly. See Silent failures.
+
+### Files
+
+| File | Change |
+| --- | --- |
+| `utils/formErrors.js` | **NEW** — `{field, message}`, `fieldProps`, `fieldId`, `isUsableUrl/Email` |
+| `hooks/useFormGuard.js` | **NEW** — `check`/`clearField`/`shaking`/`shakeKey`/`onShakeEnd` |
+| `styles/admin.module.css` | `.fieldError`, `.shake`, `.input[aria-invalid='true']` |
+| `keyframes/base.css`, `animations.css`, `keyframes.test.js` | `shake` — the 2nd ADDITION after `dot-ok` |
+| `utils/aboutForm.js` | `aboutFormErrors`; `isAboutDirty` rebuilt on `dirtyShape()` |
+| `AdminAboutPanel.jsx` + `.module.css` | guard wired; `noValidate`; **`.rowHint` DELETED** |
+| `utils/blogForm.js` | `formErrors` → `{field, message}`; section loop off the payload |
+| `AdminBlogPanel.jsx` | guard wired; `noValidate`; Phase 1 red banner REPLACED; `serverErrors` split out |
+
+Tests: 2 new files (31 cases) + 52 added/rewritten across 4 existing files.
+
+### Gate — all seven
+
+| # | Command | Result |
+| --- | --- | --- |
+| 1 | frontend `test:run` | **1538 passed**, 71 files |
+| 2 | frontend `lint -- --max-warnings=0` | clean (**failed once** — ref read during render) |
+| 3 | frontend `test:coverage` | 94.27 / 90.68 / 89.21 / 96.27 |
+| 4 | frontend `build` | ok |
+| 5 | backend `npm test` | 486 passed |
+| 6 | backend `test:coverage` | 83.25 / **74.09** / 88.46 / 83.86 |
+| 7 | frontend `test:e2e` | 75 passed |
+
+### Mutation testing — 3 mutants, all killed, control 517 passed
+
+| Mutation | Result |
+| --- | --- |
+| `aboutFormErrors` → `return []` | 30 failed / 126 passed |
+| `noValidate` removed from Blog's form | **4 failed** / 52 passed |
+| `shake` dropped from `ADDITIONS` | 1 failed / 79 passed |
+
+⚠️ **The noValidate mutant corrected a written assumption.** The plan predicted
+only the attribute assertion could fail, on the theory that jsdom ignores native
+constraint validation. **It does not** — four tests went red, so the defect is
+fully reproducible in jsdom and needs no browser to guard.
+
+### Live browser, real backend
+
+`PUT`s counted by hooking `XMLHttpRequest.open`: **0 on every refusal**, both
+panels. Shake confirmed via `getAnimations()` → `{ name: 'shake', state:
+'running' }` (never `getComputedStyle`). Banner, `aria-invalid`,
+`aria-describedby` and the message all verified, plus focus landing on the
+offending field. Reduced motion measured at `1e-05s`.
+
+⚠️ **The exemption pair verified in the SAME card at the SAME moment:** the
+blank added row marked and messaged, the empty `twitter` field **NOT MARKED**.
+
+**Nothing was written** — `GET /api/about` and `/api/blog` afterwards show
+stats, socialExtra, location, bio and post titles unchanged.
+
+### Found during recheck
+
+1. **⚠️ The browser tool drives a HIDDEN tab and rAF never fires there.** Cost
+   TWO wrong conclusions: a false negative ("focus never moves") reported as a
+   product bug, and a false positive from a probe that called `.focus()` inside
+   the expression measuring focus. Both in Silent failures.
+2. **`scrollIntoView` throws in jsdom inside a rAF**, invisibly — focus tests
+   passed while an exception was thrown every run. Now optional-called.
+3. **`animationend` cannot be fired in this jsdom at all** (no `AnimationEvent`
+   constructor). `onShakeEnd` moved to a hook test.
+4. **Blog's paragraph textareas have no accessible name** — only a placeholder,
+   so `getAllByLabelText` matched the REMOVE BUTTONS.
+5. **Yesterday's "missing refresh token" was a DEAD BACKEND**, not a session
+   defect — corrected above in the 2026-09-25 entry.
+
+### Outstanding work added
+
+- **Projects, Skills and Messages still use native `required` or nothing.**
+  Deferred by agreement; PF-113 → PF-115 apply the standing rule.
+- **Blog's paragraph and bullet inputs need accessible names.** A placeholder is
+  not a label. Touches markup PF-115 will rebuild.
