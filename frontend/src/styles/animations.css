@@ -65,6 +65,7 @@
 .kf-orbdot     { animation-name: orbdot; }
 .kf-pulsering  { animation-name: pulsering; }
 .kf-ringPulse  { animation-name: ringPulse; }
+.kf-shake      { animation-name: shake; }
 .kf-shimmer    { animation-name: shimmer; }
 .kf-spin       { animation-name: spin; }
 .kf-sweep      { animation-name: sweep; }

@@ -123,6 +123,62 @@
   border-color: var(--acc, #FCA311);
 }
 
+/* ── The invalid state ────────────────────────────────────────────────────
+   Owner requirement, 2026-09-25: a refused save marks the field it was
+   refused for.
+
+   ⚠️ KEYED ON `aria-invalid`, NOT on a class, and that is the whole design.
+   With an `.inputInvalid` class the red border and the screen-reader state
+   are two separate things to remember, and the one that gets forgotten is
+   always the ARIA half — a field that looks wrong and announces fine. Here
+   there is nothing to forget: whatever is marked visually IS marked
+   semantically, because they are the same attribute.
+
+   ⚠️ Declared AFTER `.input:focus` on purpose. Both are (0,2,0) so this
+   resolves on source order, and the error has to survive focusing the field
+   — the guard focuses the first invalid input, so the focus ring would
+   otherwise paint over the very thing it just pointed at. That tie is the
+   trap this repo has been bitten by five times; it is settled here by
+   emission order deliberately, not by accident, because raising the
+   specificity would also beat `:disabled`.
+
+   `--danger` is the repo's one sanctioned red (7.32 dark / 5.38 light) —
+   never the Phase 1 `#f87171` / `rgba(239,68,68,…)` literals, which do not
+   flip with the theme. */
+.input[aria-invalid='true'],
+.inputMono[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+/* The inline message, directly under the field it belongs to. */
+.fieldError {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+/* ── The SAVE button's refusal ────────────────────────────────────────────
+   ⚠️ `composes` MUST be the first declaration, and the timing MUST be
+   longhands. The `animation` shorthand resets `animation-name` to `none`,
+   which silently undoes the composed carrier — the documented failure that
+   shipped 16 live declarations once.
+
+   ⚠️ The keyframe name cannot be written here at all. A CSS Module scopes
+   `@keyframes` names and rewrites them in the declaration, so `animation-
+   name: shake` inside this file resolves to a scoped name matching nothing.
+   `getComputedStyle` still reports it as running; the only reliable tell is
+   `el.getAnimations().length === 0`. */
+.shake {
+  composes: kf-shake from global;
+  animation-duration: .4s;
+  animation-timing-function: cubic-bezier(.36, .07, .19, .97);
+  animation-iteration-count: 1;
+}
+
 .input:disabled {
   cursor: not-allowed;
   /* ⚠️ Not a low opacity. Measured elsewhere in this repo: `opacity` on

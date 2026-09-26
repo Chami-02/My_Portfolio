@@ -170,36 +170,88 @@ export const toggleTag = (tags, label) => {
 export const removeTag = (tags, label) =>
   tagList(tags).filter((t) => t.toLowerCase() !== String(label).toLowerCase()).join(', ');
 
+/** The server's own ceiling, from blogRules' `isLength({ max: 300 })`. */
+const MAX_EXCERPT = 300;
+
 /**
- * Human-readable problems with the form, or an empty array when it is fine.
+ * Everything that must be fixed before the post is worth sending.
  *
- * Mirrors the server's rules so a mistake is a message beside the Save
- * button rather than a round trip that returns a 400 — which is precisely
- * how the inherited `content` defect stayed invisible for two sprints.
+ * Returns `[{ field, message }]` — the shape `utils/formErrors.js` defines and
+ * `useFormGuard` consumes, so each message prints under the input it belongs to
+ * rather than in a list at the top of the editor.
  *
- * ⚠️ Validates the PAYLOAD, not the raw form, so what is checked is exactly
- * what would be sent. Validating the raw form would let a section made
- * entirely of whitespace pass here and fail on the server.
+ * ⚠️ IT USED TO RETURN BARE STRINGS, and the change is what lets a message be
+ * attached to a field at all. The list-at-the-top version could say "Section 02
+ * needs a heading" and leave the author to count section cards.
+ *
+ * Mirrors the server's rules so a mistake is a mark on the field rather than a
+ * round trip that returns a 400 — which is precisely how the inherited
+ * `content` defect stayed invisible for two sprints.
  */
 export const formErrors = (form = {}) => {
   const payload = formToPayload(form);
   const errors  = [];
 
-  if (!payload.title)   errors.push('Title is required.');
-  if (!payload.excerpt) errors.push('Excerpt is required.');
-  if (payload.excerpt.length > 300) errors.push('Excerpt cannot exceed 300 characters.');
-
-  if (payload.sections.length === 0) {
-    errors.push('Add at least one section — a post needs a body.');
+  if (!payload.title) {
+    errors.push({ field: 'title', message: 'Title is required.' });
   }
 
-  payload.sections.forEach((section, i) => {
+  if (!payload.excerpt) {
+    errors.push({ field: 'excerpt', message: 'Excerpt is required.' });
+  } else if (payload.excerpt.length > MAX_EXCERPT) {
+    errors.push({
+      field:   'excerpt',
+      message: `Excerpt cannot exceed ${MAX_EXCERPT} characters — this one is ${payload.excerpt.length}.`,
+    });
+  }
+
+  // ── ⚠️ ITERATE THE FORM'S SECTIONS, NEVER THE PAYLOAD'S ──────────────────
+  //
+  // This used to walk `payload.sections`, which was right when an error was
+  // just a sentence and wrong the moment it had to name a field.
+  // `formToPayload` FILTERS OUT empty sections (line 116), so an empty one
+  // anywhere shifts every later index — and the marks would land on the wrong
+  // section's inputs, one row up for each empty section above them. The form's
+  // own indexes are what the JSX rendered, so they are the only ones that can
+  // address an input.
+  //
+  // The payload's trimming rules are applied here by hand for the same reason
+  // the old note gives: a section made entirely of whitespace must not pass.
+  const sections = form.sections || [];
+
+  // ⚠️ THE EMPTINESS CHECK ASKS THE PAYLOAD; only the per-section loop below
+  // needs the form's indexes. They answer different questions: "would anything
+  // be sent?" is about the payload, and a form holding one blank section — the
+  // state `emptyForm()` starts in — has `sections.length === 1` while the
+  // payload has none. Asking the form here would let an empty post save.
+  const nothingToSend = payload.sections.length === 0;
+
+  if (nothingToSend) {
+    // Nothing on screen to point at, so it is reported against the title —
+    // the first field of the form, and where the guard will send focus.
+    errors.push({ field: 'title', message: 'Add at least one section — a post needs a body.' });
+  }
+
+  sections.forEach((section, i) => {
+    const heading = (section?.heading || '').trim();
+    const body    = (section?.body    || []).map((p) => (p || '').trim()).filter(Boolean);
+    const bullets = (section?.bullets || []).map((b) => (b || '').trim()).filter(Boolean);
+
+    // A completely empty section is dropped by the payload and is the normal
+    // state of one just added, so it is not an error on its own — the
+    // nothing-to-send check above covers the case where it is the only one.
+    if (!heading && body.length === 0 && bullets.length === 0) return;
+
     const label = `Section ${String(i + 1).padStart(2, '0')}`;
-    if (!section.heading) {
-      errors.push(`${label} needs a heading.`);
+
+    if (!heading) {
+      errors.push({ field: `sections.${i}.heading`, message: `${label} needs a heading.` });
     }
-    if (section.body.length === 0 && section.bullets.length === 0) {
-      errors.push(`${label} needs at least one paragraph or bullet.`);
+    if (body.length === 0 && bullets.length === 0) {
+      errors.push({
+        field:   `sections.${i}.heading`,
+        message: `${label} needs at least one paragraph or bullet.`,
+      });
     }
   });
 

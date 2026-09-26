@@ -4,6 +4,8 @@ import { useBlogPostAdmin, useCreatePost, useUpdatePost,
          useTogglePublish, useDeletePost }                       from '../../../hooks/useBlog';
 import { emptyForm, emptySection, postToForm, formToPayload,
          formErrors, hasTag, toggleTag, removeTag }               from '../../../utils/blogForm';
+import { useFormGuard }            from '../../../hooks/useFormGuard';
+import { fieldProps, errorId, fieldId } from '../../../utils/formErrors';
 import { useVocabulary, useCreateVocabulary, useDeleteVocabulary,
          useVocabularyImpact }                                    from '../../../hooks/useVocabulary';
 import a from '../../../styles/admin.module.css';
@@ -61,6 +63,31 @@ function LineRow({ kind, index, value, onChange, onRemove }) {
 }
 
 /**
+ * The id namespace for this panel's validatable inputs.
+ *
+ * ⚠️ `post`, matching the ids the editor already used (`post-title`,
+ * `post-excerpt`), so wiring validation renamed nothing and broke no
+ * `htmlFor`. The SECTION headings did have to change — they were
+ * `section-heading-0` and are now `post-sections-0-heading`, which is what
+ * `fieldId(FID, 'sections.0.heading')` produces. Deriving the id from the same
+ * path the error carries is the whole point: the alternative is an id typed in
+ * the JSX and a field typed in the validator, and when those drift the error
+ * renders nowhere at all.
+ */
+const FID = 'post';
+
+/** The inline message under a field. Mirrors AdminAboutPanel's. */
+function FieldError({ field, guard }) {
+  const message = guard.errorFor(field);
+  if (!message) return null;
+  return (
+    <p className={a.fieldError} id={errorId(FID, field)} role="alert">
+      {message}
+    </p>
+  );
+}
+
+/*
  * One section of the post: a heading, its paragraphs and its bullets.
  *
  * ── PF-97 ───────────────────────────────────────────────────────────────
@@ -73,7 +100,7 @@ function LineRow({ kind, index, value, onChange, onRemove }) {
  * order of these blocks is the order a visitor reads — which is why they
  * can be moved.
  */
-function SectionEditor({ section, index, total, onField, onLine, onAddLine, onRemoveLine, onMove, onRemove }) {
+function SectionEditor({ section, index, total, guard, onField, onLine, onAddLine, onRemoveLine, onMove, onRemove }) {
   const number = String(index + 1).padStart(2, '0');
 
   return (
@@ -101,10 +128,18 @@ function SectionEditor({ section, index, total, onField, onLine, onAddLine, onRe
       </div>
 
       <div style={{ marginBottom: '0.875rem' }}>
-        <label className={a.label} htmlFor={`section-heading-${index}`}>Heading *</label>
-        <input id={`section-heading-${index}`} value={section.heading}
+        {/* ⚠️ The id is DERIVED from the same path string the error carries —
+            `post-sections-0-heading`, not the hand-written
+            `section-heading-0` it replaced. Two independently typed strings
+            for one identity is how an error ends up rendering nowhere. */}
+        <label className={a.label} htmlFor={fieldId(FID, `sections.${index}.heading`)}>
+          Heading *
+        </label>
+        <input {...fieldProps(guard.errors, FID, `sections.${index}.heading`)}
+          value={section.heading}
           onChange={(e) => onField('heading', e.target.value)}
           placeholder="Introduction" className={a.input} />
+        <FieldError field={`sections.${index}.heading`} guard={guard} />
       </div>
 
       {['body', 'bullets'].map((kind) => (
@@ -385,13 +420,29 @@ export function AdminBlogPanel({ initialView = 'list' }) {
   const [editing, setEditing] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [view,    setView]    = useState(initialView); // 'list' | 'edit'
-  const [errors,  setErrors]  = useState([]);
+  // ⚠️ REPLACES a bare `useState([])` of sentence strings. The guard carries
+  // the same errors as `{ field, message }`, so each one prints under its own
+  // input, refuses the save, and shakes the button — the standing admin rule
+  // (owner, 2026-09-25). See hooks/useFormGuard.js.
+  const guard = useFormGuard(formErrors, FID);
 
-  const resetEditor = () => { setForm(emptyForm()); setEditing(null); setErrors([]); };
+  // ⚠️ SERVER failures are a DIFFERENT CHANNEL from validation, and keeping
+  // them apart is the point. A rejected request, a dead backend and a failed
+  // delete have no field to mark — pushing them through the guard would put
+  // "Cannot reach the server" under the title input and count it as a field
+  // needing attention. `utils/loginError.js` exists because this repo once
+  // collapsed exactly these two categories into one sentence.
+  const [serverErrors, setServerErrors] = useState([]);
+
+  const resetEditor = () => { setForm(emptyForm()); setEditing(null); guard.reset(); setServerErrors([]); };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setForm((p) => ({ ...p, [name]: type === 'checkbox' ? checked : value }));
+    // ⚠️ CLEARS the mark, never re-validates. Re-running the validator on every
+    // keystroke marks the excerpt "too long" while it is still being written.
+    // The full check runs again on the next save, which is when it matters.
+    guard.clearField(name);
   };
 
   // ── Section state ───────────────────────────────────────────────────
@@ -404,14 +455,23 @@ export function AdminBlogPanel({ initialView = 'list' }) {
       sections: p.sections.map((section, i) => (i === index ? mutate(section) : section)),
     }));
 
-  const setSectionField = (index, field, value) =>
+  const setSectionField = (index, field, value) => {
     updateSection(index, (section) => ({ ...section, [field]: value }));
+    guard.clearField(`sections.${index}.${field}`);
+  };
 
-  const setLine = (index, kind, lineIndex, value) =>
+  const setLine = (index, kind, lineIndex, value) => {
     updateSection(index, (section) => ({
       ...section,
       [kind]: section[kind].map((line, j) => (j === lineIndex ? value : line)),
     }));
+    // ⚠️ "Section NN needs at least one paragraph or bullet" is reported
+    // against the HEADING — a section's paragraphs are a variable-length list
+    // with no single input to mark, and marking every one of them would be
+    // noise. So typing a paragraph has to clear the heading's mark, or the
+    // error the author just answered stays on screen.
+    guard.clearField(`sections.${index}.heading`);
+  };
 
   const addLine = (index, kind) =>
     updateSection(index, (section) => ({ ...section, [kind]: [...section[kind], ''] }));
@@ -446,12 +506,11 @@ export function AdminBlogPanel({ initialView = 'list' }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const problems = formErrors(form);
-    if (problems.length > 0) {
-      setErrors(problems);
-      return;
-    }
-    setErrors([]);
+    // ⚠️ Refuses BEFORE anything is sent. A save that fires and then reports a
+    // 400 has already told the author the wrong thing about which system
+    // refused them.
+    if (!guard.check(form)) return;
+    setServerErrors([]);
 
     const data = formToPayload(form);
 
@@ -468,7 +527,7 @@ export function AdminBlogPanel({ initialView = 'list' }) {
       // utils/loginError.js exists to make: a request that never reached a
       // server is not a rejected post, and saying "check your fields"
       // would send you looking in the wrong place.
-      setErrors([
+      setServerErrors([
         err.response
           ? (err.response.data?.message || `Save failed (HTTP ${err.response.status}).`)
           : 'Cannot reach the server — it may not be running. Your changes have not been saved.',
@@ -479,7 +538,8 @@ export function AdminBlogPanel({ initialView = 'list' }) {
   const startEdit = (post) => {
     setEditing(post._id);
     setForm(postToForm(post));
-    setErrors([]);
+    guard.reset();
+    setServerErrors([]);
     setView('edit');
   };
 
@@ -509,12 +569,31 @@ export function AdminBlogPanel({ initialView = 'list' }) {
         )}
       </div>
 
-      {errors.length > 0 && (
-        <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: '0.5rem', padding: '0.75rem 1rem', marginBottom: '1rem' }}>
-          {errors.map((message) => (
-            <p key={message} style={{ color: '#f87171', fontSize: '0.85rem' }}>{message}</p>
-          ))}
+      {/* ⚠️ THIS REPLACES A PHASE 1 LITERAL BANNER — `#f87171` and
+          `rgba(239,68,68,…)` in a JSX `style={{}}` object, which do not flip
+          with the theme AND are invisible to `adminFoundation.test.js`, because
+          that guard parses stylesheets and cannot see inline styles. That is
+          the exact shape of the thing that blocked PF-116 until PF-112 found
+          it in AdminAboutPanel.
+
+          It also stops listing every message. The detail now lives under each
+          field, where it can be acted on; the banner names the scale, so there
+          are not two places to read, one of which cannot say which input it
+          means. */}
+      {guard.errors.length > 0 && (
+        <div className={a.bannerError} role="alert" style={{ marginBottom: '1rem' }}>
+          <span className={a.bannerDot} aria-hidden="true" />
+          <span>
+            CHECK THE CHANGES AGAIN — {guard.errors.length}{' '}
+            {guard.errors.length === 1 ? 'field needs' : 'fields need'} attention.
+          </span>
+        </div>
+      )}
+
+      {serverErrors.length > 0 && (
+        <div className={a.bannerError} role="alert" style={{ marginBottom: '1rem' }}>
+          <span className={a.bannerDot} aria-hidden="true" />
+          <span>{serverErrors.join(' ')}</span>
         </div>
       )}
 
@@ -524,18 +603,31 @@ export function AdminBlogPanel({ initialView = 'list' }) {
           <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1.25rem' }}>
             {editing ? 'Edit Post' : 'New Post'}
           </h3>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* ⚠️ `noValidate` — AND IT FIXES A LIVE DEFECT, not just a
+              preference. `#post-title` and `#post-excerpt` carry `required`,
+              and without this the browser's own bubble fires first and
+              `handleSubmit` never runs at all. `formErrors`' "Title is
+              required." and "Excerpt is required." branches have therefore
+              NEVER executed since they were written — dead code that reads as
+              live, and passing unit tests the whole time because a unit test
+              calls the validator directly. The inputs keep `required` for its
+              semantics; only the bubble is suppressed. */}
+          <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
               <label className={a.label} htmlFor="post-title">Title *</label>
-              <input id="post-title" name="title" required placeholder="Blog post title"
+              <input {...fieldProps(guard.errors, FID, 'title')}
+                name="title" required placeholder="Blog post title"
                 value={form.title} onChange={handleChange} className={a.input} />
+              <FieldError field="title" guard={guard} />
             </div>
             <div>
               <label className={a.label} htmlFor="post-excerpt">Excerpt * (max 300 chars)</label>
-              <textarea id="post-excerpt" name="excerpt" required rows={2}
+              <textarea {...fieldProps(guard.errors, FID, 'excerpt')}
+                name="excerpt" required rows={2}
                 placeholder="Short description shown in blog list..."
                 value={form.excerpt} onChange={handleChange}
                 className={a.textarea} />
+              <FieldError field="excerpt" guard={guard} />
             </div>
 
             {/* ── Sections ── */}
@@ -554,6 +646,7 @@ export function AdminBlogPanel({ initialView = 'list' }) {
                     section={section}
                     index={i}
                     total={form.sections.length}
+                    guard={guard}
                     onField={(field, value) => setSectionField(i, field, value)}
                     onLine={(kind, j, value) => setLine(i, kind, j, value)}
                     onAddLine={(kind) => addLine(i, kind)}
@@ -587,7 +680,7 @@ export function AdminBlogPanel({ initialView = 'list' }) {
                 // re-created on the next save.
                 setForm((p) => ({ ...p, tags: removeTag(p.tags, value) }));
               }}
-              onError={(message) => setErrors([message])}
+              onError={(message) => setServerErrors([message])}
             />
             {/* ── PF-103: the author's reading-time pin ────────────────
                 Optional by design. `readingTimeMinutes` is derived by the
@@ -623,8 +716,18 @@ export function AdminBlogPanel({ initialView = 'list' }) {
               </label>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem' }}>
-              <button type="submit" disabled={isSaving} className="btn-primary"
-                style={{ opacity: isSaving ? 0.7 : 1 }}>
+              {/* ⚠️ `key` is what makes a SECOND refusal shake again — re-adding
+                  a class React already rendered restarts no animation, so
+                  without it the button refuses visibly once and sits still
+                  every time after. See AdminAboutPanel for the same note. */}
+              <button
+                key={guard.shakeKey}
+                type="submit"
+                disabled={isSaving}
+                className={`btn-primary ${guard.shaking ? a.shake : ''}`}
+                onAnimationEnd={guard.onShakeEnd}
+                style={{ opacity: isSaving ? 0.7 : 1 }}
+              >
                 {isSaving ? 'Saving...' : (editing ? 'Save Changes' : 'Create Post')}
               </button>
               <button type="button" onClick={() => { setView('list'); resetEditor(); }} className="btn-outline">
@@ -705,7 +808,7 @@ export function AdminBlogPanel({ initialView = 'list' }) {
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0, flexWrap: 'wrap' }}>
                     <button onClick={() => togglePublish.mutate(post._id, {
-                      onError: (err) => setErrors([err.response?.data?.message || 'Could not change the publish state.']),
+                      onError: (err) => setServerErrors([err.response?.data?.message || 'Could not change the publish state.']),
                     })} style={{
                       background: 'none', border: '1px solid var(--border)', borderRadius: '0.375rem',
                       padding: '0.375rem 0.75rem', color: 'var(--text-body)', cursor: 'pointer', fontSize: '0.8rem',
@@ -746,7 +849,7 @@ export function AdminBlogPanel({ initialView = 'list' }) {
                 try {
                   await deletePost.mutateAsync(confirm);
                 } catch (err) {
-                  setErrors([err.response?.data?.message || 'Could not delete the post.']);
+                  setServerErrors([err.response?.data?.message || 'Could not delete the post.']);
                 }
                 setConfirm(null);
               }}

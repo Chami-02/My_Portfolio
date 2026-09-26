@@ -59,6 +59,7 @@ const VARIANTS = [
  */
 const ADDITIONS = [
   'dot-ok',   // owner-requested 2026-08-29 — the LIVE SITE green dot
+  'shake',    // owner-requested 2026-09-25 — an admin SAVE that failed validation
 ];
 
 // FIX 2 — anchor to line start with the m flag, so a mention in
@@ -151,6 +152,11 @@ describe('Keyframe library (PF-69)', () => {
     sweep:       ['background-position'],   // ⚠️ NOT transform — see above
     shimmerline: ['transform'],
     shimmer:     ['background-position'],
+    // owner-requested 2026-09-25 — an admin SAVE that failed validation.
+    // Transform only: shaking a button's colour or opacity as well would read
+    // as an error state rather than as a refusal, and the field markers are
+    // what carry the colour.
+    shake:       ['transform'],
     scanline:    ['transform'],
     flicker:     ['opacity'],
     marq:        ['transform'],

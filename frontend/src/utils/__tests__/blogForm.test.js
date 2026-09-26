@@ -205,50 +205,109 @@ describe('formErrors', () => {
     expect(formErrors(VALID)).toEqual([]);
   });
 
-  it('reports a missing title', () => {
-    expect(formErrors({ ...VALID, title: '   ' })).toContain('Title is required.');
+  /*
+   * ⚠️ RESHAPED 2026-09-25. `formErrors` used to return bare sentences; it now
+   * returns `{ field, message }` so each one can be printed under the input it
+   * is about, and the button can refuse the save. These assertions moved from
+   * `toContain('…')` to checking the pair.
+   */
+  const messages = (form) => formErrors(form).map((e) => e.message);
+  const fieldsOf = (form) => formErrors(form).map((e) => e.field);
+
+  it('reports a missing title, against the title field', () => {
+    expect(messages({ ...VALID, title: '   ' })).toContain('Title is required.');
+    expect(fieldsOf({ ...VALID, title: '   ' })).toContain('title');
   });
 
-  it('reports a missing excerpt', () => {
-    expect(formErrors({ ...VALID, excerpt: '' })).toContain('Excerpt is required.');
+  it('reports a missing excerpt, against the excerpt field', () => {
+    expect(messages({ ...VALID, excerpt: '' })).toContain('Excerpt is required.');
+    expect(fieldsOf({ ...VALID, excerpt: '' })).toContain('excerpt');
   });
 
   it('reports an over-long excerpt at the same 300 the server enforces', () => {
-    expect(formErrors({ ...VALID, excerpt: 'x'.repeat(301) }))
-      .toContain('Excerpt cannot exceed 300 characters.');
+    const over = { ...VALID, excerpt: 'x'.repeat(301) };
+    expect(messages(over)[0]).toMatch(/cannot exceed 300 characters/);
+    expect(fieldsOf(over)).toEqual(['excerpt']);
+  });
+
+  it('says how long the over-long excerpt actually is', () => {
+    // "too long" without a number leaves the author counting characters by
+    // hand against a limit they cannot see.
+    expect(messages({ ...VALID, excerpt: 'x'.repeat(340) })[0]).toContain('340');
+  });
+
+  it('accepts exactly 300 — the boundary, not one inside it', () => {
+    expect(formErrors({ ...VALID, excerpt: 'x'.repeat(300) })).toEqual([]);
   });
 
   it('reports a post with no sections left', () => {
-    expect(formErrors({ ...VALID, sections: [emptySection()] }))
+    expect(messages({ ...VALID, sections: [emptySection()] }))
       .toContain('Add at least one section — a post needs a body.');
   });
 
   it('reports a section missing its heading', () => {
-    expect(formErrors({ ...VALID, sections: [{ heading: '', body: ['text'], bullets: [] }] }))
-      .toContain('Section 01 needs a heading.');
+    const form = { ...VALID, sections: [{ heading: '', body: ['text'], bullets: [] }] };
+    expect(messages(form)).toContain('Section 01 needs a heading.');
+    expect(fieldsOf(form)).toContain('sections.0.heading');
   });
 
   it('reports a section with no paragraphs and no bullets', () => {
-    expect(formErrors({ ...VALID, sections: [{ heading: 'Headed', body: ['  '], bullets: [] }] }))
-      .toContain('Section 01 needs at least one paragraph or bullet.');
+    const form = { ...VALID, sections: [{ heading: 'Headed', body: ['  '], bullets: [] }] };
+    expect(messages(form)).toContain('Section 01 needs at least one paragraph or bullet.');
   });
 
   it('numbers the offending section by its position', () => {
-    const errors = formErrors({
+    const form = {
       ...VALID,
       sections: [
         { heading: 'Fine',   body: ['text'], bullets: [] },
         { heading: 'Broken', body: [],       bullets: [] },
       ],
-    });
+    };
 
-    expect(errors).toContain('Section 02 needs at least one paragraph or bullet.');
-    expect(errors).not.toContain('Section 01 needs at least one paragraph or bullet.');
+    expect(messages(form)).toContain('Section 02 needs at least one paragraph or bullet.');
+    expect(messages(form)).not.toContain('Section 01 needs at least one paragraph or bullet.');
+  });
+
+  /*
+   * ⚠️ THE TRAP THAT MADE THE FIELD PATHS NECESSARY, pinned.
+   *
+   * `formToPayload` FILTERS OUT empty sections, so a validator walking the
+   * PAYLOAD numbers them 0, 1, 2… with the gaps closed up. An empty section
+   * anywhere shifts every later one, and the error would mark the inputs of the
+   * wrong card — one row up for each empty section above it.
+   *
+   * Here section 1 (index 1) is entirely empty and section 2 (index 2) is
+   * broken. A payload-indexed validator calls the broken one `sections.1`, and
+   * the mark lands on the empty card.
+   */
+  it('addresses a section by its position in the FORM, not in the payload', () => {
+    const form = {
+      ...VALID,
+      sections: [
+        { heading: 'Fine',   body: ['text'], bullets: [] },
+        { heading: '',       body: [],       bullets: [] },   // dropped by the payload
+        { heading: '',       body: ['text'], bullets: [] },   // the broken one
+      ],
+    };
+
+    expect(fieldsOf(form)).toEqual(['sections.2.heading']);
+    expect(messages(form)).toContain('Section 03 needs a heading.');
+  });
+
+  it('ignores a section that is completely empty', () => {
+    // The normal state of one just added with + ADD SECTION, and the payload
+    // drops it, so it is not something to refuse the save over.
+    const form = {
+      ...VALID,
+      sections: [{ heading: 'Fine', body: ['text'], bullets: [] }, emptySection()],
+    };
+    expect(formErrors(form)).toEqual([]);
   });
 
   // Validating the raw form instead of the payload would pass this.
   it('sees through whitespace-only text', () => {
-    expect(formErrors({ ...VALID, title: ' ', excerpt: '\t' }))
+    expect(messages({ ...VALID, title: ' ', excerpt: '\t' }))
       .toEqual(expect.arrayContaining(['Title is required.', 'Excerpt is required.']));
   });
 });

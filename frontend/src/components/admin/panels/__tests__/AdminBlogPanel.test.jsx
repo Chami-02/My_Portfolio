@@ -653,3 +653,175 @@ describe('per-post view counts', () => {
     expect(screen.getByText(POST.title)).toBeInTheDocument();
   });
 });
+
+/*
+ * ── The standing admin validation rule (owner, 2026-09-25) ──────────────────
+ *
+ * "when miss something if i try to save the save button should shake and say
+ *  check the changes again and pop up the text feild or somthing around the
+ *  missing field saying fill the missing values."
+ *
+ * ⚠️ TWO OF THESE COVER A DEFECT THAT WAS LIVE THE WHOLE TIME `formErrors` HAS
+ * EXISTED. `#post-title` and `#post-excerpt` carry `required`, and the <form>
+ * had no `noValidate` — so the browser's own bubble fired first and
+ * `handleSubmit` never ran. "Title is required." and "Excerpt is required."
+ * could not be reached from the UI by any route, while `blogForm.test.js`
+ * passed the whole time because a unit test calls the validator directly.
+ *
+ * That is the exact shape this file's header warns about: a green suite saying
+ * "alive" about code nothing reaches.
+ */
+describe('validation refuses the save (2026-09-25)', () => {
+  const save = () => screen.getByRole('button', { name: /Save Changes|Create Post/i });
+
+  it('turns the browser\'s own validation bubble off', async () => {
+    // Without this the two assertions below cannot pass in a real browser, no
+    // matter what the validator returns.
+    const user = userEvent.setup();
+    const { container } = render(<AdminBlogPanel />);
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+
+    expect(container.querySelector('form')).toHaveAttribute('novalidate');
+  });
+
+  it('refuses an empty title, marks the field, and sends nothing', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.click(save());
+
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('Title is required.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Title/)).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('refuses an empty excerpt and marks THAT field, not the title', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Excerpt/));
+    await user.click(save());
+
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/^Excerpt/)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('counts the problems in the banner rather than listing them', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.clear(screen.getByLabelText(/^Excerpt/));
+    await user.click(save());
+
+    expect(screen.getByText(/CHECK THE CHANGES AGAIN — 2 fields need attention/i))
+      .toBeInTheDocument();
+  });
+
+  it('marks the RIGHT section when an empty one sits above the broken one', async () => {
+    /*
+     * ⚠️ THE TRAP THE FIELD PATHS EXIST FOR. `formToPayload` FILTERS OUT empty
+     * sections, so a validator numbering them from the payload closes the gaps
+     * up — and every mark after an empty section lands one card too high.
+     *
+     * Here: section 1 is fine, section 2 is added and left empty, section 3 has
+     * a paragraph but no heading. A payload-indexed validator calls the broken
+     * one `sections.1` and marks the EMPTY card instead.
+     */
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    // The fixture already has sections, so the two added ones are simply the
+    // last two — counted rather than assumed, so the test does not break the
+    // next time the fixture grows a section.
+    const before = screen.getAllByLabelText(/^Heading/).length;
+    await user.click(screen.getByRole('button', { name: /Add Section/i }));
+    await user.click(screen.getByRole('button', { name: /Add Section/i }));
+
+    const headings = screen.getAllByLabelText(/^Heading/);
+    expect(headings).toHaveLength(before + 2);
+
+    const emptyIdx  = before;       // left completely empty — dropped by the payload
+    const brokenIdx = before + 1;   // a paragraph, no heading — the real problem
+
+    // ⚠️ BY PLACEHOLDER, not by label. The paragraph textareas have NO
+    // accessible name at all — `getAllByLabelText(/paragraph 1$/i)` matches the
+    // "Remove paragraph 1" BUTTONS instead, and typing into a button silently
+    // does nothing, so the save went through and the test failed claiming the
+    // validator was broken. (The missing label is a real a11y gap; it is on
+    // Outstanding work, not fixed here.)
+    const paragraphs = screen.getAllByPlaceholderText(/^Paragraph 1/);
+    await user.type(paragraphs[paragraphs.length - 1], 'Some body text.');
+
+    await user.click(save());
+
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText(`Section 0${brokenIdx + 1} needs a heading.`))
+      .toBeInTheDocument();
+    expect(headings[brokenIdx]).toHaveAttribute('aria-invalid', 'true');
+    // ⚠️ The assertion that actually catches payload-indexing: with the gap
+    // closed up, THIS is the card that would have been marked.
+    expect(headings[emptyIdx]).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('clears a mark as soon as the field is typed in', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.click(save());
+    expect(screen.getByLabelText(/^Title/)).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(screen.getByLabelText(/^Title/), 'A');
+
+    expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByText('Title is required.')).not.toBeInTheDocument();
+  });
+
+  it('saves once the problem is fixed', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.click(save());
+    await user.type(screen.getByLabelText(/^Title/), 'A real title');
+    await user.click(save());
+
+    expect(updateMutation.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ title: 'A real title' }) }),
+    );
+  });
+
+  it('shakes the button, and remounts it so a second refusal shakes again', async () => {
+    // Element identity, because `animationend` cannot be fired in jsdom at all
+    // — it defines no AnimationEvent constructor. See useFormGuard.test.jsx.
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.click(save());
+    const first = save();
+    expect(first.className).toMatch(/shake/);
+
+    await user.click(save());
+    expect(save()).not.toBe(first);
+  });
+
+  it('keeps SERVER failures out of the field-level channel', async () => {
+    // ⚠️ A rejected request has no field to mark. Routing it through the guard
+    // would print "Cannot reach the server" under the title input and count it
+    // as a field needing attention.
+    updateMutation.mutateAsync.mockRejectedValueOnce(new Error('network down'));
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.type(screen.getByLabelText(/^Title/), '!');
+    await user.click(save());
+
+    expect(await screen.findByText(/Cannot reach the server/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByText(/CHECK THE CHANGES AGAIN/i)).not.toBeInTheDocument();
+  });
+});
