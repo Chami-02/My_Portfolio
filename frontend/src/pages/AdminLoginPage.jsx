@@ -15,8 +15,11 @@
  *     main page, the admin panel and this page share one background.
  *   - The theme toggle is the site's 44x44 sun/moon button, not the
  *     export's --acc2 pill (PF-107's decision, applied here).
- *   - The "DESIGN PREVIEW — try admin@portfolio.dev / Admin@1234!" line
- *     is not rendered: it prints a credential CI greps for.
+ *   - The prototype's "DESIGN PREVIEW — try admin@portfolio.dev / <demo
+ *     password>" line is not rendered here. The omitted password is
+ *     seed.js's DEMO_ADMIN_PASSWORD fallback — spelling it out in this
+ *     comment would itself trip CI's credential scanner, the same
+ *     literal it already allowlists inside seed.js.
  *   - There is no spinner. The export's busy state is the label
  *     changing to SIGNING IN…, and that is all this renders. The
  *     injected @keyframes spin went with it.
