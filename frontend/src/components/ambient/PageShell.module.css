@@ -1,6 +1,28 @@
 /* frontend/src/components/ambient/PageShell.module.css */
+
+/* ⚠️ `overflow-x: clip`, NEVER `hidden` — the same rule, and the same reason,
+   as `body` in styles/global.css.
+
+   `hidden` makes this element a SCROLL CONTAINER. It is as tall as its content
+   and never scrolls, so any `position: sticky` DESCENDANT sticks to a scrollport
+   that does not move and simply scrolls away, with no error anywhere. This
+   wrapper is not a minor one: HomePage, BlogPage, BlogPostPage, NotFoundPage and
+   AdminLoginPage all render inside it, so `hidden` here would silently disable
+   sticky on five of the site's six surfaces.
+
+   Nothing inside it uses sticky TODAY, which is exactly why this is worth a
+   comment rather than a fix-when-it-breaks: the identical declaration on `body`
+   left the admin header and sidebar inert for three sprints before anyone
+   noticed, because the only two sticky elements in the repo were the ones it
+   broke. `clip` clips identically and establishes no scrollport.
+
+   ⚠️ The /admin SHELL is NOT inside this component — AdminLayout is rendered
+   directly by App.jsx — so this was never the cause of that defect. It is the
+   next place it would have appeared.
+
+   Guarded by styles/__tests__/stickyOverflow.test.js. */
 .shell {
   position: relative;
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }

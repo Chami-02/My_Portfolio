@@ -200,26 +200,73 @@
 
 /* ── Body: sidebar + main ───────────────────────────────────────── */
 
+/* ⚠️ NO `align-items: start` — it was here and it is why the sidebar rail
+   stopped partway down a long panel. With `start`, the <aside> is sized to
+   its own content (885px) inside a row that is as tall as the panel
+   (1946px on the About tab), so its background and its border-right just
+   END mid-page. The grid default `stretch` makes the rail run the full
+   depth of whatever panel is showing; the part that has to FOLLOW the
+   scroll is `.sidebarInner` below, not the rail itself. */
 .body {
   flex: 1;
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
-  align-items: start;
   gap: 0;
 }
 
+/* The RAIL. Paints the surface and the divider for the full height of the
+   panel beside it, and nothing more — no sticky, no flex column. Both of
+   those moved to .sidebarInner, which is the thing that should travel with
+   the scroll.
+
+   ⚠️ `min-height` stays as a FLOOR, not as the height. Overview is shorter
+   than the viewport, and without this the rail would stop where the panel
+   stops and leave a stub of divider hanging in mid-air. */
 .sidebar {
-  position: sticky;
-  top: var(--admin-header-h);
-  align-self: start;
-  padding: 20px 14px;
   border-right: 1px solid rgba(var(--ln), .1);
   background: rgba(var(--srf), .34);
   min-height: calc(100vh - var(--admin-header-h));
+}
+
+/* ⚠️ THE STICKY LIVES HERE, NOT ON .sidebar, and that is the whole fix for
+   "the sidebar ends in the middle of the page".
+
+   A sticky element can only travel inside its containing block, so an
+   <aside> that is both the rail AND the sticky box has to choose: size it
+   to its content and the rail is short, or stretch it and there is nothing
+   left to stick. Splitting them gives both — the rail stretches, this box
+   is viewport-tall and follows.
+
+   ⚠️ It only works at all because `body` is `overflow-x: clip` rather than
+   `hidden`; `hidden` makes body a scroll container and every `sticky`
+   descendant is silently inert. See styles/global.css. */
+.sidebarInner {
+  position: sticky;
+  top: var(--admin-header-h);
+  padding: 20px 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
+/* ⚠️ NO `min-height` HERE, and the prototype HAS one — `Admin.dc.html:137`
+   puts `min-height: calc(100vh - 63px)` plus a `flex:1` spacer on this box so
+   the SESSION card hangs at the bottom of the viewport. Dropped deliberately,
+   and measured:
+
+   A sticky box can only travel inside its containing block, so a
+   viewport-tall one gets PUSHED once the grid row runs out — and the row ends
+   where the footer starts, not where the viewport does. At the bottom of the
+   About panel (1500x773) the block's top sat at -170px: MANAGE, Overview,
+   About and Skills all scrolled out of reach while the owner was still on the
+   page. The nav is what a sidebar is FOR, so losing half of it to keep a
+   status card bottom-aligned is the wrong trade.
+
+   Content-height instead: the whole nav is visible at every scroll position
+   (re-measured, top = 67 at the same place), and SESSION sits under it. The
+   full-height SURFACE the min-height used to imply now comes from `.sidebar`
+   above, which is the part the owner actually asked for. The prototype's
+   spacer went with it — see AdminLayout.jsx. */
 
 .manage {
   margin: 0 0 8px 10px;
@@ -449,15 +496,23 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* ⚠️ BOTH boxes reset, not just one. `.sidebar` loses the rail's
+     min-height and its right divider; `.sidebarInner` loses the sticky and
+     becomes the scrolling row. Resetting only `.sidebar` leaves a
+     viewport-tall sticky column inside a 60px strip — which renders as a
+     nav that will not scroll sideways and overlaps the panel below it. */
   .sidebar {
-    position: static;
     min-height: 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(var(--ln), .1);
+  }
+
+  .sidebarInner {
+    position: static;
     flex-direction: row;
     align-items: center;
     gap: 8px;
     padding: 12px clamp(14px, 3vw, 26px);
-    border-right: none;
-    border-bottom: 1px solid rgba(var(--ln), .1);
     overflow-x: auto;
   }
 

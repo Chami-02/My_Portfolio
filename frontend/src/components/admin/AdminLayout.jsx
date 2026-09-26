@@ -43,11 +43,21 @@ import a from '../../styles/admin.module.css';
  * per operating system.
  */
 
+/*
+ * ⚠️ NOT the prototype's order — a sanctioned deviation, owner-requested
+ * 2026-09-25 (PF-112). `Admin.dc.html:991+` lists Overview · Projects · Skills ·
+ * About · Blog · Messages; the owner asked for About to sit second, so the order
+ * runs profile-first and then outward: who you are, what you can do, what you
+ * built, what you wrote, who wrote to you.
+ *
+ * Recorded because a fidelity pass diffing against the frozen export will read
+ * this as a transcription slip and "restore" it. It is not one.
+ */
 const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: '⊞' },
-  { id: 'projects', label: 'Projects', icon: '◈' },
-  { id: 'skills',   label: 'Skills',   icon: '{ }' },
   { id: 'about',    label: 'About',    icon: '◐' },
+  { id: 'skills',   label: 'Skills',   icon: '{ }' },
+  { id: 'projects', label: 'Projects', icon: '◈' },
   { id: 'blog',     label: 'Blog',     icon: '✎' },
   { id: 'messages', label: 'Messages', icon: '✉' },
 ];
@@ -178,43 +188,54 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
 
       <div className={styles.body}>
 
-        {/* ── Sidebar ── */}
+        {/* ── Sidebar ──
+            Two elements on purpose: <aside> is the RAIL (surface + divider,
+            stretched to the panel's full depth) and .sidebarInner is the part
+            that sticks below the header. One element cannot be both — see the
+            note on .sidebarInner in the module. */}
         <aside className={styles.sidebar}>
-          <p className={styles.manage}>MANAGE</p>
+          <div className={styles.sidebarInner}>
+            <p className={styles.manage}>MANAGE</p>
 
-          <nav className={styles.nav} aria-label="Admin sections">
-            {NAV_ITEMS.map(({ id, label, icon }) => {
-              const isActive = activeTab === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => onTabChange(id)}
-                  className={styles.navItem}
-                  /* aria-current drives BOTH the active styling and the
-                     screen-reader announcement, so the two cannot drift
-                     apart the way a separate isActive class would let
-                     them. The Phase 1 shell had no aria-current at all. */
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <span aria-hidden="true" className={styles.navIcon}>{icon}</span>
-                  {label}
-                  {NAV_COUNTS[id] && (
-                    <span className={styles.navCount}>{NAV_COUNTS[id]}</span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
+            <nav className={styles.nav} aria-label="Admin sections">
+              {NAV_ITEMS.map(({ id, label, icon }) => {
+                const isActive = activeTab === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => onTabChange(id)}
+                    className={styles.navItem}
+                    /* aria-current drives BOTH the active styling and the
+                       screen-reader announcement, so the two cannot drift
+                       apart the way a separate isActive class would let
+                       them. The Phase 1 shell had no aria-current at all. */
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    <span aria-hidden="true" className={styles.navIcon}>{icon}</span>
+                    {label}
+                    {NAV_COUNTS[id] && (
+                      <span className={styles.navCount}>{NAV_COUNTS[id]}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
 
-          <span className={styles.spacer} />
-
-          <div className={styles.sessionCard}>
-            <p className={styles.sessionLabel}>SESSION</p>
-            <p className={styles.sessionBody}>
-              Signed in as admin. Every change here is written straight to the
-              live site.
-            </p>
+            {/* ⚠️ `<span className={styles.spacer} />` was HERE and is deleted.
+                It was the prototype's `flex:1` (Admin.dc.html:145), pushing the
+                SESSION card to the bottom of a viewport-tall column — and this
+                column is no longer viewport-tall, so it stretched nothing and
+                was pure dead markup. `.spacer` itself STAYS: the header still
+                uses it, and there it is load-bearing.
+                See .sidebarInner in the module for why the height went. */}
+            <div className={styles.sessionCard}>
+              <p className={styles.sessionLabel}>SESSION</p>
+              <p className={styles.sessionBody}>
+                Signed in as admin. Every change here is written straight to the
+                live site.
+              </p>
+            </div>
           </div>
         </aside>
 

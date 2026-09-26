@@ -150,7 +150,12 @@ html[data-theme="light"] {
 
 body {
   margin: 0;
-  overflow-x: hidden;          /* canvas and marquee overflow by design */
+  /* ⚠️ `clip`, NEVER `hidden`. Canvas and marquee overflow by design and
+     both are still clipped — but `hidden` makes <body> a scroll container
+     and silently disables `position: sticky` on every descendant, which is
+     how the admin header and sidebar came to scroll away. Full reasoning
+     and the measurements are in global.css's body rule. */
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;

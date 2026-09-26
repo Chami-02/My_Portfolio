@@ -81,7 +81,11 @@ beforeEach(() => {
 });
 
 describe('AdminLayout — navigation', () => {
-  it('renders all six sections, in the prototype order', () => {
+  // ⚠️ NOT the prototype's order any more — owner decision 2026-09-25 (PF-112).
+  // The export has Overview · Projects · Skills · About · Blog · Messages; About
+  // was moved to second. Asserted here so the deviation is deliberate and
+  // visible rather than something a fidelity pass quietly reverts.
+  it('renders all six sections, in the owner-requested order', () => {
     renderShell();
     const labels = within(nav())
       .getAllByRole('button')
@@ -91,7 +95,7 @@ describe('AdminLayout — navigation', () => {
     // breaks under a name pointing at the wrong cause the moment an
     // unrelated control joins the landmark.
     expect(labels).toEqual([
-      'Overview', 'Projects', 'Skills', 'About', 'Blog', 'Messages',
+      'Overview', 'About', 'Skills', 'Projects', 'Blog', 'Messages',
     ]);
   });
 
@@ -301,5 +305,72 @@ describe('AdminLayout — ambient layer (PF-109)', () => {
     expect(shell.composes).toBe('kf-fadeIn from global');   // proves the rule was found
     expect(shell.background).toBeUndefined();
     expect(shell['background-color']).toBeUndefined();
+  });
+});
+
+describe('the sidebar rail runs the full depth of the panel', () => {
+  // ⚠️ THE DEFECT THIS REPLACES, measured on /admin at 1702x952 with the About
+  // panel showing: the rail's painted box was 885px tall inside a 1946px grid
+  // row, so its background and its border-right simply ended mid-page. And
+  // `position: sticky` on it was inert anyway — at scrollY 1200 the sidebar's
+  // top read -1133 and the header's -1200, both scrolled clean off, because
+  // `body { overflow-x: hidden }` made body a scroll container.
+  //
+  // The overflow half is guarded in styles/__tests__/stickyOverflow.test.js.
+  // This file guards the structural half: two boxes, each with one job.
+
+  it('renders the rail and the sticky column as separate elements', () => {
+    const { container } = renderShell();
+    const rail = container.querySelector('aside');
+
+    expect(rail).not.toBeNull();
+    // The nav lives INSIDE the inner box, never as a direct child of the rail —
+    // that nesting is what lets one stretch while the other travels.
+    const inner = rail.firstElementChild;
+    expect(inner.tagName).toBe('DIV');
+    expect(inner.querySelector('nav')).not.toBeNull();
+  });
+
+  it('leaves the sticky column at its content height', () => {
+    // ⚠️ The prototype puts `min-height: calc(100vh - 63px)` on this box plus a
+    // `flex:1` spacer, to hang SESSION at the bottom of the viewport. A
+    // viewport-tall sticky box is PUSHED once its containing block runs out —
+    // and the grid row ends where the footer starts. Measured at the bottom of
+    // the About panel (1500x773): the column's top sat at -170px, with MANAGE,
+    // Overview, About and Skills scrolled out of reach. Content height keeps
+    // the whole nav visible at every scroll position.
+    const css = readFileSync(resolve(HERE, '../AdminLayout.module.css'), 'utf8');
+    const decls = {};
+    postcss.parse(css).walkRules((rule) => {
+      if (!rule.selectors.some((sel) => sel.trim() === '.sidebarInner')) return;
+      // The base rule only — the 899px block is a separate check.
+      if (rule.parent.type !== 'root') return;
+      rule.walkDecls((d) => { decls[d.prop] = d.value; });
+    });
+
+    expect(decls.position).toBe('sticky');          // proves the rule was found
+    expect(decls['min-height']).toBeUndefined();
+    expect(decls.height).toBeUndefined();
+  });
+
+  it('renders no dead flex spacer in the sidebar', () => {
+    // It only ever existed to push SESSION down a viewport-tall column. With
+    // that height gone it stretches nothing, so it is deleted rather than left
+    // behind "in case". `.spacer` the CLASS stays — the header still needs it.
+    const { container } = renderShell();
+    const rail = container.querySelector('aside');
+    expect(rail.querySelector('[class*="spacer"]')).toBeNull();
+    expect(container.querySelector('header [class*="spacer"]')).not.toBeNull();
+  });
+
+  it('keeps every sidebar control reachable inside the new wrapper', () => {
+    // The cheap regression the extra <div> could cause: a wrapper added in the
+    // wrong place drops the session card or the MANAGE heading out of the rail.
+    const { container } = renderShell();
+    const rail = container.querySelector('aside');
+
+    expect(within(rail).getByText('MANAGE')).toBeInTheDocument();
+    expect(within(rail).getByText('SESSION')).toBeInTheDocument();
+    expect(within(rail).getAllByRole('button').length).toBe(6);
   });
 });
