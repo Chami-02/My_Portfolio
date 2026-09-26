@@ -1,0 +1,215 @@
+# Production deploy — the CD half of CI/CD.
+#
+# ── WHAT THIS REPLACES ──────────────────────────────────────────────────────
+# Vercel's built-in git integration, which deploys the moment `master` moves.
+# That is fast and it has one flaw that cannot be configured away: nothing can
+# happen BETWEEN the merge and the deploy. There is no slot for a database
+# migration, no approval, and no check afterwards — if the new code needs a
+# schema the database does not have yet, it goes live anyway and fails for real
+# visitors until someone notices.
+#
+# ⚠️ THIS WORKFLOW ONLY WORKS ONCE VERCEL'S AUTOMATIC GIT DEPLOYS ARE TURNED
+# OFF. Leave both on and every release races itself: Vercel deploys the new
+# code immediately while this workflow is still waiting for approval to migrate.
+#
+# ── THE ORDER IS THE WHOLE DESIGN ───────────────────────────────────────────
+#
+#   1. plan      dry-run the migrations against production, save the output
+#   2. ⏸ APPROVE  a human reads that output and clicks Approve
+#   3. migrate   apply them, recorded in the `migrations` collection
+#   4. deploy    push the new code to Vercel
+#   5. smoke     prove the deployed site actually serves
+#
+# Migrations run BEFORE the code, and that is the "expand" half of the
+# expand/contract pattern. Adding a field before the code that reads it is safe:
+# old code ignores a field it does not know about. The reverse — removing a
+# field while code still reads it — is an outage, which is why a destructive
+# migration belongs in a LATER release, after the code that stopped using the
+# field is already live. See the report in `new mds/E9/`.
+
+name: Deploy to Production
+
+on:
+  push:
+    branches: [master]
+  # Lets you re-run a deploy without an empty commit — after fixing a secret,
+  # for instance.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# ⚠️ `cancel-in-progress: false`, THE OPPOSITE OF ci.yml, and deliberately.
+# Cancelling a test run wastes a few minutes. Cancelling a deploy part-way
+# through step 3 leaves the database half-migrated with no record of how far it
+# got — the single worst state this pipeline can produce. Two pushes in quick
+# succession queue instead of interrupting.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: 1 · Plan - what would change
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # ⚠️ NOTE: no `environment:` here, so this job needs no approval. Reading
+    # is safe, and the whole point is to produce the information the approver
+    # needs BEFORE they are asked to approve anything.
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ./backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: What has production already applied?
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI_PROD }}
+        run: npm run migrate:status | tee ../migration-plan.txt
+
+      - name: Dry-run the pending migrations
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI_PROD }}
+        run: npm run migrate:dry | tee -a ../migration-plan.txt
+
+      # ⚠️ Kept as an artifact so the plan survives the log's retention and can
+      # be read next to the approval request. The runner prints the database
+      # NAME and never the connection string, so this file is safe to store.
+      - name: Save the plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-plan
+          path: migration-plan.txt
+          retention-days: 30
+
+  migrate:
+    name: 2 · Migrate production (needs approval)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [plan]
+
+    # ⚠️ THIS LINE IS THE APPROVAL GATE. A GitHub "environment" with required
+    # reviewers pauses the workflow here until a named person clicks Approve.
+    # It is also where the production secrets live, so they are not readable by
+    # any job that has not passed the gate.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ./backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Apply pending migrations
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI_PROD }}
+        # The runner refuses outright if an already-applied migration has been
+        # edited, so a rewritten history stops the release rather than
+        # corrupting the database quietly.
+        run: npm run migrate
+
+  deploy:
+    name: 3 · Deploy to Vercel
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [migrate]
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Frontend and backend are two Vercel projects, so each is pulled,
+      # built and deployed separately with its own project id.
+      - name: Deploy backend
+        working-directory: ./backend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BACKEND }}
+        run: |
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy frontend
+        working-directory: ./frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
+        run: |
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  smoke:
+    name: 4 · Smoke test production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ⚠️ ASSERTS `/api/health`'s `database` FIELD, NEVER THE STATUS CODE.
+      # That endpoint is registered ahead of the connectDB middleware and
+      # swallows connection errors, so it answers 200 with `database: null`
+      # while the database is unreachable. This project has had exactly that
+      # outage with every status-code monitor green throughout.
+      - name: Smoke test the live API
+        working-directory: ./backend
+        run: node scripts/smoke-test.js "${{ vars.PRODUCTION_API_URL }}" portfolio_prod
+
+      - name: Report
+        if: failure()
+        run: |
+          echo "::error::Production is not healthy after deploy."
+          echo "Roll the CODE back in the Vercel dashboard (instant rollback)."
+          echo ""
+          echo "⚠️ Do NOT try to roll the MIGRATION back. Migrations here are"
+          echo "   forward-only: a mistake is corrected by writing the next"
+          echo "   numbered migration, never by reversing one. A reversal has"
+          echo "   to guess what the data looked like before, and it guesses"
+          echo "   wrong for every row that changed since."

@@ -1,0 +1,59 @@
+# Dependabot — automated dependency updates.
+#
+# WHAT IT DOES, in plain terms: once a week GitHub checks whether any package
+# this project depends on has released a newer version, and opens a pull
+# request for each one. CI runs against that PR, so you can see whether the
+# update breaks anything BEFORE you accept it.
+#
+# WHY IT EXISTS: the alternative is noticing a vulnerable dependency months
+# later, during an audit, with no idea whether upgrading is safe. A weekly PR
+# that CI has already tested turns a security chore into a review.
+#
+# ⚠️ FREE ON THIS REPO because it is public. Nothing to enable beyond this file.
+#
+# ⚠️ Note the THIRD entry. Dependabot updates the GitHub Actions used by the
+# workflows themselves (actions/checkout, actions/setup-node…). Those run with
+# access to the repository, so an unmaintained or compromised action is a
+# supply-chain risk in its own right — a category people routinely forget
+# because it is not in package.json.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, frontend]
+    # Patch and minor bumps grouped into ONE pull request. Ungrouped, a busy
+    # week produces a dozen PRs, they stop being read, and the useful one — a
+    # security fix — is lost in the noise.
+    groups:
+      frontend-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, backend]
+    groups:
+      backend-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: "chore(ci)"

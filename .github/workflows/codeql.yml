@@ -1,0 +1,81 @@
+# CodeQL — static application security testing (SAST).
+#
+# WHAT IT DOES, in plain terms: it reads the source code without running it and
+# looks for patterns that are known to be exploitable — a value that arrives
+# from a request and reaches a database query unescaped, a redirect built from
+# user input, a comparison that leaks how long a secret is.
+#
+# HOW IT DIFFERS FROM THE OTHER SECURITY CHECKS HERE, because the three are
+# often confused and each catches something the others cannot:
+#
+#   credential-scan (ci.yml)  a secret committed BY US        — our own text
+#   npm audit       (ci.yml)  a known CVE in SOMEONE ELSE'S   — dependencies
+#   CodeQL          (here)    a flaw in OUR OWN LOGIC         — the code we wrote
+#
+# Only CodeQL reads what this project actually does. The other two would both
+# pass on a hand-written SQL injection.
+#
+# ⚠️ FREE ON THIS REPO because it is public. On a private repo this is a paid
+# GitHub Advanced Security feature — worth knowing before the repo is ever
+# flipped to private, because this file would silently stop working.
+#
+# ⚠️ THE WEEKLY SCHEDULE IS NOT REDUNDANT. CodeQL's rules are updated
+# continuously, so code that was clean when it merged can be flagged months
+# later by a rule that did not exist yet. Without the schedule, a file is only
+# ever scanned on the day it changed.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  schedule:
+    # Mondays 03:00 UTC. Off-peak, and a finding is waiting at the start of the
+    # week rather than on a Friday evening.
+    - cron: '0 3 * * 1'
+
+# Least privilege, with ONE deliberate exception.
+permissions:
+  contents: read
+  actions: read
+  # ⚠️ `security-events: write` is what lets CodeQL publish its findings to the
+  # repository's Security tab. Without it the analysis runs and the results go
+  # nowhere — the job passes, the alerts never appear, and nobody notices the
+  # difference for months.
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze JavaScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # `security-and-quality` over the default `security-extended`:
+          # it adds maintainability rules on top of the security ones. On a
+          # project this size the extra findings are readable rather than
+          # overwhelming.
+          queries: security-and-quality
+
+      # ⚠️ NO BUILD STEP, and that is correct for JavaScript. CodeQL compiles
+      # languages like Java or C# to analyse them; JS/TS is interpreted, so it
+      # extracts directly from source. Adding `autobuild` here would waste
+      # several minutes per run and change nothing.
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript

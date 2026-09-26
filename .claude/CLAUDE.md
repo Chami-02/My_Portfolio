@@ -876,13 +876,44 @@ Single test: `npm test -- src/__tests__/blog.test.js` or
 ### Migrations (`backend/src/migrations/`)
 
 Numbered, idempotent, run in order, read `MONGO_URI` **directly** — point it
-at the target database deliberately. `--dry-run` first (reports, writes
-nothing), then a real run. Never edit one that has run in production; write
-the next number.
+at the target database deliberately. Never edit one that has run in
+production; write the next number.
+
+⚠️ **THERE IS A RUNNER NOW (2026-09-26)** — prefer it over invoking a script
+by hand, because only the runner records what was applied:
 
 ```bash
-node src/migrations/005-blog-publish-dates.js --dry-run
+npm run migrate:status     # what has this database had applied? reads only
+npm run migrate:dry        # dry-run everything pending
+npm run migrate            # apply pending, and RECORD each one
+npm run migrate:baseline   # record as applied WITHOUT running (one-time)
+npm run migrate:verify     # prove every migration is safe to run twice
 ```
+
+A **`migrations` collection** now tracks `{ name, checksum, appliedAt,
+durationMs, baseline }` per database, so "did 008 run on prod?" is a query
+rather than a memory. `portfolio_dev` is baselined; **production is NOT yet**.
+
+⚠️ **The runner SPAWNS each migration as a child process, never `require()`s
+it.** 003/004/005/006 capture `--dry-run` at MODULE SCOPE and 001 exports no
+`run()`, so an importing runner would ignore the flag for four of them — a dry
+run against production would WRITE. Do not "simplify" this to an import.
+
+⚠️ **The checksum guard refuses to run at all** if an applied migration's file
+has changed. That is the "never edit an applied migration" rule, enforced.
+
+⚠️ **`migrate:verify` must never point at `portfolio_test`** — it seeds and
+leaves data behind, which surfaces later as isolation residue in the Jest
+suite. It refuses that name; CI uses `portfolio_ci`.
+
+⚠️ **Migrations reach production through the DEPLOY PIPELINE now**, behind a
+GitHub approval gate — not by hand before the PR. See
+`.github/workflows/deploy.yml` and
+`new mds/E9/ci-cd-and-migration-pipeline.md`.
+
+⚠️ **EXPAND before the deploy, CONTRACT a release later.** Adding a field is
+safe ahead of the code that reads it; removing one while old code still reads
+it is an outage. The PR template asks which it is.
 
 ### The gate — run all SEVEN, in this order
 
@@ -919,11 +950,27 @@ had been committed since Sprint 7, so every coverage run dirtied the tree with
 mongo-express :8081. Dev convenience only; production is Vercel + MongoDB
 Atlas + Cloudinary.
 
-CI (`.github/workflows/ci.yml`, Node 20): `credential-scan` (greps
-`Admin@1234!` outside `seed.js` / `e2e/admin.spec.js` / `postman/`),
-`frontend` (lint → test:run → coverage → build), `backend` (Mongo 7
-service, `test:coverage`), `e2e` (needs both; seeds `portfolio_e2e`, starts
-both servers, runs Playwright).
+CI (`.github/workflows/ci.yml`, Node 20) — **SIX jobs since 2026-09-26**:
+`credential-scan`, **`audit`** (`npm audit --audit-level=high`, both packages),
+**`migrations`** (applies every migration to a throwaway Mongo, then proves
+idempotency), `frontend` (lint → test:run → coverage → build), `backend`
+(Mongo 7 service, `test:coverage`), `e2e` (needs both). `all-checks-pass`
+aggregates them and is the **single required check** for branch protection.
+
+⚠️ **Triggers now include `sprint-*`** — CI used to run only on `master`/`main`,
+so a sprint branch had NO checks until its PR opened.
+
+⚠️ **A job added to `all-checks-pass`'s `needs:` must ALSO be added to the
+`if` block inside it**, or it is silently optional: the gate reports success
+while that job is red, and branch protection trusts the gate alone.
+
+Also `.github/workflows/codeql.yml` (SAST, PR + weekly),
+`.github/dependabot.yml`, `.github/pull_request_template.md`, and
+`.github/workflows/deploy.yml` (the CD pipeline: plan → **approval gate** →
+migrate → deploy → smoke test).
+
+⚠️ **`deploy.yml` uses `cancel-in-progress: false`, the OPPOSITE of `ci.yml`** —
+cancelling a deploy mid-migration leaves the database in an unknown state.
 
 ## Architecture
 

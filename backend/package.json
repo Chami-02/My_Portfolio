@@ -10,6 +10,11 @@
     "start": "node src/server.js",
     "seed": "node src/seed.js",
     "seed:e2e": "dotenv -e .env.e2e -- node src/seed.js",
+    "migrate": "node src/migrations/run.js",
+    "migrate:status": "node src/migrations/run.js --status",
+    "migrate:dry": "node src/migrations/run.js --dry-run",
+    "migrate:baseline": "node src/migrations/run.js --baseline",
+    "migrate:verify": "node scripts/verify-migrations-idempotent.js",
     "test": "node scripts/run-jest.js --runInBand --detectOpenHandles --forceExit",
     "test:coverage": "node scripts/run-jest.js --coverage --runInBand --detectOpenHandles --forceExit",
     "test:watch": "node scripts/run-jest.js --watch"

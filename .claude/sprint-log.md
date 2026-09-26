@@ -7460,3 +7460,119 @@ stats, socialExtra, location, bio and post titles unchanged.
   Deferred by agreement; PF-113 → PF-115 apply the standing rule.
 - **Blog's paragraph and bullet inputs need accessible names.** A placeholder is
   not a label. Touches markup PF-115 will rebuild.
+
+---
+
+## Infrastructure, 2026-09-26 — CI/CD and the migration pipeline
+
+**Owner-requested after asking how the industry handles migrations. NOT Sprint
+14 work** — Sprint 14 is PF-113 → PF-121. Proposed as PF-126 → PF-129 for a
+later sprint; numbers are PROPOSALS, not assigned.
+
+**Full plain-English report (written for zero CI/CD knowledge):
+`new mds/E9/ci-cd-and-migration-pipeline.md`.**
+
+### What was wrong
+
+| # | Finding | Evidence |
+| --- | --- | --- |
+| 1 | No migration tracking anywhere | no `migrations` collection |
+| 2 | Migrations never run by CI or CD | zero mentions in workflows, scripts, vercel.json |
+| 3 | **`master` had NO branch protection** | GitHub API → `404 Branch not protected` |
+| 4 | **The gate existed and was never switched on** | `all-checks-pass` was built to be the required check; nothing required it. PF-75 pushed straight to master once |
+| 5 | CI never ran on sprint branches | triggers were `[master, main]` only |
+| 6 | Repo is PUBLIC | so CodeQL / Dependabot / secret scanning are free |
+| 7 | Dependency auditing switched off | `npm ci --no-audit` in all jobs, nothing replacing it |
+| 8 | No `permissions:` block | default broad GITHUB_TOKEN scopes |
+
+### ⚠️ A real vulnerability, found by turning the audit on
+
+**`multer` — DoS via crafted multipart field names.** A DIRECT production
+dependency, and the library serving the upload routes PF-111/PF-112 just built.
+Fixed 2.2.0 → 2.4.0; 507 backend tests pass. Four build-time advisories fixed
+too (`browserslist`, `nanoid`, `js-yaml`) via `npm audit fix` plus npm
+`overrides` in `frontend/package.json`.
+
+⚠️ `nanoid` was reported as a PRODUCTION vulnerability because
+`@tailwindcss/vite` sits in `dependencies`. Grepping `dist/` showed it **never
+reaches the bundle**. "The tool says production" and "it ships to users" are
+different claims.
+
+### ⚠️ The finding that dictated the runner's design
+
+Migrations **003/004/005/006 capture `--dry-run` at MODULE SCOPE**, and **001
+exports no `run()`**. A runner that imported them would have ignored `--dry-run`
+for four migrations — **a dry run against production would have written**.
+
+So the runner **spawns each migration as a child process**, exactly as a human
+does. Every script keeps its argv contract and **none needed editing** — which
+matters because 005 is frozen. Verified: a dry run left all six collections
+byte-identical.
+
+### Built
+
+| File | What |
+| --- | --- |
+| `backend/src/models/Migration.js` | the tracking collection + SHA-256 checksum |
+| `backend/src/migrations/run.js` | `migrate` / `:status` / `:dry` / `:baseline` |
+| `backend/scripts/verify-migrations-idempotent.js` | proves every migration is safe to run twice |
+| `backend/scripts/smoke-test.js` | post-deploy health check |
+| `.github/workflows/ci.yml` | sprint-branch triggers, `permissions`, `audit` + `migrations` jobs |
+| `.github/workflows/codeql.yml` | SAST, PR + weekly |
+| `.github/workflows/deploy.yml` | plan → **approval gate** → migrate → deploy → smoke |
+| `.github/dependabot.yml` | npm ×2 + github-actions |
+| `.github/pull_request_template.md` | asks EXPAND vs CONTRACT |
+
+⚠️ **The checksum guard turns "never edit a migration that has run in
+production" from a comment into an enforced rule** — the runner refuses to do
+anything if an applied migration's file has changed.
+
+⚠️ **`005-blog-publish-dates.js` saves all four posts unconditionally**, so
+`updatedAt` churns on every run. Data is unchanged. 005 is frozen, so the
+idempotency checker separates "data changed" (fails) from "bookkeeping timestamp
+moved" (reported, does not fail) — reported rather than hidden.
+
+### Gate — all seven
+
+| # | Command | Result |
+| --- | --- | --- |
+| 1 | frontend `test:run` | **1538 passed**, 71 files |
+| 2 | frontend lint | clean |
+| 3 | frontend `test:coverage` | 94.27 / 90.68 / 89.21 / 96.27 |
+| 4 | frontend `build` | ok |
+| 5 | backend `npm test` | **507 passed**, 34 suites |
+| 6 | backend `test:coverage` | 80.44 / **70.61** / 84.57 / 80.94 |
+| 7 | frontend `test:e2e` | **75 passed** |
+
+Plus: migration runner **21 tests**, migrations proven idempotent (6
+collections, 68 documents), smoke test verified against a live backend AND
+verified to fail on a dead port and a wrong database name.
+
+⚠️ Backend branch coverage fell 74.09% → **70.61%** — the new runner and the two
+`scripts/` files add uncovered branches. Still well clear of the 60% threshold.
+
+### Two red runs that were NOT the code
+
+1. **`blog.query.test.js` ordering** went red after the multer upgrade —
+   actually **contamination**: the idempotency experiments had seeded
+   `portfolio_test`. The isolation-residue shape. The script now **refuses to
+   run against `portfolio_test`**, and CI uses `portfolio_ci`.
+2. **`GET /api/resume` returned 401 instead of 404** in one coverage run, then
+   passed alone and passed on a full re-run. Not reproducible → transient, the
+   documented fourth shape.
+
+### ⚠️ Outstanding — only the owner can do these
+
+Ordered, and each depends on the last:
+
+1. Enable secret scanning + **push protection** (would have stopped PF-49)
+2. Push, let CI run once so the new checks are offerable
+3. **Branch protection on `master`** requiring `All Checks Pass` — the single
+   highest-value action
+4. Create the `production` Environment: required reviewer + the five secrets
+   ⚠️ I have never seen those values and must not
+5. **Turn OFF Vercel's automatic git deploys — LAST**, after the deploy workflow
+   is proven, or both systems race
+6. `npm run migrate:baseline` against production, ONCE
+
+`portfolio_dev` is already baselined — 8 applied, 0 pending.
