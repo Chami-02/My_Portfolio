@@ -30,7 +30,13 @@ const aboutSchema = new mongoose.Schema(
     location: {
       type:    String,
       trim:    true,
-      default: 'Galle,Sri Lanka',
+      // ⚠️ PF-112 — the space after the comma is load-bearing and was MISSING.
+      // Both public render sites print this value verbatim, so a document
+      // created from this default read "Galle,Sri Lanka" while a seeded one
+      // (seed.js already had the space) read "Galle, Sri Lanka". Two
+      // environments disagreeing on a rendered string, and it looks like a CSS
+      // problem rather than a data one.
+      default: 'Galle, Sri Lanka',
     },
     // ── The single source of truth for contact email, site-wide (PF-60) ──
     // Used by the contact section, the footer's email icon, and anywhere
@@ -160,6 +166,46 @@ const aboutSchema = new mongoose.Schema(
       // its mailto: from that. Do not re-add a social.email: two fields
       // drift apart the moment one of them is edited.
     },
+
+    // ── NEW IN PF-112 — social networks beyond the five fixed ones ───────────
+    //
+    // The five keys above are a fixed set with brand icons and stable names, so
+    // they stay an object. Anything else the owner joins later — YouTube, a
+    // Mastodon instance, Dribbble — arrives here as a named row, rendered with a
+    // generic link icon.
+    //
+    // ⚠️ WHY AN ARRAY BESIDE THE OBJECT rather than replacing `social` with one
+    // array of {key,label,url}. Replacing it would need a migration, and every
+    // existing reader and test keyed on `social.github` would change with it —
+    // for no gain, because the five are genuinely a different thing: they have
+    // icons, a fixed order and names nobody edits. Additive is the cheaper and
+    // less breakable half.
+    //
+    // ⚠️ `url` is REQUIRED here, unlike `social.*` where empty means "hide this
+    // icon". A fixed key with no URL still has a meaning — the platform exists,
+    // the account does not. A custom row with no URL means nothing at all, so
+    // blanking one is a delete, which is exactly what the panel's × does.
+    socialExtra: [
+      {
+        label: {
+          type:     String,
+          required: [true, 'A custom link needs a name'],
+          trim:     true,
+          maxlength: [40, 'A link name cannot exceed 40 characters'],
+        },
+        url: {
+          type:     String,
+          required: [true, 'A custom link needs a URL'],
+          trim:     true,
+          validate: {
+            // NOT the shared urlValidator: that one allows empty, which is
+            // right for the fixed five and wrong here.
+            validator: (v) => /^https?:\/\/.+\..+/i.test(v || ''),
+            message:   (props) => `${props.value} is not a valid URL`,
+          },
+        },
+      },
+    ],
 
     // Stats shown in the About section cards
     stats: [

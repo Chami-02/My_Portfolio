@@ -69,3 +69,78 @@ describe('About — social links (PF-60 Step 1)', () => {
   });
 
 });
+
+// ── PF-112: custom social links ─────────────────────────────────────────────
+//
+// Anything beyond the five fixed platforms. ⚠️ `url` is REQUIRED here, unlike
+// `social.*` where empty means "hide this icon": a fixed key with no URL still
+// means something (the platform exists, the account does not), while a custom row
+// with no URL means nothing at all.
+//
+// ⚠️ Model-level, matching this file — `await doc.validate()`, never
+// `validateSync()`, which runs no middleware and returns undefined for a valid
+// document exactly as it does for one it never checked.
+describe('About.socialExtra (PF-112)', () => {
+  const withExtra = (rows) => new About({ socialExtra: rows });
+
+  it('defaults to an empty list rather than undefined', () => {
+    expect(new About({}).socialExtra).toEqual([]);
+  });
+
+  it('stores a named link', async () => {
+    const a = withExtra([{ label: 'YouTube', url: 'https://youtube.com/@x' }]);
+    await expect(a.validate()).resolves.toBeUndefined();
+
+    expect(a.socialExtra).toHaveLength(1);
+    expect(a.socialExtra[0].label).toBe('YouTube');
+    expect(a.socialExtra[0].url).toBe('https://youtube.com/@x');
+  });
+
+  it('keeps several links in the order they were given', () => {
+    const a = withExtra([
+      { label: 'Zeta',  url: 'https://z.example' },
+      { label: 'Alpha', url: 'https://a.example' },
+    ]);
+    expect(a.socialExtra.map((r) => r.label)).toEqual(['Zeta', 'Alpha']);
+  });
+
+  it('trims both halves', () => {
+    const a = withExtra([{ label: '  YouTube  ', url: '  https://youtube.com/@x  ' }]);
+    expect(a.socialExtra[0].label).toBe('YouTube');
+    expect(a.socialExtra[0].url).toBe('https://youtube.com/@x');
+  });
+
+  it.each([
+    ['no label', { label: '',        url: 'https://youtube.com/@x' }, /needs a name/i],
+    ['no url',   { label: 'YouTube', url: '' },                      /needs a URL/i],
+  ])('rejects a row with %s', async (_why, row, message) => {
+    await expect(withExtra([row]).validate()).rejects.toThrow(message);
+  });
+
+  // ⚠️ NOT the shared urlValidator, which allows empty. A custom row must carry a
+  // real http(s) URL — and rejecting `mailto:` and `javascript:` falls out of the
+  // same rule, which is the part that matters for a value rendered into an href.
+  it.each([
+    ['a bare word',      'youtube'],
+    ['a mailto',         'mailto:someone@else.dev'],
+    ['a javascript URI', 'javascript:alert(1)'],
+  ])('rejects %s as a URL', async (_why, url) => {
+    await expect(withExtra([{ label: 'X', url }]).validate())
+      .rejects.toThrow(/not a valid URL/i);
+  });
+
+  it('caps the label length', async () => {
+    await expect(withExtra([{ label: 'x'.repeat(41), url: 'https://x.example' }]).validate())
+      .rejects.toThrow(/cannot exceed 40/i);
+  });
+});
+
+// ── PF-112: the location default's missing space ────────────────────────────
+// Both public render sites print this value verbatim, so a document created from
+// the default read "Galle,Sri Lanka" while a seeded one read "Galle, Sri Lanka" —
+// two environments disagreeing on a rendered string, and it reads as a CSS bug.
+describe('About.location (PF-112)', () => {
+  it('defaults with a space after the comma', () => {
+    expect(new About({}).location).toBe('Galle, Sri Lanka');
+  });
+});

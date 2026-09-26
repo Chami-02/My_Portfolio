@@ -51,6 +51,29 @@ const aboutRules = [
   body('availableForWork')
     .optional()
     .isBoolean().withMessage('Availability must be true or false'),
+
+  // ── PF-112 — custom social links ─────────────────────────────────────────
+  // The Mongoose sub-schema validates each row, so these rules exist for the
+  // two things it cannot answer well: that the field is an ARRAY at all (a
+  // string or object would be cast into something surprising), and that the
+  // wrong TYPE gets a 400 naming the field rather than an opaque CastError.
+  //
+  // ⚠️ Kept deliberately thin. Duplicating the label and URL rules here would
+  // give two places to change when the limit moves, and the model is the one
+  // that runs on every write path including a seed.
+  body('socialExtra')
+    .optional()
+    .isArray().withMessage('Custom links must be a list'),
+
+  // ── The About section's stat cards ───────────────────────────────────────
+  // Same thin rule as socialExtra above, and for the same two reasons: the
+  // sub-schema already validates each row on every write path including the
+  // seed, and what it cannot answer well is "is this an ARRAY at all" — a
+  // string or a bare object would be cast into something surprising instead of
+  // 400ing with the field's name on it.
+  body('stats')
+    .optional()
+    .isArray().withMessage('Stats must be a list'),
 ];
 
 // ── GET /api/about ────────────────────────────────────────────────────────────

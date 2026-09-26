@@ -332,10 +332,19 @@ const ABOUT_DATA = {
   location: 'Galle, Sri Lanka',
   email: 'parindrachameekara@gmail.com',
 
+  // ⚠️ THE PUBLIC SITE RENDERS THIS — it is no longer decorative seed text.
+  // `AboutSection.jsx` read two hardcoded paragraphs until the About panel was
+  // wired to the page; these two are now what a freshly seeded database shows,
+  // so they are kept character-for-character identical to `SITE_BIO` in
+  // `migrations/008-about-bio-from-site.js` and to `BIO_FALLBACK` in the
+  // component. Three copies in two packages that cannot import from each other;
+  // changing one alone makes a re-seeded environment disagree with a migrated
+  // one, and the difference only shows up as "the wording is different on the
+  // server".
   bio: [
-    "I'm a Computer Science undergraduate at the University of Westminster, building production-grade software one real project at a time. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.",
+    "I'm a Computer Science undergraduate at the University of Westminster, passionate about building scalable web applications and continuously improving my backend and full-stack development skills. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.",
 
-    "I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk. My experience includes Python, FastAPI, JavaScript, React, Next.js, PostgreSQL, Docker, GitHub Actions, and Agile development using Jira."
+    "I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk. My experience includes Python, Java, Node.js, FastAPI, JavaScript, React, Next.js, PostgreSQL, MongoDB, Docker, GitHub Actions, and Agile development using Jira."
   ],
 
   availableForWork: true,
