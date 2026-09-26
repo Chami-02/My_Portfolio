@@ -293,6 +293,69 @@
   resize: vertical;
 }
 
+/* ── Social rows ──────────────────────────────────────────────────────────── */
+
+/* A URL input with its clear button. `min-width: 0` on the input is what stops
+ * the flex row growing past its grid cell — without it the × is pushed out of
+ * the card at narrow widths, which is the documented "a flex row can overflow
+ * while the page reports no overflow at all" failure. */
+.linkRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.linkRow input { min-width: 0; }
+
+.extraBlock {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(var(--ln), .1);
+}
+
+.extraList {
+  display: grid;
+  gap: 10px;
+}
+
+/* Name, URL, remove. The URL takes twice the name's width because it is the one
+ * that actually overflows; both shrink before the × does, which keeps the
+ * destructive control reachable at every width. */
+.extraRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Stacked below the field grid's own breakpoint, so a name and its URL never sit
+ * one character wide side by side.
+ *
+ * ⚠️ EXPLICIT placement, and the obvious version was wrong. Giving only the URL
+ * `grid-column: 1 / -1` left auto-placement to put the × on a THIRD row, below
+ * the URL, with an empty cell beside the name — because a full-width item forces
+ * a new row and auto-flow never fills backwards into the gap it left. Naming all
+ * three positions is what keeps the × on the name's row. */
+@media (max-width: 560px) {
+  .extraRow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .extraRow input:nth-of-type(1) { grid-area: 1 / 1 / 2 / 2; }
+  .extraRow button               { grid-area: 1 / 2 / 2 / 3; }
+  .extraRow input:nth-of-type(2) { grid-area: 2 / 1 / 3 / -1; }
+}
+
+/* Spans the whole row so it sits under both inputs rather than beside the × */
+/* ⚠️ `.rowHint` WAS HERE AND IS DELETED (2026-09-25).
+   It was a proactive accent-coloured nudge under a half-filled row, and it
+   existed only because SAVE went DIM on such a row — the owner could see
+   something was wrong and had no control to press. SAVE is pressable now and
+   refuses with a reason printed under the offending input, so the hint became
+   a second mechanism saying the same thing in a different colour.
+   Its replacement is `admin.module.css`'s `.fieldError`, shared by every
+   panel. Removed rather than left "in case". */
+
 /* ── Save row ─────────────────────────────────────────────────────────────── */
 
 .saveRow {

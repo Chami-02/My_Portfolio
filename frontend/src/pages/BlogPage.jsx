@@ -21,6 +21,7 @@ import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { Reveal } from '../components/motion';
 import { useBlogPosts } from '../hooks/useBlog';
 import { useVocabulary } from '../hooks/useVocabulary';
+import { useAbout } from '../hooks/useAbout';
 import { formatDate, formatReadTime } from '../utils/blogMeta';
 import { SearchIcon, CloseIcon } from '../components/icons/BrandIcons';
 import { ViewCount } from '../components/blog/ViewCount';
@@ -213,6 +214,12 @@ export function BlogPage() {
   // is already filtered and derived chips would SHRINK as you filter.
   const { data: vocabulary } = useVocabulary('tag', { inUse: true });
 
+  // PF-112 — the footer's byline was the THIRD hardcoded copy of the location,
+  // and the easiest to miss because it is on /blog rather than the home page.
+  // ⚠️ No extra request: the Footer renders on this route and already holds this
+  // exact cache entry, so both read one fetch.
+  const { data: about } = useAbout();
+
   useEffect(() => {
     if (isError) console.error('BlogPage: useBlogPosts() failed', error);
   }, [isError, error]);
@@ -370,7 +377,7 @@ export function BlogPage() {
                 </span>
               )}
               <span className={styles.locationPill}>
-                WRITTEN FROM GALLE, SRI LANKA
+                WRITTEN FROM {(about?.location || 'Galle, Sri Lanka').toUpperCase()}
               </span>
             </Reveal>
 

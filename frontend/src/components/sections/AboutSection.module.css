@@ -261,6 +261,13 @@ section.about {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: .12em;
+  /* ⚠️ NEW, and it changes nothing on screen — which is why it needs saying.
+     The label used to be a hardcoded 'PROJECTS BUILT' and is now whatever the
+     admin panel holds, which is title case in the seeded document ('Projects
+     Built'). Uppercasing in CSS rather than with .toUpperCase() in JSX follows
+     .statNumberStatic's own note two rules up ("uppercased in CSS, not in
+     content") and keeps the accessible name the owner actually typed. */
+  text-transform: uppercase;
   /* The prototype's own value (line 218), and still correct in light
      theme, where it measures 5.95:1 — comfortably over AA. Left alone;
      only the dark theme is overridden below. */

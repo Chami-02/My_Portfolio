@@ -1,14 +1,11 @@
 // frontend/src/components/layout/Footer.jsx
 import { useLocation } from 'react-router-dom';
 import { Reveal, Marquee } from '../motion';
-import {
-  MailIcon,
-  GitHubIcon,
-  LinkedInIcon,
-  FacebookIcon,
-  InstagramIcon,
-} from '../icons';
+// PF-112 — one lookup instead of five named imports: the row set is data-driven
+// now, so the component cannot know which glyphs it will need.
+import { iconFor } from '../icons';
 import { sectionHref } from '../../utils/nav';
+import { socialEntries } from '../../utils/social';
 import { useAbout } from '../../hooks/useAbout';
 import logo from '../../assets/logo.png';
 import styles from './Footer.module.css';
@@ -57,13 +54,21 @@ const NAV_LINKS = [
  * stays; the mark goes IN FRONT of the text, so the row reads
  * mark → name → outbound arrow.
  */
-const ELSEWHERE_LINKS = [
-  { href: 'https://github.com/Chami-02',                                  label: 'GitHub ↗',    external: true,  Icon: GitHubIcon },
-  { href: 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/',     label: 'LinkedIn ↗',  external: true,  Icon: LinkedInIcon },
-  { href: 'https://web.facebook.com/parindra.chameekara',                 label: 'Facebook ↗',  external: true,  Icon: FacebookIcon },
-  { href: 'https://www.instagram.com/__pc_02/',                           label: 'Instagram ↗', external: true,  Icon: InstagramIcon },
-  { href: 'mailto:parindrachameekara@gmail.com',                          label: 'Email ↗',     external: false, Icon: MailIcon },
-];
+/*
+ * ── ELSEWHERE_LINKS was DELETED in PF-112 ───────────────────────────────────
+ *
+ * It held five hardcoded URLs and a hardcoded mailto:, so editing any of them in
+ * the admin panel changed nothing here. They now come from the About document
+ * through `socialEntries(about)`, which also drops any row whose URL is empty —
+ * the rule `backend/src/models/About.js` has stated since PF-60 and nothing had
+ * implemented: "the public site must treat an empty value as 'hide this icon',
+ * not render a dead link."
+ *
+ * ⚠️ The note this replaces is still true and still the reason the shape works:
+ * the list was already data rather than branched JSX, so "adding a sixth network
+ * is a row here, not a row plus a conditional." PF-112 only changed where the
+ * rows come from. The trailing "↗" is the prototype's and is applied at render.
+ */
 
 const COPYRIGHT =
   '© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM SCRATCH';
@@ -72,6 +77,13 @@ export function Footer() {
   // Shared cache entry with ContactSection's useAbout() — no extra request.
   const { data: about } = useAbout();
   const isAvailable = about?.availableForWork ?? true;
+  // PF-112 — the ELSEWHERE column and the status line are the owner's data now.
+  const elsewhere = socialEntries(about);
+  // ⚠️ NOT named `location`: that shadows the global `location` inside this
+  // component, in a file that also calls react-router's `useLocation`. Three
+  // different things called some form of "location" is a mis-read waiting to
+  // happen.
+  const place = about?.location || 'Galle, Sri Lanka';
 
   const { pathname } = useLocation();
 
@@ -205,19 +217,28 @@ export function Footer() {
             </Reveal>
 
             <Reveal delay={140} className={styles.column}>
+              {/* ⚠️ The heading stays even with no links at all. An empty column
+                  would collapse the footer grid, and footer.spec.js asserts this
+                  heading is visible. */}
               <span className={styles.columnHeading}>ELSEWHERE</span>
-              {ELSEWHERE_LINKS.map(({ href, label, external, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  className={styles.link}
-                  target={external ? '_blank' : undefined}
-                  rel={external ? 'noreferrer' : undefined}
-                >
-                  <Icon />
-                  {label}
-                </a>
-              ))}
+              {elsewhere.map(({ key, href, label, external }) => {
+                // ⚠️ `iconFor` falls back to the generic link glyph, so a custom
+                // row — or any key this map has not heard of — renders a mark
+                // rather than nothing.
+                const Icon = iconFor(key);
+                return (
+                  <a
+                    key={key}
+                    href={href}
+                    className={styles.link}
+                    target={external ? '_blank' : undefined}
+                    rel={external ? 'noreferrer' : undefined}
+                  >
+                    <Icon />
+                    {`${label} ↗`}
+                  </a>
+                );
+              })}
             </Reveal>
           </div>
 
@@ -225,7 +246,10 @@ export function Footer() {
             <span className={styles.columnHeading}>STATUS</span>
             <span className={styles.statusLines}>
               <span data-ok="" className={styles.statusDotOk}>●</span> CI pipeline green<br />
-              <span className={styles.statusDotAcc}>●</span> Galle, Sri Lanka · UTC+5:30<br />
+              {/* ⚠️ The UTC offset stays a literal — it is a timezone, not part of
+                  the location field, so a move abroad would leave it wrong. Called
+                  out in the ticket rather than silently coupled. */}
+              <span className={styles.statusDotAcc}>●</span> {place} · UTC+5:30<br />
               <span className={styles.statusDotMuted}>●</span> Replies within 24h
             </span>
             <a href={sectionHref(pathname, 'contact')} className={styles.statusCta}>

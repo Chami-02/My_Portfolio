@@ -13,8 +13,10 @@ import { apiUrl } from '../../../services/api';
 import { formatDate } from '../../../utils/blogMeta';
 import {
   BASIC_FIELDS, SOCIAL_FIELDS,
-  aboutToForm, formToPayload, isAboutDirty,
+  aboutToForm, formToPayload, isAboutDirty, aboutFormErrors,
 } from '../../../utils/aboutForm';
+import { useFormGuard } from '../../../hooks/useFormGuard';
+import { fieldProps, errorId } from '../../../utils/formErrors';
 import a      from '../../../styles/admin.module.css';
 import styles from './AdminAboutPanel.module.css';
 
@@ -45,6 +47,33 @@ const PORTRAIT_SPEC = {
     /\.(png|jpe?g|webp)$/i.test(f.name),
   typeMessage: 'Portrait must be a PNG, JPEG or WEBP image.',
 };
+
+/**
+ * The id namespace for every validatable input in this panel.
+ *
+ * ⚠️ Chosen to MATCH the ids these fields already had (`about-email`,
+ * `about-social-github`), so wiring validation renamed nothing and broke no
+ * existing `htmlFor`. `fieldId(FID, 'social.github')` flattens to exactly the
+ * string that was hand-written here before.
+ */
+const FID = 'about';
+
+/**
+ * The inline message under a field.
+ *
+ * ⚠️ `role="alert"` so it is ANNOUNCED when it appears, not merely present.
+ * The field also points at it with `aria-describedby`, which covers the other
+ * direction: tabbing back to an already-marked field reads the reason.
+ */
+function FieldError({ field, guard }) {
+  const message = guard.errorFor(field);
+  if (!message) return null;
+  return (
+    <p className={a.fieldError} id={errorId(FID, field)} role="alert">
+      {message}
+    </p>
+  );
+}
 
 const formatBytes = (bytes) =>
   !bytes ? ''
@@ -331,10 +360,29 @@ export function AdminAboutPanel() {
   // the owner starts typing and stop following it afterwards.
   const [draft, setDraft] = useState(null);
   const form = draft ?? aboutToForm(about);
-  const edit = (patch) => setDraft({ ...form, ...patch });
+
+  /**
+   * @param patch  the form fields to change
+   * @param field  the error path this edit fixes, cleared as it is typed
+   *
+   * ⚠️ The error is cleared, NOT re-validated. Re-running the validator on
+   * every keystroke marks a URL invalid halfway through typing it, which is
+   * the behaviour everyone hates. The full check runs again on SAVE, which is
+   * the moment it matters.
+   */
+  const edit = (patch, field) => {
+    setDraft({ ...form, ...patch });
+    if (field) guard.clearField(field);
+  };
 
   const avatar = useStagedFile();
   const resume = useStagedFile();
+
+  // ── The validation guard (owner requirement, 2026-09-25) ─────────────────
+  // Refuses an invalid save, shakes SAVE, and marks every offending field in
+  // place. `FID` is the id namespace — every validatable input's id and its
+  // error's `field` are both derived from it, so they cannot drift apart.
+  const guard = useFormGuard(aboutFormErrors, FID);
 
   const [pickError, setPickError] = useState(null);
   const [saveErrors, setSaveErrors] = useState([]);
@@ -362,6 +410,13 @@ export function AdminAboutPanel() {
   // was refused.
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // ⚠️ FIRST, and it returns before anything is sent. The whole point of the
+    // rule is that an invalid form produces no request at all — a save that
+    // fires and then reports a 400 has already told the owner the wrong thing
+    // about which system refused them.
+    if (!guard.check(form)) return;
+
     setPickError(null);
     setSaveErrors([]);
     setSaving(true);
@@ -401,7 +456,7 @@ export function AdminAboutPanel() {
     // Resetting `draft` hands the fields back to the query, so they show what
     // the server now holds. Only when the profile PUT actually succeeded —
     // otherwise it would silently discard the owner's unsaved typing.
-    if (profileSaved) setDraft(null);
+    if (profileSaved) { setDraft(null); guard.reset(); }
 
     if (failures.length) {
       // ⚠️ NOT a "saved" flash. A partial failure that announces success is how
@@ -425,7 +480,13 @@ export function AdminAboutPanel() {
   }
 
   return (
-    <form className={a.stack} onSubmit={handleSubmit}>
+    /* ⚠️ `noValidate` — the browser's own constraint UI is turned OFF on
+       purpose. Without it a native `required` fires a bubble that pre-empts
+       `onSubmit` entirely, so this panel's own validation would never run and
+       its messages would be dead code. (That is exactly what has been
+       happening in AdminBlogPanel.) The inputs keep their semantics; only the
+       browser's bubble is suppressed. */
+    <form className={a.stack} onSubmit={handleSubmit} noValidate>
       {/* ── Availability ──────────────────────────────────────────────────── */}
       <div className={styles.statusRow}>
         <span className={a.labelLead}>STATUS</span>
@@ -446,6 +507,20 @@ export function AdminAboutPanel() {
         </button>
       </div>
 
+      {/* ⚠️ The banner names the SCALE, never the detail — the detail is under
+          each field, which is where it can be acted on. A banner that listed
+          every message would duplicate all of them and leave two places to
+          read, one of which does not say which input it means. */}
+      {guard.errors.length > 0 && (
+        <div className={a.bannerError} role="alert">
+          <span className={a.bannerDot} aria-hidden="true" />
+          <span>
+            CHECK THE CHANGES AGAIN — {guard.errors.length}{' '}
+            {guard.errors.length === 1 ? 'field needs' : 'fields need'} attention.
+          </span>
+        </div>
+      )}
+
       {(pickError || saveErrors.length > 0) && (
         <div className={a.bannerError} role="alert">
           <span className={a.bannerDot} aria-hidden="true" />
@@ -461,13 +536,14 @@ export function AdminAboutPanel() {
             <div key={name}>
               <label className={a.label} htmlFor={`about-${name}`}>{label}</label>
               <input
-                id={`about-${name}`}
+                {...fieldProps(guard.errors, FID, name)}
                 className={a.input}
                 name={name}
                 placeholder={placeholder}
                 value={form[name]}
-                onChange={(e) => edit({ [name]: e.target.value })}
+                onChange={(e) => edit({ [name]: e.target.value }, name)}
               />
+              <FieldError field={name} guard={guard} />
             </div>
           ))}
         </div>
@@ -523,6 +599,92 @@ export function AdminAboutPanel() {
         </div>
       </section>
 
+      {/* ── Stat cards ────────────────────────────────────────────────────
+          The four numerals in the public About section. The MODEL has carried
+          this field since Phase 1 and the panel could never edit it — and
+          nothing on the site read it either, so it looked like a working
+          feature from both ends while being wired to neither.
+
+          ⚠️ Deliberately NOT the same component as "Other links" below, even
+          though the row shape is identical. They differ in what a blank row
+          MEANS (an unfinished link versus an unfinished stat), in their labels,
+          and in the hint text — and the shared version would take the four
+          strings as props, which is most of what is here. The same call PF-111
+          made about the two upload handlers. */}
+      <section className={a.panel} aria-labelledby="about-stats-title">
+        <div className={styles.cardHead}>
+          <h2 className={styles.cardTitle} id="about-stats-title">Stat cards</h2>
+          <span className={a.spacer} />
+          <button
+            type="button"
+            className={a.btnOutline}
+            onClick={() => edit({ stats: [...form.stats, { label: '', value: '' }] })}
+          >
+            + ADD STAT
+          </button>
+        </div>
+
+        <p className={styles.cardNote}>
+          A value starting with a number <strong>counts up</strong> on the site
+          (<code>5+</code>, <code>10+</code>); anything else is printed as a word
+          (<code>Continuous</code>). Labels are shown in capitals.
+        </p>
+
+        {form.stats.length === 0 ? (
+          <p className={a.emptyState}>
+            No stat cards — the site falls back to its four built-in ones.
+          </p>
+        ) : (
+          <div className={styles.extraList}>
+            {form.stats.map((row, i) => (
+              <div className={styles.extraRow} key={i}>
+                <input
+                  {...fieldProps(guard.errors, FID, `stats.${i}.label`)}
+                  className={a.input}
+                  aria-label={`Stat ${i + 1} label`}
+                  placeholder="Projects Built"
+                  value={row.label}
+                  onChange={(e) => edit({
+                    stats: form.stats.map(
+                      (r, idx) => (idx === i ? { ...r, label: e.target.value } : r)
+                    ),
+                  }, `stats.${i}.label`)}
+                />
+                <input
+                  {...fieldProps(guard.errors, FID, `stats.${i}.value`)}
+                  className={a.inputMono}
+                  aria-label={`Stat ${i + 1} value`}
+                  placeholder="5+"
+                  value={row.value}
+                  onChange={(e) => edit({
+                    stats: form.stats.map(
+                      (r, idx) => (idx === i ? { ...r, value: e.target.value } : r)
+                    ),
+                  }, `stats.${i}.value`)}
+                />
+                {/* ⚠️ A NAMED control, never a bare `×`. This panel already has
+                    five social clears, the custom-link removes and the bio
+                    removes; a screen reader reading out eight buttons called
+                    "×" cannot tell them apart, and neither can a test. */}
+                <button
+                  type="button"
+                  className={a.btnIcon}
+                  aria-label={row.label ? `Remove ${row.label} stat` : `Remove stat ${i + 1}`}
+                  onClick={() => edit({
+                    stats: form.stats.filter((_, idx) => idx !== i),
+                  })}
+                >
+                  ×
+                </button>
+
+                <FieldError field={`stats.${i}.label`} guard={guard} />
+                <FieldError field={`stats.${i}.value`} guard={guard} />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       <ResumeCard
         stored={about?.resume}
         staged={resume}
@@ -534,30 +696,204 @@ export function AdminAboutPanel() {
       {/* ── Social links ──────────────────────────────────────────────────── */}
       <section className={a.panel} aria-labelledby="about-social-title">
         <h2 className={a.panelTitle} id="about-social-title">Social links</h2>
-        {/* ⚠️ FIVE fields. The prototype and DESIGN.md §6.3 both list a sixth
-            for Email; About.social has no `email` key by a documented model
+        {/* ⚠️ FIVE fixed fields. The prototype and DESIGN.md §6.3 both list a
+            sixth for Email; About.social has no `email` key by a documented model
             decision, and the contact address is edited once under Basic info. */}
+        <p className={styles.cardNote}>
+          An empty link is <strong>hidden</strong> on the site rather than shown as a dead
+          one — clearing a URL removes its icon from the footer.
+        </p>
+
         <div className={a.fieldGrid}>
           {SOCIAL_FIELDS.map(({ name, label, placeholder }) => (
             <div key={name}>
               <label className={a.label} htmlFor={`about-social-${name}`}>{label}</label>
-              <input
-                id={`about-social-${name}`}
-                className={a.inputMono}
-                name={name}
-                placeholder={placeholder}
-                value={form.social[name] || ''}
-                onChange={(e) => edit({ social: { ...form.social, [name]: e.target.value } })}
-              />
+              <div className={styles.linkRow}>
+                {/* ⚠️ AN EMPTY ONE IS NEVER AN ERROR — see aboutFormErrors.
+                    These are schema keys with defaults, and clearing the value
+                    is the only way to remove the icon from the footer. Twitter
+                    ships blank on purpose. The custom rows below carry the
+                    OPPOSITE rule, in the same card. */}
+                <input
+                  {...fieldProps(guard.errors, FID, `social.${name}`)}
+                  className={a.inputMono}
+                  name={name}
+                  placeholder={placeholder}
+                  value={form.social[name] || ''}
+                  onChange={(e) => edit(
+                    { social: { ...form.social, [name]: e.target.value } },
+                    `social.${name}`,
+                  )}
+                />
+                {/*
+                  ⚠️ On a FIXED row this CLEARS the URL — it deletes nothing.
+                  `github`…`twitter` are schema keys with defaults, so the key
+                  cannot cease to exist; emptying the value is what makes the icon
+                  disappear from the site, which is the actual goal. A custom
+                  row's × below removes the whole row instead.
+
+                  ⚠️ The accessible name says "Clear", not "×". With five of these
+                  plus the custom rows plus the bio rows, a panel of controls all
+                  named × is unusable with a screen reader and untestable — the
+                  rule here is to assert NAMES, not counts.
+                */}
+                {form.social[name] ? (
+                  <button
+                    type="button"
+                    className={a.btnIcon}
+                    aria-label={`Clear ${label.replace(/ URL$/, '')} link`}
+                    onClick={() => edit(
+                      { social: { ...form.social, [name]: '' } },
+                      `social.${name}`,
+                    )}
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </div>
+              <FieldError field={`social.${name}`} guard={guard} />
             </div>
           ))}
+        </div>
+
+        {/* ── Custom links ──────────────────────────────────────────────────
+            Anything beyond the five fixed platforms. Rendered on the site with
+            the generic link glyph, never a guessed brand mark. */}
+        <div className={styles.extraBlock}>
+          <div className={styles.cardHead}>
+            <h3 className={styles.cardTitle}>Other links</h3>
+            <span className={a.spacer} />
+            <button
+              type="button"
+              className={a.btnOutline}
+              onClick={() => edit({ socialExtra: [...form.socialExtra, { label: '', url: '' }] })}
+            >
+              + ADD LINK
+            </button>
+          </div>
+
+          {form.socialExtra.length === 0 ? (
+            <p className={a.emptyState}>No other links yet.</p>
+          ) : (
+            <div className={styles.extraList}>
+              {form.socialExtra.map((row, i) => (
+                <div className={styles.extraRow} key={i}>
+                  <input
+                    {...fieldProps(guard.errors, FID, `socialExtra.${i}.label`)}
+                    className={a.input}
+                    aria-label={`Link ${i + 1} name`}
+                    placeholder="YouTube"
+                    value={row.label}
+                    onChange={(e) => edit({
+                      socialExtra: form.socialExtra.map(
+                        (r, idx) => (idx === i ? { ...r, label: e.target.value } : r)
+                      ),
+                    }, `socialExtra.${i}.label`)}
+                  />
+                  <input
+                    {...fieldProps(guard.errors, FID, `socialExtra.${i}.url`)}
+                    className={a.inputMono}
+                    aria-label={`Link ${i + 1} URL`}
+                    placeholder="https://youtube.com/@you"
+                    value={row.url}
+                    onChange={(e) => edit({
+                      socialExtra: form.socialExtra.map(
+                        (r, idx) => (idx === i ? { ...r, url: e.target.value } : r)
+                      ),
+                    }, `socialExtra.${i}.url`)}
+                  />
+                  {/* On a CUSTOM row this really does delete — name and URL
+                      together, because it is an array element rather than a fixed
+                      key. Staged like everything else: REVERT brings it back,
+                      SAVE makes it permanent. */}
+                  <button
+                    type="button"
+                    className={a.btnIcon}
+                    aria-label={row.label ? `Remove ${row.label} link` : `Remove link ${i + 1}`}
+                    onClick={() => edit({
+                      socialExtra: form.socialExtra.filter((_, idx) => idx !== i),
+                    })}
+                  >
+                    ×
+                  </button>
+
+                  {/*
+                    ⚠️ `.rowHint` USED TO BE HERE — a proactive nudge shown as
+                    soon as one half was filled. It existed only because SAVE
+                    went dim on an incomplete row, which read as the panel being
+                    broken. SAVE is pressable now and refuses with a reason, so
+                    the hint had two mechanisms saying the same thing in
+                    different colours. Deleted, with its class.
+                  */}
+                  <FieldError field={`socialExtra.${i}.label`} guard={guard} />
+                  <FieldError field={`socialExtra.${i}.url`} guard={guard} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
       <div className={styles.saveRow}>
-        <button type="submit" className={a.btnPrimary} disabled={saving}>
+        {/*
+          ⚠️ Disabled until something has actually changed — owner decision
+          2026-09-25. The dim look is `a.btnPrimary:disabled`'s existing
+          `opacity: .72`, and the "glow" is the accent box-shadow the class
+          already carries, so neither state needed a new colour.
+
+          ⚠️ Consequence worth knowing: a clean form can no longer be re-saved.
+          That is the point, but it INVERTS a test from part 1 which pressed SAVE
+          on an untouched form to prove only the profile request fired.
+        */}
+        {/* ⚠️ `key` is what makes a SECOND refusal shake again. Re-adding a
+            class React already rendered restarts nothing — the animation runs
+            once and the element keeps it — so the button would visibly refuse
+            the first press and sit still for every press after, which reads as
+            the button having stopped working. Changing the key swaps the
+            element's identity and the animation starts from 0%.
+
+            ⚠️ `disabled` is still `!dirty`, NEVER `|| invalid`. A button that
+            will not light up cannot explain why, and that is the exact
+            confusion this whole mechanism replaces. */}
+        <button
+          key={guard.shakeKey}
+          type="submit"
+          className={`${a.btnPrimary} ${guard.shaking ? a.shake : ''}`}
+          onAnimationEnd={guard.onShakeEnd}
+          disabled={!dirty || saving}
+        >
           {saving ? 'SAVING…' : 'SAVE PROFILE'}
         </button>
+
+        {/*
+          REVERT restores the last SAVED state — it does not empty the section.
+          That distinction is the whole request: the only other cancel in this
+          admin (AdminProjectsPanel's `cancelEdit`) sets the form to EMPTY, so
+          mis-clicking it while editing loses the record's content out of the form.
+
+          Dropping `draft` hands every field back to the query cache, and clearing
+          both staged slots discards a picked portrait or résumé too — a revert
+          that left a file staged would be a half-revert.
+        */}
+        {dirty && !saving && (
+          <button
+            type="button"
+            className={a.btnOutline}
+            onClick={() => {
+              setDraft(null);
+              avatar.clear();
+              resume.clear();
+              setPickError(null);
+              setSaveErrors([]);
+              // REVERT restores the last SAVED state, so the marks from a
+              // refused save go with it — they describe a form that no longer
+              // exists.
+              guard.reset();
+            }}
+          >
+            REVERT CHANGES
+          </button>
+        )}
         {/* Staging makes a picked file discardable by a tab switch with no
             warning. A visible marker is the proportionate answer — deliberately
             not a navigation blocker or a beforeunload dialog. */}

@@ -4,36 +4,43 @@ import { Reveal, CountUp } from '../motion';
 import { MailIcon } from '../icons';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useAbout } from '../../hooks/useAbout';
+import { statCards } from '../../utils/aboutStats';
 import { computeParallaxTransform } from '../../utils/parallax';
 import aboutPortrait from '../../assets/about-portrait.jpg';
 import styles from './AboutSection.module.css';
 
-/**
- * The three counting stat cards — prototype lines 216-227. The fourth
- * card in that grid is not here on purpose: "Continuous / LEARNING" has
- * no data-count and is plain static text, so it is rendered explicitly
- * below rather than forced through CountUp with a sentinel value.
+/*
+ * ── The `STATS` const was DELETED here ───────────────────────────────────
  *
- * Note two cards both count to 5. That is the prototype's, not a
- * copy-paste slip on the way over.
+ * It held three counting cards plus a hand-written static fourth, so editing a
+ * stat in the admin panel changed nothing on this page. The cards come from
+ * `About.stats` now, through `utils/aboutStats.js`, which also decides per ROW
+ * whether a value counts (`'5+'`) or renders as a word (`'Continuous'`) — the
+ * same two branches, chosen by the data rather than by position.
+ *
+ * ⚠️ The prototype's four delays are 200 / 250 / 300 / 350 (a 50ms stagger).
+ * The const said 50 / 50 / 50 / 350, so the first three cards all landed at
+ * once — `50` is the STEP between the export's values, not any one of them.
+ * Corrected in aboutStats.js; the prototype wins.
  */
-const STATS = [
-  { count: 5,  suffix: '+', label: 'PROJECTS BUILT', delay: 50 },
-  { count: 10, suffix: '+', label: 'TECHNOLOGIES',   delay: 50 },
-  { count: 5,  suffix: '+', label: 'GITHUB REPOS',   delay: 50 },
-];
 
 /**
  * About section — PF-81. Transcribed from
  * `docs/design/Portfolio Revolution.dc.html` lines 192-241.
  *
- * Replaces the Phase 1 AboutSection at this same path. The Phase 1
- * version read its bio, stats and résumé link from the API via
- * useAbout(); the prototype hardcodes all of that, so this does too and
- * the CMS's About panel no longer drives the public page. That is a
- * content-source regression, not a design one — flagged in the hand-off,
- * and it needs its own ticket rather than a quiet re-wire here, because
- * the prototype's copy and the API's shape do not line up field for field.
+ * ⚠️ THE PARAGRAPH ABOVE THIS ONE USED TO SAY THE OPPOSITE, and the reversal
+ * is the point of this file's current shape. PF-81 transcribed the prototype,
+ * which hardcodes the bio and the stats, and recorded the consequence honestly:
+ * "the CMS's About panel no longer drives the public page… it needs its own
+ * ticket rather than a quiet re-wire here." This IS that ticket. The bio, the
+ * stat cards, the portrait, the availability line and the email all read the
+ * About document now; only the heading and the CTA labels are still literals.
+ *
+ * ⚠️ The prototype is still the authority for how they LOOK. Nothing about the
+ * layout, the classes, the delays or the two number treatments changed — the
+ * only change is where the words come from. A fidelity pass diffing this
+ * against the frozen export will find the same markup with different content,
+ * and the content is the owner's to set.
  *
  * First real use of CountUp anywhere on the page. No splash wiring is
  * needed for it or for Reveal: both call useSplashReady() internally
@@ -44,10 +51,43 @@ const STATS = [
 // About document has no availabilityNote.
 const SEEKING_FALLBACK = 'Interested in Software Engineering Job opportunities and Open to Work ✔';
 
+/*
+ * The two paragraphs this page has always shown, kept as a FIRST-PAINT FALLBACK
+ * only — the same pattern `ContactSection` and `Footer` use for the email and
+ * the location. They are not a second source of truth: migration 008 wrote these
+ * exact strings into `About.bio`, so the document is what renders, and editing a
+ * paragraph in the admin panel changes this section.
+ *
+ * ⚠️ They are deliberately IDENTICAL to what the page showed before the wiring,
+ * so a failed `/api/about` degrades to the old behaviour rather than to a blank
+ * column.
+ */
+const BIO_FALLBACK = [
+  "I'm a Computer Science undergraduate at the University of Westminster, "
+  + 'passionate about building scalable web applications and continuously '
+  + 'improving my backend and full-stack development skills. I enjoy turning '
+  + 'ideas into real-world software using modern technologies and engineering '
+  + 'best practices.',
+
+  "I've contributed to projects ranging from full-stack web applications to "
+  + 'REST APIs and enterprise-style systems such as ClearDrive.lk. My '
+  + 'experience includes Python, Java, Node.js, FastAPI, JavaScript, React, '
+  + 'Next.js, PostgreSQL, MongoDB, Docker, GitHub Actions, and Agile '
+  + 'development using Jira.',
+];
+
 export function AboutSection() {
   // Shared cache entry with ContactSection's useAbout() — no extra request.
   const { data: about } = useAbout();
   const isAvailable = about?.availableForWork ?? true;
+  // ⚠️ `Array.isArray`, NOT `?.length`. The two differ on exactly one case and
+  // it is the one that matters: a bio the owner has deliberately emptied is
+  // `[]`, and `?.length` would hand the fallback paragraphs straight back —
+  // text they just deleted, reappearing, which reads as the panel refusing to
+  // save. `undefined` (query in flight, or a document written before the field
+  // existed) still gets the fallback, which is what it is for.
+  const bio   = Array.isArray(about?.bio) ? about.bio : BIO_FALLBACK;
+  const cards = statCards(about);
 
   return (
     <section id="about" className={styles.about}>
@@ -67,21 +107,32 @@ export function AboutSection() {
               Who <span className={styles.outlined}>I am</span>
             </Reveal>
 
-            <Reveal as="p" type="up" delay={80} className={styles.body}>
-              I&apos;m a Computer Science undergraduate at the University of
-              Westminster, passionate about building scalable web applications
-              and continuously improving my backend and full-stack development
-              skills. I enjoy turning ideas into real-world software using
-              modern technologies and engineering best practices.
-            </Reveal>
+            {/* ⚠️ The CLASS differs by position, and it is not decoration.
+                `.bodySecond` composes `.body` and overrides margin-bottom to
+                20px against 18px — the prototype's own values on lines 211 and
+                212, transcribed as found rather than rounded to one number.
+                Every paragraph after the first takes the 20px, so adding a
+                third in the panel matches the second rather than the first.
 
-            <Reveal as="p" type="up" delay={140} className={styles.bodySecond}>
-              I&apos;ve contributed to projects ranging from full-stack web
-              applications to REST APIs and enterprise-style systems such as
-              ClearDrive.lk. My experience includes Python, Java, Node.js, FastAPI,
-              JavaScript, React, Next.js, PostgreSQL, MongoDB,  Docker, GitHub Actions,
-              and Agile development using Jira.
-            </Reveal>
+                ⚠️ The delays stay the prototype's 80 and 140 for the first two.
+                A third paragraph continues at +60, which is the step between
+                them — the same reasoning as the stat cards, and it is written
+                out here because "carry on the stagger" is exactly the judgement
+                that got the stat delays wrong when it was left implicit. */}
+            {bio.map((paragraph, i) => (
+              <Reveal
+                // Index is the key on purpose: a paragraph has no id, its text
+                // is the thing being edited, and keying on the text would
+                // remount the element on every keystroke in the panel's preview.
+                key={i}
+                as="p"
+                type="up"
+                delay={80 + (i * 60)}
+                className={i === 0 ? styles.body : styles.bodySecond}
+              >
+                {paragraph}
+              </Reveal>
+            ))}
 
             {/* Owner decision 2026-09-16: the first field of this section
                 to read the API. Shown only while available; the sentence
@@ -96,35 +147,50 @@ export function AboutSection() {
             )}
 
             <div className={styles.statGrid}>
-              {STATS.map((stat) => (
+              {cards.map((stat) => (
                 <Reveal
-                  key={stat.label}
+                  key={stat.key}
                   type="up"
                   delay={stat.delay}
                   className={styles.statCard}
                 >
-                  <p className={styles.statNumber}>
-                    <CountUp to={stat.count} suffix={stat.suffix} />
-                  </p>
+                  {/* ⚠️ TWO DIFFERENT CLASSES, not one with a modifier.
+                      `.statNumber` is 38px/1; `.statNumberStatic` is 26px/1.42
+                      and uppercases — the prototype sizes a word differently
+                      from a numeral (lines 216 vs 227). Rendering "Continuous"
+                      at 38px overflows the card at the narrow end of the
+                      auto-fit grid. */}
+                  {stat.numeric ? (
+                    <p className={styles.statNumber}>
+                      <CountUp
+                        to={stat.count}
+                        suffix={stat.suffix}
+                        decimals={stat.decimals}
+                      />
+                    </p>
+                  ) : (
+                    <p className={styles.statNumberStatic}>{stat.text}</p>
+                  )}
                   <p className={styles.statLabel}>{stat.label}</p>
                 </Reveal>
               ))}
-
-              <Reveal type="up" delay={350} className={styles.statCard}>
-                <p className={styles.statNumberStatic}>Continuous</p>
-                <p className={styles.statLabel}>LEARNING</p>
-              </Reveal>
             </div>
 
             <Reveal type="up" delay={380} className={styles.ctaRow}>
               <a href="#projects" className={styles.ctaPrimary}>
                 SEE MY WORK →
               </a>
-              {/* The real address, transcribed from the prototype and
-                  matching this repo's own commit author — not a
-                  placeholder to swap out. */}
+              {/* ⚠️ PF-112 — the address comes from the About document now, so it is
+              editable in the admin panel and changes here, in Contact and in the
+              footer together.
+
+              The note that used to sit here said this was "the real address …
+              not a placeholder to swap out", which was true of the literal and
+              is now misleading: the literal is only a first-paint fallback, kept
+              deliberately equal to what the page has always shown so a failed
+              fetch degrades to the old behaviour rather than to a blank. */}
               <a
-                href="mailto:parindrachameekara@gmail.com"
+                href={`mailto:${about?.email || 'parindrachameekara@gmail.com'}`}
                 className={styles.ctaSecondary}
               >
                 {/* Owner-requested 2026-08-29. The prototype's label is

@@ -21,9 +21,20 @@ import styles from './ContactSection.module.css';
  * that is the note whoever next reads `cvAnchorProps` needs.
  */
 
-const EMAIL = 'parindrachameekara@gmail.com';
-const GITHUB_URL = 'https://github.com/Chami-02';
-const LINKEDIN_URL = 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/';
+/*
+ * ── PF-112: EMAIL, GITHUB_URL and LINKEDIN_URL are gone ─────────────────────
+ *
+ * All three were module consts, so editing them in the admin panel changed
+ * nothing here. They come from the About document now. The fallback below covers
+ * only the first paint before the query resolves — it is not a second source of
+ * truth, and it is deliberately the SAME string the const held, so a failed
+ * fetch degrades to what the page has always shown rather than to a blank.
+ *
+ * ⚠️ Named OWNER_EMAIL_FALLBACK, not EMAIL. `validate({ email })` below means the
+ * VISITOR's address, and two things called `email` a few lines apart is exactly
+ * the sort of collision that gets one of them wired to the wrong place.
+ */
+const OWNER_EMAIL_FALLBACK = 'parindrachameekara@gmail.com';
 
 const EMPTY_FORM = { name: '', email: '', message: '' };
 
@@ -95,6 +106,13 @@ export function ContactSection() {
   // the prototype's own error path — its try/catch around the
   // localStorage read falls through to `r = null`, i.e. the empty state.
   const hasResume = Boolean(about?.hasResume);
+  // PF-112 — the owner's data, with the long-standing literal as a first-paint
+  // fallback. ⚠️ An empty social URL renders NOTHING rather than a dead link —
+  // the rule About.js has stated since PF-60.
+  const contactEmail = about?.email || OWNER_EMAIL_FALLBACK;
+  const location     = about?.location || 'Galle, Sri Lanka';
+  const github       = about?.social?.github?.trim() || '';
+  const linkedin     = about?.social?.linkedin?.trim() || '';
 
   // Logged from an effect keyed on the error, not from the render body: a
   // render-phase console.error fires again on every unrelated re-render.
@@ -187,9 +205,9 @@ export function ContactSection() {
                   text. `.emailLink` and `.cvLink` were already
                   inline-flex rows with a 10px gap, so only `.socialLink`
                   needed a CSS change. */}
-              <a href={`mailto:${EMAIL}`} className={styles.emailLink}>
+              <a href={`mailto:${contactEmail}`} className={styles.emailLink}>
                 <MailIcon />
-                {EMAIL}
+                {contactEmail}
               </a>
             </Reveal>
 
@@ -206,31 +224,43 @@ export function ContactSection() {
             </Reveal>
 
             <Reveal type="up" delay={220} className={styles.socialRow}>
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={styles.socialLink}
-              >
-                <GitHubIcon />
-                GITHUB
-              </a>
-              <a
-                href={LINKEDIN_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={styles.socialLink}
-              >
-                <LinkedInIcon />
-                LINKEDIN
-              </a>
+              {/* ⚠️ Contact stays GITHUB + LINKEDIN only — owner decision
+                  2026-09-25, and the prototype's own choice (lines 508-512). The
+                  FOOTER is the complete list; this row is deliberately the short
+                  one. Each link disappears entirely when its URL is blank. */}
+              {github && (
+                <a
+                  href={github}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.socialLink}
+                >
+                  <GitHubIcon />
+                  GITHUB
+                </a>
+              )}
+              {linkedin && (
+                <a
+                  href={linkedin}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.socialLink}
+                >
+                  <LinkedInIcon />
+                  LINKEDIN
+                </a>
+              )}
             </Reveal>
 
             {/* Same delay as the social row above — 220 twice, the
                 prototype's own choice (lines 508 and 512), so the two
                 arrive together rather than in sequence. Not a slip. */}
             <Reveal as="p" type="up" delay={220} className={styles.location}>
-              GALLE, SRI LANKA · UTC+5:30
+              {/* Uppercased HERE rather than stored uppercase, so the admin panel
+                  shows the location the way it reads and the footer can print the
+                  same value in title case. ⚠️ The UTC offset stays a literal — a
+                  timezone, not part of the location field. */}
+              {location.toUpperCase()} · UTC+5:30
             </Reveal>
           </div>
 
