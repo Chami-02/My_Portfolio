@@ -1572,6 +1572,24 @@ concluding "this is fine, I read the source".
   value, or did not match at all. ⚠️ And restore from a **copy**, never
   `git checkout`, while unstaged work is in the tree — that silently
   reverted a real edit once.
+- **⚠️ `grep … | head -N` reads exactly like a complete answer when it
+  truncated.** Cost a whole ticket: an audit reported
+  `assertExplicitDatabase` as unexported because `head -60` cut the output
+  at line 104 — it is on 105. ⚠️ **`wc -l` AGREED (104)**, because it
+  counts newlines and the last line has none, so a second instrument
+  confirmed the wrong answer for an unrelated reason. **Never answer an
+  existence question through a pipe that can truncate**; use `grep -c`, or
+  `awk 'NR>=N'`/`awk 'END{print NR}'`, which run out at the real end.
+- **⚠️ A test asserting on an error MESSAGE can match the banner that
+  DESCRIBES the condition rather than the guard that responds to it.**
+  Measured: the guard call was deleted and **all 39 tests still passed** —
+  `run.js:92`'s own `??` fallback prints the searched-for phrase either
+  way, and the exit code is 1 either way because `connect()` then dies on
+  DNS. The **raw-text-matching-a-COMMENT trap in a different medium**, and
+  this codebase's explanatory banners make it common. **Grep the source for
+  your assertion's string before trusting it** — one hit means it
+  discriminates. ⚠️ `/Mongo/i` cannot be the "no connection error"
+  assertion: the guard's own message begins `MONGO_URI`.
 
 Where a mistake would be silent, add a test that would catch it.
 
