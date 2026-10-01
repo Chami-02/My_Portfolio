@@ -27,11 +27,17 @@ const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 const MIGRATIONS_DIR = join(__dirname, '..', 'migrations');
 const RUNNER = join(MIGRATIONS_DIR, 'run.js');
 
-/** Run the real runner, capturing its output. Never inherits stdio. */
-const runRunner = (args = []) =>
+/**
+ * Run the real runner, capturing its output. Never inherits stdio.
+ *
+ * `envOverride` is merged over `process.env` so a test can hand the child a
+ * deliberately broken MONGO_URI without disturbing this process's own
+ * connection — which `afterEach` still needs in order to clear the database.
+ */
+const runRunner = (args = [], envOverride = {}) =>
   new Promise((resolve) => {
     const child = spawn(process.execPath, [RUNNER, ...args], {
-      env: process.env,
+      env: { ...process.env, ...envOverride },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let out = '';
@@ -245,4 +251,87 @@ describe('the runner end to end', () => {
 
     await expect(Migration.countDocuments()).resolves.toBe(0);
   }, 180000);
+});
+
+describe('⚠️ the database-name guard — refuses to start, before connecting', () => {
+  /*
+   * `mongodb+srv://u:p@host` and `…/host/?retryWrites=true` are both VALID
+   * connection strings that name no database, and the driver answers them by
+   * silently using one called `test`. Every migration then reports clean work
+   * against an empty database and the plan an approver reads describes
+   * nothing — which is the single worst output this runner can produce,
+   * because it is indistinguishable from "production is already up to date".
+   *
+   * `assertExplicitDatabase` has existed in config/db.js since PF-66 and was
+   * exported all along; the runner simply never called it.
+   */
+  const NO_DB = 'mongodb+srv://u:p@cluster.mongodb.net';
+  const EMPTY_PATH = 'mongodb+srv://u:p@cluster.mongodb.net/?retryWrites=true';
+
+  it.each([
+    // ⚠️ A [label, args] table, not a bare args list: `it.each([[]])` has
+    // no argument to interpolate, so the APPLY case's name would render as
+    // the literal "mode %p" and the one mode with the most to lose would be
+    // the one nobody could identify in a failure report.
+    ['--status',      ['--status']],
+    ['--dry-run',     ['--dry-run']],
+    ['--baseline',    ['--baseline']],
+    ['(bare: APPLY)', []],
+  ])('mode %s exits 1 and names the real problem', async (_label, args) => {
+    const { code, out } = await runRunner(args, { MONGO_URI: NO_DB });
+
+    expect(code).toBe(1);
+
+    /*
+     * ⚠️ DO NOT ASSERT /has no database name/ HERE. IT IS VACUOUS.
+     *
+     * Measured: with the guard call deleted, all of these tests still passed.
+     * `banner()` prints `Target database: (none — MONGO_URI has no database
+     * name)` from run.js's own fallback, so that phrase is in the output
+     * whether or not the guard exists — the assertion matched the prose
+     * DESCRIBING the condition, not the behaviour RESPONDING to it. The exit
+     * code is 1 either way too, because connect() then dies on DNS.
+     *
+     * These two lines are the only discriminator. The sentence below appears
+     * ONLY in the thrown error, never in the banner …
+     */
+    expect(out).toMatch(/The driver would silently connect to a database called "test"/);
+
+    /*
+     * … and this proves connect() was never reached: without the guard the
+     * run dies with `querySrv ENOTFOUND _mongodb._tcp.…` instead.
+     *
+     * ⚠️ /Mongo/i cannot be used for this — it matches the guard's own
+     * message, which begins "MONGO_URI".
+     */
+    expect(out).not.toMatch(/querySrv|ENOTFOUND|ServerSelection|ECONNREFUSED/);
+  }, 30000);
+
+  it('rejects an empty path the same way as a missing one', async () => {
+    const { code, out } = await runRunner(['--status'], { MONGO_URI: EMPTY_PATH });
+
+    expect(code).toBe(1);
+    expect(out).toMatch(/The driver would silently connect to a database called "test"/);
+    expect(out).not.toMatch(/querySrv|ENOTFOUND|ServerSelection|ECONNREFUSED/);
+  }, 30000);
+
+  it('still prints the banner first, so the throw explains what was read', async () => {
+    // The operator sees `Target database: (none — …)` and then the reason.
+    // Reversed, the error arrives with nothing to attach it to.
+    const { out } = await runRunner(['--status'], { MONGO_URI: NO_DB });
+
+    expect(out).toMatch(/Target database: \(none/);
+    expect(out.indexOf('Target database:'))
+      .toBeLessThan(out.indexOf('The driver would silently connect'));
+  }, 30000);
+
+  it('CONTROL: a URI that names a database gets past the guard', async () => {
+    // ⚠️ Without this, a guard that refused EVERY uri would pass all of
+    // the above. This is the case that must still work.
+    const { code, out } = await runRunner(['--status']);
+
+    expect(code).toBe(0);
+    expect(out).not.toMatch(/The driver would silently connect/);
+    expect(out).toMatch(/Applied \(/);
+  }, 30000);
 });

@@ -103,8 +103,24 @@ jobs:
 
     # ⚠️ THIS LINE IS THE APPROVAL GATE. A GitHub "environment" with required
     # reviewers pauses the workflow here until a named person clicks Approve.
-    # It is also where the production secrets live, so they are not readable by
-    # any job that has not passed the gate.
+    # The pause is the whole reason the environment is named here.
+    #
+    # ⚠️ IT IS *NOT* WHERE MONGO_URI_PROD LIVES. That one is a REPOSITORY
+    # secret, because the `plan` job above deliberately has no `environment:`
+    # key (see its own note) and a job outside an environment cannot read that
+    # environment's secrets.
+    #
+    # If MONGO_URI_PROD is unset or malformed, step 1 fails loudly —
+    # mongoose.connect() throws on an empty/undefined URI, so a missing
+    # secret is caught there, before this gate, not silently. The real
+    # silent risk is a URI with NO DATABASE NAME in its path (e.g. missing
+    # the trailing /portfolio_prod): the driver connects to "test" without
+    # error, and step 1's plan looks normal while describing the wrong
+    # database. assertExplicitDatabase() in migrations/run.js now refuses
+    # to start when the URI has no database name at all — but it cannot
+    # tell "portfolio_prod" from "portfolio_dev" if someone pastes the
+    # wrong, well-formed string. That check is still on the approver:
+    # read what job 1 printed as "Target database:" before clicking Approve.
     environment:
       name: production
       url: ${{ vars.PRODUCTION_URL }}
@@ -163,20 +179,22 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BACKEND }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel pull --yes --environment=production
+          vercel build --prod
+          vercel deploy --prebuilt --prod
 
       - name: Deploy frontend
         working-directory: ./frontend
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel pull --yes --environment=production
+          vercel build --prod
+          vercel deploy --prebuilt --prod
 
   smoke:
     name: 4 · Smoke test production

@@ -46,7 +46,7 @@ const { spawn } = require('child_process');
 const mongoose = require('mongoose');
 
 const Migration = require('../models/Migration');
-const { databaseNameFrom } = require('../config/db');
+const { databaseNameFrom, assertExplicitDatabase } = require('../config/db');
 
 const DIR = __dirname;
 
@@ -192,6 +192,24 @@ async function main() {
     : 'APPLY';
 
   banner(mode);
+
+  /**
+   * ⚠️ REFUSES a URI with no database name, BEFORE connecting.
+   *
+   * `mongodb+srv://user:pass@host/?retryWrites=true` is a valid connection
+   * string that names no database, and the driver answers it by silently
+   * using one called `test`. Every migration then reports clean work against
+   * an empty database, and the plan the approver reads describes nothing.
+   *
+   * Placed AFTER `banner()` so the operator sees `Target database: (none …)`
+   * first and the throw explains what they just read, and BEFORE `connect()`
+   * so nothing ever reaches `test`.
+   *
+   * ⚠️ It cannot catch a well-formed URI pointing at the WRONG database —
+   * `/portfolio_dev` in the production secret passes this and always will.
+   * That one is the banner's job and the approver's.
+   */
+  assertExplicitDatabase(process.env.MONGO_URI);
 
   await mongoose.connect(process.env.MONGO_URI);
 
