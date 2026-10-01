@@ -68,9 +68,23 @@ const migrationSchema = new mongoose.Schema(
      *
      * ⚠️ Kept as a distinct flag rather than a missing `durationMs`, because
      * "we ran this" and "we assumed this had already run" are different claims
-     * and only one of them is evidence. Baselining is a one-time step for
-     * databases that predate this runner (prod and dev both have 001–008
-     * applied by hand); anything after that should be a real run.
+     * and only one of them is evidence. Baselining is a one-time step for a
+     * database that genuinely had these applied by hand; anything after that
+     * should be a real run.
+     *
+     * ⚠⚠ CORRECTED 2026-09-28 (PF-126). This comment used to read "prod and
+     * dev both have 001–008 applied by hand". That was wrong twice:
+     *
+     *   • THE COUNT. There are SEVEN migration files — 001, 003–008. No 002
+     *     has ever existed; the gap is intentional.
+     *   • PRODUCTION. `sprint-log.md:2195` and `:1022` record **006 and 007 as
+     *     NEVER run against production**. Only 004 (`:3250`, confirmed live
+     *     2026-08-29) and 005 (`:3021`, run 2026-09-02) are evidenced; 001,
+     *     003 and 008 are UNKNOWN.
+     *
+     * So production must NOT be baselined — that would record 006 and 007 as
+     * applied without running them, irreversibly. Run `npm run migrate:dry`
+     * against it and read the output per migration instead.
      */
     baseline: {
       type:    Boolean,

@@ -7573,6 +7573,21 @@ Ordered, and each depends on the last:
    ⚠️ I have never seen those values and must not
 5. **Turn OFF Vercel's automatic git deploys — LAST**, after the deploy workflow
    is proven, or both systems race
-6. `npm run migrate:baseline` against production, ONCE
+6. ~~`npm run migrate:baseline` against production, ONCE~~ — ⚠️ **WRONG,
+   corrected 2026-09-28 (PF-126). DO NOT BASELINE PRODUCTION.** Baseline mode
+   records every pending file as applied WITHOUT running it (`run.js:213-222`,
+   no per-file argument), and this file itself records **006 and 007 as never
+   run against production** (`:2195`, `:1022`). Baselining would mark them done
+   forever while the data changes they exist to make never happened. The
+   correct first step is `npm run migrate:dry` against `portfolio_prod`, read
+   migration by migration — then a real `migrate` behind the approval gate,
+   which is what the pipeline was built to do.
 
-`portfolio_dev` is already baselined — 8 applied, 0 pending.
+`portfolio_dev` is already baselined — **7** applied, 0 pending.
+
+⚠️ **SEVEN, not eight** (corrected 2026-09-28). There are seven migration
+files: `001`, `003`–`008`. **No `002` has ever existed** — `git log
+--diff-filter=D -- backend/src/migrations` and `git log --all --
+'backend/src/migrations/002*'` are both empty, and the gap is intentional, the
+same shape as the PF-53–PF-58 ticket gap. `migrate-runner.test.js:76`
+(`tolerates the gap at 002`) already pins it.

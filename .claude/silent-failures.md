@@ -3018,3 +3018,117 @@ the tab visible) and measure on the NEXT call, and print
 `document.visibilityState` beside any result that depends on a frame. Same
 family as the `?nosplash` entry — the instrument took a path the product does
 not.
+
+
+---
+
+## ⚠️ `grep … | head -N` reads exactly like a complete answer when it truncated (PF-126, 2026-09-28)
+
+**Cost: a whole ticket was written against a bug that did not exist.**
+
+A read-only audit asked "is `assertExplicitDatabase` exported from
+`config/db.js`?" and answered it with:
+
+```bash
+grep -n "databaseNameFrom\|assertExplicitDatabase\|module.exports" -A 18 src/config/db.js | head -60
+```
+
+The output ended at:
+
+```
+104:module.exports.databaseNameFrom = databaseNameFrom;
+```
+
+… and the audit reported the function as **not exported**. It was exported, on
+**line 105**, which `head -60` had cut off.
+
+### Why it was believed
+
+Three things lined up, and every one of them is ordinary:
+
+- **`head` truncating looks identical to a file ending.** There is no marker, no
+  ellipsis, no non-zero exit. The last line printed is a real line.
+- **`wc -l` AGREED.** It reports **104**, because line 105 has no trailing
+  newline — `wc -l` counts newline characters, not lines. So the "last line is
+  104" reading was independently confirmed by a second instrument that was
+  wrong in the same direction for an unrelated reason.
+- **`module.exports.databaseNameFrom = …` is a plausible last line of a file.**
+  A truncation in the middle of a function body would have looked wrong.
+
+### The rule
+
+**Never answer a "does X exist / is X exported / how many are there" question
+through a pipe that can truncate.** `head`, `tail`, `-m`, and a `| head` added
+only to keep output short all destroy the one property the question depends on:
+that you saw everything.
+
+- For an existence question, `grep -c` or a bare `grep` with no limiter.
+- For "show me the end of a file", `awk 'NR>=N'` with real line numbers, or
+  `sed -n 'N,$p'` — both of which run out at the real end.
+- If a limiter is genuinely needed, **print the total too** so the two can
+  disagree out loud.
+
+⚠️ **`wc -l` is not a line count.** It is a newline count. Any file whose
+last line lacks a trailing newline reports one fewer than it has. Use
+`awk 'END{print NR}'` when the number matters.
+
+Same family as the `?nosplash` entry and the hidden-tab rAF entry: **the
+optimisation that makes a probe cheap is what puts the answer outside it.**
+Name what a probe EXCLUDES in the same breath as its result.
+
+---
+
+## ⚠️ A test asserting on an error MESSAGE matched the banner that DESCRIBES the condition, not the guard that responds to it (PF-126, 2026-09-28)
+
+**Measured: the guard call was deleted and all 39 tests still passed.**
+
+PF-126 wired `assertExplicitDatabase()` into `migrations/run.js` so the runner
+refuses a `MONGO_URI` with no database name instead of silently connecting to a
+database called `test`. The obvious assertion was written:
+
+```js
+expect(code).toBe(1);
+expect(out).toMatch(/has no database name/);
+expect(out).not.toMatch(/Applied \(/);
+```
+
+All three pass **whether or not the guard exists**:
+
+- `run.js:92`'s own banner prints
+  `Target database: (none — MONGO_URI has no database name)` from its `??`
+  fallback. **The searched-for phrase is in the output either way.**
+- The exit code is `1` either way — without the guard, `mongoose.connect()`
+  simply dies a few seconds later on `querySrv ENOTFOUND`.
+- `Applied (` is absent either way, because a failed connect never reaches
+  `printList`.
+
+### The discriminator
+
+Only a string that exists **solely in the thrown error** can tell the two
+states apart — here, the error's second line:
+
+```js
+expect(out).toMatch(/The driver would silently connect to a database called "test"/);
+expect(out).not.toMatch(/querySrv|ENOTFOUND|ServerSelection|ECONNREFUSED/);
+```
+
+With those, the mutant fails **6 of 39**, and the 5 unit cases plus the CONTROL
+correctly stay green.
+
+⚠️ **`/Mongo/i` cannot be the "no connection error" assertion**, which is
+the obvious choice and is why the first draft of this test shipped broken: the
+guard's own message begins `MONGO_URI`, so `/Mongo/i` matches the very output
+it is supposed to exclude.
+
+### The generalisation
+
+This is the **raw-text CSS assertion matching a COMMENT** trap, in a different
+medium. This codebase writes unusually explanatory banners, errors and
+comments, so **the words a test searches for are very often printed nearby for
+a different reason.** A message-based assertion is only as good as the message
+being unique to the state under test.
+
+**Grep the source for your assertion's string before trusting it.** One hit
+means the assertion discriminates; two means it might not. And mutation-test
+every guard when you write it — this one passed three clean runs, a full
+519-test suite, and reads correctly.
