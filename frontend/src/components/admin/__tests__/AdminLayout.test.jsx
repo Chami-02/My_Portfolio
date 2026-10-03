@@ -374,3 +374,32 @@ describe('the sidebar rail runs the full depth of the panel', () => {
     expect(within(rail).getAllByRole('button').length).toBe(6);
   });
 });
+
+// ── PF-113 batch 2: a stray file drop must not navigate away ─────────────────
+// The browser's default for a dropped file is to OPEN it, discarding every
+// staged, unsaved change. Only FILE drags are swallowed.
+describe('AdminLayout — stray file drops', () => {
+  const fire = (type, types) => {
+    const e = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(e, 'dataTransfer', { value: { types } });
+    window.dispatchEvent(e);
+    return e;
+  };
+
+  it('cancels a FILE drop anywhere in the admin', () => {
+    renderShell();
+    expect(fire('dragover', ['Files']).defaultPrevented).toBe(true);
+    expect(fire('drop', ['Files']).defaultPrevented).toBe(true);
+  });
+
+  it('leaves a TEXT drag alone, so dropping text into an input still works', () => {
+    renderShell();
+    expect(fire('drop', ['text/plain']).defaultPrevented).toBe(false);
+  });
+
+  it('stops guarding once the admin unmounts', () => {
+    const { unmount } = renderShell();
+    unmount();
+    expect(fire('drop', ['Files']).defaultPrevented).toBe(false);
+  });
+});

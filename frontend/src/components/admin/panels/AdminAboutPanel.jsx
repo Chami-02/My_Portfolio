@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import {
   useAbout, useUpdateAbout,
   useUploadAvatar, useRemoveAvatar,
@@ -17,6 +17,13 @@ import {
 } from '../../../utils/aboutForm';
 import { useFormGuard } from '../../../hooks/useFormGuard';
 import { fieldProps, errorId } from '../../../utils/formErrors';
+import { useStagedFile } from '../../../hooks/useStagedFile';
+import {
+  imageSpec, formatBytes, messageFor, prepareFile, RESUME_SPEC, MAX_UPLOAD_MB,
+} from '../../../utils/mediaFile';
+import { DropZone } from '../DropZone';
+import { badgeFor } from '../mediaBadge';
+import { UploadPill } from '../UploadPill';
 import a      from '../../../styles/admin.module.css';
 import styles from './AdminAboutPanel.module.css';
 
@@ -30,23 +37,11 @@ import styles from './AdminAboutPanel.module.css';
 // browser genuinely knows, so the owner does not wait until SAVE to be told
 // they picked the wrong file. The wording matches the server's own messages so
 // the two never read as different systems disagreeing.
-const RESUME_SPEC = {
-  label:    'Résumé',
-  accept:   '.pdf',
-  maxBytes: 5 * 1024 * 1024,                       // MAX_RESUME_BYTES
-  looksRight: (f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name),
-  typeMessage: 'Résumé must be a PDF.',
-};
+// RESUME_SPEC lives in utils/mediaFile.js since PF-113 batch 2 (4 MB, beside
+// the reason it cannot be higher).
 
-const PORTRAIT_SPEC = {
-  label:    'Portrait',
-  accept:   '.png,.jpg,.jpeg,.webp',
-  maxBytes: 2 * 1024 * 1024,                       // MAX_IMAGE_BYTES — NOT 5 MB
-  looksRight: (f) =>
-    ['image/png', 'image/jpeg', 'image/webp'].includes(f.type) ||
-    /\.(png|jpe?g|webp)$/i.test(f.name),
-  typeMessage: 'Portrait must be a PNG, JPEG or WEBP image.',
-};
+// Shared with the project background (PF-113) — same handler limit, same types.
+const PORTRAIT_SPEC = imageSpec('Portrait');
 
 /**
  * The id namespace for every validatable input in this panel.
@@ -75,116 +70,9 @@ function FieldError({ field, guard }) {
   );
 }
 
-const formatBytes = (bytes) =>
-  !bytes ? ''
-    : bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
-const rejectReason = (file, spec) => {
-  if (!spec.looksRight(file)) return spec.typeMessage;
-  if (file.size > spec.maxBytes) {
-    return `${spec.label} is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is ` +
-           `${spec.maxBytes / 1024 / 1024} MB.`;
-  }
-  return null;
-};
 
-/**
- * Turn a failed mutation into something an operator can act on.
- *
- * The server already separates 415 / 413 / 503 with distinct messages
- * (aboutController.js), so its own text is used verbatim — three statuses, three
- * sentences, not one catch-all. The 503 gets an addition because its message
- * describes the server's state without saying that the operator is not the
- * person who can fix it.
- *
- * ⚠️ The `!err.response` branch is the one that would otherwise collapse into
- * the others — a dead backend and a rejected file are different problems, and
- * `utils/loginError.js` exists because that exact conflation shipped once.
- */
-const messageFor = (err) => {
-  const status = err?.response?.status;
-  const message = err?.response?.data?.message;
-  if (!err?.response) return 'the server could not be reached — check your connection and try again.';
-  if (status === 503) {
-    return `${message || 'file storage is unavailable.'} Nothing can be done from this panel — ` +
-           'the storage keys are missing on the server.';
-  }
-  return message || 'the request was rejected.';
-};
-
-const badgeFor = (pending, stored) => {
-  if (pending instanceof File)  return { text: 'PENDING SAVE',   cls: a.badge };
-  if (pending === 'remove')     return { text: 'REMOVE ON SAVE', cls: a.badge };
-  if (stored)                   return { text: 'LIVE',           cls: a.badgeOk };
-  return { text: 'MISSING', cls: a.badgeMuted };
-};
-
-/**
- * Hold one picked file, with its object-URL preview.
- *
- * ⚠️ The URL is created in the EVENT HANDLER, not in an effect. An effect that
- * called `setState` with the new URL would trip
- * `react-hooks/set-state-in-effect` — the rule CI runs at --max-warnings=0 —
- * and would also paint one frame without the preview. The only effect here is
- * the unmount revoke, which reads a ref so it needs no dependencies and never
- * re-runs.
- *
- * Two consumers in this file (portrait, résumé) is what justifies it being a
- * function rather than duplicated inline; it deliberately does NOT know which
- * route it belongs to, so there is no way for one card's arguments to reach the
- * other's request.
- */
-function useStagedFile() {
-  const [file, setFile] = useState(null);           // File | 'remove' | null
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const urlRef = useRef(null);
-
-  const stage = (next) => {
-    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-    urlRef.current = next instanceof File ? URL.createObjectURL(next) : null;
-    setPreviewUrl(urlRef.current);
-    setFile(next);
-  };
-
-  useEffect(() => () => {
-    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-  }, []);
-
-  return { file, previewUrl, stage, clear: () => stage(null) };
-}
-
-/** The accent upload pill. A real focusable input, visually hidden by CSS. */
-function UploadPill({ label, accept, onPick, id }) {
-  return (
-    <label className={styles.uploadPill} htmlFor={id}>
-      {label}
-      {/*
-        ⚠️ Visually hidden by CSS, NOT by `hidden` or `display: none`. Both of
-        those remove the input from the focus order, and the prototype's
-        label-wrapping-a-display-none-input pill cannot be reached or operated
-        by a keyboard at all. Clipped-but-focusable keeps the pill's look, keeps
-        Tab and Enter working, and keeps the control in the accessibility tree.
-      */}
-      <input
-        id={id}
-        type="file"
-        accept={accept}
-        className={styles.fileInput}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          // Reset so re-picking the SAME file fires change again — otherwise a
-          // rejected pick cannot be retried without choosing something else
-          // first. The prototype does this too (Admin.dc.html:1181).
-          e.target.value = '';
-          if (file) onPick(file);
-        }}
-      />
-    </label>
-  );
-}
-
-function ResumeCard({ stored, staged, onPick, onRemove, onUndo }) {
+function ResumeCard({ stored, staged, onPick, onReject, onRemove, onUndo, error }) {
   const hasStored = Boolean(stored?.url);
   const badge = badgeFor(staged.file, hasStored);
   const stagedFile = staged.file instanceof File ? staged.file : null;
@@ -195,7 +83,8 @@ function ResumeCard({ stored, staged, onPick, onRemove, onUndo }) {
     : stored.fileName || 'resume.pdf';
 
   const meta = stagedFile
-    ? `${formatBytes(stagedFile.size)} · not saved yet`
+    ? [formatBytes(stagedFile.size), staged.resizedFrom && `resized from ${formatBytes(staged.resizedFrom)}`, 'not saved yet']
+        .filter(Boolean).join(' · ')
     : pendingRemove ? 'Will be deleted when you save'
     : hasStored
       ? [formatBytes(stored.bytes), stored.uploadedAt && `replaced ${formatDate(stored.uploadedAt)}`]
@@ -225,6 +114,7 @@ function ResumeCard({ stored, staged, onPick, onRemove, onUndo }) {
         source of truth.
       </p>
 
+      <DropZone onFile={onPick} onReject={onReject}>
       <div className={styles.mediaRow}>
         <span
           className={live ? `${styles.sheet} ${styles.sheetLive}` : styles.sheet}
@@ -265,17 +155,23 @@ function ResumeCard({ stored, staged, onPick, onRemove, onUndo }) {
           </div>
         </div>
       </div>
+      </DropZone>
+
+      {/* PF-113 batch 2: a refused file is reported HERE, beside the button that
+          picked it — it used to go to a banner at the top of the form, off-screen
+          by the time you are down at this card. */}
+      {error && <p className={a.fieldError} role="alert">{error}</p>}
 
       {/* ⚠️ PDF only, and the caption says so. The prototype offers
           `.pdf,.doc,.docx` and captions it that way, but "résumé is PDF only" is
           a locked decision and uploadResume 415s anything whose magic bytes are
           not %PDF-. Offering DOCX would promise a file the server refuses. */}
-      <p className={styles.caption}>PDF ONLY · MAX 5 MB</p>
+      <p className={styles.caption}>PDF ONLY · MAX {MAX_UPLOAD_MB} MB</p>
     </section>
   );
 }
 
-function PortraitCard({ stored, staged, onPick, onRemove, onUndo }) {
+function PortraitCard({ stored, staged, onPick, onReject, onRemove, onUndo, error }) {
   const hasStored = Boolean(stored?.url);
   const badge = badgeFor(staged.file, hasStored);
   const stagedFile = staged.file instanceof File ? staged.file : null;
@@ -288,7 +184,8 @@ function PortraitCard({ stored, staged, onPick, onRemove, onUndo }) {
     : stored.fileName || 'portrait';
 
   const meta = stagedFile
-    ? `${formatBytes(stagedFile.size)} · not saved yet`
+    ? [formatBytes(stagedFile.size), staged.resizedFrom && `resized from ${formatBytes(staged.resizedFrom)}`, 'not saved yet']
+        .filter(Boolean).join(' · ')
     : pendingRemove ? 'Will be deleted when you save'
     : hasStored
       ? [
@@ -312,6 +209,7 @@ function PortraitCard({ stored, staged, onPick, onRemove, onUndo }) {
         section crops it to a 3:4 portrait.
       </p>
 
+      <DropZone onFile={onPick} onReject={onReject}>
       <div className={styles.mediaRow}>
         {src
           ? <img className={styles.thumb} src={src} alt="" />
@@ -336,8 +234,14 @@ function PortraitCard({ stored, staged, onPick, onRemove, onUndo }) {
           </div>
         </div>
       </div>
+      </DropZone>
 
-      <p className={styles.caption}>PNG, JPEG OR WEBP · MAX 2 MB</p>
+      {/* PF-113 batch 2: a refused file is reported HERE, beside the button that
+          picked it — it used to go to a banner at the top of the form, off-screen
+          by the time you are down at this card. */}
+      {error && <p className={a.fieldError} role="alert">{error}</p>}
+
+      <p className={styles.caption}>PNG, JPEG OR WEBP · MAX {MAX_UPLOAD_MB} MB · LARGER PHOTOS ARE RESIZED</p>
     </section>
   );
 }
@@ -384,7 +288,12 @@ export function AdminAboutPanel() {
   // error's `field` are both derived from it, so they cannot drift apart.
   const guard = useFormGuard(aboutFormErrors, FID);
 
-  const [pickError, setPickError] = useState(null);
+  // One message PER CARD (PF-113 batch 2), shown inside that card.
+  const [pickErrors, setPickErrors] = useState({});
+  // True while a picked photo is being resized — SAVE waits for it, or a save
+  // pressed mid-resize would go out without the image the owner just chose.
+  const [preparing, setPreparing] = useState(false);
+  const setPickError = (slot, message) => setPickErrors((prev) => ({ ...prev, [slot]: message }));
   const [saveErrors, setSaveErrors] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -395,11 +304,23 @@ export function AdminAboutPanel() {
   // already chosen because they then mis-clicked on a second one — losing work
   // in the middle of reporting an error about it. Rejecting means "this file is
   // not accepted", not "start again".
-  const pick = (staged, spec) => (file) => {
-    const reason = rejectReason(file, spec);
-    if (reason) { setPickError(reason); return; }
-    setPickError(null);
-    staged.stage(file);
+  //
+  // PF-113 batch 2: async, because a large photo is RESIZED here before it is
+  // staged (prepareFile). Both the upload pill and a drag-and-drop call this.
+  const pick = (slot, staged, spec) => async (file) => {
+    setPreparing(true);
+    try {
+      const result = await prepareFile(file, spec);
+      if (result.error) { setPickError(slot, result.error); return; }
+      setPickError(slot, null);
+      staged.stage(result.file, { resizedFrom: result.resizedFrom });
+    } catch {
+      // prepareFile rethrows only the UNEXPECTED (a canvas failure, not a bad
+      // file). Without this it would be an unhandled rejection and silence.
+      setPickError(slot, 'This file could not be prepared for upload — try another file.');
+    } finally {
+      setPreparing(false);
+    }
   };
 
   // ── SAVE: sequential, and honest about partial failure ────────────────────
@@ -417,7 +338,7 @@ export function AdminAboutPanel() {
     // about which system refused them.
     if (!guard.check(form)) return;
 
-    setPickError(null);
+    setPickErrors({});
     setSaveErrors([]);
     setSaving(true);
 
@@ -521,10 +442,10 @@ export function AdminAboutPanel() {
         </div>
       )}
 
-      {(pickError || saveErrors.length > 0) && (
+      {saveErrors.length > 0 && (
         <div className={a.bannerError} role="alert">
           <span className={a.bannerDot} aria-hidden="true" />
-          <span>{pickError || saveErrors.join(' ')}</span>
+          <span>{saveErrors.join(' ')}</span>
         </div>
       )}
 
@@ -552,9 +473,11 @@ export function AdminAboutPanel() {
       <PortraitCard
         stored={about?.avatar}
         staged={avatar}
-        onPick={pick(avatar, PORTRAIT_SPEC)}
+        onPick={pick('avatar', avatar, PORTRAIT_SPEC)}
+        onReject={(message) => setPickError('avatar', message)}
+        error={pickErrors.avatar}
         onRemove={() => avatar.stage('remove')}
-        onUndo={() => { avatar.clear(); setPickError(null); }}
+        onUndo={() => { avatar.clear(); setPickError('avatar', null); }}
       />
 
       {/* ── Bio paragraphs ────────────────────────────────────────────────── */}
@@ -688,9 +611,11 @@ export function AdminAboutPanel() {
       <ResumeCard
         stored={about?.resume}
         staged={resume}
-        onPick={pick(resume, RESUME_SPEC)}
+        onPick={pick('resume', resume, RESUME_SPEC)}
+        onReject={(message) => setPickError('resume', message)}
+        error={pickErrors.resume}
         onRemove={() => resume.stage('remove')}
-        onUndo={() => { resume.clear(); setPickError(null); }}
+        onUndo={() => { resume.clear(); setPickError('resume', null); }}
       />
 
       {/* ── Social links ──────────────────────────────────────────────────── */}
@@ -860,16 +785,17 @@ export function AdminAboutPanel() {
           type="submit"
           className={`${a.btnPrimary} ${guard.shaking ? a.shake : ''}`}
           onAnimationEnd={guard.onShakeEnd}
-          disabled={!dirty || saving}
+          disabled={!dirty || saving || preparing}
         >
           {saving ? 'SAVING…' : 'SAVE PROFILE'}
         </button>
 
         {/*
           REVERT restores the last SAVED state — it does not empty the section.
-          That distinction is the whole request: the only other cancel in this
-          admin (AdminProjectsPanel's `cancelEdit`) sets the form to EMPTY, so
-          mis-clicking it while editing loses the record's content out of the form.
+          That distinction is the whole request: AdminProjectsPanel's old
+          `cancelEdit` set the form to EMPTY, so mis-clicking it while editing
+          lost the record's content out of the form (fixed in PF-113, which
+          gave Projects this same REVERT).
 
           Dropping `draft` hands every field back to the query cache, and clearing
           both staged slots discards a picked portrait or résumé too — a revert
@@ -883,7 +809,7 @@ export function AdminAboutPanel() {
               setDraft(null);
               avatar.clear();
               resume.clear();
-              setPickError(null);
+              setPickErrors({});
               setSaveErrors([]);
               // REVERT restores the last SAVED state, so the marks from a
               // refused save go with it — they describe a form that no longer

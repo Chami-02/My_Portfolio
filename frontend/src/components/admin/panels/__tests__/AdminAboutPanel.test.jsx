@@ -34,6 +34,15 @@ vi.mock('../../../../hooks/useAbout', () => ({
   useRemoveResume:  () => hooks.removeResume,
 }));
 
+// PF-113 batch 2: picking now runs through the browser-side resize, and jsdom
+// has no canvas or createImageBitmap. Mocked as a passthrough by default; the
+// resize tests below set their own result.
+const resize = vi.hoisted(() => ({ fn: vi.fn() }));
+vi.mock('../../../../utils/resizeImage', async (orig) => ({
+  ...(await orig()),
+  resizeImage: resize.fn,
+}));
+
 vi.mock('../../../../hooks/useAdminFlash', () => ({
   useAdminFlash: () => ({ showFlash: hooks.showFlash }),
 }));
@@ -99,6 +108,7 @@ beforeEach(() => {
   Object.assign(hooks.uploadResume, { mutateAsync: vi.fn().mockResolvedValue({}) });
   Object.assign(hooks.removeResume, { mutateAsync: vi.fn().mockResolvedValue({}) });
   hooks.useAbout.mockReturnValue({ data: ABOUT, isLoading: false });
+  resize.fn.mockImplementation(async (file) => ({ file, resized: false }));
   // jsdom implements neither, and the portrait card previews from an object URL.
   URL.createObjectURL = vi.fn(() => 'blob:preview');
   URL.revokeObjectURL = vi.fn();
@@ -453,7 +463,7 @@ describe('the browser-side pick check', () => {
   // ⚠️ A COURTESY, NOT A GATE — the server's magic-byte check is what decides.
   // The value of it is that the owner is not made to wait until SAVE to find out
   // they picked a .txt.
-  it('refuses a wrong type at pick time with no request at all', () => {
+  it('refuses a wrong type at pick time with no request at all', async () => {
     render(<AdminAboutPanel />);
 
     // ⚠️ fireEvent, NOT user.upload. `userEvent.upload` applies the input's own
@@ -466,22 +476,57 @@ describe('the browser-side pick check', () => {
       target: { files: [new File(['hello'], 'notes.txt', { type: 'text/plain' })] },
     });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Résumé must be a PDF.');
+    // ⚠️ INSIDE the résumé card (PF-113 batch 2) — it used to be a banner at the
+    // top of the form, off-screen by the time the owner reached this card.
+    expect(await within(card('Résumé / CV')).findByRole('alert')).toHaveTextContent('Résumé must be a PDF.');
     expect(hooks.uploadResume.mutateAsync).not.toHaveBeenCalled();
     expect(within(card('Résumé / CV')).getByText('MISSING')).toBeInTheDocument();
+    // And ONLY there: the portrait card says nothing.
+    expect(within(card('Portrait')).queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('refuses an oversized portrait against the 2 MB handler cap, not multer’s 5', async () => {
+  // ── PF-113 batch 2: a large photo is RESIZED, not refused ────────────────
+  it('stages the RESIZED file and says what it was resized from', async () => {
+    const user = userEvent.setup();
+    const small = new File([new Uint8Array(300 * 1024)], 'big.webp', { type: 'image/webp' });
+    resize.fn.mockResolvedValue({ file: small, resized: true });
+    render(<AdminAboutPanel />);
+
+    await user.upload(fileInputIn(card('Portrait')),
+      huge({ name: 'big.png', type: 'image/png' }, 6 * 1024 * 1024));
+
+    expect(await within(card('Portrait')).findByText(/300 KB · resized from 6\.0 MB · not saved yet/))
+      .toBeInTheDocument();
+    expect(within(card('Portrait')).queryByRole('alert')).not.toBeInTheDocument();
+
+    await user.click(save());
+    await waitFor(() => expect(hooks.uploadAvatar.mutateAsync).toHaveBeenCalledWith(small));
+  });
+
+  it('refuses an oversized portrait the browser cannot open, inside the card', async () => {
+    const user = userEvent.setup();
+    const { UndecodableImageError } = await import('../../../../utils/resizeImage');
+    resize.fn.mockRejectedValue(new UndecodableImageError());
+    render(<AdminAboutPanel />);
+
+    await user.upload(fileInputIn(card('Portrait')),
+      huge({ name: 'big.png', type: 'image/png' }, 5 * 1024 * 1024));
+
+    expect(await within(card('Portrait')).findByRole('alert'))
+      .toHaveTextContent(/could not be opened for resizing — export it as JPEG or PNG/);
+    expect(hooks.uploadAvatar.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('refuses a résumé over 4 MB — a PDF is never resized', async () => {
     const user = userEvent.setup();
     render(<AdminAboutPanel />);
 
-    await user.upload(
-      fileInputIn(card('Portrait')),
-      huge({ name: 'big.png', type: 'image/png' }, 3 * 1024 * 1024)
-    );
+    await user.upload(fileInputIn(card('Résumé / CV')),
+      huge({ name: 'cv.pdf', type: 'application/pdf' }, 4.5 * 1024 * 1024));
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/the limit is 2 MB/);
-    expect(hooks.uploadAvatar.mutateAsync).not.toHaveBeenCalled();
+    expect(await within(card('Résumé / CV')).findByRole('alert'))
+      .toHaveTextContent('Résumé is 4.5 MB — the limit is 4 MB.');
+    expect(resize.fn).not.toHaveBeenCalled();
   });
 
   // ⚠️ Found in the recheck pass. The first implementation called
@@ -498,7 +543,7 @@ describe('the browser-side pick check', () => {
       target: { files: [new File(['x'], 'wrong.txt', { type: 'text/plain' })] },
     });
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Résumé must be a PDF.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Résumé must be a PDF.');
     expect(within(card('Résumé / CV')).getByText('PENDING SAVE')).toBeInTheDocument();
 
     await user.click(save());
@@ -610,7 +655,7 @@ describe('REVERT restores the saved state (PF-112)', () => {
     fireEvent.change(fileInputIn(card('Résumé / CV')), {
       target: { files: [new File(['x'], 'no.txt', { type: 'text/plain' })] },
     });
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
 
     await user.click(revert());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

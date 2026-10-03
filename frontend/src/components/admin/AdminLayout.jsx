@@ -1,4 +1,5 @@
 // frontend/src/components/admin/AdminLayout.jsx
+import { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { authService } from '../../services/authService';
@@ -68,6 +69,24 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
   const { flash, dismissFlash } = useAdminFlash();
 
   const { data: me } = useMe();
+
+  // ── A file dropped OUTSIDE an upload card is ignored (PF-113 batch 2) ─────
+  // The browser's default for a dropped file is to OPEN it — navigating away
+  // from /admin and silently discarding every staged, unsaved change in the
+  // panel. With drag-and-drop on the upload cards, a near-miss is likely, so
+  // the whole admin swallows stray file drops. Only FILE drags are touched:
+  // dragging text into an input still works.
+  useEffect(() => {
+    const swallow = (e) => {
+      if (Array.from(e.dataTransfer?.types || []).includes('Files')) e.preventDefault();
+    };
+    window.addEventListener('dragover', swallow);
+    window.addEventListener('drop', swallow);
+    return () => {
+      window.removeEventListener('dragover', swallow);
+      window.removeEventListener('drop', swallow);
+    };
+  }, []);
 
   /*
    * The counts behind the sidebar badges, the title meta line and the

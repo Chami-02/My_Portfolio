@@ -678,3 +678,86 @@
 .spacer {
   flex: 1;
 }
+
+/* ── The upload control — moved here from AdminAboutPanel.module.css (PF-113) ── */
+
+/* A <label> wrapping a real <input type="file">. `position: relative` is
+ * load-bearing — it is what `.fileInput`'s absolute clip is positioned against,
+ * so the clipped input cannot add a scroll region to the page. */
+.uploadPill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .08);
+  color: var(--acc, #FCA311);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: color .2s, background .2s, transform .2s;
+}
+
+.uploadPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  transform: translateY(-2px);
+}
+
+/* The focus ring has to be drawn by the LABEL, because the input it belongs to
+ * is clipped to a single pixel and its own ring would be invisible. No
+ * `border-radius` in here: a radius inside a focus rule reshapes the element
+ * rather than the ring, squaring off this 999px pill while focused. */
+.uploadPill:focus-within {
+  outline: 2px solid var(--acc, #FCA311);
+  outline-offset: 3px;
+}
+
+/* ⚠️ Clipped, NOT `display: none` and NOT the `hidden` attribute. Either of
+ * those removes the input from the focus order, which is how the prototype's
+ * version of this pill ends up unreachable by keyboard. Clipping keeps it
+ * focusable and in the accessibility tree while the label carries the look. */
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Drag-and-drop on an upload card (PF-113 batch 2) ──────────────────────
+ * `position: relative` anchors `.dropHint`. The outline — not a border — so
+ * the highlight never moves the card's contents by a pixel. */
+.dropZone {
+  position: relative;
+  border-radius: 14px;
+}
+
+.dropZone[data-dragging='true'] {
+  outline: 2px dashed var(--acc, #FCA311);
+  outline-offset: 4px;
+}
+
+.dropHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgba(var(--srf), .86);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .14em;
+  color: var(--acc, #FCA311);
+  pointer-events: none;
+}
