@@ -317,7 +317,8 @@ describe('featured slot and numerals', () => {
   // anywhere and "featured" in the admin panel looked inert for it.
   it('badges every featured project, in the grid as well as the big slot', () => {
     const { container } = render(withMotion(<ProjectsSection />));
-    expect(screen.getAllByText('FEATURED')).toHaveLength(2);
+    // PF-113 batch 2: the admin list's '★ FEATURED' pill, on every featured card.
+    expect(screen.getAllByText('★ FEATURED')).toHaveLength(2);
     const grid = pick(container, 'grid');
     const small = pickAll(grid, 'featuredBadgeSm');
     expect(small).toHaveLength(1);
@@ -683,3 +684,27 @@ describe('error state', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 });
+
+// ── PF-113 batch 2: the FEATURED pill stays readable on a photo in dark ─────
+// Parsed with postcss, not matched as text — this stylesheet explains the
+// measurement in a comment that names the very values being asserted.
+describe('the FEATURED pill in dark theme (stylesheet)', () => {
+  it('gets a SOLID raised-surface fill, scoped to dark, for both card sizes', async () => {
+    const { readFileSync } = await import('fs');
+    const { resolve, dirname } = await import('path');
+    const { fileURLToPath } = await import('url');
+    const postcss = (await import('postcss')).default;
+    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../ProjectsSection.module.css'), 'utf8');
+
+    const darkFills = [];
+    postcss.parse(css).walkRules((rule) => {
+      if (!rule.selector.includes("data-theme='dark'")) return;
+      rule.walkDecls('background', (d) => darkFills.push([rule.selector, d.value]));
+    });
+    const sel = darkFills.map(([s]) => s).join(' ');
+    expect(sel).toMatch(/\.featuredBadge\b/);
+    expect(sel).toMatch(/\.featuredBadgeSm\b/);
+    expect(darkFills.every(([, v]) => v === 'rgb(var(--srf))')).toBe(true);
+  });
+});
+

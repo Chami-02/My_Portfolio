@@ -239,7 +239,7 @@ export function ProjectsSection() {
                 <div className={styles.bigCard} data-projectcard="">
                   <CardLayers project={featured} />
                   {featured.featured && (
-                    <span className={styles.featuredBadge}>FEATURED</span>
+                    <span className={styles.featuredBadge}>★ FEATURED</span>
                   )}
                   <h3 className={styles.bigTitle}>{featured.title}</h3>
                   <p className={styles.bigDesc}>{featured.description}</p>
@@ -297,7 +297,7 @@ export function ProjectsSection() {
                           {String(i + 2).padStart(2, '0')}
                         </p>
                         {project.featured && (
-                          <span className={styles.featuredBadgeSm}>FEATURED</span>
+                          <span className={styles.featuredBadgeSm}>★ FEATURED</span>
                         )}
                       </div>
                       <h3 className={styles.cardTitle}>{project.title}</h3>
