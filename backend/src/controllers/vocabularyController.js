@@ -11,13 +11,14 @@ const AppError   = require('../utils/AppError');
 // by `?inUse=true` below, to decide whether a vocabulary value deserves a
 // public filter chip.
 //
-// ⚠️ Blog is `{ published: true }` and Project is `{}` — that asymmetry is
-// correct, not an oversight: `models/Project.js` has no published/draft
-// field at all, so every project is public, while a blog post is a draft
-// until it is not.
+// ⚠️ Blog is `{ published: true }` and Project is `{ published: { $ne: false } }`
+// — the asymmetry is deliberate. Projects only gained drafts in PF-113, so
+// every project written before it has NO `published` field and must still
+// count as public; a blog post has always carried the flag. (Until PF-113
+// Project's filter was `{}`, because every project was public.)
 const TARGETS = {
   tech: { model: Project, field: 'tech', label: 'projects',
-          publicFilter: {} },
+          publicFilter: { published: { $ne: false } } },
   tag:  { model: Blog,    field: 'tags', label: 'blog posts',
           publicFilter: { published: true } },
 };

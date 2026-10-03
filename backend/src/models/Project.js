@@ -1,5 +1,30 @@
 const mongoose = require('mongoose');
 
+// ── PF-113: drafts ──────────────────────────────────────────────────────────
+// A project saved with `published: false` is a DRAFT — invisible on the public
+// site, and allowed to be half-finished (owner, 2026-10-03: "save as draft",
+// so a half-written project is not lost). Only `title` is required for one,
+// so it can be found in the admin list; everything else is required the
+// moment the project is published.
+//
+// ⚠️ `this` must be the DOCUMENT for these conditions to mean anything. Under
+// findByIdAndUpdate's update validators `this` is the Query, `this.published`
+// is undefined, and the condition silently answers "published" — which is why
+// updateProject uses findById + save(). Pinned by projects.test.js.
+function isPublished() {
+  return this.published !== false;
+}
+
+// Both URLs render as public hrefs. `^https?://` keeps `javascript:` and
+// `data:` out — the same reason backgroundImage.src rejects data: URIs. The
+// pattern is the frontend's `isUsableUrl` (utils/formErrors.js), so the panel's
+// courtesy check and this gate agree. Blank is allowed HERE; whether blank is
+// acceptable is `required`'s call.
+const httpUrl = (label) => ({
+  validator: (value) => !value || /^https?:\/\/.+\..+/i.test(value),
+  message:   `${label} must be an http(s) address`,
+});
+
 const projectSchema = new mongoose.Schema(
   {
     title: {
@@ -10,27 +35,40 @@ const projectSchema = new mongoose.Schema(
     },
     description: {
       type:      String,
-      required:  [true, 'Project description is required'],
+      required:  [isPublished, 'Project description is required'],
       trim:      true,
       maxlength: [500, 'Description cannot exceed 500 characters'],
     },
     tech: {
       type:     [String],
-      required: [true, 'At least one technology is required'],
+      // ⚠️ No `required` — Mongoose treats an array as always present, so the
+      // real check was only ever this validator. `function`, not an arrow:
+      // it reads `this` (see isPublished).
       validate: {
-        validator: (arr) => arr.length > 0,
+        validator: function (arr) { return !isPublished.call(this) || arr.length > 0; },
         message:   'Tech array cannot be empty',
       },
     },
     githubUrl: {
       type:     String,
-      required: [true, 'GitHub URL is required'],
+      required: [isPublished, 'GitHub URL is required'],
       trim:     true,
+      validate: httpUrl('GitHub URL'),
     },
     liveUrl: {
-      type:    String,
-      default: null,
-      trim:    true,
+      type:     String,
+      default:  null,
+      trim:     true,
+      validate: httpUrl('Live URL'),
+    },
+    // ── NEW IN PF-113 ─────────────────────────────────────────────
+    // Default TRUE, deliberately: every existing document (which has no such
+    // field) and any API caller that omits it stays live. The public queries
+    // filter `{ published: { $ne: false } }`, so a missing field already
+    // reads as published and no migration is needed.
+    published: {
+      type:    Boolean,
+      default: true,
     },
     featured: {
       type:    Boolean,

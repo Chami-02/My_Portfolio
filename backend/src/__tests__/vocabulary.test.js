@@ -297,6 +297,30 @@ describe('GET /api/vocabulary/:type?inUse=true (PF-97)', () => {
       .toContain('ZZDraftOnly');
   });
 
+  // ── PF-113: projects gained drafts, so `tech` gained the same rule ──────
+  // A tech carried only by a DRAFT project is not on the public site.
+  it('excludes a tech carried ONLY by a draft project (PF-113)', async () => {
+    await Vocabulary.create({ type: 'tech', value: 'ZZDraftTech' });
+    await Project.create({ title: 'ZZ Draft', tech: ['ZZDraftTech'], published: false });
+
+    const res = await request(app).get('/api/vocabulary/tech?inUse=true');
+
+    expect(res.status).toBe(200);
+    expect(values(res)).not.toContain('ZZDraftTech');
+  });
+
+  // ⚠️ The legacy case is the one `published: true` would have got wrong: a
+  // project written before PF-113 has NO `published` field and is public.
+  // Inserted through the raw driver so Mongoose cannot add the default.
+  it('includes a tech carried by a pre-PF-113 project with no published field', async () => {
+    await Vocabulary.create({ type: 'tech', value: 'ZZLegacyTech' });
+    await Project.collection.insertOne({ ...VALID_PROJECT, tech: ['ZZLegacyTech'] });
+
+    const res = await request(app).get('/api/vocabulary/tech?inUse=true');
+
+    expect(values(res)).toContain('ZZLegacyTech');
+  });
+
   // The admin form keeps a free-text tags input beside the picker, so a
   // post can carry a different casing than the pool row.
   it('matches case-insensitively', async () => {

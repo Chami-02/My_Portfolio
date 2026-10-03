@@ -168,3 +168,154 @@ describe('Protected project routes', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ── PF-113: drafts ───────────────────────────────────────────────────────────
+// A draft is invisible on the public site and may be half-finished: only a
+// title is required until it is published.
+describe('Project drafts (PF-113)', () => {
+  const DRAFT = { title: 'Half-written', published: false };
+
+  it('GET /api/projects never returns a draft — the ZERO case', async () => {
+    await Project.create(DRAFT);
+
+    const res = await request(app).get('/api/projects');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(0);
+  });
+
+  it('GET /api/projects returns published ones beside a draft', async () => {
+    await Project.create(DRAFT);
+    await Project.create(VALID_PROJECT);
+
+    const res = await request(app).get('/api/projects');
+
+    expect(res.body.data.map((p) => p.title)).toEqual([VALID_PROJECT.title]);
+  });
+
+  // ⚠️ The legacy row is what `published: true` as a filter would hide: every
+  // project written before PF-113 has no `published` field at all. Raw driver,
+  // so Mongoose cannot add the default on the way in.
+  it('GET /api/projects still returns a project with NO published field', async () => {
+    await Project.collection.insertOne({ ...VALID_PROJECT, order: 0 });
+
+    const res = await request(app).get('/api/projects');
+
+    expect(res.body.data).toHaveLength(1);
+  });
+
+  it('GET /api/projects/:id answers 404 for a draft', async () => {
+    const draft = await Project.create(DRAFT);
+
+    const res = await request(app).get(`/api/projects/${draft._id}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('GET /api/projects/admin/all is 401 without a token', async () => {
+    const res = await request(app).get('/api/projects/admin/all');
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /api/projects/admin/all includes drafts', async () => {
+    await Project.create(DRAFT);
+    await Project.create(VALID_PROJECT);
+
+    const res = await request(app).get('/api/projects/admin/all').set(await authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((p) => p.title).sort())
+      .toEqual([DRAFT.title, VALID_PROJECT.title].sort());
+  });
+
+  it('POST creates a title-only draft', async () => {
+    const res = await request(app).post('/api/projects').set(await authHeader()).send(DRAFT);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.published).toBe(false);
+  });
+
+  it('POST still requires a title on a draft', async () => {
+    const res = await request(app).post('/api/projects').set(await authHeader())
+      .send({ published: false, description: 'no title' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/title/i);
+  });
+
+  it('POST of an incomplete PUBLISHED project is 400', async () => {
+    const res = await request(app).post('/api/projects').set(await authHeader())
+      .send({ title: 'Only a title' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/GitHub URL is required/);
+  });
+
+  // ⚠️ The case findByIdAndUpdate gets wrong. With update validators `this`
+  // is the Query, so `this.published` is undefined — the draft condition then
+  // answers "published" on the fields being SET, but only those, and a body
+  // of `{ published: true }` alone validates nothing. Publishing an empty
+  // draft must be refused.
+  it('PUT publishing an incomplete draft is 400, and it stays a draft', async () => {
+    const draft = await Project.create(DRAFT);
+
+    const res = await request(app).put(`/api/projects/${draft._id}`)
+      .set(await authHeader()).send({ published: true });
+
+    expect(res.status).toBe(400);
+    expect((await Project.findById(draft._id)).published).toBe(false);
+  });
+
+  it('PUT editing a draft does not demand the published fields', async () => {
+    const draft = await Project.create(DRAFT);
+
+    const res = await request(app).put(`/api/projects/${draft._id}`)
+      .set(await authHeader()).send({ title: 'Still half-written', description: '' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.title).toBe('Still half-written');
+  });
+
+  it('PUT publishes a draft once it is complete', async () => {
+    const draft = await Project.create(DRAFT);
+
+    const res = await request(app).put(`/api/projects/${draft._id}`)
+      .set(await authHeader()).send({ ...VALID_PROJECT, published: true });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.published).toBe(true);
+    expect((await request(app).get('/api/projects')).body.data).toHaveLength(1);
+  });
+});
+
+// ── PF-113: both links render as public hrefs ───────────────────────────────
+describe('Project URLs must be http(s) (PF-113)', () => {
+  it.each([
+    ['githubUrl', 'javascript:alert(1)'],
+    ['liveUrl',   'javascript:alert(1)'],
+    ['githubUrl', 'data:text/html,<script>alert(1)</script>'],
+    ['liveUrl',   'not a url'],
+  ])('POST refuses %s = %s', async (field, value) => {
+    const res = await request(app).post('/api/projects').set(await authHeader())
+      .send({ ...VALID_PROJECT, [field]: value });
+
+    expect(res.status).toBe(400);
+    expect(await Project.countDocuments()).toBe(0);
+  });
+
+  it('PUT refuses a javascript: liveUrl', async () => {
+    const p = await Project.create(VALID_PROJECT);
+
+    const res = await request(app).put(`/api/projects/${p._id}`)
+      .set(await authHeader()).send({ liveUrl: 'javascript:alert(1)' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('accepts a blank liveUrl', async () => {
+    const res = await request(app).post('/api/projects').set(await authHeader())
+      .send({ ...VALID_PROJECT, liveUrl: '' });
+
+    expect(res.status).toBe(201);
+  });
+});

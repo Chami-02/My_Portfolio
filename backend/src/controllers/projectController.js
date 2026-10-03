@@ -40,11 +40,35 @@ const sanitiseProjectBody = (body) => {
   return update;
 };
 
+/**
+ * What the PUBLIC site may see (PF-113).
+ *
+ * ⚠️ `$ne: false`, NOT `published: true`. Every project created before PF-113
+ * has no `published` field at all, and `published: true` would hide the whole
+ * portfolio until a migration ran. `$ne: false` reads a missing field as
+ * published — the same shape as the dashboard's `read: { $ne: true }`.
+ */
+const PUBLIC_FILTER = { published: { $ne: false } };
+
+const SORT = { order: 1, createdAt: -1 };
+
 // ── GET /api/projects ────────────────────────────────────────────────────────
-// Returns all projects, sorted by order ASC then newest first
+// Returns every PUBLISHED project, sorted by order ASC then newest first.
+// Drafts are the admin's alone — see getAllProjectsAdmin.
 const getAllProjects = async (req, res, next) => {
   try {
-    const projects = await Project.find().sort({ order: 1, createdAt: -1 });
+    const projects = await Project.find(PUBLIC_FILTER).sort(SORT);
+    res.json({ status: 'success', data: projects });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── GET /api/projects/admin/all ──────────────────────────────────────────────
+// Protected. Every project, drafts included — the admin panel's list (PF-113).
+const getAllProjectsAdmin = async (req, res, next) => {
+  try {
+    const projects = await Project.find().sort(SORT);
     res.json({ status: 'success', data: projects });
   } catch (err) {
     next(err);
@@ -52,9 +76,11 @@ const getAllProjects = async (req, res, next) => {
 };
 
 // ── GET /api/projects/:id ────────────────────────────────────────────────────
+// Public, so a draft answers 404 exactly like a project that does not exist —
+// an id is not a secret, and "it exists but you can't see it" is information.
 const getProjectById = async (req, res, next) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const project = await Project.findOne({ _id: req.params.id, ...PUBLIC_FILTER });
 
     if (!project) {
       return next(new AppError('Project not found', 404));
@@ -100,20 +126,28 @@ const createProject = async (req, res, next) => {
 
 // ── PUT /api/projects/:id ────────────────────────────────────────────────────
 // Protected route — JWT required (added in PF-35)
+//
+// ⚠️ PF-113: findById + set + save(), NOT findByIdAndUpdate. The draft rule
+// makes description / tech / githubUrl required only while `published !==
+// false`, and that condition reads `this`. Update validators run with `this`
+// as the QUERY, so `this.published` is undefined and every draft edit would be
+// validated as if published — or, worse, publishing an incomplete draft would
+// slip through when only `published` is sent. A document save evaluates the
+// condition against the merged document, which is the only correct answer.
+//
+// sanitiseProjectBody()'s output is reused unchanged: `doc.set()` accepts the
+// dot path `backgroundImage.opacity`, so the sub-document clobber PF-111 fixed
+// stays fixed (pinned by project.backgroundImage.test.js).
 const updateProject = async (req, res, next) => {
   try {
-    const project = await Project.findByIdAndUpdate(
-      req.params.id,
-      { $set: sanitiseProjectBody(req.body) },
-      {
-        returnDocument: 'after',  // Return the updated document (not the old one)
-        runValidators:  true,  // Re-run schema validators on the updated fields
-      }
-    );
+    const project = await Project.findById(req.params.id);
 
     if (!project) {
       return next(new AppError('Project not found', 404));
     }
+
+    project.set(sanitiseProjectBody(req.body));
+    await project.save();
 
     res.json({ status: 'success', data: project });
   } catch (err) {
@@ -296,6 +330,7 @@ const removeBackground = async (req, res, next) => {
 
 module.exports = {
   getAllProjects,
+  getAllProjectsAdmin, // PF-113
   getProjectById,
   createProject,
   updateProject,

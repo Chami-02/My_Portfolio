@@ -3,6 +3,7 @@ const { protect } = require('../middleware/auth');
 const { uploadSingle } = require('../middleware/upload');
 const {
   getAllProjects,
+  getAllProjectsAdmin,
   getProjectById,
   createProject,
   updateProject,
@@ -12,6 +13,9 @@ const {
 } = require('../controllers/projectController');
 
 router.get('/',    getAllProjects);
+// PF-113 — drafts included. Registered before `/:id` so the order never
+// matters, even though `/admin/all` is two segments and `/:id` matches one.
+router.get('/admin/all', protect, getAllProjectsAdmin);
 router.get('/:id', getProjectById);
 router.post('/',      protect, createProject);   
 router.put('/:id',    protect, updateProject);
