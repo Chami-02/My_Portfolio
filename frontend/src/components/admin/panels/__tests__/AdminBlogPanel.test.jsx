@@ -490,7 +490,7 @@ describe('AdminBlogPanel — tag picker', () => {
       await user.click(chipRemove('Docker'));
 
       expect(await screen.findByText(/checking how many posts use it/i)).toBeInTheDocument();
-      expect(dialog().getByRole('button', { name: 'Yes, Remove' })).toBeDisabled();
+      expect(dialog().getByRole('button', { name: 'YES, REMOVE' })).toBeDisabled();
     });
 
     it('says so when the impact cannot be checked', async () => {
@@ -501,7 +501,7 @@ describe('AdminBlogPanel — tag picker', () => {
       await user.click(chipRemove('Docker'));
 
       expect(await screen.findByText(/safer to cancel/i)).toBeInTheDocument();
-      expect(dialog().getByRole('button', { name: 'Yes, Remove' })).toBeDisabled();
+      expect(dialog().getByRole('button', { name: 'YES, REMOVE' })).toBeDisabled();
     });
 
     it('reads naturally when exactly one post is affected', async () => {
@@ -535,7 +535,7 @@ describe('AdminBlogPanel — tag picker', () => {
       await openEditor(user);
 
       await user.click(chipRemove('Docker'));
-      await user.click(dialog().getByRole('button', { name: 'Cancel' }));
+      await user.click(dialog().getByRole('button', { name: 'CANCEL' }));
 
       expect(deleteVocabMutation.mutateAsync).not.toHaveBeenCalled();
     });
@@ -554,7 +554,7 @@ describe('AdminBlogPanel — tag picker', () => {
       expect(screen.getByLabelText(/^Tags/)).toHaveValue('React, Node.js');
 
       await user.click(chipRemove('React'));
-      await user.click(dialog().getByRole('button', { name: 'Yes, Remove' }));
+      await user.click(dialog().getByRole('button', { name: 'YES, REMOVE' }));
 
       expect(await screen.findByDisplayValue('Node.js')).toBeInTheDocument();
     });
@@ -573,7 +573,7 @@ describe('AdminBlogPanel — tag picker', () => {
       const user = userEvent.setup();
       await openEditor(user);
       await user.click(chipRemove('Docker'));
-      await user.click(dialog().getByRole('button', { name: 'Yes, Remove' }));
+      await user.click(dialog().getByRole('button', { name: 'YES, REMOVE' }));
 
       expect(deleteVocabMutation.mutateAsync).toHaveBeenCalledTimes(1);
       expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
@@ -585,7 +585,7 @@ describe('AdminBlogPanel — tag picker', () => {
       const user = userEvent.setup();
       await openEditor(user);
       await user.click(chipRemove('Docker'));
-      await user.click(dialog().getByRole('button', { name: 'Cancel' }));
+      await user.click(dialog().getByRole('button', { name: 'CANCEL' }));
 
       expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
       expect(screen.getByLabelText(/^Tags/)).toBeInTheDocument();
@@ -599,7 +599,7 @@ describe('AdminBlogPanel — tag picker', () => {
       const user = userEvent.setup();
       await openEditor(user);
       await user.click(chipRemove('Docker'));
-      await user.click(dialog().getByRole('button', { name: 'Yes, Remove' }));
+      await user.click(dialog().getByRole('button', { name: 'YES, REMOVE' }));
 
       expect(await screen.findByText(/No vocabulary item found/)).toBeInTheDocument();
     });

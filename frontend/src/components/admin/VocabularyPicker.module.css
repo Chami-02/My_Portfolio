@@ -1,0 +1,140 @@
+/* PF-113 — the shared vocabulary chip picker. Admin.dc.html:236-251 (tech)
+ * and :486-501 (tags) are the same markup; transcribed once. */
+
+.box {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(var(--gnd), .32);
+  border: 1px dashed rgba(var(--ln), .18);
+}
+
+.hint {
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(var(--gnd), .45);
+  border: 1px solid rgba(var(--ln), .16);
+  transition: border-color .2s, transform .2s;
+}
+
+.chip:hover {
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-2px);
+}
+
+/* Picked. Admin.dc.html:1029-1033. */
+.chipOn {
+  composes: chip;
+  background: var(--acc);
+  border-color: var(--acc);
+}
+
+.pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 4px 7px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+.chipOn .pick { color: var(--accInk); }
+
+.remove {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px 0 6px;
+  background: none;
+  border: none;
+  border-left: 1px solid rgba(var(--ln), .16);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted2);
+  transition: color .2s, background .2s;
+}
+
+.chipOn .remove {
+  border-left-color: rgba(var(--gnd), .35);
+  color: var(--accInk);
+}
+
+.remove:hover {
+  color: #fff;
+  background: var(--danger);
+}
+
+.empty {
+  margin: 0 0 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.skel {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+}
+
+.addInput {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* Admin.dc.html:249. */
+.addBtn {
+  flex: none;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .08);
+  color: var(--acc, #FCA311);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: color .2s, background .2s;
+}
+
+.addBtn:hover:not(:disabled) {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+}
+
+/* Readable while dim — the PF-105 lesson: a disabled control at low opacity
+ * measures under 2:1 and WCAG's exemption hides it from every audit. */
+.addBtn:disabled {
+  cursor: not-allowed;
+  opacity: .72;
+}

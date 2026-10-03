@@ -3,20 +3,14 @@ import { ViewCount } from '../../blog/ViewCount';
 import { useBlogPostAdmin, useCreatePost, useUpdatePost,
          useTogglePublish, useDeletePost }                       from '../../../hooks/useBlog';
 import { emptyForm, emptySection, postToForm, formToPayload,
-         formErrors, hasTag, toggleTag, removeTag }               from '../../../utils/blogForm';
+         formErrors, toggleTag, removeTag }                       from '../../../utils/blogForm';
 import { useFormGuard }            from '../../../hooks/useFormGuard';
 import { fieldProps, errorId, fieldId } from '../../../utils/formErrors';
-import { useVocabulary, useCreateVocabulary, useDeleteVocabulary,
-         useVocabularyImpact }                                    from '../../../hooks/useVocabulary';
+import { VocabularyPicker }        from '../VocabularyPicker';
+import { ConfirmDialog }           from '../ConfirmDialog';
 import a from '../../../styles/admin.module.css';
 
 
-
-// Ink for text sitting ON the accent fill. Matches `.btn-primary`
-// (global.css:298) rather than introducing a second literal for the same
-// job — two values here would be ambiguous to resolve at the Sprint 14
-// theme cutover.
-const ON_ACCENT = '#0f0f0f';
 
 const SMALL_BUTTON = {
   background: 'none', border: '1px solid var(--border)', borderRadius: '0.375rem',
@@ -170,237 +164,9 @@ function SectionEditor({ section, index, total, guard, onField, onLine, onAddLin
   );
 }
 
-/**
- * Confirm dialog for deleting a tag from the shared vocabulary.
- *
- * ⚠️ This is not a "remove from this post" dialog. `DELETE
- * /api/vocabulary/tag/:id` deletes the row AND `$pull`s the value out of
- * every blog post that carries it. So the dialog states the real blast
- * radius, using the count the server itself reports.
- *
- * The locked decision (`.claude/locked-decisions.md`) is explicit:
- * "Vocabulary deletion is hard-delete with cascade, behind an impact-count
- * confirm." The impact count is the whole point of the confirm — a generic
- * "are you sure?" here would be strictly worse than none, because it implies
- * the consequence has been checked when it has not.
- *
- * ⚠️ The confirm button stays DISABLED until the count arrives. Rendering
- * "removes it from 0 blog posts" while the request is still in flight would
- * be a confident lie at exactly the moment the reader is deciding — the
- * number would be indistinguishable from a genuine zero.
- */
-function ChipDeleteConfirm({ chip, onCancel, onConfirm, isDeleting }) {
-  const { data: impact, isLoading, isError } = useVocabularyImpact('tag', chip._id);
-
-  const affected = impact?.affected;
-  const label    = impact?.label || 'blog posts';
-  const known    = typeof affected === 'number';
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}
-      role="dialog" aria-modal="true" aria-label={`Remove ${chip.value} from the tag list`}>
-      <div className="glass" style={{ borderRadius: '1rem', padding: '2rem', maxWidth: '420px', width: '100%' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem' }}>
-          Remove &ldquo;{chip.value}&rdquo; from the tag list?
-        </h3>
-
-        <p style={{ color: 'var(--text-body)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-          {isLoading && 'Checking how many posts use it…'}
-          {isError   && 'Could not check how many posts use this tag. It is safer to cancel.'}
-          {known && (
-            affected === 0
-              ? `This deletes the tag permanently. No ${label} currently use it.`
-              : `This deletes the tag permanently and removes it from ${affected} ${affected === 1 ? label.replace(/s$/, '') : label}. This cannot be undone.`
-          )}
-        </p>
-
-        {/* ⚠️ type="button" is LOAD-BEARING on both of these. This dialog
-            renders inside the post <form> (it hangs off the tag picker,
-            which is a form field), and a <button> with no type defaults to
-            type="submit". Without it, "Yes, Remove" deleted the tag AND
-            silently saved the whole post, closing the editor — the delete
-            appeared to work while doing something twice as large. Caught by
-            a test that expected the tags field to still exist afterwards.
-            The Delete Post dialog below escapes this only because it is
-            rendered outside the form. */}
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button type="button" onClick={onConfirm} disabled={!known || isDeleting}
-            style={{ background: '#dc2626', border: 'none', borderRadius: '0.5rem',
-              padding: '0.625rem 1.25rem', color: '#fff', fontWeight: 600, fontSize: '0.875rem',
-              cursor: (!known || isDeleting) ? 'not-allowed' : 'pointer',
-              opacity: (!known || isDeleting) ? 0.6 : 1 }}>
-            {isDeleting ? 'Removing…' : 'Yes, Remove'}
-          </button>
-          <button type="button" onClick={onCancel} className="btn-outline" style={{ fontSize: '0.875rem' }}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * The shared tag vocabulary, as a picker.
- *
- * ── PF-97 ───────────────────────────────────────────────────────────────
- * The API behind this was built in Sprint 9 (PF-61 / PF-62) — model, list,
- * create, cascading delete and a delete-impact count — and had **zero**
- * frontend consumers until this component. The chips a visitor sees are
- * real rows in the `vocabulary` collection, not a list derived from the
- * posts.
- *
- * Three distinct actions, and the design is explicit that they differ
- * (`Admin.dc.html:487`): "CLICK TO PICK · ✓ = SELECTED · × REMOVES IT FROM
- * THIS LIST".
- *
- *   click the label → toggles the tag on THIS post          (local, cheap)
- *   + ADD TAG       → adds a chip to the pool               (POST)
- *   ×               → DELETES the tag from the pool AND strips it from
- *                     every post that carries it            (DELETE, cascading)
- *
- * ⚠️ The third is destructive and global, which is why it goes through a
- * confirm carrying the server's own impact count rather than a generic
- * "are you sure". `.claude/locked-decisions.md`: "Vocabulary deletion is
- * hard-delete with cascade, behind an impact-count confirm."
- */
-function TagPicker({ tags, onToggle, onRemoved, onError }) {
-  const { data: chips = [], isLoading } = useVocabulary('tag');
-  const createTag = useCreateVocabulary('tag');
-  const deleteTag = useDeleteVocabulary('tag');
-
-  const [draft,   setDraft]   = useState('');
-  const [pending, setPending] = useState(null); // the chip awaiting confirmation
-
-  const addTag = async () => {
-    const value = draft.trim();
-    if (!value) return;
-
-    // Already in the pool: pick it rather than sending a POST that would
-    // 409. The design does the same — addChip() skips the insert when the
-    // label exists and falls straight through to toggleChip().
-    const existing = chips.find((c) => c.value.toLowerCase() === value.toLowerCase());
-    if (existing) {
-      if (!hasTag(tags, existing.value)) onToggle(existing.value);
-      setDraft('');
-      return;
-    }
-
-    try {
-      const created = await createTag.mutateAsync(value);
-      onToggle(created.value);   // a tag you just added is a tag you want
-      setDraft('');
-    } catch (err) {
-      onError(err.response?.data?.message || `Could not add "${value}".`);
-    }
-  };
-
-  const confirmRemove = async () => {
-    const chip = pending;
-    setPending(null);
-    try {
-      const result = await deleteTag.mutateAsync(chip._id);
-      // The server stripped it from every post; strip it from the form in
-      // hand too, which the refetch cannot do because this post is being
-      // edited and is not what the query returns.
-      onRemoved(chip.value, result);
-    } catch (err) {
-      onError(err.response?.data?.message || `Could not remove "${chip.value}".`);
-    }
-  };
-
-  return (
-    <div style={{ padding: '0.875rem', borderRadius: '0.75rem',
-      background: 'var(--bg)', border: '1px dashed var(--border)' }}>
-
-      <p style={{ margin: '0 0 0.625rem', fontFamily: 'var(--font-mono)', fontSize: '0.625rem',
-        letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-        Click to pick · ✓ = selected · × removes it from this list
-      </p>
-
-      {isLoading ? (
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          {[1,2,3,4].map((n) => (
-            <div key={n} className="skeleton" style={{ height: 30, width: 84, borderRadius: 999 }} />
-          ))}
-        </div>
-      ) : chips.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)',
-          fontSize: '0.75rem', marginBottom: '0.75rem' }}>
-          No tags in the list yet — add one below.
-        </p>
-      ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          {chips.map((chip) => {
-            const on = hasTag(tags, chip.value);
-            return (
-              <span key={chip._id} style={{
-                display: 'inline-flex', alignItems: 'stretch', borderRadius: 999, overflow: 'hidden',
-                background: on ? 'var(--accent)' : 'transparent',
-                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-              }}>
-                <button type="button" onClick={() => onToggle(chip.value)}
-                  title={on ? 'Click to unpick' : 'Click to add'}
-                  aria-pressed={on}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
-                    padding: '0.4rem 0.25rem 0.4rem 0.75rem', background: 'none', border: 'none',
-                    cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '0.72rem',
-                    color: on ? ON_ACCENT : 'var(--text-body)',
-                  }}>
-                  {on ? '✓ ' : '+ '}{chip.value}
-                </button>
-                <button type="button" onClick={() => setPending(chip)}
-                  title="Remove from the list"
-                  aria-label={`Remove ${chip.value} from the tag list`}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', padding: '0 0.625rem 0 0.375rem',
-                    background: 'none', border: 'none',
-                    borderLeft: `1px solid ${on ? 'rgba(0,0,0,0.25)' : 'var(--border)'}`,
-                    cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: '0.8rem',
-                    lineHeight: 1, color: on ? ON_ACCENT : 'var(--text-muted)',
-                  }}>
-                  ×
-                </button>
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter must not submit the post — this input lives inside the
-            // post <form>, where Enter is a submit by default.
-            if (e.key === 'Enter') { e.preventDefault(); addTag(); }
-          }}
-          placeholder="New tag name…"
-          aria-label="New tag name"
-          className={a.inputPill} style={{ flex: '1 1 160px', minWidth: 160 }} />
-        <button type="button" onClick={addTag} disabled={createTag.isPending || !draft.trim()}
-          style={{
-            flex: 'none', padding: '0.55rem 1rem', borderRadius: 999,
-            border: '1px solid rgba(129,140,248,0.4)', background: 'var(--accent-glow)',
-            color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontWeight: 700,
-            fontSize: '0.7rem', letterSpacing: '0.1em',
-            cursor: draft.trim() ? 'pointer' : 'not-allowed',
-            opacity: draft.trim() ? 1 : 0.5,
-          }}>
-          {createTag.isPending ? 'ADDING…' : '+ ADD TAG'}
-        </button>
-      </div>
-
-      {pending && (
-        <ChipDeleteConfirm chip={pending}
-          onCancel={() => setPending(null)}
-          onConfirm={confirmRemove}
-          isDeleting={deleteTag.isPending} />
-      )}
-    </div>
-  );
-}
+// The tag picker and its cascade-delete confirm moved to
+// components/admin/VocabularyPicker.jsx in PF-113, when the Projects panel's
+// `tech` picker became their second consumer.
 
 /**
  * `initialView` — PF-110. The Overview's `+ NEW POST` quick action lands
@@ -669,8 +435,9 @@ export function AdminBlogPanel({ initialView = 'list' }) {
                 tag. This picks from the pool that already exists, which
                 is what stops the same tag being spelled three ways across
                 four posts. */}
-            <TagPicker
-              tags={form.tags}
+            <VocabularyPicker
+              type="tag"
+              selected={form.tags}
               onToggle={(value) => setForm((p) => ({ ...p, tags: toggleTag(p.tags, value) }))}
               onRemoved={(value) => {
                 // The server stripped this tag from every STORED post. The
@@ -835,32 +602,25 @@ export function AdminBlogPanel({ initialView = 'list' }) {
         </div>
       )}
 
-      {/* Delete confirmation */}
+      {/* Delete confirmation — PF-113's shared dialog, with the prototype's
+          own copy (Admin.dc.html:1216). Rendered outside the form. */}
       {confirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-          <div className="glass" style={{ borderRadius: '1rem', padding: '2rem', maxWidth: '380px', width: '100%' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.75rem' }}>Delete Post?</h3>
-            <p style={{ color: 'var(--text-body)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              This will permanently delete the blog post and cannot be undone.
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={async () => {
-                try {
-                  await deletePost.mutateAsync(confirm);
-                } catch (err) {
-                  setServerErrors([err.response?.data?.message || 'Could not delete the post.']);
-                }
-                setConfirm(null);
-              }}
-                style={{ background: '#dc2626', border: 'none', borderRadius: '0.5rem', padding: '0.625rem 1.25rem',
-                  color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}>
-                Yes, Delete
-              </button>
-              <button onClick={() => setConfirm(null)} className="btn-outline" style={{ fontSize: '0.875rem' }}>Cancel</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          title="Delete post?"
+          busy={deletePost.isPending}
+          onCancel={() => setConfirm(null)}
+          onConfirm={async () => {
+            try {
+              await deletePost.mutateAsync(confirm);
+            } catch (err) {
+              setServerErrors([err.response?.data?.message || 'Could not delete the post.']);
+            }
+            setConfirm(null);
+          }}
+        >
+          This will permanently delete &ldquo;{posts.find((p) => p._id === confirm)?.title ?? 'this post'}&rdquo; and
+          cannot be undone.
+        </ConfirmDialog>
       )}
     </div>
   );
