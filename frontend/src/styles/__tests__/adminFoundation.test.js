@@ -107,6 +107,9 @@ const PHASE_2_SHEETS = [
   'pages/AdminLoginPage.module.css',           // PF-109
   'components/admin/panels/AdminOverviewPanel.module.css', // PF-110
   'components/admin/panels/AdminAboutPanel.module.css',    // PF-112
+  'components/admin/panels/AdminProjectsPanel.module.css', // PF-113
+  'components/admin/ConfirmDialog.module.css',             // PF-113
+  'components/admin/VocabularyPicker.module.css',          // PF-113
 ];
 
 describe("PF-107's stylesheets read no Phase 1 token", () => {
@@ -202,3 +205,37 @@ describe('admin.module.css — focus handling', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/* ── PF-113: the rebuilt JSX itself is Phase-1-free ────────────────── */
+// The stylesheet guard above cannot see an INLINE `style={{}}` — which is
+// exactly how AdminAboutPanel blocked PF-116 with every guard green until
+// PF-112. These files are fully rebuilt, so their SOURCE is checked too: no
+// Phase 1 token, no Phase 1 global class, no hover painted by poking
+// element.style. Comments are stripped first, because this codebase names
+// removed values in the prose explaining their removal.
+const REBUILT_JSX = [
+  'components/admin/panels/AdminProjectsPanel.jsx',
+  'components/admin/ConfirmDialog.jsx',
+  'components/admin/VocabularyPicker.jsx',
+  'components/admin/UploadPill.jsx',
+  'components/admin/DropZone.jsx',          // PF-113 batch 2
+];
+
+describe('PF-113 rebuilt components carry no Phase 1 styling', () => {
+  it.each(REBUILT_JSX)('%s names no Phase 1 token', (file) => {
+    const code = stripJs(read(resolve(src, file)));
+    expect(PHASE_1_TOKENS.filter((t) => code.includes(`var(${t})`) || code.includes(`var(${t},`)))
+      .toEqual([]);
+  });
+
+  it.each(REBUILT_JSX)('%s uses no Phase 1 global class', (file) => {
+    const code = stripJs(read(resolve(src, file)));
+    expect(code).not.toMatch(/className="[^"]*\b(glass|btn-primary|btn-outline|skeleton)\b/);
+  });
+
+  it.each(REBUILT_JSX)('%s paints no hover through element.style', (file) => {
+    const code = stripJs(read(resolve(src, file)));
+    expect(code).not.toMatch(/onMouse(Enter|Leave)=/);
+  });
+});
+

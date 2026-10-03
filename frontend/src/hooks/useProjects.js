@@ -6,6 +6,13 @@ import { DASHBOARD_KEY } from './useDashboardStats';
 // TanStack uses these keys to identify and invalidate cached data
 export const PROJECTS_KEY = ['projects'];
 
+// PF-113 — the admin's list, drafts included. A CHILD of PROJECTS_KEY on
+// purpose: TanStack matches invalidation by prefix, so every mutation below
+// that invalidates PROJECTS_KEY refreshes this list too, and nothing has to
+// remember a second line. It must never SHARE the public key — the public
+// section would then render drafts whenever the admin had loaded first.
+export const PROJECTS_ADMIN_KEY = [...PROJECTS_KEY, 'admin'];
+
 // ── Read ─────────────────────────────────────────────────────────────────────
 
 /** Fetch all projects from the API */
@@ -13,6 +20,13 @@ export const useProjects = () =>
   useQuery({
     queryKey: PROJECTS_KEY,
     queryFn:  projectService.getAll,
+  });
+
+/** Every project, drafts included — the admin panel's list (PF-113). */
+export const useAdminProjects = () =>
+  useQuery({
+    queryKey: PROJECTS_ADMIN_KEY,
+    queryFn:  projectService.getAllAdmin,
   });
 
 /** Fetch a single project by ID */
@@ -59,5 +73,27 @@ export const useDeleteProject = () => {
       qc.invalidateQueries({ queryKey: PROJECTS_KEY });
       qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
     },
+  });
+};
+// ── Card background, PF-113 ──────────────────────────────────────────────────
+// Neither route's response is a bare project in the list's shape, so these
+// invalidate rather than write into the cache. No DASHBOARD_KEY: a background
+// changes no count.
+
+/** Upload (or replace) a project's card background. */
+export const useUploadBackground = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, file }) => projectService.uploadBackground(id, file),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: PROJECTS_KEY }),
+  });
+};
+
+/** Clear a project's card background; the server destroys the file. */
+export const useRemoveBackground = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => projectService.removeBackground(id),
+    onSuccess:  () => qc.invalidateQueries({ queryKey: PROJECTS_KEY }),
   });
 };
