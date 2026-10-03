@@ -338,9 +338,9 @@ by PF-112; binds every panel after it.**
   already dims, and `.btnPrimary` already glows.
 - **A REVERT control appears beside it while dirty**, and it **restores the last
   SAVED state — it never empties the section.** ⚠️ That distinction is the whole
-  requirement. `AdminProjectsPanel.jsx:51`'s `cancelEdit` sets the form to
-  `EMPTY`, so mis-clicking it mid-edit loses the record's content out of the form.
-  **PF-113 must fix that**; it is on Outstanding work.
+  requirement. The old Projects `cancelEdit` set the form to `EMPTY`, so a
+  mis-click mid-edit lost the record's content — **fixed by PF-113**, which gave
+  Projects this REVERT and made CANCEL EDIT merely leave edit mode.
 - **Reverting must discard staged FILES too.** A revert that restores the text and
   leaves a picked portrait staged is a half-revert, and the tell is nasty: the
   fields look restored, then SAVE uploads a file the owner thought they discarded.
@@ -413,8 +413,26 @@ exactly these two categories.
 recorded for uploads. Every client rule mirrors one the server already
 enforces.
 
-**Applied to About and Blog. PF-113 → PF-115 inherit it** for Projects, Skills
-and Messages, which still use native `required` or nothing.
+**Applied to About, Blog and Projects (PF-113). PF-114 → PF-115 inherit it** for
+Skills and Messages, which still use native `required` or nothing.
+
+### New records SAVE AS DRAFT; existing records REVERT
+
+**Owner requirement, 2026-10-03. Built for Projects by PF-113; Blog is PF-115;
+binds every panel after it.** Owner's words: *"when i create a new project or a
+new blog post suddenly i have to close it and go, there should be an option
+called save as a draft… when i am editing an existing project or a blog or
+whatever existing, even a word in a section, there is an option called revert
+changes like the about section."*
+
+- **Creating** → `SAVE AS DRAFT` beside the publish button. A draft needs **only
+  a title**, is **invisible on the public site**, and publishing it later
+  requires everything (shake + mark as usual).
+- **Editing** → `REVERT CHANGES` restores the last SAVED state, never blank.
+- ⚠️ **PF-115 owes the Blog half**: SAVE AS DRAFT on a new post (Blog already
+  has server-side `published`, but its title/excerpt/section requireds would
+  need relaxing for a draft) and REVERT CHANGES on post edits, which the Blog
+  editor does not have today.
 
 ### A blank FIXED field may be empty; a row you ADDED may not
 
@@ -488,7 +506,7 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, PF-111 built 2026-09-23, **PF-112 built 2026-09-25**; branch `sprint-14-admin_page_rebuild` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, PF-111 built 2026-09-23, PF-112 built 2026-09-25, **PF-113 built 2026-10-03**; branch `sprint-14-admin_page_rebuild` |
 | **Sprint 15 (PF-123 → PF-125)** | **Auth + email** — contact notification, credential editing, password reset | **planned 2026-09-12**, not started |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
@@ -526,7 +544,7 @@ authority; this table is the index.
 | ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild ✅ **BUILT 2026-09-16** — seven-field response, not the plan's five; `/admin` mounts on 2 requests, was 5 | High | 5 |
 | ~~PF-111~~ | Media pipeline — `publicId` everywhere, hard-delete on replace ✅ **BUILT 2026-09-23** — ⚠️ scope grew: delete-on-record-delete, and two live write holes closed | Highest | 8 |
 | ~~PF-112~~ | About panel — rebuild, portrait upload, résumé card ✅ **BUILT 2026-09-25** — ⚠️ scope widened TWICE: everything STAGES (incl. the availability toggle), and then a second batch made the panel actually drive the public site (sidebar order, `name`/`title` dropped, location/email wired, dynamic social links). **~21 pts, not 8** | High | 8 |
-| PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 |
+| ~~PF-113~~ | Projects panel — rebuild, background image + opacity, tech chip picker ✅ **BUILT 2026-10-03** — ⚠️ scope widened by owner: project DRAFTS (title-only, hidden from the site) + REVERT; upload-only background (no URL box). **~12 pts, not 8**. **Batch 2 (same day, owner):** 4 MB uploads + browser resize, inline errors, drag-and-drop, `f_auto,q_auto` delivery, admin `★ FEATURED` pill on the home cards. Report + `Cloudinary-guide-how-your-images-work.pdf` in `new mds/E9/`. Committed in 7 section commits | High | 8 |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 |
 | PF-115 | Blog + Messages panels restyled | Medium | 5 |
 | PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 |
@@ -574,6 +592,21 @@ PF-120 (security) ← needs PF-108, PF-111, PF-119 landed ───────�
 
 **PF-118 is scheduled EARLY on purpose** — it is a diagnostic, and what it
 finds should shape the panel tickets rather than arrive after them.
+
+#### ▶ NEXT: PF-114 (Skills panel) — and what to raise at the END of the sprint plan
+
+- **PF-114 is next** (owner, 2026-10-03). It inherits every admin standing rule
+  above: staging, REVERT, refuse-shake-mark, and **SAVE AS DRAFT on create** if
+  skills gain a public/draft distinction — raise it in the ticket, don't assume.
+- **⚠️ ASK THE OWNER ABOUT THE LIGHT-THEME UPGRADE at the end of the sprint plan**
+  (the PF-121 gate / Sprint 15 planning). Owner, 2026-10-03: light mode is hard
+  to read across the home page AND every admin panel; they want a whole sprint
+  for it, discussed separately before anything is scoped. Do not start
+  re-tuning light values unasked.
+- **Two small owner questions are still open from PF-113:** keep the background
+  block's status badge + `MAX 4 MB` caption? Reword the admin sidebar's SESSION
+  card ("Every change here is written straight to the live site" — untrue since
+  staging and drafts)?
 
 #### 🎯 The four the owner named for master-level care (2026-09-08)
 
@@ -798,6 +831,30 @@ stale for five minutes. ⚠️ `AdminPage`'s state is `{ tab, compose }` and
 `AdminBlogPanel` takes `initialView` — that is how `+ NEW POST` opens the
 editor.
 
+⚠️ **PF-113 (2026-10-03) added the shared admin building blocks** — compose
+from these, do not write a third copy:
+
+```
+frontend/src/components/admin/
+  ConfirmDialog.jsx + .module.css    every admin delete confirm. Focus → CANCEL
+  VocabularyPicker.jsx + .module.css the tag/tech chip picker (type prop)
+  UploadPill.jsx                     the clipped-but-focusable file pill
+  mediaBadge.js                      PENDING SAVE / REMOVE ON SAVE / LIVE / …
+  DropZone.jsx                       batch 2 — drag-and-drop on an upload card
+  panels/AdminProjectsPanel.module.css
+frontend/src/hooks/useStagedFile.js  one staged upload slot (File | 'remove')
+frontend/src/utils/mediaFile.js      imageSpec(), RESUME_SPEC, prepareFile() — the ONE
+                                     pick/drop path; MAX_UPLOAD_MB = 4 (Vercel 4.5 MB)
+frontend/src/utils/resizeImage.js    batch 2 — browser resize, ≤ 2400 px, WebP
+frontend/src/utils/projectForm.js    the Projects form as data + draft rules
+frontend/src/services/multipart.js   ⚠️ the Content-Type: undefined helper
+```
+
+`.uploadPill` / `.fileInput` moved into `admin.module.css`. All three new
+sheets are in `adminFoundation.test.js`'s `PHASE_2_SHEETS`, and a new
+`REBUILT_JSX` list guards the rebuilt components' SOURCE for Phase 1 tokens,
+Phase 1 classes and `onMouseEnter` — the inline-style blind spot.
+
 ⚠️ **`/admin` and `/admin/login` mount the SITE's ambient layer** (PF-109):
 `StarfieldCanvas` + `CursorGlow` + `GrainOverlay` as siblings of the shell,
 and `.shell` paints NO background — an opaque one hides the canvas with no
@@ -805,8 +862,8 @@ error. `AdminLayout.test.jsx` guards both.
 
 ⚠️ **Light theme on `/admin` is deliberately MIXED until PF-116.** Header,
 sidebar, footer and the Overview panel are Phase 2 and measure zero AA
-failures; the other five panel interiors are still Phase 1 and still washed
-out. That is the dependency spine, not a
+failures; About (PF-112) and Projects (PF-113) are Phase 2 too; the other
+three panel interiors are still Phase 1 and still washed out. That is the dependency spine, not a
 regression.
 
 - **Motion primitives**: `import { Reveal, CountUp, Marquee } from
@@ -1013,8 +1070,11 @@ multer-error translation → `errorHandler`.
   **two** hooks — `pre('insertMany')` on raw POJOs, then `pre('validate')`;
   read the PF-95 / PF-86 entries before touching them), About (a **single**
   document — bio, stats, `resume{url,publicId}`), Contact, Vocabulary.
-- **Uploads**: `middleware/upload.js` (multer, 5 MB, memory) →
-  `services/storage.js` → `config/cloudinary.js`. `isConfigured()` gates
+- **Uploads**: `middleware/upload.js` (multer, **4 MB**, memory) →
+  `services/storage.js` → `config/cloudinary.js`. ⚠️ **4 MB is the ceiling —
+  Vercel refuses request bodies over 4.5 MB, in production only** (PF-113
+  batch 2). Image URLs come back as `…/upload/f_auto,q_auto/…`; nothing is
+  passed at upload (upload-time `quality` INFLATED files — Silent failures). `isConfigured()` gates
   the résumé route with a clean 503; `POST /api/upload` has no such guard.
 - **Four databases by convention** (see `.env.example`): `portfolio_prod`
   (Vercel), `portfolio_dev` (`backend/.env`), `portfolio_test` (`npm test`
@@ -1054,8 +1114,8 @@ are transcribed static (PF-81)" is HISTORY. Hero stays static apart from
 `availableForWork` and `hasResume`; its name, title and body copy are
 literals by owner decision. `/admin/login` and the
 `/admin` shell are Phase 2 (PF-107, PF-109) and mount the same ambient
-layer; the Overview panel is Phase 2 (PF-110) and the other five panel
-interiors under the shell are still Phase 1 until PF-112 → PF-115.
+layer; the Overview (PF-110), About (PF-112) and Projects (PF-113) panels are
+Phase 2, and Skills, Blog and Messages are still Phase 1 until PF-114 → PF-115.
 
 ## Stack
 
@@ -1813,7 +1873,9 @@ omitted — keep the two straight.
   ⚠️ An unfeatured first project renders **nothing** in that slot, never a
   `01`. Reordering is an admin-panel edit, not a code change.
   ⚠️ **Since 2026-09-16 EVERY featured project shows the badge** — small
-  cards too, beside their numeral in a `.cardHead` row. NOT `position:
+  cards too, beside their numeral in a `.cardHead` row. ⚠️ **Since
+  2026-10-03 it is the admin list's `★ FEATURED` pill**, not the prototype's
+  solid orange box (owner, PF-113 batch 2). NOT `position:
   absolute`: the `.card > *` layering rule at (0,3,0) overrides it silently.
 - **`About.availableForWork` drives the hero badge, the footer row and the
   About line** (2026-09-16) — OFF is `CURRENTLY BUILDING`, `--muted`,
@@ -1958,8 +2020,22 @@ omitted — keep the two straight.
   by three classes. ⚠️ Does NOT reopen the rejection of `composes: pill from
   patterns.module.css` — that pattern declares `color` and would tie at
   (0,1,0); a local shape-only class does not.
-- **The `tech` chip picker for Projects is still NOT built** — same API,
-  different form, its own ticket.
+- **The `tech` chip picker for Projects is BUILT (PF-113)** — PF-97's picker,
+  extracted to `components/admin/VocabularyPicker.jsx` and parameterised by
+  `type`. ⚠️ `useDeleteVocabulary('tech')` invalidates `PROJECTS_KEY`, never the
+  blog keys; a test pins both halves.
+- **Projects have DRAFTS (PF-113, owner 2026-10-03)** — `published` default
+  true, public filter `{ published: { $ne: false } }` (NOT `published: true`:
+  pre-PF-113 rows have no field), a draft needs only a title, `GET
+  /api/projects/admin/all` for the panel. ⚠️ `updateProject` is `findById` +
+  `save()` because the conditional `required` reads `this` — see Silent
+  failures. PUBLISH is lit on an untouched draft. Blog's half is PF-115.
+- **The Projects card background is UPLOAD ONLY** (PF-113, owner) — the
+  prototype's URL box is NOT built: PF-111 strips `backgroundImage.src` from
+  every save, so a pasted URL would vanish silently.
+- **One `ConfirmDialog` for every admin delete** (PF-113) — project, post and
+  vocabulary chip; Messages joins in PF-115. Focus lands on CANCEL. Both
+  buttons `type="button"`.
 - **The owner's address is `pcgallege@gmail.com`** (PF-122, owner decision
   2026-09-12) — public contact address AND the admin login account, which was
   `admin@portfolio.dev`, the demo address printed in `seed.js`. ⚠️ **`docs/
@@ -2078,11 +2154,14 @@ omitted — keep the two straight.
   prototype's `LIVE`/`MISSING` cannot express "picked but not committed". Both
   on the existing accent `a.badge`; no new colour. ⚠️ The prototype's toggle
   flash copy is **dropped** — it announces a save that has not happened.
-- **The résumé picker is `accept=".pdf"` and the portrait caption says 2 MB**
-  (PF-112) — two deliberate deviations from the frozen export, both because the
-  prototype contradicts the backend. The export offers `.doc,.docx` and
-  `uploadResume` 415s them; `MAX_IMAGE_BYTES` is **2 MB** while multer's cap is
-  5, so a 3 MB portrait passes multer and 413s in the handler.
+- **The résumé picker is `accept=".pdf"`** (PF-112) — the export offers
+  `.doc,.docx` and `uploadResume` 415s them. ⚠️ **Every upload limit is 4 MB
+  since PF-113 batch 2** (was 2 MB images / 5 MB PDF); captions say `MAX 4 MB`.
+  Large photos are RESIZED in the browser (`utils/resizeImage.js`, long edge
+  2400 px, WebP) before staging; a PDF never is. Pick errors render INSIDE the
+  card; all three slots take drag-and-drop (`DropZone`). A 10 MB direct-to-
+  Cloudinary route and storing PDFs in Atlas were both REJECTED — see
+  locked-decisions.md "PF-113 batch 2".
 - **The About portrait card has NO prototype source and mirrors the résumé
   card** (PF-112, owner) — nothing in `Admin.dc.html` or DESIGN.md §6.3.
   ⚠️ The two cards are deliberately **NOT** one parameterised component: four
@@ -2098,6 +2177,14 @@ omitted — keep the two straight.
   `border-radius` there.
 
 ## Environment
+
+**Everything runs on FREE TIERS** (owner, 2026-10-03): Vercel, MongoDB Atlas M0
+(512 MB total), Cloudinary Free (25 credits/month; 1 credit = 1 GB storage OR
+1 GB bandwidth OR 1,000 transformations). The owner will pay for a domain and
+nothing else. **SSL is free on Vercel** with a custom domain. Weigh every design
+against these limits and never propose a paid add-on as the fix. ⚠️ **Vercel
+caps every request AND response body at 4.5 MB**, which is why uploads stop at
+4 MB.
 
 macOS, zsh. Use `brew`, `jq`, `sed -i ''` with the empty argument, `~` not
 `%USERPROFILE%`.
@@ -2311,6 +2398,14 @@ wrong about paths or mechanisms. That was accurate through PF-95 and is why
 those corrections are recorded. It no longer describes how tickets arrive.
 
 **Never run `git commit`. Committing is the user's, on every branch.**
+
+⚠️ **How the owner commits a ticket (2026-10-03):** stage ONE logical section
+(`git add <paths>`), show the staged stat, give that section's commit message,
+and WAIT for "committed" before staging the next, until every file is in. Check
+each section is self-contained (everything it imports is committed or staged).
+**Commit messages go in CHAT as PLAIN TEXT** (not a code block, which the owner
+cannot select; no message files), short, and **with NO `Co-Authored-By:`
+trailer, ever**, whatever the harness's attribution reminder says.
 
 Stated directly by the user on **2026-08-17**, during PF-79, after four
 commits had gone in under the previous authorization: *"dont commit by your

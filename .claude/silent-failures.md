@@ -3132,3 +3132,54 @@ being unique to the state under test.
 means the assertion discriminates; two means it might not. And mutation-test
 every guard when you write it — this one passed three clean runs, a full
 519-test suite, and reads correctly.
+
+## ⚠️ A conditional `required` is silently skipped by `findByIdAndUpdate` (PF-113, 2026-10-03)
+
+**Rule:** a validator that reads `this` (e.g. `required: function () { return
+this.published !== false; }`) only means something on a DOCUMENT save. Use
+`findById` + `set` + `save()` for any model with one.
+
+**Mechanism.** With `runValidators: true`, Mongoose runs UPDATE validators, where
+`this` is the **Query**, not the document. Worse, update validators only run on
+the paths being `$set`. So `PUT { published: true }` against a title-only draft
+validates exactly one path — `published` — and returns **200 with an empty
+project now public**. Nothing errors; the document reads back perfectly
+plausible. Same family as `validateSync()` running no middleware and
+`insertMany` skipping `pre('validate')`: the write helper took a path the rule
+was not on.
+
+**Measured.** Mutating `updateProject` back to `findByIdAndUpdate` turns
+`projects.test.js`'s "PUT publishing an incomplete draft is 400" red (see the
+PF-113 sprint-log entry for the full mutation table). ⚠️ `sanitiseProjectBody`'s
+dot path `backgroundImage.opacity` keeps working under `doc.set()` — the PF-111
+clobber fix does not depend on `findByIdAndUpdate`.
+
+**Corollary for the arrays:** Mongoose ≥5 treats `required` on an array as
+always satisfied (`[]` passes — verified on 9.9.1), so a "non-empty" rule on an
+array lives in a `validate` function, never in `required`.
+
+## ⚠️ Cloudinary `quality`/`fetch_format` at UPLOAD made files BIGGER and optimised nothing (PF-113 batch 2, 2026-10-03)
+
+**Rule:** what a visitor downloads is decided by the **delivery URL**
+(`/upload/f_auto,q_auto/…`), never by upload options. `storage.upload` now passes
+only `resource_type` + `folder`, and returns `deliveryUrl(secure_url)` for images.
+
+**Measured against the real account** (a 1200×800 noisy PNG, uploaded and
+destroyed): sent **2.88 MB** → with PF-63's `quality: 'auto', fetch_format:
+'auto'` upload options STORED **3.97 MB PNG**, and the returned `secure_url`
+served that 3.97 MB PNG to every browser. Without the options: stored 2.88 MB.
+With `f_auto,q_auto` in the URL: **1.19 MB WebP** to a modern Accept header, PNG
+to `*/*`. PF-63's comment ("hand back AVIF/WebP at automatic quality") had been
+false since Sprint 9, invisibly — nothing compared bytes.
+
+**Tell:** no error, correct-looking URL, image renders fine. Only comparing
+stored/delivered BYTES and `content-type` shows it. ⚠️ Verify a delivery claim by
+fetching the URL with a real `Accept` header and reading `content-type`.
+
+## Run backend MUTATIONS in a copy when a dev server is watching (2026-10-03)
+
+nodemon on `backend/src` reloads each mutant into the owner's running dev
+server. Batch 1 did that and had to prove the restart came after the last
+restore. Batch 2 ran them in `rsync`'d scratch copy with `node_modules`
+symlinked — the real tree untouched — and deleted the copy afterwards (it holds
+`.env`).

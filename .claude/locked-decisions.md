@@ -3700,3 +3700,156 @@ because SAVE went dim on an incomplete row — the owner could see something was
 wrong and had no control to press. With SAVE pressable and refusing with a
 reason, it became a second mechanism saying the same thing in a different
 colour. Removed in the same ticket rather than left "in case".
+
+## PF-113 — the Projects panel (2026-10-03)
+
+### Projects have DRAFTS; a draft needs only a title (owner, 2026-10-03)
+
+Owner's words: *"when i create a new project or a new blog post suddenly i have
+to close it and go, there should be an option called save as a draft… when i am
+editing an existing project or a blog… there is an option called revert changes
+like the about section."* Asked for my feedback: drafts are the staging rule
+("nothing public until SAVE") applied to a whole record. Agreed.
+
+- **`Project.published`, `default: true`.** Default true keeps every existing
+  document and any API caller that omits it live.
+- **The public filter is `{ published: { $ne: false } }`, NOT `published: true`.**
+  Every project written before PF-113 has no field; `published: true` would hide
+  the whole portfolio until a migration ran. `$ne: false` reads absent as
+  published, so **no migration** — the dashboard's `read: { $ne: true }` shape.
+  Applied to `GET /api/projects`, `GET /api/projects/:id` (a draft is a 404, not
+  a 403 — "exists but hidden" is information) and the `tech` vocabulary's
+  `?inUse=true` filter. `GET /api/projects/admin/all` (protected) returns drafts.
+- **A DRAFT requires only `title`.** `description`, `githubUrl` and `tech` are
+  required only while `published !== false` (function-form `required`, `this`
+  being the document). Publishing then demands everything.
+- **⚠️ `updateProject` is `findById` + `set` + `save()`, and must stay so.** The
+  condition reads `this`; under `findByIdAndUpdate`'s update validators `this` is
+  the Query, so a body of `{ published: true }` alone publishes an EMPTY draft
+  with a 200. Mutation-tested. `sanitiseProjectBody`'s dot path still works:
+  `doc.set()` accepts `backgroundImage.opacity`.
+- **Dashboard counts include drafts** — it is the admin's count of projects.
+- **The panel's buttons:** new → `ADD PROJECT` + `SAVE AS DRAFT`; editing a
+  draft → `PUBLISH` + `SAVE DRAFT`; editing a live one → `SAVE CHANGES` only.
+  ⚠️ **PUBLISH is LIT on an untouched draft** — the one exception to "SAVE is dim
+  until dirty", because publishing IS the change; dimming it would make a
+  finished draft unpublishable without a pointless edit.
+- **Not built, deliberately:** an UNPUBLISH for a live project (no ask; DELETE
+  exists). **The Blog half is PF-115** — SAVE AS DRAFT on a new post (Blog has
+  server-side drafts already, but its required fields would need the same
+  relaxing) and REVERT CHANGES when editing a post.
+
+### The card background is UPLOAD ONLY — no URL box (owner, 2026-10-03)
+
+`Admin.dc.html:255` has a `https://image-url.jpg (or upload →)` input. **Not
+built.** PF-111 made `backgroundImage.src` writable only by
+`PUT /api/projects/:id/background`, which takes the URL and publicId from
+Cloudinary's own response so a destructive delete can never be aimed by the
+client; `PUT|POST /api/projects` STRIP `src`. A pasted URL would be accepted by
+the form and silently discarded on save. A fidelity pass will want to "restore"
+the box — that re-opens PF-111's security decision, not a transcription gap.
+
+### CANCEL EDIT leaves edit mode; REVERT CHANGES restores the saved values
+
+The prototype's `cancelProject` (Admin.dc.html:1111) and the old panel both set
+the form to EMPTY — the behaviour the owner objected to. Now: **REVERT CHANGES**
+(beside SAVE, while dirty) restores the last SAVED state and discards a staged
+image; **CANCEL EDIT** (the prototype's, in the card head) closes the editor for a
+blank "Add new project", the saved record untouched in the list. After a
+successful save the panel returns to "Add new project", as the prototype does.
+
+### The background block carries PF-112's badge and caption
+
+`PENDING SAVE` / `REMOVE ON SAVE` / `LIVE` / `NONE` and `PNG, JPEG OR WEBP · MAX
+2 MB` — neither is in the prototype's block, which never staged. `NONE` not
+`MISSING`: a project without a background is not missing anything. `CLEAR`
+stages a removal of a stored image (or drops a staged pick); undoing that is
+REVERT's job. The slider is the prototype's 10–100 step 5, clamped to the
+schema's 0.1–1.0 on the way out.
+
+### Project URLs must be http(s) — server-side, not only in the form
+
+`githubUrl` and `liveUrl` render as public `href`s and had no format check, so
+`javascript:alert(1)` would have been stored and served. Added a model validator
+(blank allowed) with the frontend's `isUsableUrl` pattern, so the panel's
+courtesy check has a gate behind it. Invisible on screen; an implementation
+improvement, not a design change.
+
+### ONE confirm dialog and ONE vocabulary picker, shared
+
+`components/admin/ConfirmDialog.jsx` (Admin.dc.html:605-615) replaces the
+project-only modal, Blog's Delete-Post modal and PF-97's tag-only modal.
+`components/admin/VocabularyPicker.jsx` is PF-97's `TagPicker` extracted and
+parameterised by `type: 'tag' | 'tech'`. ⚠️ Both dialog buttons stay
+`type="button"` — the picker renders the dialog inside the record's `<form>`.
+⚠️ The dialog focuses **CANCEL** on open, not the destructive button. Button
+copy follows the prototype's casing (`YES, DELETE`, `CANCEL`, `YES, REMOVE`), so
+two strings changed in `AdminBlogPanel.test.jsx` — wording only. Messages adopts
+the dialog in PF-115.
+
+## PF-113 batch 2 — uploads: 4 MB, browser resize, delivery optimisation (owner, 2026-10-03)
+
+### Every upload is capped at 4 MB — and NEVER above it
+
+Images 2 → 4 MB, the résumé 5 → **4 MB**. One constant pair in
+`backend/src/middleware/upload.js`, imported everywhere else (the résumé's own
+`5 * 1024 * 1024` in `aboutController.js` is gone — a second copy is how they
+drifted). Client: `utils/mediaFile.js`'s `MAX_UPLOAD_MB`.
+
+⚠️ **The ceiling is Vercel's, not ours: 4.5 MB per request body, every plan**
+(`413 FUNCTION_PAYLOAD_TOO_LARGE`, before our code runs). Above 4.5 MB an upload
+works on localhost — no Vercel in front of it — and fails ONLY in production,
+with Vercel's message. The old 5 MB résumé cap was exactly that hole for any
+4.5–5 MB PDF.
+
+- **Owner asked "keep 5 MB or raise to 10 MB for the CV"** — answered: not
+  possible on the current route. **Storing the PDF in Atlas was raised by the
+  owner and is REJECTED**: the upload still crosses Vercel, downloads would too
+  (Vercel caps responses at 4.5 MB; today `/api/resume` 302-redirects to
+  Cloudinary so downloads never touch Vercel), and Atlas M0 has 512 MB in all.
+- **Direct browser → Cloudinary signed upload (the 10 MB route) was offered and
+  DECLINED** ("4 MB, no ticket"). Do not re-propose without a new reason. If it
+  is ever built it touches PF-111's "server derives every publicId" rule and
+  needs PF-120-level review.
+
+### Large photos are RESIZED in the browser, not refused
+
+`utils/resizeImage.js` — native canvas, no library (locked). Long edge ≤ **2400
+px**, WebP 0.86 (one retry at 0.72), JPEG fallback when the browser cannot
+encode WebP, PNG fallback for a TRANSPARENT image (JPEG would paint it black).
+EXIF orientation via `createImageBitmap(..., { imageOrientation: 'from-image' })`.
+Untouched when already ≤ 4 MB and ≤ 2400 px. An undecodable file (HEIC in
+Chrome) passes if small (server decides by bytes), is refused with "export it as
+JPEG or PNG" if oversized. `utils/mediaFile.js`'s `prepareFile()` is the ONE path
+for the pill AND a drop — a drop bypasses the picker's `accept`.
+
+### Image delivery URLs carry `f_auto,q_auto`; nothing is passed at upload
+
+See Silent failures, "upload-time quality INFLATED the stored file". Images
+only — a PDF is served as the bytes uploaded. Applies to NEW uploads; the two
+existing project backgrounds keep their old address until re-uploaded.
+
+### Pick errors are shown INSIDE the card; drag-and-drop on all three slots
+
+The owner never saw the size error because it went to a banner at the top of
+the form, off-screen at the image block. Now a `role="alert"` line in each card
+(portrait, résumé, project background); the top banner carries SERVER failures
+only. `components/admin/DropZone.jsx` (dashed accent outline + "DROP TO STAGE",
+one file at a time, a depth counter so crossing a child doesn't flicker it off);
+`AdminLayout` swallows stray FILE drops so a near-miss cannot navigate away and
+discard staged work. The pill stays the keyboard route.
+
+### The home-page FEATURED tag is the admin `★ FEATURED` pill (owner)
+
+Big AND small cards, replacing the prototype's solid orange box
+(`ProjectsSection.module.css` `.featuredBadge` / `.featuredBadgeSm`). Values
+restated from `admin.module.css` `.badge`, not composed (public site must not
+depend on the admin layer). Position unchanged: top-left on the big card,
+beside the numeral on small cards.
+
+⚠️ **In DARK theme the pill has a SOLID `rgb(var(--srf))` fill** (owner, after
+measurement). The admin tint is 90% see-through; over the live card photo the
+9.5px orange text MEASURED 2.35:1 worst / 2.61 mean (per-pixel composite:
+photo × 0.65 + scrim + tint) against AA's 4.5. Solid navy: **7.9:1** on any
+photo. Light theme measured 4.71 / 5.74 and keeps the tint. Do not "unify" the
+two themes back to the tint — a postcss-parsed test pins the dark fill.

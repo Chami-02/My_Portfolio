@@ -517,7 +517,7 @@ record; that file is the sprint's authority.
 | ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | ✅ **BUILT 2026-09-16** — see entry |
 | ~~PF-111~~ | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | ✅ **BUILT 2026-09-23** — ⚠️ scope GREW: delete-on-record-delete too, see entry |
 | PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 | To Do | not started |
-| PF-113 | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | not started |
+| ~~PF-113~~ | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | ✅ **BUILT 2026-10-03** — ⚠️ scope widened: project DRAFTS + REVERT (owner), upload-only background; ~12 pts, see entry |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 | To Do | not started |
 | PF-115 | Blog + Messages panels restyled | Medium | 5 | To Do | not started |
 | PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | To Do | not started |
@@ -7591,3 +7591,153 @@ files: `001`, `003`–`008`. **No `002` has ever existed** — `git log
 'backend/src/migrations/002*'` are both empty, and the gap is intentional, the
 same shape as the PF-53–PF-58 ticket gap. `migrate-runner.test.js:76`
 (`tolerates the gap at 002`) already pins it.
+
+---
+
+## PF-113 — Projects panel: rebuild, drafts, background + opacity, tech picker (2026-10-03)
+
+**Report:** `new mds/E9/PF-113-projects-panel-drafts-and-backgrounds.md`.
+
+### Scope as approved, and how it grew
+
+Planned 8 points. **Two owner decisions while planning widened it to ~12**:
+project **DRAFTS** (title-only, hidden from the public site, PUBLISH requires
+everything) plus REVERT on edit — the Blog half deferred to **PF-115** — and an
+**upload-only** background (the prototype's URL box would be silently stripped
+by PF-111's save sanitiser). Full reasoning: `locked-decisions.md`, "PF-113".
+
+### Built
+
+- **Backend.** `Project.published` (default true); description / tech /
+  githubUrl required only while published; http(s) validator on both URLs;
+  public reads filter `{ published: { $ne: false } }`; new protected
+  `GET /api/projects/admin/all`; `updateProject` → `findById` + `set` + `save()`;
+  `tech`'s `?inUse=true` honours drafts. **No migration** (`$ne: false`).
+- **Frontend, new shared layer:** `ConfirmDialog`, `VocabularyPicker` (PF-97's
+  TagPicker extracted, `type` prop), `UploadPill`, `mediaBadge.js`,
+  `hooks/useStagedFile.js`, `utils/mediaFile.js` (all four moved out of
+  `AdminAboutPanel.jsx`), `services/multipart.js` (moved out of
+  `aboutService.js`), `utils/projectForm.js`.
+- **`AdminProjectsPanel` rebuilt** on CSS modules per `Admin.dc.html:198-305`,
+  staged background + live-preview opacity slider, tech picker, the shared
+  validation guard, REVERT, CANCEL EDIT, drafts. Blog panel moved onto the
+  shared picker and dialog (behaviour unchanged).
+- **`adminFoundation.test.js`:** three sheets added to `PHASE_2_SHEETS`, and a
+  new `REBUILT_JSX` source guard (Phase 1 tokens / classes / `onMouseEnter`).
+
+### Tests
+
+Frontend 76 files / **1644** tests (was 66 / 1325 at PF-112 — includes work
+between). New: `AdminProjectsPanel` 29 (the panel had none), `projectForm` 39,
+`ConfirmDialog` 8, `VocabularyPicker` 7, `projectService` 5. Lint clean at
+`--max-warnings=0`; coverage 93.94 / 90.88 / 87.71 / 95.73; build ✓.
+`AdminBlogPanel.test.jsx` changed in two STRINGS only (`'Yes, Remove'` →
+`'YES, REMOVE'`, `'Cancel'` → `'CANCEL'`, the prototype's casing).
+Backend full: **34 suites / 539**, coverage 80.81 / 71.15 / 85.47 / 81.26 (branch
+headroom 6.66 → **11.15**). E2E **75 passed**, 0 flaky. All seven gate steps green.
+
+### Mutation testing — 17 mutants, all killed, both controls clean
+
+| # | Mutant | Red |
+| --- | --- | --- |
+| 1 | REVERT leaves the staged file | 1 |
+| 2 | `Content-Type: undefined` removed from multipart | 7 |
+| 3 | `tech` delete stops invalidating projects | 1 |
+| 4 | staged background never sent | 4 |
+| 5 | PUBLISH dim on an untouched draft | 2 |
+| 6 | guard result ignored | 5 |
+| 7 | draft rules = publish rules | 8 |
+| 8 | opacity unclamped | 4 |
+| 9 | `onMouseEnter` re-added to the panel | 1 |
+| 10 | picker deletes from the wrong vocabulary | 1 |
+| 11 | dialog's YES loses `type="button"` | 1 |
+| — | frontend control | 875 passed |
+| A | public filter dropped | 3 |
+| B | drafts not relaxed | 8 |
+| C | filter written as `published: true` | 1 (the legacy row) |
+| D | `updateProject` back to `findByIdAndUpdate` | 2 |
+| E | URL validator disabled | 5 |
+| F | `tech` inUse unfiltered | 1 |
+| — | backend control | 71 passed |
+
+### Live, dev backend (`portfolio_dev`), 2026-10-03
+
+Title-only form → ADD PROJECT refused (3 fields marked, banner counts 3,
+**0 POSTs**) → SAVE AS DRAFT → in the admin list with DRAFT, **absent from
+`GET /api/projects`** → EDIT, complete, stage a PNG, slider 35% (`PENDING SAVE`,
+preview at 0.35 from the blob) → PUBLISH → public, `src` on
+`res.cloudinary.com`, publicId set, opacity 0.35 → home page card renders it at
+`opacity: 0.35` → DELETE via the new dialog (focus on CANCEL,
+`getAnimations()` = 2) → gone from both lists; **Cloudinary admin API no longer
+lists the probe asset**. ⚠️ The delivery URL still answered 200 afterwards — the
+CDN cache, and a query string does not bypass it. Ask the admin API, never the
+URL.
+
+### Found during recheck
+
+1. **A coordinate click landed on nothing** after the page scrolled under it —
+   the PUBLISH that "did nothing". Re-done by element reference; not a defect.
+2. **Focus after a refusal read empty in the browser tool** — the documented
+   hidden-tab rAF trap; unit tests cover focus.
+3. **The owner's nodemon was running during backend mutation testing**, so the
+   dev server briefly served each mutant. Verified it restarted (13:55:30)
+   after the last restore (13:54:52) before any browser check. ⚠️ Stop the dev
+   backend, or check restart time, before mutating backend files.
+
+### Outstanding work added by PF-113
+
+- **PF-115 owes the Blog half of the drafts rule** — SAVE AS DRAFT (title-only
+  needs Blog's required fields relaxed for drafts) and REVERT CHANGES on edit.
+  Owner asked for this to be remembered explicitly.
+- **Messages delete confirm** → `ConfirmDialog` in PF-115.
+- **The admin sidebar's SESSION card says "Every change here is written
+  straight to the live site."** — untrue since staging and drafts. Copy
+  decision for the owner; not changed.
+- **No UNPUBLISH for a live project** — not asked for; DELETE exists.
+- **`useProject` / `GET /api/projects/:id`** remain clientless (now draft-aware).
+
+### PF-113 batch 2 — uploads, the FEATURED pill, delivery optimisation (2026-10-03)
+
+Owner follow-ups, folded into PF-113 before commit. Full detail in the report's
+"Batch 2" section and in `new mds/E9/Cloudinary-guide-how-your-images-work.pdf`
+(a 10-page beginner's guide to the image pipeline and the account, written at
+the owner's request).
+
+- **4 MB for every upload, never above** — Vercel's 4.5 MB request cap. Résumé
+  5 → 4 MB. One constant pair in `middleware/upload.js`.
+- **Browser-side resize** (`utils/resizeImage.js`): ≤ 2400 px, WebP, EXIF
+  orientation, JPEG/PNG fallbacks. `mediaFile.prepareFile()` is the one path for
+  pick AND drop.
+- **Errors inside each card**, not the top banner (the owner never saw them).
+- **Drag-and-drop** on portrait, résumé and project background (`DropZone`);
+  stray file drops swallowed admin-wide.
+- **Delivery `f_auto,q_auto`; nothing at upload** — upload-time `quality`
+  INFLATED a 2.88 MB PNG to 3.97 MB; delivery WebP 1.19 MB. Silent failures.
+- **Home `★ FEATURED` pill** (owner); solid navy fill in dark after measuring
+  2.35:1 over the live photo → 7.9:1.
+
+**Mutation:** 16 more, all killed (frontend control 1,123; backend control 54,
+run in a throwaway copy so the owner's nodemon never served a mutant).
+**Live:** 19.1 MB → 1.8 MB WebP in 2.3 s, stored 2400×1680 WebP with an
+`f_auto,q_auto` URL; drops on all three cards; stray drop cancelled; 4.5 MB PDF
+refused inside the card. Probes deleted; Cloudinary confirmed.
+
+**Found during recheck:** an unexpected resize failure would have been an
+unhandled rejection (no `catch`) — fixed, mutant 21. Dev rate limit exhausted by
+probes (known trap, waited it out).
+
+### Outstanding work added by PF-113 batch 2
+
+- **⚠️ LIGHT THEME UPGRADE — ASK THE OWNER AT THE END OF THE SPRINT PLAN.**
+  Owner, 2026-10-03: light mode is hard to read across the home page AND every
+  admin panel; wants a whole sprint, discussed separately before any scoping.
+  Memory: `project_light_theme_upgrade.md`.
+- **Re-upload the two existing project backgrounds** to get the optimised
+  `f_auto,q_auto` URL — only new uploads have it. Owner's call, in the admin.
+- **Confirm production's Cloudinary keys are the same account** as dev
+  (records say added 2026-08-31; Vercel's settings are not visible from here).
+- **Cloudinary `samples` demo folder** (~166 MB, 0.16 credits) — optional delete.
+- **Open owner questions from PF-113, still unanswered:** keep the background
+  block's status badge + `MAX 4 MB` caption (my call, applying PF-112's pattern)?
+  And rewrite the sidebar SESSION card's "Every change here is written straight
+  to the live site", untrue since staging and drafts?
