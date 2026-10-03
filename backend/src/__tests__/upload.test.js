@@ -79,8 +79,8 @@ describe('Upload API (PF-63)', () => {
     expect([400, 415]).toContain(res.status);
   });
 
-  it('rejects an image over 2 MB', async () => {
-    const big = Buffer.concat([TINY_PNG, Buffer.alloc(3 * 1024 * 1024)]);
+  it('rejects an image over 4 MB', async () => {
+    const big = Buffer.concat([TINY_PNG, Buffer.alloc(5 * 1024 * 1024)]);
 
     const res = await request(app)
       .post('/api/upload')

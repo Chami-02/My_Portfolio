@@ -5,6 +5,7 @@ const cors       = require('cors');
 const morgan     = require('morgan');
 const helmet     = require('helmet');
 const multer     = require('multer');
+const { MAX_UPLOAD_BYTES } = require('./middleware/upload');
 const mongoose   = require('mongoose');
 const path       = require('path');
 
@@ -89,7 +90,8 @@ app.use((err, _req, res, next) => {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({
         status:  'fail',
-        message: 'File is too large — maximum 5 MB',
+        // Derived, not typed: this said "5 MB" after the limit had moved.
+        message: `File is too large — maximum ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`,
       });
     }
     if (err.code === 'LIMIT_FILE_COUNT') {

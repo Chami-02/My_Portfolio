@@ -352,3 +352,37 @@ describe('PUT /api/projects/:id — an ordinary save cannot touch the media (PF-
     expect(res.body.data.backgroundImage.opacity).toBe(0.6);   // opacity is content
   });
 });
+
+// ── PF-113 batch 2: the 4 MB limit, at its boundary ─────────────────────────
+// ⚠️ Both sides, deliberately. A "too big is refused" test alone passes under a
+// limit of 0; only the "just under passes" half proves the limit was RAISED.
+// 4 MB is the most Vercel's 4.5 MB request cap leaves room for.
+describe('the background size limit is 4 MB (PF-113 batch 2)', () => {
+  const sized = (bytes) => Buffer.concat([PNG, Buffer.alloc(bytes - PNG.length)]);
+
+  it('accepts an image just under 4 MB — a 3 MB image used to be refused', async () => {
+    const p = await makeProject();
+    storage.upload.mockResolvedValue(uploaded('big-ok'));
+
+    const res = await request(app)
+      .put(`/api/projects/${p._id}/background`)
+      .set(await authHeader())
+      .attach('file', sized(4 * 1024 * 1024 - 1024), 'bg.png');
+
+    expect(res.status).toBe(200);
+    expect(storage.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses an image just over 4 MB with 413, before storage', async () => {
+    const p = await makeProject();
+
+    const res = await request(app)
+      .put(`/api/projects/${p._id}/background`)
+      .set(await authHeader())
+      .attach('file', sized(4 * 1024 * 1024 + 1024), 'bg.png');
+
+    expect(res.status).toBe(413);
+    expect(res.body.message).toMatch(/limit is 4 MB/);
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+});

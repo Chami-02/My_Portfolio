@@ -13,6 +13,29 @@ const { cloudinary, isConfigured } = require('../config/cloudinary');
 // environment between requires, and a captured constant would go stale.
 const defaultFolder = () => process.env.CLOUDINARY_FOLDER || 'portfolio';
 
+
+/**
+ * The address a VISITOR's browser is given for an uploaded image.
+ *
+ * `f_auto,q_auto` is a Cloudinary delivery transformation: the CDN picks the
+ * format the requesting browser supports best (WebP/AVIF, else the original)
+ * and a quality setting that is visually indistinguishable. Measured
+ * 2026-10-03 on this account: the same image delivered as a 1.19 MB WebP to a
+ * modern browser, versus the 3.97 MB PNG the old URL served. Visitors' downloads
+ * are bandwidth, and bandwidth spends the same 25 free monthly credits as
+ * storage — this is the single biggest lever on how far the free plan stretches.
+ *
+ * Each derived version is generated once and then cached; that costs
+ * transformation credits (1,000 per credit), a few per image, once.
+ *
+ * Images only. A PDF must be served as exactly the bytes uploaded.
+ * Inserted after `/upload/` — the one place Cloudinary reads transformations
+ * — and only once, so a URL that already carries it is left alone.
+ */
+const deliveryUrl = (secureUrl) =>
+  secureUrl.includes('/upload/f_auto,q_auto/')
+    ? secureUrl
+    : secureUrl.replace('/upload/', '/upload/f_auto,q_auto/');
 const storage = {
 
   isConfigured,
@@ -31,15 +54,14 @@ const storage = {
    */
   upload(buffer, { resourceType = 'image', folder = defaultFolder() } = {}) {
     return new Promise((resolve, reject) => {
+      // ⚠️ NO `quality` / `fetch_format` here (removed PF-113 batch 2).
+      // PF-63 passed both at UPLOAD time believing they made Cloudinary serve
+      // WebP/AVIF. Measured against the real account on 2026-10-03, they do the
+      // opposite: a 2.88 MB PNG was STORED as a 3.97 MB PNG (re-encoded,
+      // bigger), and the returned URL served that PNG to every browser. Upload
+      // options shape the STORED file; what a visitor downloads is decided by
+      // the DELIVERY URL — see deliveryUrl() above.
       const options = { resource_type: resourceType, folder };
-
-      // Delivery optimisation (PF-63): hand back AVIF/WebP at automatic quality
-      // to browsers that support them. Images only — these are meaningless on a
-      // raw asset, and a PDF must be served as the bytes that were uploaded.
-      if (resourceType === 'image') {
-        options.fetch_format = 'auto';
-        options.quality      = 'auto';
-      }
 
       // upload_stream, not upload(): upload() expects a path or a data URI,
       // and base64-encoding the buffer just to hand it back would waste ~33%
@@ -51,7 +73,7 @@ const storage = {
           if (!result) return reject(new Error('Cloudinary returned no result'));
 
           resolve({
-            url:      result.secure_url,
+            url:      resourceType === 'image' ? deliveryUrl(result.secure_url) : result.secure_url,
             publicId: result.public_id,
             bytes:    result.bytes,
             format:   result.format || '',

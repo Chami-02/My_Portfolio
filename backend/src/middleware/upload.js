@@ -7,13 +7,29 @@ const AppError = require('../utils/AppError');
 // the next invocation. Files stay in RAM just long enough to be validated and
 // streamed to Cloudinary.
 
-const MAX_IMAGE_BYTES = 2 * 1024 * 1024;   // 2 MB — images
-const MAX_PDF_BYTES   = 5 * 1024 * 1024;   // 5 MB — résumé PDFs
+// ── 4 MB for EVERYTHING, and NEVER above it (PF-113 batch 2, owner 2026-10-03) ──
+// ⚠️ THE REAL CEILING IS VERCEL'S, NOT OURS. Production runs these routes as a
+// Vercel Function, and Vercel refuses any request body over 4.5 MB on every
+// plan (413 FUNCTION_PAYLOAD_TOO_LARGE) BEFORE this code runs. 4 MB plus the
+// multipart wrapping stays under it with ~0.5 MB to spare.
+//
+// Raising either number past 4.5 MB fails SILENTLY IN THE WRONG PLACE: every
+// upload still works locally (no Vercel in front of `npm run dev`), and only
+// production refuses — with Vercel's own error, which no message here explains.
+// That is exactly what the old 5 MB résumé cap did for any 4.5–5 MB PDF.
+//
+// Was 2 MB (images) / 5 MB (PDFs). The panel now resizes large photos in the
+// browser first (frontend/src/utils/resizeImage.js), so 4 MB is a safety
+// margin, not the normal size. A 10 MB route (direct browser → Cloudinary
+// uploads) was offered and DECLINED — see locked-decisions.md.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;   // 4 MB — images
+const MAX_PDF_BYTES   = 4 * 1024 * 1024;   // 4 MB — résumé PDFs
 
-// The multer-level ceiling is the largest file we ever accept, so a 3 MB image
-// is rejected by the controller (which knows it asked for an image) rather than
-// here (which does not). Kept under the original name — PF-60 imports it.
-const MAX_UPLOAD_BYTES = MAX_PDF_BYTES;
+// The multer-level ceiling is the largest file we ever accept. Equal to both
+// limits now, so multer is what refuses an oversized file of either kind; the
+// handlers' own checks stay as defence in depth for a caller that skips
+// uploadSingle. Kept under the original name — PF-60 imports it.
+const MAX_UPLOAD_BYTES = Math.max(MAX_IMAGE_BYTES, MAX_PDF_BYTES);
 
 const ALLOWED_IMAGE_MIME = [
   'image/png',
@@ -27,7 +43,7 @@ const ALLOWED_IMAGE_MIME = [
  *
  * A convenience check only: the browser supplies this header and it is
  * trivially spoofed. The real gate is the magic-byte check in the controller.
- * Its value is rejecting obvious mistakes before 5 MB is buffered into RAM.
+ * Its value is rejecting obvious mistakes before 4 MB is buffered into RAM.
  */
 const fileFilter = (req, file, cb) => {
   const allowed = [...ALLOWED_IMAGE_MIME, 'application/pdf'];

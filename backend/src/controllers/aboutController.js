@@ -10,14 +10,11 @@ const storage  = require('../services/storage');
 // deliberately not a dependency.
 const { isPdf, isAllowedImage, MEDIA_IMAGE_MIME } = require('../utils/fileType');
 
-// ── Résumé constants (PF-60) ─────────────────────────────────────────────────
-const MAX_RESUME_BYTES = 5 * 1024 * 1024;   // 5 MB
-
-// ── Portrait constants (PF-111) ──────────────────────────────────────────────
-// 2 MB, matching middleware/upload.js's MAX_IMAGE_BYTES — imported rather than
-// re-typed so the two cannot drift. multer enforces the 5 MB PDF ceiling for
-// every route; this is the tighter image-only limit the handler applies.
-const { MAX_IMAGE_BYTES } = require('../middleware/upload');
+// ── Size limits — IMPORTED, never re-typed (PF-113 batch 2) ──────────────────
+// Both are 4 MB and live in middleware/upload.js beside the reason they cannot
+// go higher (Vercel's 4.5 MB request cap). This file used to carry its own
+// `5 * 1024 * 1024` for the résumé, which is how a second number drifts.
+const { MAX_IMAGE_BYTES, MAX_PDF_BYTES: MAX_RESUME_BYTES } = require('../middleware/upload');
 
 const AVATAR_FOLDER = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/profile`;
 
@@ -170,7 +167,8 @@ const uploadResume = async (req, res, next) => {
     // that reaches the controller without going through uploadSingle.
     if (buffer.length > MAX_RESUME_BYTES) {
       return next(new AppError(
-        `Résumé is ${(buffer.length / 1024 / 1024).toFixed(1)} MB — the limit is 5 MB.`,
+        `Résumé is ${(buffer.length / 1024 / 1024).toFixed(1)} MB — the limit is ` +
+        `${MAX_RESUME_BYTES / 1024 / 1024} MB.`,
         413
       ));
     }

@@ -91,8 +91,11 @@ describe('isPdf magic-byte validation (PF-60 Step 5)', () => {
     expect(isPdf(Buffer.from('GIF89a%PDF-1.7'))).toBe(false);
   });
 
-  it('caps résumés at 5 MB', () => {
-    expect(MAX_RESUME_BYTES).toBe(5 * 1024 * 1024);
+  // PF-113 batch 2: 5 → 4 MB. Vercel refuses any request body over 4.5 MB in
+  // production, so the old 5 MB was a promise only localhost could keep.
+  it('caps résumés at 4 MB — under Vercel\'s 4.5 MB request cap', () => {
+    expect(MAX_RESUME_BYTES).toBe(4 * 1024 * 1024);
+    expect(MAX_RESUME_BYTES).toBeLessThan(4.5 * 1024 * 1024);
   });
 
 });

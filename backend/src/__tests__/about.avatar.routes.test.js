@@ -217,7 +217,7 @@ describe('PUT /api/about/avatar', () => {
   });
 
   it('rejects an oversized image with 413', async () => {
-    const big = Buffer.concat([PNG, Buffer.alloc(3 * 1024 * 1024)]);   // > 2 MB
+    const big = Buffer.concat([PNG, Buffer.alloc(5 * 1024 * 1024)]);   // > 4 MB (PF-113 batch 2)
     const res = await request(app)
       .put('/api/about/avatar')
       .set(await authHeader())

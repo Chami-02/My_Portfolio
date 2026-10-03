@@ -172,7 +172,7 @@ describe('PUT /api/about/resume', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects a file over 5 MB with 413 before it reaches storage', async () => {
+  it('rejects a file over 4 MB with 413 before it reaches storage', async () => {
     // Valid PDF signature, but 6 MB — multer must stop it, not the controller
     const huge = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(6 * 1024 * 1024, 0x20)]);
 
