@@ -7,10 +7,7 @@
 // they verify is the wiring and the ORDER of operations — the parts that stay
 // the same whatever the provider is.
 jest.mock('../services/storage', () => {
-  const actual = jest.requireActual('../services/storage');
-
   return {
-    attachmentUrl: actual.attachmentUrl,   // pure string work — keep the real one
     isConfigured:  jest.fn(() => true),
     upload:        jest.fn(),
     destroy:       jest.fn(),

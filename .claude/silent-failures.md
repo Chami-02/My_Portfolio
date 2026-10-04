@@ -3183,3 +3183,37 @@ server. Batch 1 did that and had to prove the restart came after the last
 restore. Batch 2 ran them in `rsync`'d scratch copy with `node_modules`
 symlinked — the real tree untouched — and deleted the copy afterwards (it holds
 `.env`).
+
+## ⚠️ A `raw` Cloudinary asset downloads with NO EXTENSION, and a `.pdf` id is refused outright (2026-10-04)
+
+**Rule:** the résumé is served by `GET /api/resume` **proxying the bytes** with
+its own `Content-Type: application/pdf` and `Content-Disposition` naming
+`<fileName>.pdf`. Never a redirect to a Cloudinary `fl_attachment` URL, and never
+a `.pdf` public id.
+
+**What the owner saw:** DOWNLOAD CV saved `~/Downloads/PC_Gallage`, which macOS
+treated as an unknown document. `file` said **PDF document, version 1.4, 2 pages**,
+244,955 bytes, identical to the stored file. The bytes were right and only the name
+was wrong.
+
+**Mechanism, measured against the real account:**
+- An upload with no `public_id` gets a random id with **no extension**
+  (`portfolio/documents/sx2odshgfpusfuqndsae`, "Format N/A" in the console).
+- `storage.attachmentUrl()` stripped the extension off `fileName` because
+  "Cloudinary appends it automatically". That holds for **images**. A **raw** asset
+  has no format, so Cloudinary answered `content-disposition: attachment;
+  filename="PC_Gallage"` with `content-type: application/octet-stream`.
+- Putting the extension in the flag (`fl_attachment:PC_Gallage.pdf`) returns **400
+  `Invalid flag in transformation: pdf`**: the dot is parsed as a flag separator.
+- Uploading with `public_id: '….pdf'` (probe uploaded and destroyed) made **every**
+  URL return **401 `deny or ACL failure`**. The free plan's "PDF and ZIP delivery"
+  restriction applies to raw assets too. **The extension-less id is the only reason
+  the résumé is deliverable at all.** Do not "fix" it by adding `.pdf`.
+
+**Tell:** no error anywhere. Preview works, because the browser sniffs the bytes.
+Only the saved file's NAME is wrong, and only the OS notices.
+
+`attachmentUrl` and the upload response's `downloadUrl` were deleted: no consumer,
+and both carried the bad name. ⚠️ Turning on Cloudinary's PDF delivery setting
+would also work. It was offered and declined: one switched-off checkbox would break
+every CV link at once.

@@ -7741,3 +7741,36 @@ probes (known trap, waited it out).
   block's status badge + `MAX 4 MB` caption (my call, applying PF-112's pattern)?
   And rewrite the sidebar SESSION card's "Every change here is written straight
   to the live site", untrue since staging and drafts?
+
+## Fix — CV downloads with no `.pdf` extension (2026-10-04, not a ticket)
+
+The owner reported that DOWNLOAD CV saved a file named `PC_Gallage` that macOS could
+not open as a PDF. The bytes were correct and the name had no extension. Full
+mechanism in `silent-failures.md` ("A `raw` Cloudinary asset downloads with NO
+EXTENSION").
+
+- **First plan (a `.pdf` public id) was measured wrong before shipping.** Cloudinary
+  answered 401 for it on the free plan. The owner chose the proxy over enabling PDF
+  delivery in Cloudinary.
+- `aboutController.downloadResume` now fetches the stored URL (Cloudinary origin
+  only, 10 s timeout) and sends it with `Content-Type: application/pdf`,
+  `Content-Disposition` (ASCII `filename` plus RFC 5987 `filename*`) and
+  `Cache-Control: no-cache`. If storage fails it returns 502, never a broken file.
+  ≤ 4 MB, under Vercel's 4.5 MB response cap.
+- **Deleted:** `storage.attachmentUrl` (and its 8 tests) and `downloadUrl` in the
+  `PUT /api/about/resume` response. Neither had a consumer.
+- Tests: `resume.routes.test.js` GET block rewritten, 9 cases, `fetch` stubbed.
+  Four mutants were all killed, with a clean control. Live against `portfolio_dev`:
+  200, `application/pdf`, `filename="PC Gallage.pdf"`, bytes identical. **No
+  re-upload needed**: the existing file is served correctly.
+- ⚠️ Mutants ran in the real tree while the owner's nodemon was watching, against
+  the 2026-10-03 rule (use a copy). The restore was verified with `cmp`, and the
+  live check ran after it.
+
+**Cloudinary folder review, same day (owner's questions):** `profile` is empty
+because no portrait has been uploaded. Logo, hero, default portrait and both blog
+photos are **bundled assets**, not Cloudinary, by decision. The two images in
+`projects` are the ClearDrive.lk and Personal Portfolio card backgrounds.
+**`portfolio/_pf113-probe` is an empty leftover** from PF-113 batch 2's
+upload-size measurements. It was not recorded at the time and is safe to delete.
+The owner already deleted `samples`.

@@ -229,7 +229,6 @@ const uploadResume = async (req, res, next) => {
         hasResume:   true,
         replaced:    Boolean(oldPublicId),
         oldDeleted,
-        downloadUrl: storage.attachmentUrl(about.resume.url, about.resume.fileName),
       },
     });
 
@@ -413,10 +412,38 @@ const removeAvatar = async (req, res, next) => {
 };
 
 // ── GET /api/resume ──────────────────────────────────────────────────────────
-// Public. 302-redirects to the current résumé as a forced download.
+// Public. Sends the current résumé as a download named after the file the
+// owner uploaded — `PC Gallage.pdf`, extension included.
 //
 // Gives one permanent URL that survives every replacement — safe to put in an
 // email signature, unlike the Cloudinary URL which changes on each upload.
+//
+// ⚠️ This PROXIES the bytes; it used to 302 to a Cloudinary `fl_attachment`
+// URL, and that download arrived with NO EXTENSION (`PC_Gallage`, typed
+// application/octet-stream) so the OS could not tell it was a PDF. Measured
+// 2026-10-04, Cloudinary cannot be made to name it correctly on a free account:
+//   - the résumé is a `raw` asset with no format, so `fl_attachment` has no
+//     extension to append (it does for images, not for raw);
+//   - a dot inside the flag is a parse error (400 "Invalid flag … pdf");
+//   - storing the public id WITH `.pdf` makes every URL 401 "deny or ACL
+//     failure" — the free plan's PDF delivery restriction applies to raw too.
+//     The extension-less id is what lets the file be delivered at all.
+// A résumé is ≤ 4 MB (MAX_PDF_BYTES), under Vercel's 4.5 MB response cap.
+const RESUME_ORIGIN = 'https://res.cloudinary.com/';
+
+// Header-safe download name. The quoted `filename` must be plain ASCII, so it
+// gets a sanitised copy; `filename*` (RFC 6266/5987) carries the real name for
+// every browser that reads it, which is all current ones.
+const resumeDisposition = (fileName) => {
+  const stem  = String(fileName || '').replace(/\.pdf$/i, '').trim() || 'resume';
+  const real  = `${stem}.pdf`;
+  const ascii = real.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  // encodeURIComponent leaves ' ( ) * alone; RFC 5987 does not allow them.
+  const encoded = encodeURIComponent(real)
+    .replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+};
+
 const downloadResume = async (req, res, next) => {
   try {
     const about = await About.findOne().select('resume');
@@ -425,7 +452,35 @@ const downloadResume = async (req, res, next) => {
       return next(new AppError('No résumé is currently available', 404));
     }
 
-    res.redirect(302, storage.attachmentUrl(about.resume.url, about.resume.fileName));
+    // The url is server-written (PUT /api/about strips `resume`), so this is
+    // defence in depth: this route never fetches anywhere but Cloudinary.
+    if (!about.resume.url.startsWith(RESUME_ORIGIN)) {
+      return next(new AppError('Résumé is unavailable', 502));
+    }
+
+    let upstream;
+    try {
+      upstream = await fetch(about.resume.url, { signal: AbortSignal.timeout(10_000) });
+    } catch (e) {
+      console.warn('[resume] Fetch from storage failed:', e.message);
+      return next(new AppError('Résumé is temporarily unavailable', 502));
+    }
+
+    if (!upstream.ok) {
+      console.warn(`[resume] Storage answered ${upstream.status} for ${about.resume.publicId}`);
+      return next(new AppError('Résumé is temporarily unavailable', 502));
+    }
+
+    const bytes = Buffer.from(await upstream.arrayBuffer());
+
+    res.set({
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': resumeDisposition(about.resume.fileName),
+      'Content-Length':      String(bytes.length),
+      // A replaced résumé must not be served from a browser cache.
+      'Cache-Control':       'no-cache',
+    });
+    res.send(bytes);
 
   } catch (err) { next(err); }
 };

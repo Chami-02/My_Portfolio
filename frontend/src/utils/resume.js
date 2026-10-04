@@ -37,9 +37,10 @@ export const CV_EMPTY_HREF  = '#contact';
 export const CV_EMPTY_TITLE = 'Upload a résumé in the admin panel to enable this';
 
 /**
- * The public download endpoint — `GET /api/resume`, a 302 to the forced-download
- * URL. Its own mount rather than `/api/about/resume` so the URL is short and
- * survives every replacement (resumeRoutes.js).
+ * The public download endpoint — `GET /api/resume`, which sends the PDF itself,
+ * named after the uploaded file (`PC Gallage.pdf`). Its own mount rather than
+ * `/api/about/resume` so the URL is short and survives every replacement
+ * (resumeRoutes.js).
  *
  * Built with `apiUrl()` rather than a literal `/api/resume`, because the backend
  * is on a different origin in production: a hardcoded path in an href would 404

@@ -14,7 +14,7 @@ export const aboutService = {
   //
   // ⚠️ None of them returns the whole About document — the payloads are
   // { avatar, hasAvatar, replaced, oldDeleted } and { resume, hasResume,
-  // replaced, oldDeleted, downloadUrl } — so the hooks invalidate ABOUT_KEY
+  // replaced, oldDeleted } — so the hooks invalidate ABOUT_KEY
   // rather than writing the response into the cache.
   uploadAvatar: (file) => api.put('/about/avatar', ...multipart(file)).then((r) => r.data.data),
   removeAvatar: ()     => api.delete('/about/avatar').then((r) => r.data.data),

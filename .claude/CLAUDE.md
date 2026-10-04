@@ -1430,6 +1430,12 @@ concluding "this is fine, I read the source".
   ⚠️ Naming `'multipart/form-data'` explicitly is ALSO broken — it omits the
   boundary, which only the browser can generate. Applies to every future
   upload, PF-113's background included.
+- **⚠️ A `raw` Cloudinary asset downloads with NO EXTENSION, and a `.pdf`
+  public id is REFUSED (401) on the free plan.** `fl_attachment` cannot add one
+  (a dot in the flag is a 400). The CV saved as `PC_Gallage`, a valid PDF that
+  the OS could not open. **`GET /api/resume` PROXIES the bytes and names the file
+  itself** (2026-10-04). Never redirect it to Cloudinary, and never add `.pdf` to
+  the id.
 - **⚠️ axios serialises arrays as `tag[]=a&tag[]=b`; `URLSearchParams`
   writes `tag=a&tag=b`.** `qs` parses both, so it "works" while the address
   bar and the wire disagree. `paramsSerializer: { indexes: null }` on the

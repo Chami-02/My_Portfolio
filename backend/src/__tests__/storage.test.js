@@ -4,49 +4,8 @@ const { isPdf, MAX_RESUME_BYTES } = require('../controllers/aboutController');
 // No network here — every one of these is pure logic, so the suite runs
 // without a Cloudinary account existing.
 
-describe('storage.attachmentUrl (PF-60 Step 4)', () => {
-
-  const base = 'https://res.cloudinary.com/demo/raw/upload/v1/portfolio/documents/abc.pdf';
-
-  it('injects the fl_attachment flag', () => {
-    expect(storage.attachmentUrl(base, 'CV.pdf')).toContain('/upload/fl_attachment:CV/');
-  });
-
-  it('strips the file extension from the flag', () => {
-    // Left on, Cloudinary would serve the file as "CV.pdf.pdf"
-    expect(storage.attachmentUrl(base, 'CV.pdf')).not.toContain('fl_attachment:CV.pdf');
-  });
-
-  it('sanitises spaces and parentheses that would corrupt the URL', () => {
-    const out = storage.attachmentUrl(base, 'My CV (2026)!.pdf');
-
-    expect(out).toMatch(/fl_attachment:[A-Za-z0-9._-]+\//);
-    expect(out).not.toMatch(/[ ()!]/);
-  });
-
-  it('replaces unsafe characters one-for-one rather than dropping them', () => {
-    expect(storage.attachmentUrl(base, '!!!.pdf')).toContain('fl_attachment:___/');
-  });
-
-  it('falls back to "resume" when the name is nothing but an extension', () => {
-    // '.pdf' → extension stripped → empty → would emit "fl_attachment:/"
-    expect(storage.attachmentUrl(base, '.pdf')).toContain('fl_attachment:resume/');
-  });
-
-  it('falls back to "resume" when no filename is given', () => {
-    expect(storage.attachmentUrl(base, '')).toContain('fl_attachment:resume/');
-  });
-
-  it('returns an empty string for empty input', () => {
-    expect(storage.attachmentUrl('', 'CV.pdf')).toBe('');
-  });
-
-  it('leaves the rest of the URL untouched', () => {
-    expect(storage.attachmentUrl(base, 'CV.pdf'))
-      .toBe('https://res.cloudinary.com/demo/raw/upload/fl_attachment:CV/v1/portfolio/documents/abc.pdf');
-  });
-
-});
+// storage.attachmentUrl was deleted 2026-10-04: GET /api/resume now proxies
+// the file and names it itself — see resume.routes.test.js.
 
 describe('storage.destroy guard', () => {
 

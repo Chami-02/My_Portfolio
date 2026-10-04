@@ -2,11 +2,7 @@
 // credentials and no network. What they verify is the wiring and the ORDER of
 // operations — the parts that stay the same whatever the provider is.
 jest.mock('../services/storage', () => {
-  const actual = jest.requireActual('../services/storage');
-
   return {
-    // attachmentUrl is pure string work — keep the real one
-    attachmentUrl: actual.attachmentUrl,
     isConfigured:  jest.fn(() => true),
     upload:        jest.fn(),
     destroy:       jest.fn(),
@@ -75,7 +71,9 @@ describe('PUT /api/about/resume', () => {
     expect(res.body.data.resume.fileName).toBe('Parindra_CV.pdf');
     expect(res.body.data.resume.publicId).toBe('portfolio/documents/abc');
     expect(res.body.data.resume.ext).toBe('PDF');
-    expect(res.body.data.downloadUrl).toContain('fl_attachment:Parindra_CV/');
+    // Deleted 2026-10-04: it named the download with no extension, and no
+    // client read it. GET /api/resume is the one download URL.
+    expect(res.body.data).not.toHaveProperty('downloadUrl');
     expect(storage.destroy).not.toHaveBeenCalled();
   });
 
@@ -274,16 +272,117 @@ describe('DELETE /api/about/resume', () => {
 
 describe('GET /api/resume', () => {
 
-  it('is public and 302-redirects with fl_attachment', async () => {
-    storage.upload.mockResolvedValue(uploaded('abc'));
-    await request(app).put('/api/about/resume')
-      .set(await authHeader()).attach('file', PDF, 'Parindra_CV.pdf');
+  // GET /api/resume PROXIES the file (2026-10-04). A Cloudinary redirect
+  // delivered it as `PC_Gallage` with no extension — the résumé is a `raw`
+  // asset with no format, and a `.pdf` public id is refused by the free plan's
+  // PDF delivery restriction. So `fetch` is stubbed here; the network is not.
+  let fetchSpy;
+  const pdfResponse = (status = 200) =>
+    new Response(status === 200 ? PDF : 'denied', { status });
 
-    const res = await request(app).get('/api/resume');   // no auth header
+  beforeEach(() => { fetchSpy = jest.spyOn(global, 'fetch'); });
+  afterEach(() => fetchSpy.mockRestore());
 
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toContain('fl_attachment:Parindra_CV/');
-    expect(res.headers.location).toContain('res.cloudinary.com');
+  const seed = (fileName, url) => About.create({
+    resume: {
+      url:      url ?? 'https://res.cloudinary.com/demo/raw/upload/v1/portfolio/documents/abc',
+      publicId: 'portfolio/documents/abc',
+      fileName,
+      ext:      'PDF',
+      bytes:    PDF.length,
+    },
+  });
+
+  it('is public and sends the PDF bytes as an attachment named .pdf', async () => {
+    fetchSpy.mockResolvedValue(pdfResponse());
+    await seed('PC Gallage.pdf');
+
+    const res = await request(app).get('/api/resume').buffer(true)
+      .parse((r, cb) => { const c = []; r.on('data', (d) => c.push(d)); r.on('end', () => cb(null, Buffer.concat(c))); });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.headers['content-disposition'])
+      .toBe(`attachment; filename="PC Gallage.pdf"; filename*=UTF-8''PC%20Gallage.pdf`);
+    expect(res.headers['cache-control']).toBe('no-cache');
+    expect(Buffer.compare(res.body, PDF)).toBe(0);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://res.cloudinary.com/demo/raw/upload/v1/portfolio/documents/abc',
+      expect.any(Object),
+    );
+  });
+
+  it('fetches the stored url as-is — no fl_attachment, which loses the extension', async () => {
+    fetchSpy.mockResolvedValue(pdfResponse());
+    await seed('CV.pdf');
+
+    await request(app).get('/api/resume');
+
+    expect(fetchSpy.mock.calls[0][0]).not.toContain('fl_attachment');
+  });
+
+  it('adds .pdf when the stored name has none, and never doubles it', async () => {
+    fetchSpy.mockResolvedValue(pdfResponse());
+    await seed('My CV');
+    const a = await request(app).get('/api/resume');
+    expect(a.headers['content-disposition']).toContain('filename="My CV.pdf"');
+
+    await About.deleteMany({});
+    fetchSpy.mockResolvedValue(pdfResponse());
+    await seed('Résumé.PDF');
+    const b = await request(app).get('/api/resume');
+    // ASCII fallback replaces the é; filename* carries it intact. Never .pdf.pdf.
+    expect(b.headers['content-disposition'])
+      .toBe(`attachment; filename="R_sum_.pdf"; filename*=UTF-8''R%C3%A9sum%C3%A9.pdf`);
+  });
+
+  it('keeps quotes and apostrophes from breaking the header', async () => {
+    fetchSpy.mockResolvedValue(pdfResponse());
+    await seed(`Parindra's "CV" (2026).pdf`);
+
+    const res = await request(app).get('/api/resume');
+
+    expect(res.headers['content-disposition']).toBe(
+      `attachment; filename="Parindra's _CV_ (2026).pdf"; ` +
+      `filename*=UTF-8''Parindra%27s%20%22CV%22%20%282026%29.pdf`,
+    );
+  });
+
+  it('falls back to resume.pdf when the stored name is empty', async () => {
+    fetchSpy.mockResolvedValue(pdfResponse());
+    await seed('');
+
+    const res = await request(app).get('/api/resume');
+
+    expect(res.headers['content-disposition']).toContain('filename="resume.pdf"');
+  });
+
+  it('answers 502 — not a broken file — when storage refuses', async () => {
+    fetchSpy.mockResolvedValue(pdfResponse(401));
+    await seed('CV.pdf');
+
+    const res = await request(app).get('/api/resume');
+
+    expect(res.status).toBe(502);
+    expect(res.headers['content-type']).not.toBe('application/pdf');
+  });
+
+  it('answers 502 when storage cannot be reached', async () => {
+    fetchSpy.mockRejectedValue(new Error('ENOTFOUND'));
+    await seed('CV.pdf');
+
+    const res = await request(app).get('/api/resume');
+
+    expect(res.status).toBe(502);
+  });
+
+  it('never fetches a url outside Cloudinary', async () => {
+    await seed('CV.pdf', 'http://169.254.169.254/latest/meta-data');
+
+    const res = await request(app).get('/api/resume');
+
+    expect(res.status).toBe(502);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('returns 404 when no résumé exists', async () => {
@@ -292,6 +391,7 @@ describe('GET /api/resume', () => {
     const res = await request(app).get('/api/resume');
 
     expect(res.status).toBe(404);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
 });

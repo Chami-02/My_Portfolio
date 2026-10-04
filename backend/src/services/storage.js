@@ -106,31 +106,6 @@ const storage = {
 
     return cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
   },
-
-  /**
-   * Build a URL that forces a download with a proper filename.
-   *
-   * ⚠️ The HTML `download` attribute is IGNORED for cross-origin URLs. A plain
-   * Cloudinary link opens the PDF in a browser tab instead of downloading it,
-   * and if it does save, the file is named after the random public ID.
-   * `fl_attachment` fixes both, server-side.
-   *
-   * @param {string} url       the stored secure_url
-   * @param {string} fileName  desired download name
-   */
-  attachmentUrl(url, fileName) {
-    if (!url) return '';
-
-    // Strip the extension — Cloudinary appends it automatically, so leaving
-    // it on produces "CV.pdf.pdf".
-    const base = String(fileName || 'resume').replace(/\.[^.]+$/, '');
-
-    // Cloudinary only accepts safe characters in a transformation flag value.
-    // Spaces and parentheses in a filename would corrupt the URL.
-    const safe = base.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80) || 'resume';
-
-    return url.replace('/upload/', `/upload/fl_attachment:${safe}/`);
-  },
 };
 
 module.exports = storage;
