@@ -1,21 +1,25 @@
 # Dependabot auto-merge — let SAFE updates merge themselves.
 #
 # WHAT IT DOES, in plain terms: when Dependabot opens a pull request, this
-# workflow reads what kind of update it is. If it is a small (PATCH) update to
-# a DEVELOPMENT TOOL or to a GitHub Action, it switches on GitHub's
-# "auto-merge" for that PR. Anything else gets a comment saying it is waiting
-# for the owner.
+# workflow reads what kind of update it is and applies the owner's policy
+# (2026-10-05, "industry-typical"):
+#
+#   dev tools + GitHub Actions   patch ✅ auto   minor ✅ auto   major ✋ owner
+#   live-site packages           patch ✅ auto   minor ✋ owner   major ✋ owner
+#
+# For a ✅ it switches on GitHub's "auto-merge" for that PR. For a ✋ it posts a
+# comment saying the PR is waiting for the owner.
 #
 # ⚠️ "Auto-merge" does NOT mean "merge now". It means "merge AS SOON AS every
 # required check is green". Branch protection on master requires the
-# "All Checks Pass" check, so a tool update that breaks the build or a test
-# simply never merges — it sits there red, waiting for a human.
+# "All Checks Pass" check (unit tests, coverage, E2E, audit…), so an update
+# that breaks anything simply never merges — it sits there red, for a human.
 #
-# ⚠️ WHY ONLY DEV TOOLS (owner decision, 2026-10-05): merging to master deploys
-# the live site (Vercel). A dev tool (jest, eslint, vitest…) never runs on the
-# live site, so even a bad one cannot break what visitors see. A PRODUCTION
-# package (react, express…) could pass every test and still break something no
-# test covers — those always wait for the owner's click.
+# ⚠️ WHY LIVE-SITE MINORS AND ALL MAJORS WAIT: merging to master deploys the
+# live site (Vercel). A minor live-site update could pass every test and still
+# change something no test covers; a major may remove things and need code
+# changes. Dev tools never run on the live site, so a bad one cannot break what
+# visitors see — CI would catch a broken tool as a red build.
 #
 # ⚠️ WHY THE RULE READS THE *GROUP NAME*: Dependabot bundles updates into
 # groups (.github/dependabot.yml). The groups are split so that dev tools and
@@ -58,17 +62,26 @@ jobs:
           UPDATE: ${{ steps.meta.outputs.update-type }}
         run: |
           safe=false
-          # Patch only: x.y.Z — bug fixes, no new behaviour promised.
-          if [ "$UPDATE" = "version-update:semver-patch" ]; then
-            case "$GROUP" in
-              frontend-dev-tools|backend-dev-tools|github-actions) safe=true ;;
-              "")
-                # Not grouped: judge the single dependency itself.
-                if [ "$DEP_TYPE" = "direct:development" ] || [ "$ECOSYSTEM" = "github_actions" ]; then
-                  safe=true
-                fi ;;
-            esac
-          fi
+          case "$UPDATE" in
+            version-update:semver-patch) SIZE="patch" ;;
+            version-update:semver-minor) SIZE="minor" ;;
+            *) SIZE="major" ;;          # major, or unknown: never automatic
+          esac
+          # A grouped PR is judged by its group (the groups never mix kinds);
+          # a single PR by its own dependency type.
+          case "$GROUP" in
+            frontend-dev-tools|backend-dev-tools|github-actions) KIND="tool" ;;
+            frontend-site-patch|backend-site-patch|frontend-site-minor|backend-site-minor) KIND="site" ;;
+            "")
+              if [ "$DEP_TYPE" = "direct:development" ] || [ "$ECOSYSTEM" = "github_actions" ]; then KIND="tool"
+              elif [ "$DEP_TYPE" = "direct:production" ]; then KIND="site"
+              else KIND="unknown"           # indirect (transitive) deps: owner decides
+              fi ;;
+            *) KIND="unknown" ;;            # a group this file does not know: refuse
+          esac
+          if [ "$KIND" = tool ] && { [ "$SIZE" = patch ] || [ "$SIZE" = minor ]; }; then safe=true; fi
+          if [ "$KIND" = site ] && [ "$SIZE" = patch ]; then safe=true; fi
+          echo "kind=$KIND size=$SIZE" 
           echo "group=${GROUP:-none} type=$DEP_TYPE ecosystem=$ECOSYSTEM update=$UPDATE -> safe=$safe"
           echo "safe=$safe" >> "$GITHUB_OUTPUT"
 
@@ -82,7 +95,7 @@ jobs:
       - name: Not auto-mergeable — leave it for the owner
         if: steps.decide.outputs.safe != 'true'
         run: |
-          gh pr comment "$PR_URL" --body "🤖 Not auto-merged: this update touches the live site or is larger than a patch. Waiting for the owner to review and merge."
+          gh pr comment "$PR_URL" --body "🤖 Not auto-merged: live-site minor updates, all major updates and indirect dependencies wait for the owner to review and merge."
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
