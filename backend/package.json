@@ -65,9 +65,9 @@
   },
   "devDependencies": {
     "dotenv-cli": "^11.0.0",
-    "jest": "^30.4.2",
+    "jest": "^30.5.2",
     "mongodb-memory-server": "^10.4.3",
-    "supertest": "^7.2.2"
+    "supertest": "^7.3.1"
   },
   "config": {
     "mongodbMemoryServer": {

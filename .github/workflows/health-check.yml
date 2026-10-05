@@ -1,0 +1,61 @@
+# Production health check — a bot that visits the live site every hour.
+#
+# WHAT IT DOES, in plain terms: once an hour GitHub runs
+# backend/scripts/smoke-test.js against the LIVE backend. It checks four
+# things: /api/health answers; its `database` field says portfolio_prod; the
+# profile loads; the blog list loads. If any check fails, this run turns red
+# and GitHub emails you.
+#
+# ⚠️ WHY IT CHECKS THE `database` FIELD, NOT JUST "200 OK": this project has had
+# a production outage where /api/health answered 200 the whole time while the
+# database was unreachable — /api/health sits in front of the database
+# connection. A status-code monitor would have stayed green through it.
+#
+# ⚠️ WHO GETS THE EMAIL: GitHub sends scheduled-run failure notifications to the
+# person who last changed this file's `cron` line. That is why the owner's own
+# merge is what lands it.
+#
+# ⚠️ GitHub DISABLES scheduled workflows on a public repo after 60 days with no
+# repository activity. If it ever stops, the Actions tab shows a button to
+# re-enable it.
+#
+# COST: free — Actions minutes are unlimited for public repositories, and four
+# GET requests an hour are nothing against the API's rate limit or Vercel's
+# free tier. It only READS; it can change nothing.
+
+name: Production health check
+
+on:
+  schedule:
+    # Minute 17 of every hour. Not :00 — GitHub's scheduler is busiest on the
+    # hour and runs start late or are dropped then.
+    - cron: '17 * * * *'
+  workflow_dispatch:   # adds a "Run workflow" button on the Actions tab
+
+permissions:
+  contents: read
+
+concurrency:
+  group: health-check
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Live site is healthy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Get the smoke-test script
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: backend/scripts
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # PRODUCTION_API_URL is a repository VARIABLE (not a secret — the URL is
+      # public): Settings → Secrets and variables → Actions → Variables.
+      - name: Check the live site
+        run: node backend/scripts/smoke-test.js "${{ vars.PRODUCTION_API_URL }}" portfolio_prod
