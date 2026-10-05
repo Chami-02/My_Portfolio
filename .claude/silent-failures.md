@@ -3217,3 +3217,37 @@ Only the saved file's NAME is wrong, and only the OS notices.
 and both carried the bad name. ⚠️ Turning on Cloudinary's PDF delivery setting
 would also work. It was offered and declined: one switched-off checkbox would break
 every CV link at once.
+
+## ⚠️ jsdom has NO `DragEvent` — `clientX` is silently dropped and a "drop BEFORE" test passes vacuously (PF-114, 2026-10-05)
+
+testing-library's `fireEvent.dragOver(el, { clientX })` builds a plain `Event`
+when `window.DragEvent` is undefined (it is, in jsdom), and the `clientX` init
+key is discarded. Code reading `e.clientX > mid` then sees `undefined > 0` →
+false → "before" on EVERY drop. So every "drops before" assertion passed against
+code that ignores the pointer entirely; only the "drops AFTER" test failed,
+which is how it was found. **Fix:** in the test file,
+`window.DragEvent = class DragEvent extends MouseEvent {}` — a MouseEvent
+carries clientX. Mutation-verified: inverting the halves then fails 4 tests.
+⚠️ And Chrome automation's synthetic mouse drag does NOT fire native HTML5 DnD
+either — verify a real browser by dispatching `new DragEvent(type, {
+dataTransfer: new DataTransfer(), clientX })` in-page, against real rects.
+
+## ⚠️ A mutation harness whose SNAPSHOT step failed stacks every mutant into the real tree (PF-114, 2026-10-05)
+
+zsh does NOT word-split an unquoted `$FILES`, so `for f in $FILES; do cp …`
+copied nothing, every "restore" then failed, and nine mutants accumulated in
+five source files — each reported a valid failure, so the RESULTS looked fine.
+Caught only because the restore check printed "NOT RESTORED". Reversed by
+hand-asserting each mutated string, then the control run (1802/1802) proved it.
+**Rules:** check the snapshot exists and `cmp`s equal BEFORE the first mutant;
+`cmp` after every restore, not once at the end; in zsh use an array
+(`files=(a b)`, `"${files[@]}"`). And still: backend mutants belong in a scratch
+copy when nodemon is watching (the 2026-10-03 entry) — PF-114 broke that too,
+and had to prove the final reload was clean.
+
+## ⚠️ A specificity TIE against a shared admin class is decided by emission order (PF-114, 2026-10-05)
+
+`.sectionDelete { padding-top: 12px }` vs the shared `.btnIcon { padding: 0 0 0
+3px }` — both (0,1,0); the shared one emitted later and won, so the × sat 13px
+high with no error. Use a property the shared class does not set (`margin-top`)
+and/or (0,2,0). Same family as the Reveal transition rule.

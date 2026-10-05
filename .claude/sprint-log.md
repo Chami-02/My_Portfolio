@@ -518,7 +518,7 @@ record; that file is the sprint's authority.
 | ~~PF-111~~ | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | ✅ **BUILT 2026-09-23** — ⚠️ scope GREW: delete-on-record-delete too, see entry |
 | PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 | To Do | not started |
 | ~~PF-113~~ | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | ✅ **BUILT 2026-10-03** — ⚠️ scope widened: project DRAFTS + REVERT (owner), upload-only background; ~12 pts, see entry |
-| PF-114 | Skills panel — rebuild + editing | Medium | 5 | To Do | not started |
+| PF-114 | Skills panel — rebuild + editing | Medium | 5 | Done | **BUILT 2026-10-05** — scope ~14 pts (owner): edit incl. level, level dots, owner-managed sections, drag-and-drop |
 | PF-115 | Blog + Messages panels restyled | Medium | 5 | To Do | not started |
 | PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | To Do | not started |
 | PF-117 | Admin responsive + state audit, both themes | Medium | 6 | To Do | not started |
@@ -7774,3 +7774,58 @@ photos are **bundled assets**, not Cloudinary, by decision. The two images in
 **`portfolio/_pf113-probe` is an empty leftover** from PF-113 batch 2's
 upload-size measurements. It was not recorded at the time and is safe to delete.
 The owner already deleted `samples`.
+
+
+## PF-114 — Skills panel: editing, level dots, owner-managed sections, drag-and-drop (2026-10-05)
+
+**Report:** `new mds/E9/PF-114-skills-panel-sections-levels-reorder.md`. Full
+decisions: `locked-decisions.md` "PF-114".
+
+### Scope as approved, and how it grew
+Plan (5 pts → ~8): edit by clicking a chip (level included), ◀ ▶ within a box,
+new skills LAST, delete confirm, **no drafts** (owner), level shown on the home
+page as dots + legend. Mid-build addendum (owner, approved before code, ~14 pts):
+orange dots + 12px legend; owner-managed **sections** (`SkillCategory`), Other
+kept, all equal, empty ones hidden on the home page; section delete with three
+choices; drag-and-drop, cross-box allowed.
+
+### Built
+Backend: `models/SkillCategory.js`, `controllers/skillCategoryController.js`
+(lazy defaults, slug keys, case-insensitive names, reorder, three-choice delete,
+last-section refusal), `routes/skillCategoryRoutes.js`; `skillController.js`
+(append-on-create, 409/400 mapping on update, section existence, `PUT
+/api/skills/reorder` reusing the box's own slots); `Skill.category` enum
+removed; seed seeds sections first.
+Frontend: `utils/skillForm.js`, `hooks/useSkillCategories.js`,
+`services/skillCategoryService.js`, `useUpdateSkill`/`useReorderSkills`,
+`AdminSkillsPanel.jsx` (rewritten) + `.module.css`, `SkillSectionsCard.jsx`,
+`ConfirmDialog` (`confirmTone`/`extra`/`secondary`), `SkillsSection` (sections +
+dots + legend), shared admin `.label` dark → `--muted`.
+
+### Tests
+Frontend 1802/1802 (82 files). Backend: skills 35, skillCategories 26.
+Mutation: 34 mutants across both batches, all killed after M6's dead clause was
+deleted; controls clean. Gate numbers in the report.
+
+### Live (portfolio_dev, real Chrome)
+Section create → skill add → home page box with 3 dots → DELETE SECTION + 1
+SKILL; API back to 6 sections / 26 skills. Real DragEvents with real rects:
+same-box and cross-box drops correct, REVERT ORDER clean. Contrast measured
+both themes (lowest dot 4.02, lowest admin text 5.55 light / 7.00 dark).
+
+### Found during recheck
+jsdom has no DragEvent (vacuous "before" tests); section × specificity tie;
+dead `!categoryChanged` clause (M6); misclick could discard an unsaved drag;
+non-existent `--accRGB`; admin field labels 4.15 in dark (all panels).
+Process: mutation harness stacked mutants (zsh word-splitting) — reversed and
+control-proven; backend mutants ran in the watched tree (breaking the
+2026-10-03 rule) — final state proved by cmp + forced reload + live API.
+
+### Outstanding work added by PF-114
+- **Skills panel at phone width — UNVERIFIED** (window would not resize).
+  PF-117.
+- **Disabled primary buttons keep their glow** (shared `.btnPrimary:disabled`,
+  0.72 opacity) — reads as lit. Owner question, every panel.
+- Seeded levels 11 beginner / 15 intermediate / 0 advanced — owner content.
+- Native DnD is pointer-only; keyboard/touch path is the edit card's arrows +
+  Category dropdown (cross-box via dropdown). Accepted, recorded.

@@ -3853,3 +3853,83 @@ measurement). The admin tint is 90% see-through; over the live card photo the
 photo × 0.65 + scrim + tint) against AA's 4.5. Solid navy: **7.9:1** on any
 photo. Light theme measured 4.71 / 5.74 and keeps the tint. Do not "unify" the
 two themes back to the tint — a postcss-parsed test pins the dark fill.
+
+## PF-114 — the Skills panel, sections and skill level (owner, 2026-10-05)
+
+### Skills have NO drafts
+A skill is a name, a section and a level — nothing long to hold back — so ADD
+publishes. The one admin panel the "new records SAVE AS DRAFT" rule does not
+reach, **by owner decision, not omission**. Do not add a draft state.
+
+### Skill LEVEL is shown on the home page — three dots + a legend (NO prototype source)
+Owner: the level was required in the admin and "useless" because nothing public
+read it. Each pill carries ●○○ / ●●○ / ●●● plus visually-hidden ", intermediate";
+a legend line sits between "The Toolkit" and the grid (`aria-hidden` — each pill
+already says its level). Unknown level → no dots, no spoken text.
+- ⚠️ Dots are the ACCENT (`--acc`; #FCA311 dark, #7E4800 light) — owner's
+  choice, after a first currentColor build. On pill HOVER they switch to
+  `currentColor` (`--accInk`), or they vanish into the accent-filled pill.
+- ⚠️ Empty ring opacity is **.8, measured**, not .55: at .55 the legend's ring
+  failed 3:1 (2.95 dark / 2.43 light). Lowest now 4.02 (light legend ring).
+- Legend font **12px** (owner: "slightly increase"; was 10.5). The heading's
+  transcribed `margin: 0 0 44px` is untouched — the legend takes its own 18px
+  gap to the grid.
+- ⚠️ Seeded levels (11 beginner / 15 intermediate / 0 advanced) were NOT changed;
+  the owner re-grades from the panel.
+
+### Skill SECTIONS are owner-managed — `SkillCategory`, not an enum
+Owner: "when i want to add a new skill section like soft skill… the admin panel
+should have the ability to create a new skill category." `Skill.category` stores
+a section KEY; `SkillCategory { key, label, order }` holds the list.
+- ⚠️ `key` is a slug set ONCE at create; a RENAME changes only `label`, so no
+  skill is ever rewritten. The six defaults reuse the old enum values exactly.
+- ⚠️ The defaults are created LAZILY on first read of an EMPTY collection
+  (`ensureDefaults`, the `getAbout()` pattern) — no migration. Safe ONLY because
+  deleting the LAST section is refused, so "empty" can only mean "never set up".
+  Do not remove that refusal.
+- Existence is checked in `skillController` on every API write (400 "Choose a
+  section that exists"), NOT by an async schema validator — that would also run
+  on every test fixture and seed insert.
+- Names unique CASE-INSENSITIVELY, both sides.
+- **All sections are equal** — the original five can be renamed, moved, deleted.
+- **"Other" stays**, and is now an ordinary section.
+
+### The home page hides EMPTY sections — REVERSES PF-82
+PF-82 rendered a fixed five and kept an empty card so a data change could not
+reflow the grid. With owner-created sections there is no fixed list, and the
+owner chose (2026-10-05): a box appears only once its section holds a skill. A
+section being set up never shows visitors an empty box. The admin DOES show
+empty sections (they are drop targets), labelled "not shown on the home page".
+
+### Deleting a section with skills — THREE choices (owner)
+CANCEL (focused) · MOVE & DELETE (pick a destination; defaults to Other; moved
+skills go to the END of it) · DELETE SECTION + N SKILLS (the only red button —
+the only one that loses data). Server: `DELETE /:id` refuses (409) a non-empty
+section unless the body says `{ moveTo }` or `{ deleteSkills: true }` —
+⚠️ `=== true`, a truthy string is NOT a delete. Skills first, section last.
+
+### Reordering — ◀ ▶ AND drag-and-drop, one staged layout
+◀ ▶ in the edit card (keyboard / touch path) and native HTML5 drag-and-drop of
+any pill, **within a box or into another** (owner chose cross-box). Both write
+ONE staged layout (`utils/skillForm.js`), nothing is sent until SAVE (CHANGES /
+ORDER). SAVE sends cross-box MOVES first (server appends), then one full-box
+`PUT /api/skills/reorder` per changed box.
+- ⚠️ Reorder REUSES a box's own `order` values (they are globally unique), so it
+  never disturbs another box. Renumbering 1..n would collide.
+- ⚠️ Drag is OFF while a skill is open in the edit card, and chips cannot be
+  opened while an order is unsaved (opening resets the layout) — one staging path
+  at a time.
+- No library (locked: no frontend animation libraries).
+
+### New skills land at the END of their box
+`order` defaulted to 0 while the seed numbers 1–26, so every new skill appeared
+FIRST. Now global max + 1 on create, and on a section change.
+
+### One `ConfirmDialog` grew three optional props
+`confirmTone: 'neutral'`, `extra` (a control slot), `secondary` (a second danger
+action). Defaults are byte-for-byte the old dialog. Skill deletes now confirm
+too — the prototype deletes instantly; the admin rule is one confirm for every
+delete.
+
+### Shared admin `.label` is `--muted` in DARK (PF-91, applied not re-decided)
+Measured 4.15 on every admin form in dark; now 7.00. Light (5.95) untouched.
