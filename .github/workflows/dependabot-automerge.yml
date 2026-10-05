@@ -1,0 +1,88 @@
+# Dependabot auto-merge — let SAFE updates merge themselves.
+#
+# WHAT IT DOES, in plain terms: when Dependabot opens a pull request, this
+# workflow reads what kind of update it is. If it is a small (PATCH) update to
+# a DEVELOPMENT TOOL or to a GitHub Action, it switches on GitHub's
+# "auto-merge" for that PR. Anything else gets a comment saying it is waiting
+# for the owner.
+#
+# ⚠️ "Auto-merge" does NOT mean "merge now". It means "merge AS SOON AS every
+# required check is green". Branch protection on master requires the
+# "All Checks Pass" check, so a tool update that breaks the build or a test
+# simply never merges — it sits there red, waiting for a human.
+#
+# ⚠️ WHY ONLY DEV TOOLS (owner decision, 2026-10-05): merging to master deploys
+# the live site (Vercel). A dev tool (jest, eslint, vitest…) never runs on the
+# live site, so even a bad one cannot break what visitors see. A PRODUCTION
+# package (react, express…) could pass every test and still break something no
+# test covers — those always wait for the owner's click.
+#
+# ⚠️ WHY THE RULE READS THE *GROUP NAME*: Dependabot bundles updates into
+# groups (.github/dependabot.yml). The groups are split so that dev tools and
+# live-site packages never share a PR; the group name is therefore an exact
+# statement of what is inside. A single, ungrouped PR (e.g. a security fix) is
+# judged on its own dependency type instead.
+#
+# ⚠️ WHY `pull_request_target` IS SAFE HERE: that trigger runs with a token that
+# can write to the repo. It is dangerous when a workflow CHECKS OUT and RUNS the
+# pull request's code. This one never checks anything out — it only reads the
+# PR's metadata and calls `gh pr merge`. It is the trigger GitHub's own
+# documentation uses for exactly this job.
+#
+# Prerequisite: Settings → General → "Allow auto-merge" must be ticked.
+
+name: Dependabot auto-merge
+
+on: pull_request_target
+
+permissions:
+  contents: write        # needed to merge
+  pull-requests: write   # needed to enable auto-merge and to comment
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    # Only Dependabot's own PRs, and only in THIS repository (never a fork).
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'Chami-02/My_Portfolio'
+    steps:
+      - name: Read what this update is
+        id: meta
+        uses: dependabot/fetch-metadata@v3
+
+      - name: Decide — is it a safe update?
+        id: decide
+        env:
+          GROUP: ${{ steps.meta.outputs.dependency-group }}
+          DEP_TYPE: ${{ steps.meta.outputs.dependency-type }}
+          ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}
+          UPDATE: ${{ steps.meta.outputs.update-type }}
+        run: |
+          safe=false
+          # Patch only: x.y.Z — bug fixes, no new behaviour promised.
+          if [ "$UPDATE" = "version-update:semver-patch" ]; then
+            case "$GROUP" in
+              frontend-dev-tools|backend-dev-tools|github-actions) safe=true ;;
+              "")
+                # Not grouped: judge the single dependency itself.
+                if [ "$DEP_TYPE" = "direct:development" ] || [ "$ECOSYSTEM" = "github_actions" ]; then
+                  safe=true
+                fi ;;
+            esac
+          fi
+          echo "group=${GROUP:-none} type=$DEP_TYPE ecosystem=$ECOSYSTEM update=$UPDATE -> safe=$safe"
+          echo "safe=$safe" >> "$GITHUB_OUTPUT"
+
+      - name: Safe — merge automatically once every check is green
+        if: steps.decide.outputs.safe == 'true'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Not auto-mergeable — leave it for the owner
+        if: steps.decide.outputs.safe != 'true'
+        run: |
+          gh pr comment "$PR_URL" --body "🤖 Not auto-merged: this update touches the live site or is larger than a patch. Waiting for the owner to review and merge."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
