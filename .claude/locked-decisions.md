@@ -3963,7 +3963,7 @@ locally, in order" (2026-09-08).
 
 ## The automation project — GitHub bots and branching (owner, 2026-10-05)
 
-Owner: "i want the industry standard way nothing else." Ticket number pending.
+Owner: "i want the industry standard way nothing else." **No Jira ticket** (owner decision, 2026-10-05) — the record lives here, in CLAUDE.md, the sprint log, memory, and the owner's handbook PDF.
 
 ### Bots wake by SMALL PRs to master, never by merging the sprint
 Bots read the default branch only. Merging the whole sprint early would have put

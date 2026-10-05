@@ -7834,7 +7834,7 @@ control-proven; backend mutants ran in the watched tree (breaking the
 - Native DnD is pointer-only; keyboard/touch path is the edit card's arrows +
   Category dropdown (cross-box via dropdown). Accepted, recorded.
 
-## Faster dev loop — Part A of the automation project (2026-10-05, ticket number pending from owner)
+## Faster dev loop — Part A of the automation project (2026-10-05, no Jira ticket — owner decision)
 
 **Built:** in-memory MongoDB for the backend suite (`mongodb-memory-server`
 10.4.3, MongoDB 7.0.14), one database per parallel worker; `--runInBand`
@@ -7866,7 +7866,7 @@ vulnerabilities**, both packages, all and production-only. Verified live: a
 Backend 585/585. The sprint branch's CI `Security - Dependency Audit` job (red
 since at least `85f6529`) should go green on the next push.
 
-## The automation project — bots, auto-merge, branching (2026-10-05, ticket number pending owner)
+## The automation project — bots, auto-merge, branching (2026-10-05, no Jira ticket — owner decision)
 
 **Owner's goal:** industry-standard practice, learned hands-on (interview prep);
 PDF teaching guide to `new mds/` (owner adding content requests first).
@@ -7905,4 +7905,6 @@ clean.
   still need `migrate:baseline` once (unchanged).
 - **Security tab ~69 items** (CodeQL first scan + 37 Dependabot alerts, mostly
   about old master) — triage after the sprint merge.
-- **Ticket number** for this work: owner to assign (PF-126 is taken).
+- **No Jira ticket** for this work (owner decision). Owner's teaching material:
+  `new mds/Automation-and-CI-CD-Handbook.pdf` (77 pp) and the session record
+  `new mds/E9/2026-10-05-session-PF-114-and-automation.md`.

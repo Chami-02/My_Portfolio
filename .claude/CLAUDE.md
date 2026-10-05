@@ -598,8 +598,8 @@ finds should shape the panel tickets rather than arrive after them.
 - **PF-114 is BUILT (2026-10-05)** — see `sprint-log.md` and
   `new mds/E9/PF-114-skills-panel-sections-levels-reorder.md`. Skills took NO
   drafts, by owner decision.
-- **The automation project is DONE (2026-10-05, ticket number pending the
-  owner — PF-126 is already taken):** in-memory tests + fast gate, the GitHub
+- **The automation project is DONE (2026-10-05) — NO Jira ticket, by owner
+  decision (recorded here, in the records and in memory instead):** in-memory tests + fast gate, the GitHub
   bots on `master`, GitHub Flow from Sprint 15. See "The GitHub bots" and
   "Branching" sections. Owner's PDF guide goes to `new mds/` (owner is adding
   content requests before it is written).
