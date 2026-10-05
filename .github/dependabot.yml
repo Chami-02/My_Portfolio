@@ -25,6 +25,7 @@
 #
 #   dev tools + GitHub Actions   patch ✅ auto   minor ✅ auto   major ✋ owner
 #   live-site packages           patch ✅ auto   minor ✋ owner   major ✋ owner
+#   build tools (vite, @vitejs)  same as live-site — they build what ships
 #
 # ("auto" = merges itself once EVERY required check is green.)
 # MAJOR updates are never grouped — each arrives as its own PR, because a major
@@ -49,6 +50,17 @@ updates:
     # a busy week produces a dozen PRs, they stop being read, and the useful
     # one — a security fix — is lost in the noise.
     groups:
+      # ⚠️ BUILD TOOLS FIRST (owner, 2026-10-05). vite and its React plugin are
+      # devDependencies but they PRODUCE the files visitors download, so they
+      # follow the live-site policy (patch auto, minor waits). Dependabot puts a
+      # package in the FIRST group it matches, so these must stay above
+      # frontend-dev-tools or vite would be swept into the tools group.
+      frontend-build-patch:
+        patterns: ["vite", "@vitejs/*"]
+        update-types: [patch]
+      frontend-build-minor:
+        patterns: ["vite", "@vitejs/*"]
+        update-types: [minor]
       frontend-dev-tools:
         dependency-type: development
         update-types: [minor, patch]
