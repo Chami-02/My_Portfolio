@@ -15,25 +15,30 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const projectService = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
-const skillService   = vi.hoisted(() => ({ create: vi.fn(), remove: vi.fn() }));
+const skillService   = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), reorder: vi.fn(), remove: vi.fn() }));
 const blogService    = vi.hoisted(() => ({
   create: vi.fn(), update: vi.fn(), togglePublish: vi.fn(), remove: vi.fn(), recordView: vi.fn(),
 }));
 const contactService = vi.hoisted(() => ({ markRead: vi.fn(), remove: vi.fn() }));
 const dashboardService = vi.hoisted(() => ({ getStats: vi.fn() }));
+const skillCategoryService = vi.hoisted(() => ({ create: vi.fn(), rename: vi.fn(), reorder: vi.fn(), remove: vi.fn() }));
 
 vi.mock('../../services/projectService',   () => ({ projectService }));
 vi.mock('../../services/skillService',     () => ({ skillService }));
 vi.mock('../../services/blogService',      () => ({ blogService }));
 vi.mock('../../services/contactService',   () => ({ contactService }));
 vi.mock('../../services/dashboardService', () => ({ dashboardService }));
+vi.mock('../../services/skillCategoryService', () => ({ skillCategoryService }));
 
 const { DASHBOARD_KEY, useDashboardStats } = await import('../useDashboardStats');
 const { useCreateProject, useUpdateProject, useDeleteProject } = await import('../useProjects');
-const { useCreateSkill, useDeleteSkill } = await import('../useSkills');
+const { useCreateSkill, useUpdateSkill, useReorderSkills, useDeleteSkill } = await import('../useSkills');
 const { useCreatePost, useUpdatePost, useTogglePublish, useDeletePost, useRecordView } =
   await import('../useBlog');
 const { useMarkMessageRead, useDeleteMessage } = await import('../useMessages');
+const {
+  useCreateSkillCategory, useRenameSkillCategory, useReorderSkillCategories, useDeleteSkillCategory,
+} = await import('../useSkillCategories');
 
 let client;
 let invalidated;
@@ -54,7 +59,7 @@ beforeEach(() => {
     invalidated.push(args);
     return real(...args);
   });
-  for (const svc of [projectService, skillService, blogService, contactService]) {
+  for (const svc of [projectService, skillService, blogService, contactService, skillCategoryService]) {
     for (const fn of Object.values(svc)) fn.mockResolvedValue({});
   }
 });
@@ -82,6 +87,8 @@ describe('mutations that change a count invalidate the stats entry', () => {
     ['useDeletePost',      useDeletePost,      'id'],
     ['useMarkMessageRead', useMarkMessageRead, 'id'],
     ['useDeleteMessage',   useDeleteMessage,   'id'],
+    // PF-114: deleting a section can delete its skills with it.
+    ['useDeleteSkillCategory', useDeleteSkillCategory, { id: 'id', choice: { deleteSkills: true } }],
   ])('%s invalidates DASHBOARD_KEY', async (_name, hook, arg) => {
     const { result } = renderHook(() => hook(), { wrapper });
     await result.current.mutateAsync(arg);
@@ -97,6 +104,28 @@ describe('mutations that cannot change a count leave it alone', () => {
     await result.current.mutateAsync({ id: 'id', data: {} });
     await waitFor(() => expect(invalidated.length).toBeGreaterThan(0));
     expect(invalidatedKeys()).not.toContain(STATS_KEY);
+  });
+
+  // PF-114 — editing or reordering a skill changes no count.
+  it.each([
+    ['useUpdateSkill',   useUpdateSkill,   { id: 'id', data: {} }],
+    ['useReorderSkills', useReorderSkills, ['a', 'b']],
+  ])('%s refreshes the skill list but not DASHBOARD_KEY', async (_name, hook, arg) => {
+    const { result } = renderHook(() => hook(), { wrapper });
+    await result.current.mutateAsync(arg);
+    await waitFor(() => expect(invalidatedKeys()).toContain(JSON.stringify(['skills'])));
+    expect(invalidatedKeys()).not.toContain(STATS_KEY);
+  });
+
+  // PF-114 — section create/rename/reorder change no count and move no skill.
+  it.each([
+    ['useCreateSkillCategory',    useCreateSkillCategory,    'Soft Skills'],
+    ['useRenameSkillCategory',    useRenameSkillCategory,    { id: 'id', label: 'x' }],
+    ['useReorderSkillCategories', useReorderSkillCategories, ['a', 'b']],
+  ])('%s refreshes only the section list', async (_name, hook, arg) => {
+    const { result } = renderHook(() => hook(), { wrapper });
+    await result.current.mutateAsync(arg);
+    await waitFor(() => expect(invalidatedKeys()).toEqual([JSON.stringify(['skillCategories'])]));
   });
 
   // ⚠️ Locked (PF-99): useRecordView invalidates NOTHING. A view changes

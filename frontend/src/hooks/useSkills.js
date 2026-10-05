@@ -29,3 +29,22 @@ export const useDeleteSkill = () => {
     },
   });
 };
+// PF-114 — the first caller of skillService.update, which had none.
+// ⚠️ SKILLS_KEY only, NOT DASHBOARD_KEY: an edit changes no count, so a stats
+// refetch would be a wasted request (pinned in useDashboardStats.test.jsx).
+export const useUpdateSkill = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }) => skillService.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SKILLS_KEY }),
+  });
+};
+
+// PF-114 — one card's new order. Same reasoning: no count changes.
+export const useReorderSkills = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: skillService.reorder,
+    onSuccess: () => qc.invalidateQueries({ queryKey: SKILLS_KEY }),
+  });
+};
