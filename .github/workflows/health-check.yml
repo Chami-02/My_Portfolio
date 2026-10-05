@@ -46,7 +46,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Get the smoke-test script
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: backend/scripts
 
