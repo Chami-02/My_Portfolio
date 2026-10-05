@@ -3933,3 +3933,30 @@ delete.
 
 ### Shared admin `.label` is `--muted` in DARK (PF-91, applied not re-decided)
 Measured 4.15 on every admin form in dark; now 7.00. Light (5.95) untouched.
+
+## The gate is FAST locally, all SEVEN on CI (owner, 2026-10-05)
+
+Owner: the ~20-minute local gate was "way more time consuming" than industry
+practice; they want the industry loop, taught. **Supersedes** "run all SEVEN
+locally, in order" (2026-09-08).
+
+- **Enabler:** the backend suite runs on an IN-MEMORY MongoDB
+  (`mongodb-memory-server` 10.4.3, MongoDB 7.0.14 — CI's major), one database per
+  parallel worker. Measured: **~10 min → 63 s** (585/585); coverage 64 s; frontend
+  `npm run check` 15 s.
+- **Local, before every hand-off:** `frontend npm run check` (lint + coverage +
+  build) and `backend npm run test:coverage` — six of the seven.
+- **CI after every push:** all seven; `all-checks-pass` is the protected check.
+- **Local E2E** only when a ticket touches what E2E covers, or CI's E2E is red.
+- ⚠️ **Why the old rule existed, and why this keeps it honest:** a "full" local
+  gate was twice green while CI was red — `npm test` never chained to E2E, and
+  `test:coverage` was missing while CI ran it in both packages. Coverage now runs
+  locally in BOTH packages; E2E is not skipped, it runs in CI by default.
+- ⚠️ **Do not "simplify" the in-memory setup back to a shared database.**
+  `setup/perWorkerDatabase.js` rewrites `MONGO_URI` itself (not a helper
+  variable) because three readers — the test helper, `connectDB()`, and the
+  migration tests' child processes — must agree on the worker's database.
+- ⚠️ **Reaching a real server is explicit only:** `npm run test:atlas` or
+  `TEST_MONGO_URI`. `run-jest.js`'s rewrite to `portfolio_test` stays as the
+  guard for that path. CI's backend job now uses the in-memory server too (its
+  `mongo:7` service is still used by E2E); the binary downloads once per CI run.

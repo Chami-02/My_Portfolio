@@ -3314,7 +3314,11 @@ than copied forward:
   `portfolio_e2e`). **It was the dev server, and only the dev server, that
   had no isolation** — which is why this never showed up as a test problem.
 
-- **⚠️ DROP THE `test` DATABASE AFTER ~2026-09-14.** It is the frozen
+- ~~**⚠️ DROP THE `test` DATABASE AFTER ~2026-09-14.**~~ **DONE 2026-10-05** — dropped by the owner
+  in the Atlas UI together with the now-unused `portfolio_test`, after a read-only check
+  that live = `portfolio_prod`, dev = `portfolio_dev`, E2E = `portfolio_e2e`. Cluster now:
+  `portfolio_dev`, `portfolio_e2e`, `portfolio_prod` (+ system `admin`, `local`). Original note:
+  It is the frozen
   pre-rename production data, kept for two weeks as a rollback after the
   2026-08-31 restructure. **Nothing reads it** — `backend/.env` names
   `portfolio_dev`, Vercel names `portfolio_prod`, `.env.e2e` names
@@ -7829,3 +7833,25 @@ control-proven; backend mutants ran in the watched tree (breaking the
 - Seeded levels 11 beginner / 15 intermediate / 0 advanced — owner content.
 - Native DnD is pointer-only; keyboard/touch path is the edit card's arrows +
   Category dropdown (cross-box via dropdown). Accepted, recorded.
+
+## Faster dev loop — Part A of the automation project (2026-10-05, ticket number pending from owner)
+
+**Built:** in-memory MongoDB for the backend suite (`mongodb-memory-server`
+10.4.3, MongoDB 7.0.14), one database per parallel worker; `--runInBand`
+removed from `test`/`test:coverage`; `test:atlas` added for an explicit real-
+server run; `frontend npm run check`. Gate rule rewritten (CLAUDE.md "The gate",
+`locked-decisions.md`).
+
+**Measured:** backend 585/585 in **73 s** (first run, includes the one-off
+binary download), **63 s** warm, coverage **64 s** (was ~10 min each, against
+Atlas). Frontend `check` (lint + coverage + build) **15 s**. Control: one broken
+assertion → red (2 failed). Probe: connected to `127.0.0.1/portfolio_test_1`
+while `.env` named Atlas `portfolio_dev`. Three parallel full runs green — a
+shared database would have broken them through cross-file wipes.
+
+### Outstanding found here
+- **`npm audit --audit-level=high` FAILS on the committed backend lockfile** —
+  3 high in `braces` (GHSA-vfj7-8cjw-p6xm) via `nodemon → chokidar`, dev-only,
+  never shipped. Present BEFORE this change (audited the committed lockfile in
+  a scratch copy). The sprint branch's CI `audit` job will be red until nodemon's
+  chain updates or `braces` is overridden — exactly a Dependabot job.

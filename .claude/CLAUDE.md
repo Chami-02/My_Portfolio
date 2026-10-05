@@ -906,7 +906,8 @@ package.json**.
 | `npm run build` | Production build → `dist/` |
 | `npm run lint` | ESLint over the whole package (flat config, `eslint.config.js`) |
 | `npm run test` | Vitest **watch** |
-| `npm run test:run` | Vitest once — this is what the gate and CI run |
+| `npm run test:run` | Vitest once |
+| **`npm run check`** | **The local fast gate** — lint `--max-warnings=0` + `test:coverage` + build, ~15 s |
 | `npm run test:coverage` | Vitest once + v8 coverage (thresholds enforced in `vite.config.js`) |
 | `npm run test:e2e` | Playwright; `e2e/global-setup.js` refuses to run unless the backend's DB name matches `/e2e\|test/i` |
 | `npm run preview` | Serve `dist/` on :4173 — the production backend blocks this origin (CORS is exact-match); use `-- --port 5173` to verify against it |
@@ -922,13 +923,23 @@ or `npx vitest run -t "renders the marquee"`.
 | `npm run dev:e2e` | same, env from `.env.e2e` — port 5055, `portfolio_e2e` |
 | `npm start` | `node src/server.js` |
 | `npm run seed` | **wipes** Project/Skill/Blog/About/**User** then reseeds from `src/seed.js` |
-| `npm test` | Jest via `scripts/run-jest.js` — **never `npx jest`** |
-| `npm run test:coverage` | Jest + coverage (thresholds in `package.json`) |
+| `npm test` | Jest via `scripts/run-jest.js` — **never `npx jest`**. IN-MEMORY MongoDB, parallel workers, ~60 s |
+| `npm run test:coverage` | Jest + coverage (thresholds in `package.json`), ~60 s — **the backend half of the fast gate** |
+| `npm run test:atlas` | the same suite against a REAL server (`portfolio_test` on Atlas), one file at a time, ~10 min — rarely needed |
 
-`scripts/run-jest.js` forces `NODE_ENV=test` and rewrites `MONGO_URI`'s
-database name to `portfolio_test` (or `TEST_MONGO_URI`). That rewrite is the
-only thing making `clearDB`'s wipe safe — bypassing the wrapper points the
-suite at whatever `backend/.env` names.
+⚠️ **The tests use an IN-MEMORY MongoDB since 2026-10-05** (`mongodb-memory-server`,
+pinned to 7.0.14 in `package.json` `config`). `src/__tests__/setup/globalSetup.js`
+starts one server for the run; `setup/perWorkerDatabase.js` rewrites `MONGO_URI`
+in EVERY worker to `portfolio_test_<JEST_WORKER_ID>`, so files run in parallel
+without wiping each other — and the app's `connectDB()`, the test helper and the
+migration tests' child processes all follow the one rewrite. ~10 min → ~60 s.
+Proven by probe: connected to `127.0.0.1/portfolio_test_1` while `.env` named
+Atlas `portfolio_dev`.
+
+`scripts/run-jest.js` still forces `NODE_ENV=test` and rewrites `MONGO_URI`'s
+database name to `portfolio_test` — now the FALLBACK guard, and the target of
+`--atlas` / `TEST_MONGO_URI`, the only two ways to reach a real server. Bypassing
+the wrapper still points the suite at whatever `backend/.env` names.
 
 Single test: `npm test -- src/__tests__/blog.test.js` or
 `npm test -- -t "increments views by one"`.
@@ -975,26 +986,41 @@ GitHub approval gate — not by hand before the PR. See
 safe ahead of the code that reads it; removing one while old code still reads
 it is an outage. The PR template asks which it is.
 
-### The gate — run all SEVEN, in this order
+### The gate — FAST locally, all SEVEN on GitHub (changed 2026-10-05)
 
-⚠️ **SEVEN, not five — corrected 2026-09-08.** Two holes in the same wall,
-found one sprint apart. `npm test` does **not** chain to E2E, and CI runs it;
-then PF-102 found that **`test:coverage` is absent from the documented gate
-and CI runs it in BOTH packages**. Each time, a "full" local gate was green
-while CI was red. Frontend and backend suites are separate.
+**Owner decision, 2026-10-05:** work the industry way — seconds while building,
+a fast gate before hand-off, the full gate on CI after a push. Made possible by
+the in-memory test database; full record in `locked-decisions.md`.
+
+**Before every hand-off — the fast gate (~1½ min, SIX of the seven):**
 
 ```bash
-cd frontend && npm run test:run
-cd frontend && npm run lint -- --max-warnings=0     # CI's exact invocation
-cd frontend && npm run test:coverage
-cd frontend && npm run build
-cd backend  && npm test
-cd backend  && npm run test:coverage
-cd frontend && npm run test:e2e
+cd frontend && npm run check            # lint --max-warnings=0 + test:coverage + build
+cd backend  && npm run test:coverage    # in-memory, parallel; runs every test
 ```
 
+**On GitHub after every push to `sprint-*`** — `ci.yml` runs ALL SEVEN, and
+`all-checks-pass` is what branch protection trusts. Nothing was dropped; E2E
+moved to where it is cheap by default.
+
+**Run E2E locally (`cd frontend && npm run test:e2e`) when** a ticket changes
+page behaviour an E2E spec covers (navigation, splash, blog, contact, admin
+login/overview, footer), or when CI's E2E job went red.
+
+**Mutation testing** — for NEW guard logic only, and backend mutants in a
+scratch copy, never the tree nodemon watches.
+
+⚠️ **History — why the old rule existed, kept so it is not re-learned.** Until
+2026-10-05 the rule was "run all SEVEN locally, in order": two holes were found
+one sprint apart (`npm test` does not chain to E2E; `test:coverage` was missing
+from the documented gate while CI ran it in both packages), and each time a
+"full" local gate was green while CI was red. The fast gate keeps BOTH lessons —
+coverage runs locally in both packages, and E2E is never skipped, only moved to
+CI by default. What changed is the cost: the backend suite talked to Atlas over
+the network (~10 min, twice) and now does not.
+
 ⚠️ **Backend branch coverage is the TIGHTEST margin in the project** —
-66.66% against a 60% threshold, 6.66 points of headroom where every other
+66.66% against a 60% threshold at the time (72.26% as of 2026-10-05), the headroom where every other
 metric sits 15–25 clear. It is the number most likely to cross unnoticed on
 a backend change, and it is exactly the one the old five-command gate did
 not run.
@@ -1353,8 +1379,9 @@ concluding "this is fine, I read the source".
 ### Tooling and gates whose scope is narrower than it reads
 
 - **`npm test` does not run the E2E suite**, and CI runs it. A "full" local
-  gate can be green while CI is red. **Run all SEVEN commands** — the two
-  coverage steps are the second hole in this same wall. ⚠️ Unit
+  gate can be green while CI is red. **The fast gate runs coverage in BOTH
+  packages, and CI runs all seven** (since 2026-10-05) — the two coverage
+  steps were the second hole in this same wall. ⚠️ Unit
   green + E2E red is the signature of a **removed feature whose tests were
   not cleaned up**; unit *red* means broken code — opposite diagnoses.
 - **⚠️ Piping a long run through `tail` buffers everything to the end**, so
@@ -1459,8 +1486,10 @@ concluding "this is fine, I read the source".
 - **A connection string with no database path** → the driver silently uses
   a database literally named `test`. **This already happened here** and is
   why `assertExplicitDatabase` exists (PF-66). ⚠️ Production is
-  `portfolio_prod` now; `test` still exists as a frozen rollback, so
-  anything pointed at it reads a stale snapshot. Re-read, don't remember.
+  `portfolio_prod` now. The frozen `test` rollback and the unused
+  `portfolio_test` were DROPPED by the owner on 2026-10-05 (verified unused
+  first) — so a pathless URI now silently CREATES an empty `test` database
+  instead of reading a stale one. Same trap, new symptom. Re-read, don't remember.
 - **⚠️ A production outage where `/api/health` returned 200 throughout.**
   It sits *in front of* the `connectDB()` middleware and swallows connect
   errors. **`database` is the only field carrying the truth** — assert it
@@ -2335,7 +2364,9 @@ including PF-95 was run.
 5. **Test.**
 6. **Recheck, re-test, fix what surfaces** — an explicit second pass, not a
    re-run of the first. This is where mutation testing, the live/browser
-   checks and the seven-command gate belong.
+   checks, the fast gate (`npm run check` + backend `test:coverage`) and —
+   when the ticket touches what it covers — local E2E belong. CI runs all
+   seven after the push.
 7. **Write the ticket report as a `.md` FILE** (below). Not a chat summary —
    a file, every time.
 8. **Write the commit message and stop.** The owner reviews and commits by
