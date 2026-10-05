@@ -22,11 +22,22 @@ import styles from './ConfirmDialog.module.css';
  * @param confirmDisabled  e.g. while an impact count is still loading — a "0"
  *                         that is really "not known yet" is a confident lie at
  *                         exactly the moment the reader decides
+ * @param confirmTone      'danger' (default, red) | 'neutral' (outline). PF-114:
+ *                         a confirm that loses NOTHING (move the skills, then
+ *                         delete an emptied section) must not wear the same red
+ *                         as the one that does.
+ * @param extra            controls rendered between the text and the buttons —
+ *                         PF-114's "Move N skills to: [section]" picker
+ * @param secondary        { label, onClick, disabled } — a second, DANGER
+ *                         action beside the confirm (PF-114's
+ *                         "DELETE SECTION + N SKILLS"). Focus still lands on
+ *                         CANCEL.
  */
 export function ConfirmDialog({
   title, children, onConfirm, onCancel,
   confirmLabel = 'YES, DELETE', busyLabel = 'DELETING…',
   busy = false, confirmDisabled = false,
+  confirmTone = 'danger', extra = null, secondary = null,
 }) {
   const cancelRef = useRef(null);
 
@@ -59,15 +70,26 @@ export function ConfirmDialog({
       <div className={styles.card}>
         <h3 className={styles.title} id="confirm-dialog-title">{title}</h3>
         <p className={styles.body}>{children}</p>
+        {extra && <div className={styles.extra}>{extra}</div>}
         <div className={styles.actions}>
           <button
             type="button"
-            className={`${a.btnDanger} ${styles.yes}`}
+            className={`${confirmTone === 'neutral' ? a.btnOutline : a.btnDanger} ${styles.yes}`}
             onClick={onConfirm}
             disabled={busy || confirmDisabled}
           >
             {busy ? busyLabel : confirmLabel}
           </button>
+          {secondary && (
+            <button
+              type="button"
+              className={`${a.btnDanger} ${styles.yes}`}
+              onClick={secondary.onClick}
+              disabled={busy || secondary.disabled}
+            >
+              {secondary.label}
+            </button>
+          )}
           <button
             type="button"
             ref={cancelRef}

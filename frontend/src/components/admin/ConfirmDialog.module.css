@@ -51,6 +51,11 @@
   line-height: 1.7;
 }
 
+/* PF-114 — the slot for a control the decision needs (a "move to" picker). */
+.extra {
+  margin: -8px 0 22px;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

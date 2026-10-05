@@ -110,6 +110,7 @@ const PHASE_2_SHEETS = [
   'components/admin/panels/AdminProjectsPanel.module.css', // PF-113
   'components/admin/ConfirmDialog.module.css',             // PF-113
   'components/admin/VocabularyPicker.module.css',          // PF-113
+  'components/admin/panels/AdminSkillsPanel.module.css',   // PF-114
 ];
 
 describe("PF-107's stylesheets read no Phase 1 token", () => {
@@ -219,6 +220,8 @@ const REBUILT_JSX = [
   'components/admin/VocabularyPicker.jsx',
   'components/admin/UploadPill.jsx',
   'components/admin/DropZone.jsx',          // PF-113 batch 2
+  'components/admin/panels/AdminSkillsPanel.jsx',   // PF-114
+  'components/admin/SkillSectionsCard.jsx',        // PF-114
 ];
 
 describe('PF-113 rebuilt components carry no Phase 1 styling', () => {

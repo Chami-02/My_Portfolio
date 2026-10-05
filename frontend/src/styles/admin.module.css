@@ -247,6 +247,14 @@
   margin-bottom: 0;
 }
 
+/* ⚠️ PF-91's contrast substitution, APPLIED not re-decided (PF-114, measured
+   2026-10-05): `--muted2` at 10px on a panel card measured 4.15 in DARK —
+   under AA — on every admin form (Skills, Projects, About). The same 4.15 the
+   public Contact labels had before PF-91. `--muted` in dark only, at (0,2,1)
+   so it wins on specificity, never emission order; light (5.95) untouched.
+   `.labelLead` composes `.label`, so it is covered too. */
+:global(html[data-theme='dark']) .label { color: var(--muted); }
+
 .checkRow {
   display: inline-flex;
   align-items: center;
