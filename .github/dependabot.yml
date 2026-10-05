@@ -1,0 +1,81 @@
+# Dependabot — automated dependency updates.
+#
+# WHAT IT DOES, in plain terms: once a week GitHub checks whether any package
+# this project depends on has released a newer version, and opens a pull
+# request for it. CI runs against that PR, so you can see whether the update
+# breaks anything BEFORE it is merged.
+#
+# WHY IT EXISTS: the alternative is noticing a vulnerable dependency months
+# later, during an audit, with no idea whether upgrading is safe. A weekly PR
+# that CI has already tested turns a security chore into a review.
+#
+# ⚠️ Dependabot reads THIS FILE FROM THE DEFAULT BRANCH (`master`) ONLY. A copy
+# on any other branch does nothing — which is why this file arrived on master
+# through its own small PR (chore/github-bots, 2026-10-05).
+#
+# ⚠️ FREE ON THIS REPO because it is public.
+#
+# ── WHY THE GROUPS ARE SPLIT BY dependency-type (2026-10-05) ────────────────
+# "development" packages (test, lint and build tools: jest, vitest, eslint,
+# playwright, nodemon…) never run on the live site. "production" packages
+# (react, express, mongoose…) ARE the live site. Keeping them in SEPARATE
+# pull requests is what lets .github/workflows/dependabot-automerge.yml
+# auto-merge tool updates while every live-site update waits for the owner.
+# One mixed group would force a choice between "merge both" and "merge neither".
+#
+# ⚠️ Note the THIRD ecosystem. Dependabot also updates the GitHub Actions the
+# workflows use (actions/checkout, actions/setup-node…). Those run with access
+# to the repository, so an unmaintained action is a supply-chain risk of its
+# own — a category people forget because it is not in package.json.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, frontend]
+    # Patch and minor bumps grouped into ONE pull request per kind. Ungrouped,
+    # a busy week produces a dozen PRs, they stop being read, and the useful
+    # one — a security fix — is lost in the noise.
+    groups:
+      frontend-dev-tools:
+        dependency-type: development
+        update-types: [minor, patch]
+      frontend-site:
+        dependency-type: production
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, backend]
+    groups:
+      backend-dev-tools:
+        dependency-type: development
+        update-types: [minor, patch]
+      backend-site:
+        dependency-type: production
+        update-types: [minor, patch]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
