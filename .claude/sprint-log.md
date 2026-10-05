@@ -7865,3 +7865,44 @@ vulnerabilities**, both packages, all and production-only. Verified live: a
 `--watch` server on :5099 restarted on a file touch and answered healthy after.
 Backend 585/585. The sprint branch's CI `Security - Dependency Audit` job (red
 since at least `85f6529`) should go green on the next push.
+
+## The automation project — bots, auto-merge, branching (2026-10-05, ticket number pending owner)
+
+**Owner's goal:** industry-standard practice, learned hands-on (interview prep);
+PDF teaching guide to `new mds/` (owner adding content requests first).
+
+**Shipped to `master` (all squash-merged, all CI green):**
+- **#8** bots: dependabot.yml (split groups), codeql.yml, PR template,
+  smoke-test.js, dependabot-automerge.yml, health-check.yml, claude.yml.
+- **#19** industry-typical auto-merge policy (live-site split patch/minor).
+- **#22** Claude bot removed (owner). **#23** build tools treated as live-site
+  (needed close/reopen — CI event never fired; see silent-failures).
+- Auto-merged by the bot: **#9** backend-dev-tools (jest, supertest), **#10**
+  frontend-dev-tools (incl. vite 8.0 → 8.3). Live site verified healthy after.
+
+**On the sprint branch:** `3e6a3be` nodemon → `node --watch` (braces has no
+patched version) → audit 0, CI green again; `b15b42b` merge of `master` (bot
+files + tool bumps; lockfiles regenerated; fast gate green; CI 7/7 incl. E2E).
+
+**Owner did (taught step by step):** deleted 12 merged branches (5 local `-d`,
+7 remote `--delete`), worktree create/remove, first PRs, squash merges, flipped
+auto-merge / Dependabot alerts / security updates / auto-delete branches,
+notification tuning, dropped the `test` + `portfolio_test` databases (verified
+unused first; cluster now dev/e2e/prod).
+
+**Verified:** health bot first run (manual dispatch) green — 4/4 smoke checks;
+decision script tested 14 + 5 cases against the real workflow text; actionlint
+clean.
+
+### Outstanding from the automation project
+- **Dependabot PRs open against OLD master** — leave until PF-121, then the
+  wave: #13 dotenv 18 (major, green), #17 jest-dom 7, #18 axios 1.20 (security),
+  #21 frontend-site-minor, #24–#27 major Actions upgrades.
+- **Genuinely failing, follow-up ticket after PF-121:** #15 jsdom 30, #16 vitest
+  5 (majors — frontend tests break), #20 backend-site-minor (backend tests
+  "buffering timed out" — a DB-library update; investigate before merging).
+- **`deploy.yml` not on master** — arrives with Sprint 14; production migrations
+  still need `migrate:baseline` once (unchanged).
+- **Security tab ~69 items** (CodeQL first scan + 37 Dependabot alerts, mostly
+  about old master) — triage after the sprint merge.
+- **Ticket number** for this work: owner to assign (PF-126 is taken).

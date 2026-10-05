@@ -3251,3 +3251,26 @@ and had to prove the final reload was clean.
 3px }` — both (0,1,0); the shared one emitted later and won, so the × sat 13px
 high with no error. Use a property the shared class does not set (`margin-top`)
 and/or (0,2,0). Same family as the Reveal transition rule.
+
+## ⚠️ A required check that never STARTED looks exactly like a green PR (2026-10-05)
+
+PR #23: GitHub never delivered the PR-opened event, so `ci.yml` never ran. The
+check list held only Vercel's three entries — `gh pr checks --watch` exited 0 and
+counting `pass` rows said "all passed". `gh pr merge` was refused (`BLOCKED`) by
+branch protection, which is the only reason nothing merged untested. **Rule:**
+before merging, look for the required check BY NAME (`All Checks Pass`) and its
+`pass`. Fix for a lost event: `gh pr close N && gh pr reopen N`.
+
+## ⚠️ `gh pr checks` after a re-trigger shows the CANCELLED run's failures (2026-10-05)
+
+Re-opening PR #23 started a second CI run; `ci.yml`'s `cancel-in-progress`
+cancelled the first, whose E2E and All Checks Pass then read `fail` beside the
+new run's `pending` jobs. It looked like a real failure. Read the latest run
+(`gh run list --branch <b> --limit 1`, `gh run watch <id> --exit-status`).
+
+## ⚠️ "Dev tools never reach the live site" is false for BUILD tools (2026-10-05)
+
+vite and @vitejs/plugin-react are devDependencies yet produce the shipped bundle.
+Auto-merge #10 (vite 8.0 → 8.3) went live via Vercel before this was noticed — the
+site was healthy (HTTP 200, health green), and the policy now treats build tools
+as live-site.

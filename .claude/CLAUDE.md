@@ -598,9 +598,16 @@ finds should shape the panel tickets rather than arrive after them.
 - **PF-114 is BUILT (2026-10-05)** — see `sprint-log.md` and
   `new mds/E9/PF-114-skills-panel-sections-levels-reorder.md`. Skills took NO
   drafts, by owner decision.
+- **The automation project is DONE (2026-10-05, ticket number pending the
+  owner — PF-126 is already taken):** in-memory tests + fast gate, the GitHub
+  bots on `master`, GitHub Flow from Sprint 15. See "The GitHub bots" and
+  "Branching" sections. Owner's PDF guide goes to `new mds/` (owner is adding
+  content requests before it is written).
 - **PF-115 is next.** It owes Blog's SAVE AS DRAFT + REVERT CHANGES halves (see
   Standing product requirements) and Messages' delete confirm via the shared
   `ConfirmDialog` (which grew `confirmTone`/`extra`/`secondary` in PF-114).
+  Sprint 14 tickets stay on `sprint-14-admin_page_rebuild` (synced with
+  `master` at `b15b42b`).
 - **⚠️ ASK THE OWNER ABOUT THE LIGHT-THEME UPGRADE at the end of the sprint plan**
   (the PF-121 gate / Sprint 15 planning). Owner, 2026-10-03: light mode is hard
   to read across the home page AND every admin panel; they want a whole sprint
@@ -1055,6 +1062,42 @@ Also `.github/workflows/codeql.yml` (SAST, PR + weekly),
 `.github/workflows/deploy.yml` (the CD pipeline: plan → **approval gate** →
 migrate → deploy → smoke test).
 
+### ⚠️ The GitHub bots — LIVE ON `master` since 2026-10-05 (automation project)
+
+**Bots read the DEFAULT branch only.** Until 2026-10-05 `dependabot.yml` and
+`codeql.yml` existed only on the sprint branch and did NOTHING. They reached
+`master` through small PRs (#8, #19, #22, #23) — never by merging the sprint.
+On `master` now: `ci.yml` (master's older 4-job version until Sprint 14 merges),
+`codeql.yml`, `dependabot-automerge.yml`, `health-check.yml`, `dependabot.yml`,
+the PR template, and `backend/scripts/smoke-test.js`. **`deploy.yml` is still
+sprint-only** — it acts on every push to `master` and waits for the PF-121 merge.
+
+| Bot | What it does | Guard |
+| --- | --- | --- |
+| **Dependabot** (alerts + security updates + weekly version PRs) | opens update PRs Mondays; groups split dev-tools / build / site-patch / site-minor; majors always single PRs | nothing merges without CI |
+| **`dependabot-automerge.yml`** | owner's **industry-typical** policy: dev tools + Actions patch/minor AUTO; live-site packages **and build tools (vite, @vitejs)** patch AUTO, minor WAITS; majors and indirect deps WAIT; unknown groups REFUSED | "auto" = `gh pr merge --auto --squash` → merges only when **All Checks Pass** is green. Uses `pull_request_target` safely (never checks out PR code) |
+| **`health-check.yml`** | hourly (`:17`) + "Run workflow" button: `smoke-test.js` against `vars.PRODUCTION_API_URL`, asserts `database === portfolio_prod` | read-only; GitHub emails the owner on failure; ⚠️ public-repo schedules auto-disable after 60 days without activity |
+| **CodeQL** | security scan, every PR + weekly | — |
+| ~~Claude bot~~ | **REMOVED by owner (PR #22)** — re-add any time with `/install-github-app` | — |
+
+Repo settings flipped by the owner 2026-10-05: **Allow auto-merge** ON,
+**Dependabot alerts + security updates** ON, **Automatically delete head
+branches** ON. Branch protection on `master`: PR required, **0 approvals** (GitHub
+never lets you approve your own PR), required check **All Checks Pass**. The
+"master" RULESET exists but is **disabled** and targets nothing.
+
+⚠️ **Auto-merged Dependabot PRs move `master` on their own** — #9 and #10 did on
+2026-10-05 — so a long-lived branch drifts. **Sync it**: `git merge origin/master`,
+keep the branch's `package.json` + apply master's bumps, **regenerate lockfiles
+with `npm install` (never hand-edit)**, fast gate, commit. Done once
+(`b15b42b`). ⚠️ "Dev tools never reach the site" is FALSE for **build tools**
+— vite builds what ships — hence their live-site rule.
+
+⚠️ **Open Dependabot PRs target OLD `master`** (pre-Sprint-14). Leave them
+until PF-121; Dependabot rebases them onto the new `master` then. #15 (jsdom 30),
+#16 (vitest 5) and #20 (backend-site-minor — DB connection "buffering timed out")
+genuinely FAIL and are a follow-up ticket; #24–#27 are major Actions upgrades.
+
 ⚠️ **`deploy.yml` uses `cancel-in-progress: false`, the OPPOSITE of `ci.yml`** —
 cancelling a deploy mid-migration leaves the database in an unknown state.
 
@@ -1384,6 +1427,16 @@ concluding "this is fine, I read the source".
   steps were the second hole in this same wall. ⚠️ Unit
   green + E2E red is the signature of a **removed feature whose tests were
   not cleaned up**; unit *red* means broken code — opposite diagnoses.
+- **⚠️ A required check that NEVER STARTED looks like "nothing failing".** PR #23
+  (2026-10-05): GitHub never fired the PR-opened event, so CI never ran — only
+  Vercel's checks existed, `gh pr checks --watch` exited 0, and a pass-count read
+  as green. Branch protection blocked the merge (`BLOCKED`), correctly. **Before
+  merging, confirm `All Checks Pass` is IN the list AND `pass`.** Fix for a missing
+  event: close + reopen the PR.
+- **⚠️ After a re-trigger, `gh pr checks` mixes the CANCELLED old run's `fail`
+  rows with the new run's `pending` ones** (`ci.yml` cancels in-progress runs).
+  Read the LATEST run (`gh run list --branch … --limit 1` → `gh run watch`), not
+  the merged check list.
 - **⚠️ Piping a long run through `tail` buffers everything to the end**, so
   an in-progress suite writes an EMPTY file and reads as a hang. Cost a
   wrong diagnosis when the backend suite slowed to 335s against a laggy
@@ -2303,6 +2356,22 @@ single module it belongs to. The PF-93 ticket placed it there. If a second
 cross-cutting guard appears, this is the precedent to follow rather than
 inventing a `src/__tests__/`.
 
+### ⚠️ Branching: GitHub Flow from Sprint 15 (owner, 2026-10-05)
+
+**`master` is the only permanent branch** (production, protected). From Sprint 15:
+**one short-lived branch per ticket** — `feat/PF-NN-…`, `fix/…`, `chore/…`,
+`docs/…` — each with its own PR, CI and Vercel preview, **squash-merged** and
+auto-deleted. A hotfix is the same flow from `master`. No `develop`/`release`
+branches (Git Flow) — rejected as the older, heavier model. **Sprint 14 finishes
+on its sprint branch** (no mid-sprint switch); jira sprints stay a planning
+concept, not branch names.
+
+**Work on a `master`-based branch WITHOUT leaving the sprint checkout:**
+`git worktree add -b chore/x ../My_Portfolio-bots origin/master --no-track`
+(`--no-track` = no inherited upstream; first push `-u`). Remove afterwards with
+`git worktree remove`, then `git branch -D` — **`-D` is correct after a squash
+merge** because squash makes a NEW commit, so `-d` cannot see it as merged.
+
 **The first push of a new branch is always `git push -u origin <branch-name>`,
 never a bare `git push`.** This is not style — PF-75 was pushed straight to
 `master`, bypassing the sprint branch and its PR gate, and the cause is a
@@ -2458,6 +2527,15 @@ wrong about paths or mechanisms. That was accurate through PF-95 and is why
 those corrections are recorded. It no longer describes how tickets arrive.
 
 **Never run `git commit`. Committing is the user's, on every branch.**
+
+⚠️ **Per-PR exceptions granted 2026-10-05, NOT standing:** the owner said "do it by
+yourself now" for PR #22 (remove Claude bot) and yes to PR #23 (build-tools
+policy) — commit, push, open, squash-merge. Each was explicit and scoped; the rule
+above is unchanged. Ask again for any future PR.
+
+⚠️ **The owner wants HANDS-ON learning (2026-10-05, interview prep):** for git,
+GitHub and ops steps, give the COMMAND and explain each part (and the interview
+angle) for them to run, rather than running it silently.
 
 ⚠️ **How the owner commits a ticket (2026-10-03):** stage ONE logical section
 (`git add <paths>`), show the staged stat, give that section's commit message,

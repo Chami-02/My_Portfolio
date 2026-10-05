@@ -3960,3 +3960,50 @@ locally, in order" (2026-09-08).
   `TEST_MONGO_URI`. `run-jest.js`'s rewrite to `portfolio_test` stays as the
   guard for that path. CI's backend job now uses the in-memory server too (its
   `mongo:7` service is still used by E2E); the binary downloads once per CI run.
+
+## The automation project — GitHub bots and branching (owner, 2026-10-05)
+
+Owner: "i want the industry standard way nothing else." Ticket number pending.
+
+### Bots wake by SMALL PRs to master, never by merging the sprint
+Bots read the default branch only. Merging the whole sprint early would have put
+Sprint 14 live before PF-120's security review, so bot files reached `master`
+through PRs #8 (bots), #19 (policy), #22 (remove Claude), #23 (build tools).
+
+### The auto-merge policy is "industry-typical" (owner chose it over "strict" and "everything but majors")
+| | patch | minor | major |
+| --- | --- | --- | --- |
+| dev tools + GitHub Actions | auto | auto | owner |
+| live-site packages | auto | **owner** | owner |
+| build tools (vite, @vitejs/*) | auto | **owner** | owner |
+| indirect (transitive) deps, unknown groups | owner | owner | owner |
+"auto" = `gh pr merge --auto --squash`; the merge still waits for All Checks Pass.
+- ⚠️ The decision reads the **Dependabot group name**, and the groups are split so
+  that one PR never mixes kinds. `fetch-metadata` reports the HIGHEST update in a
+  group, so a dev-tools group with one minor is judged "minor". Adding a group
+  without adding it to the workflow's `case` makes it REFUSED — the safe default.
+- ⚠️ **Build tools are live-site** (owner, 2026-10-05): vite builds the shipped
+  bundle. "Dev tools never reach visitors" was wrong for them; their groups sit
+  ABOVE `frontend-dev-tools` because Dependabot uses the FIRST matching group.
+- ⚠️ `pull_request_target` is deliberate and safe ONLY because the workflow never
+  checks out PR code. Never add an `actions/checkout` of the PR head to it.
+
+### Health bot checks the `database` field hourly, read-only
+Reuses `backend/scripts/smoke-test.js` (carried to master in #8). Not "200 OK" —
+the past outage answered 200 throughout.
+
+### The Claude GitHub bot was REMOVED (owner, PR #22)
+"there are so many bots doing their jobs." Re-add with `/install-github-app`
+(subscription token `CLAUDE_CODE_OAUTH_TOKEN`; owner-only trigger). Not a
+rejection of the idea — a "not now".
+
+### GitHub Flow from Sprint 15 (owner chose over "start now" and "keep sprint branches")
+One short-lived branch per ticket, squash-merged, auto-deleted; `master` the only
+permanent branch; hotfix = the same flow. Git Flow (develop/release/hotfix
+branches, as ClearDrive.lk used) rejected as the older model for scheduled
+releases. Sprint 14 finishes on its branch.
+
+### Repo settings (owner-flipped 2026-10-05)
+Allow auto-merge ON; Dependabot alerts + security updates ON; delete head
+branches ON; owner's notifications: Dependabot alerts weekly digest, Actions
+failures only, repo watch "Participating and @mentions".
