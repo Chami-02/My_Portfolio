@@ -2,29 +2,41 @@
 import { useEffect, useMemo } from 'react';
 import { Reveal } from '../motion';
 import { useSkills } from '../../hooks/useSkills';
+import { useSkillCategories } from '../../hooks/useSkillCategories';
+import { LEVELS, levelRank } from '../../utils/skillForm';
 import styles from './SkillsSection.module.css';
 
 /**
- * Category render order and display labels, transcribed from the
- * prototype (lines 253-307). Deliberately a hardcoded list rather than
- * something derived from the data: the order the five cards appear in is
- * a design decision, and deriving it from whatever categories happen to
- * come back would let a single admin edit silently reshuffle the
- * section. `order` sorts WITHIN a card; this sorts the cards themselves.
- *
- * The Skill schema's sixth enum value, `other`, is absent on purpose.
- * The prototype has no card for it, so a skill filed under it renders
- * nowhere — that is the intended behaviour, not a gap.
+ * How many loading placeholders to show. The section list is not known yet
+ * while it loads; five is how many boxes the page has always opened with, so
+ * the grid holds its usual height and does not jump.
  */
-const CATEGORY_ORDER = ['language', 'frontend', 'backend', 'database', 'devops'];
+const PLACEHOLDER_COUNT = 5;
 
-const CATEGORY_LABELS = {
-  language: 'LANGUAGES',
-  frontend: 'FRONTEND',
-  backend:  'BACKEND',
-  database: 'DATABASE',
-  devops:   'DEVOPS',
-};
+/**
+ * A skill's level as three dots, filled to its rank — PF-114, owner-requested
+ * 2026-10-05, NO prototype source. The admin panel has always required a level
+ * and nothing public read it; the owner's words were that it was "useless to
+ * add" otherwise.
+ *
+ * `aria-hidden`: the dots are a picture of a word the pill also carries as
+ * visually hidden text, so a screen reader hears "React, intermediate" once
+ * rather than a row of unlabelled shapes.
+ *
+ * ⚠️ An unknown level renders NOTHING — rank 0, no dots — rather than three
+ * empty dots, which would claim a level of zero the data never said.
+ */
+function LevelDots({ level }) {
+  const rank = levelRank(level);
+  if (!rank) return null;
+  return (
+    <span className={styles.dots} aria-hidden="true">
+      {LEVELS.map((l, i) => (
+        <span key={l} className={i < rank ? styles.dotOn : styles.dotOff} />
+      ))}
+    </span>
+  );
+}
 
 /**
  * Skills — PF-82. Full replacement of the Phase 1 component.
@@ -41,38 +53,43 @@ const CATEGORY_LABELS = {
  * fetches anything — so both are decided here rather than transcribed.
  */
 export function SkillsSection() {
-  const { data: skills, isLoading, isError, error } = useSkills();
+  const skillsQuery = useSkills();
+  const categoriesQuery = useSkillCategories();
+  const { data: skills } = skillsQuery;
+  const { data: categories } = categoriesQuery;
+  const isLoading = skillsQuery.isLoading || categoriesQuery.isLoading;
+  const isError = skillsQuery.isError || categoriesQuery.isError;
+  const error = skillsQuery.error || categoriesQuery.error;
 
+  // PF-114 — the boxes are the OWNER'S sections, in the owner's order, and a
+  // box exists only while its section holds at least one skill.
+  //
+  // ⚠️ This REVERSES PF-82, which seeded a fixed five and rendered a card even
+  // when it was empty so a data change could not reflow the grid. With
+  // owner-created sections a fixed list cannot exist, and the owner decided
+  // (2026-10-05) that an empty section stays hidden — a section still being
+  // set up must not show visitors an empty box.
   const grouped = useMemo(() => {
-    if (!skills) return null;
-
-    // Seeded into fixed keys rather than accumulated, so a category with
-    // no skills still yields an empty array and its card still renders.
-    // Dropping the card instead would reflow the grid from 5 columns to
-    // 4 on a data change, which is a layout decision the data should not
-    // get to make.
-    const byCategory = Object.fromEntries(CATEGORY_ORDER.map((c) => [c, []]));
-
-    skills.forEach((skill) => {
-      // Unknown or `other` categories fall through — see CATEGORY_ORDER.
-      if (byCategory[skill.category]) byCategory[skill.category].push(skill);
-    });
-
-    // Safe to sort in place: these arrays were built here, so this never
-    // mutates the array TanStack Query is caching. The API already sorts
-    // by `order` (skillController.js), which makes this belt-and-braces
-    // for the case an admin reorders skills between fetches.
-    Object.values(byCategory).forEach((arr) => arr.sort((a, b) => a.order - b.order));
-
-    return byCategory;
-  }, [skills]);
+    if (!skills || !categories) return null;
+    return categories
+      .slice()                                   // never sort the cached array
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((cat) => ({
+        key:   cat.key,
+        label: cat.label,
+        // Copied before sorting, so the array TanStack Query caches is never
+        // mutated. `order` sorts WITHIN a box.
+        items: skills.filter((s) => s.category === cat.key).sort((x, y) => x.order - y.order),
+      }))
+      .filter((g) => g.items.length > 0);
+  }, [skills, categories]);
 
   // Logged from an effect, not from render. A render-phase console.error
   // fires again on every unrelated re-render — a theme toggle, a parent
   // state change — and turns one failed fetch into a console full of
   // duplicates. Keyed on the error itself so it logs once per failure.
   useEffect(() => {
-    if (isError) console.error('SkillsSection: useSkills() failed', error);
+    if (isError) console.error('SkillsSection: loading skills failed', error);
   }, [isError, error]);
 
   // No visible failure UI, deliberately. One section failing to load
@@ -96,24 +113,43 @@ export function SkillsSection() {
           The <span className={styles.outlined}>Toolkit</span>
         </Reveal>
 
+        {/* PF-114 — the key to the dots, so one dot is not a guess. aria-hidden:
+            each pill already SAYS its level to a screen reader. Revealed with
+            the first card (same 60ms), and so carries no transition of its own
+            (the PF-93 rule). */}
+        {showGrid && (
+          <Reveal type="up" delay={60} className={styles.legend} aria-hidden="true">
+            {LEVELS.map((l) => (
+              <span key={l} className={styles.legendItem}>
+                <LevelDots level={l} />
+                {l}
+              </span>
+            ))}
+          </Reveal>
+        )}
+
         {showGrid && (
           <div className={styles.grid}>
             {hasData
-              ? CATEGORY_ORDER.map((cat, i) => (
-                  // 60 + i*60 → 60/120/180/240/300, the prototype's
-                  // data-delay values exactly. Note the first card and
-                  // the h2 above deliberately share 60.
+              ? grouped.map((group, i) => (
+                  // 60 + i*60 → 60/120/180/240/300…, the prototype's
+                  // data-delay values exactly for the first five. Note the
+                  // first card and the h2 above deliberately share 60.
                   <Reveal
-                    key={cat}
+                    key={group.key}
                     type="up"
                     delay={60 + i * 60}
                     className={styles.card}
                   >
-                    <p className={styles.categoryLabel}>{CATEGORY_LABELS[cat]}</p>
+                    <p className={styles.categoryLabel}>{group.label.toUpperCase()}</p>
                     <div className={styles.pillRow}>
-                      {grouped[cat].map((skill) => (
+                      {group.items.map((skill) => (
                         <span key={skill._id} className={styles.pill}>
                           {skill.name}
+                          <LevelDots level={skill.level} />
+                          {levelRank(skill.level) > 0 && (
+                            <span className={styles.srOnly}>, {skill.level}</span>
+                          )}
                         </span>
                       ))}
                     </div>
@@ -122,9 +158,9 @@ export function SkillsSection() {
               // Bare divs, not Reveals: a placeholder that animates in
               // and then gets replaced animates the same grid slot twice.
               // aria-hidden because there is nothing here to announce.
-              : CATEGORY_ORDER.map((cat) => (
+              : Array.from({ length: PLACEHOLDER_COUNT }, (_, i) => (
                   <div
-                    key={cat}
+                    key={i}
                     className={styles.cardPlaceholder}
                     aria-hidden="true"
                   />
