@@ -919,7 +919,7 @@ or `npx vitest run -t "renders the marquee"`.
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | nodemon `src/server.js` on :5050 (macOS AirPlay owns 5000) |
+| `npm run dev` | `node --watch src/server.js` on :5050 (macOS AirPlay owns 5000). ⚠️ NOT nodemon since 2026-10-05 — removed with its `chokidar → braces` chain (GHSA-vfj7-8cjw-p6xm, NO patched version); `--watch` is built into Node ≥ 20.13 and restarts on changes to any file the server imports |
 | `npm run dev:e2e` | same, env from `.env.e2e` — port 5055, `portfolio_e2e` |
 | `npm start` | `node src/server.js` |
 | `npm run seed` | **wipes** Project/Skill/Blog/About/**User** then reseeds from `src/seed.js` |
@@ -1008,7 +1008,7 @@ page behaviour an E2E spec covers (navigation, splash, blog, contact, admin
 login/overview, footer), or when CI's E2E job went red.
 
 **Mutation testing** — for NEW guard logic only, and backend mutants in a
-scratch copy, never the tree nodemon watches.
+scratch copy, never the tree the dev server's `node --watch` is watching.
 
 ⚠️ **History — why the old rule existed, kept so it is not re-learned.** Until
 2026-10-05 the rule was "run all SEVEN locally, in order": two holes were found

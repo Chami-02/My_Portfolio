@@ -7855,3 +7855,13 @@ shared database would have broken them through cross-file wipes.
   never shipped. Present BEFORE this change (audited the committed lockfile in
   a scratch copy). The sprint branch's CI `audit` job will be red until nodemon's
   chain updates or `braces` is overridden — exactly a Dependabot job.
+
+### ✅ `braces` audit failure FIXED (2026-10-05) — nodemon removed
+The advisory has **no patched version** (`braces <= 3.0.3`, `first_patched_version:
+null`), so no update could ever fix it. Its only path was `nodemon → chokidar →
+braces`, a dev-only restart tool. Replaced by Node's built-in `node --watch`
+(Node ≥ 20.13; we run 20.20). `npm audit --audit-level=high` → **0
+vulnerabilities**, both packages, all and production-only. Verified live: a
+`--watch` server on :5099 restarted on a file touch and answered healthy after.
+Backend 585/585. The sprint branch's CI `Security - Dependency Audit` job (red
+since at least `85f6529`) should go green on the next push.
