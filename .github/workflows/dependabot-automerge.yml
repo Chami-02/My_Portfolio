@@ -6,6 +6,7 @@
 #
 #   dev tools + GitHub Actions   patch ✅ auto   minor ✅ auto   major ✋ owner
 #   live-site packages           patch ✅ auto   minor ✋ owner   major ✋ owner
+#   build tools (vite, @vitejs)  treated as live-site: they build what ships
 #
 # For a ✅ it switches on GitHub's "auto-merge" for that PR. For a ✋ it posts a
 # comment saying the PR is waiting for the owner.
@@ -72,6 +73,8 @@ jobs:
           case "$GROUP" in
             frontend-dev-tools|backend-dev-tools|github-actions) KIND="tool" ;;
             frontend-site-patch|backend-site-patch|frontend-site-minor|backend-site-minor) KIND="site" ;;
+            # Build tools ship what visitors download: live-site rules.
+            frontend-build-patch|frontend-build-minor) KIND="site" ;;
             "")
               if [ "$DEP_TYPE" = "direct:development" ] || [ "$ECOSYSTEM" = "github_actions" ]; then KIND="tool"
               elif [ "$DEP_TYPE" = "direct:production" ]; then KIND="site"
