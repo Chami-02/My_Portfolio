@@ -9,6 +9,8 @@ const Blog    = require('./models/Blog');
 const About   = require('./models/About');
 const User    = require('./models/User');
 const Vocabulary = require('./models/Vocabulary');
+const SkillCategory = require('./models/SkillCategory');
+const { DEFAULT_CATEGORIES } = require('./controllers/skillCategoryController');
 
 // ── Seed data ──────────────────────────────────────────────────────────────
 
@@ -463,6 +465,7 @@ async function seed() {
     await Promise.all([
       Project.deleteMany({}),
       Skill.deleteMany({}),
+      SkillCategory.deleteMany({}),
       Blog.deleteMany({}),
       About.deleteMany({}),
       User.deleteMany({}),
@@ -472,6 +475,10 @@ async function seed() {
     // Insert fresh data
     await Project.insertMany(PROJECTS);
     console.log(`📦 Seeded ${PROJECTS.length} projects`);
+
+    // PF-114 — the sections the skills point at, before the skills.
+    await SkillCategory.insertMany(DEFAULT_CATEGORIES.map((c) => ({ ...c })));
+    console.log(`🗂  Seeded ${DEFAULT_CATEGORIES.length} skill sections`);
 
     await Skill.insertMany(SKILLS);
     console.log(`💡 Seeded ${SKILLS.length} skills`);
