@@ -19,7 +19,7 @@ const skillService   = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), reo
 const blogService    = vi.hoisted(() => ({
   create: vi.fn(), update: vi.fn(), togglePublish: vi.fn(), remove: vi.fn(), recordView: vi.fn(),
 }));
-const contactService = vi.hoisted(() => ({ markRead: vi.fn(), remove: vi.fn() }));
+const contactService = vi.hoisted(() => ({ markRead: vi.fn(), remove: vi.fn(), star: vi.fn() }));
 const dashboardService = vi.hoisted(() => ({ getStats: vi.fn() }));
 const skillCategoryService = vi.hoisted(() => ({ create: vi.fn(), rename: vi.fn(), reorder: vi.fn(), remove: vi.fn() }));
 
@@ -35,7 +35,7 @@ const { useCreateProject, useUpdateProject, useDeleteProject } = await import('.
 const { useCreateSkill, useUpdateSkill, useReorderSkills, useDeleteSkill } = await import('../useSkills');
 const { useCreatePost, useUpdatePost, useTogglePublish, useDeletePost, useRecordView } =
   await import('../useBlog');
-const { useMarkMessageRead, useDeleteMessage } = await import('../useMessages');
+const { useMarkMessageRead, useDeleteMessage, useStarMessage } = await import('../useMessages');
 const {
   useCreateSkillCategory, useRenameSkillCategory, useReorderSkillCategories, useDeleteSkillCategory,
 } = await import('../useSkillCategories');
@@ -126,6 +126,14 @@ describe('mutations that cannot change a count leave it alone', () => {
     const { result } = renderHook(() => hook(), { wrapper });
     await result.current.mutateAsync(arg);
     await waitFor(() => expect(invalidatedKeys()).toEqual([JSON.stringify(['skillCategories'])]));
+  });
+
+  // PF-115 — a star changes neither unread nor total.
+  it('useStarMessage refreshes the message list but not DASHBOARD_KEY', async () => {
+    const { result } = renderHook(() => useStarMessage(), { wrapper });
+    await result.current.mutateAsync({ id: 'id', starred: true });
+    await waitFor(() => expect(invalidatedKeys()).toEqual([JSON.stringify(['messages'])]));
+    expect(contactService.star).toHaveBeenCalledWith('id', true);
   });
 
   // ⚠️ Locked (PF-99): useRecordView invalidates NOTHING. A view changes

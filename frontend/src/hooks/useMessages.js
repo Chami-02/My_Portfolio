@@ -30,6 +30,22 @@ export const useMarkMessageRead = () => {
   });
 };
 
+/**
+ * PF-115 — star / unstar. Called as `mutate({ id, starred })`.
+ *
+ * ⚠️ Invalidates the LIST only, deliberately NOT `DASHBOARD_KEY`: starring
+ * changes no count the shell or the Overview shows (unread and total are
+ * untouched). Copying the two mutations above would refetch the dashboard on
+ * every star for nothing — a test pins the omission.
+ */
+export const useStarMessage = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, starred }) => contactService.star(id, starred),
+    onSuccess: () => qc.invalidateQueries({ queryKey: MESSAGES_KEY }),
+  });
+};
+
 export const useDeleteMessage = () => {
   const qc = useQueryClient();
   return useMutation({

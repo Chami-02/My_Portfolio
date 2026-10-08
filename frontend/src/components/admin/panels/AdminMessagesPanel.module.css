@@ -1,0 +1,281 @@
+/* frontend/src/components/admin/panels/AdminMessagesPanel.module.css
+ *
+ * PF-115 — the Messages panel, Phase 2. The card is transcribed from
+ * Admin.dc.html:538-568. The SEARCH field, the ALL · UNREAD · STARRED filter
+ * and the STAR are owner additions (2026-10-07) with no prototype source; they
+ * borrow the site's own vocabulary — /blog's slash-led search pill and the
+ * admin chip — rather than inventing a look.
+ *
+ * ⚠️ Registered in adminFoundation.test.js's PHASE_2_SHEETS (explicit list).
+ */
+
+/* ── Search + filter ─────────────────────────────────────────────── */
+
+.controls {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+/* /blog's search pill (BlogPage.module.css .searchField), at admin scale. */
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: rgba(var(--gnd), .45);
+  border: 1px solid rgba(var(--ln), .16);
+  transition: border-color .2s;
+}
+
+/* The pill draws the focus ring for the input inside it. No border-radius in
+   a focus rule — it would reshape the pill while focused (documented trap). */
+.searchField:focus-within {
+  border-color: var(--acc, #FCA311);
+}
+
+.searchSlash {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--acc, #FCA311);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.searchInput::placeholder {
+  color: var(--faint);
+}
+
+/* A transparent outline renders as nothing normally, and is restored to a
+   system colour in forced-colors mode, where the pill's border is overridden —
+   the same resolution BlogPage's search and Contact's fields made. */
+.searchInput:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.searchClear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  transition: color .2s;
+}
+
+.searchClear:hover {
+  color: var(--acc, #FCA311);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(var(--gnd), .4);
+  border: 1px solid rgba(var(--ln), .16);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: color .2s, border-color .2s, background .2s;
+}
+
+.filter:hover {
+  border-color: var(--acc, #FCA311);
+}
+
+.filterOn {
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  color: var(--accInk);
+  font-weight: 700;
+}
+
+.filterOn:hover {
+  border-color: var(--acc, #FCA311);
+}
+
+.filterCount {
+  opacity: .8;
+}
+
+/* ── The list ────────────────────────────────────────────────────── */
+
+.list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Admin.dc.html:542 */
+.card {
+  position: relative;
+  padding: 19px;
+  border-radius: 14px;
+  background: rgba(var(--gnd), .4);
+  border: 1px solid rgba(var(--ln), .1);
+}
+
+/* PF-115: a starred card is tinted so it stands out in ALL. */
+.cardStarred {
+  border-color: rgba(252, 163, 17, .4);
+}
+
+/* Owner decision 2026-09-16: the unread border is the site's green. Declared
+   AFTER .cardStarred at equal specificity, so a message that is both shows
+   the unread green — unread is the one that needs action first. */
+.cardUnread {
+  border-color: rgba(52, 211, 153, .35);
+}
+
+/* Admin.dc.html:546 — padding-right clears the unread dot at top/right 17px. */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 11px;
+  padding-right: 20px;
+}
+
+.name {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--strong);
+}
+
+.email {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--acc, #FCA311);
+  text-decoration: none;
+}
+
+.email:hover {
+  text-decoration: underline;
+}
+
+.date {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted2);
+}
+
+/* PF-115 — the star. A glyph button; the BUTTON carries the name. */
+.star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--muted);
+  transition: color .2s, transform .2s;
+}
+
+.star:hover {
+  color: var(--acc, #FCA311);
+  transform: scale(1.15);
+}
+
+.starOn {
+  color: var(--acc, #FCA311);
+}
+
+.message {
+  margin: 0 0 15px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.75;
+  /* A message is the visitor's own text: keep their line breaks, and let a
+     long unbroken URL wrap instead of widening the card. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+/* Admin.dc.html:556 — ✓ MARK READ's hover is the success green. */
+.markRead {
+  composes: btnRow from '../../../styles/admin.module.css';
+}
+
+.markRead:hover:not(:disabled) {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+/* Admin.dc.html:558 — ✉ REPLY, the accent outline that fills on hover. */
+.reply {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .35);
+  color: var(--acc, #FCA311);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-decoration: none;
+  transition: color .2s, background .2s;
+}
+
+.reply:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+}
+
+/* A search hit. Rendered as TEXT inside <mark>, never as HTML. */
+.hit {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: rgba(252, 163, 17, .3);
+  color: inherit;
+}
+
+.status {
+  margin: 0;
+  padding: 34px 20px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted2);
+}
+
+/* ⚠️ PF-91's substitution, applied not re-decided: --muted2 at 11px on the
+   panel card is under AA in DARK. (0,2,1); light untouched. */
+:global(html[data-theme='dark']) .date,
+:global(html[data-theme='dark']) .status { color: var(--muted); }
