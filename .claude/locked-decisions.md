@@ -1888,6 +1888,8 @@ fidelity pass must not undo.
     trimmed at cutover; if the behaviour is only declared there it silently
     disappears. Two identical declarations, so cascade order between them is
     irrelevant — do not "de-duplicate" by deleting the `tokens.css` one.
+    ⚠️ **PF-116 (2026-10-08) deleted the `global.css` half**, as planned —
+    `tokens.css` now holds the ONLY declaration.
   - **CSS, not a JS `scrollTo`**, so it covers browser back/forward and a typed
     `#hash` URL, not just clicks on the navbar.
 - **`--header-h` is 71px, and it is measured.** A `position: fixed` header over
@@ -1911,8 +1913,10 @@ fidelity pass must not undo.
 - Fonts are deliberately **not** in `@theme` — `--font-*` collides with
   `tokens.css`'s own property names, so a `var()` reference would be
   self-referential. Typography goes through CSS Modules directly.
-- `body { font-family }` is deliberately NOT set until cutover, so the Phase 1
-  site keeps Inter.
+- ~~`body { font-family }` is deliberately NOT set until cutover, so the Phase 1
+  site keeps Inter.~~ **FULFILLED by PF-116 (2026-10-08)**: `tokens.css` body is
+  `font-family: var(--font-body)` (Space Grotesk, the prototype's), and Inter is
+  no longer downloaded. See "PF-116" below.
 - Contexts live in their own module, separate from the provider that supplies
   them. Settled in the Sprint 10 lint fix; see React conventions above.
 - `SplashProvider` fails open: `SplashContext` defaults to `{ ready: true }` and
@@ -4077,3 +4081,49 @@ PF-112's staging.
 ### PF-91's substitution applied to the TAG PICKER caption (dark only)
 `VocabularyPicker.module.css` `.hint` 10px `--muted2` measured 4.30 in dark on
 the Blog editor → `--muted` 7.25; light 6.05 untouched. Also covers Projects.
+
+## PF-116 — the Phase 1 cutover (owner decisions 2026-10-08)
+
+### Body keeps `line-height: 1.6` — a kept deviation, NOT the prototype's
+All three `.dc.html` body rules set NO line-height (`normal`, ≈1.3 for Space
+Grotesk). Phase 1's `global.css` body set 1.6, and every element without its own
+line-height has rendered with it all along. Deleting it would have dropped to
+Tailwind preflight's **1.5**, not the prototype's value — so "just delete it"
+was never "match the prototype". Owner chose to keep 1.6, moved into
+`tokens.css`'s body rule. ⚠️ Changing it re-spaces every inheriting paragraph at
+once (measured inheritors: section bodies, excerpts, the reading view, footer,
+many admin notes). `cutover.test.js` pins it.
+
+### Body font is Space Grotesk — the cutover itself
+`font-family: var(--font-body)` on body, from the prototype's own body rule.
+Measured: Inter had been rendering on real text on EVERY route (home 23
+elements, a post 20, admin About 30…), 0 after. Inter dropped from the Google
+Fonts request. ⚠️ Do NOT re-add Inter "for a fallback" — the stack is
+`'Space Grotesk', system-ui, -apple-system, sans-serif`.
+
+### `--acc2` / `--acc2rgb` are DELETED
+Owner decision. The prototype's second accent fed only its theme-toggle pill,
+which the site (2026-08-22), the admin shell (PF-107) and the login (PF-109) all
+replaced with the 44×44 sun/moon button. Zero consumers for six weeks. ⚠️ A
+fidelity pass will find `--acc2` in all three prototypes and not in
+`tokens.css` — that gap is deliberate. `tokens.test.js` asserts the absence.
+
+### Page title is `Parindra Gallage — Full-Stack Developer`
+Owner decision; was Phase 1's `Parindra Chameekara — …`. Matches the hero's
+name. The prototype has no `<title>`. E2E pins the exact string.
+
+### `global.css` is Tailwind's entry point ONLY
+Import, `@source not`, `@theme`, `-webkit-text-size-adjust`, the html/body
+overflow split. ⚠️ No visual value goes back in here — tokens.css loads AFTER it
+and wins every tie, so a value added here is dead code the day it is written.
+`cutover.test.js` refuses a `:root`, a custom property outside `--color-*`, a
+`@keyframes`, or any of the deleted class names.
+
+### ErrorBoundary reuses `/blog`'s error panel
+No prototype source for a crashed section. Values COPIED from
+`BlogPage.module.css` (`.empty`, `.emptyHeading`, `.emptyBody`, `.resetButton`)
+into `ErrorBoundary.module.css`, not composed — composing would tie every
+section's crash state to one page's stylesheet. Heading inked `--danger` (this
+reports a failure; /blog's reports an absence). Measured dark/light: heading
+7.05/5.26, detail 7.39/6.21, button 9.64/5.98.
+

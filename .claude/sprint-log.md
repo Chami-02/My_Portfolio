@@ -520,7 +520,7 @@ record; that file is the sprint's authority.
 | ~~PF-113~~ | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | ✅ **BUILT 2026-10-03** — ⚠️ scope widened: project DRAFTS + REVERT (owner), upload-only background; ~12 pts, see entry |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 | Done | **BUILT 2026-10-05** — scope ~14 pts (owner): edit incl. level, level dots, owner-managed sections, drag-and-drop |
 | ~~PF-115~~ | Blog + Messages panels restyled | Medium | 5 | Done | ✅ **BUILT 2026-10-07** — ⚠️ scope widened (owner): Blog DRAFTS + REVERT, Messages STAR + SEARCH + filters; ~11 pts, see entry |
-| PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | To Do | not started |
+| ~~PF-116~~ | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | Done | ✅ **BUILT 2026-10-08** — ⚠️ scope SHRANK: PF-107→115 had already cleared every admin consumer; one site-wide Phase 1 reader left (ErrorBoundary). ~4 pts, see entry |
 | PF-117 | Admin responsive + state audit, both themes | Medium | 6 | To Do | not started |
 | PF-118 | Admin ↔ public-site parity audit | Highest | 8 | To Do | not started |
 | PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 | To Do | not started |
@@ -2328,7 +2328,8 @@ retrospective document** — this section is the record, matching Sprint 10,
   have no `@keyframes sheen` in their prototypes at all, so the whole `sheen-*`
   family may be invented; that is a wider question than PF-109.
 
-- **`--acc2` / `--acc2rgb` have ZERO consumers and their last justification has
+- ✅ **CLOSED by PF-116 (2026-10-08): both tokens DELETED, owner decision.**
+  **`--acc2` / `--acc2rgb` have ZERO consumers and their last justification has
   expired.** The `tokens.css:17` comment said "theme toggle only", which went
   stale when the 2026-08-22 rework replaced the prototype's switch with the
   44x44 icon button. The stated reason they survived was that the Blog and
@@ -2815,7 +2816,7 @@ retrospective document** — this section is the record, matching Sprint 10,
   | --- | --- | --- | --- |
   | ~~`NotFoundPage` eyebrow "ERROR 404" (`--accent`)~~ → `--acc` | 6.79 ✅ → 10.02 ✅ | ~~**2.44 ✗**~~ → **6.12 ✅** | fixed, PF-100 |
   | ~~`NotFoundPage` body copy (`--text-body`)~~ → `--muted` | 7.90 ✅ → 7.68 ✅ | ~~**2.10 ✗**~~ → **6.35 ✅** | fixed, PF-100 |
-  | `ErrorBoundary` error detail (`--text-muted`) | **2.67 ✗** | 6.21 ✅ | **STILL OPEN** |
+  | ~~`ErrorBoundary` error detail (`--text-muted`)~~ → `--muted` | ~~**2.67 ✗**~~ → **7.39 ✅** | 6.21 ✅ | fixed, PF-116 |
 
   ⚠️ **`ErrorBoundary` did NOT go with the 404 and must not be assumed
   fixed by it.** PF-100 rebuilt `NotFoundPage` only. `ErrorBoundary` is a
@@ -7978,3 +7979,80 @@ re-run at hand-off). Backend 35 suites / 607, branch 72.67%. Mutation: 9 fronten
 - `portfolio_e2e.contacts` gained ~20 probe rows (same growth as the contact spec).
 - The Messages panel has no pagination; search is client-side over every row.
   Fine at 100s of messages; revisit if it reaches thousands.
+
+---
+
+## PF-116 — Phase 1 cutover: `global.css`'s Phase 1 layer deleted, font cutover (2026-10-08)
+
+**Report:** `new mds/E9/PF-116-phase1-cutover.md`. Decisions:
+`locked-decisions.md` "PF-116".
+
+### Scope as approved — and why it was smaller than planned
+The sprint plan listed `.glass` ×13, `.btn-outline` ×9, `.btn-primary` ×6,
+`.skeleton` ×6 and ~14 danger literals. **Measured at planning (2026-10-08):**
+every one of those was already at ZERO except ONE file — `ErrorBoundary.jsx`
+(`var(--text-muted)`, `className="btn-outline"`, three red literals). PF-107 →
+PF-115 had cleared admin. The light palette the plan said to transcribe was
+already in `tokens.css` (`--ok` stays PF-91's `#0B6446`). ~4 pts of real work.
+Owner decisions at planning: **keep `line-height: 1.6`** on body (the prototype
+sets none; Tailwind preflight would give 1.5); **delete `--acc2`/`--acc2rgb`**;
+**title → `Parindra Gallage — Full-Stack Developer`**.
+
+### Built
+- `global.css` — now Tailwind's entry point only: `@import`, `@source not` ×2,
+  `@theme`, `html { -webkit-text-size-adjust }` and the html/body overflow split
+  (the sticky measurements moved onto that rule). Deleted: `:root`, the `*`
+  reset (Tailwind preflight does it), the html smooth-scroll half, the body
+  font/colour/background/noise, `::selection`, scrollbar, every global utility
+  class, six keyframes, the mobile `@media`, the `@supports` block.
+- `tokens.css` — body gains `font-family: var(--font-body)` + `line-height: 1.6`;
+  `--acc2`/`--acc2rgb` removed from both themes; three stale cutover comments
+  rewritten. `ThemeToggle.module.css` comment likewise.
+- `index.html` — title; `family=Inter…` dropped from the Google Fonts request.
+- `ErrorBoundary.jsx` + NEW `ErrorBoundary.module.css` — inline styles gone;
+  reuses `/blog`'s error panel (`.empty`/`.emptyHeading`/`.emptyBody`/
+  `.resetButton`), heading `--danger`, detail `--muted`, `.bannerError`'s ring,
+  `type="button"`, `role="alert"`, label `TRY AGAIN`.
+- Tests: `cutover.test.js` +3 PF-116 describes (14 cases, postcss/comment-strip);
+  `adminFoundation.test.js` "token list not stale" INVERTED (its source block
+  no longer exists); `tokens.test.js` drops `--acc2`, adds an absence case;
+  `ErrorBoundary.test.jsx` +3; `e2e/homepage.spec.js` exact title.
+
+### Measured before deleting (Playwright, 20 route×theme pairs, admin via stubbed auth)
+- body `background-image` was ALREADY `none` — tokens.css's `background`
+  shorthand had been cancelling the Phase 1 noise since PF-67.
+- `blink` / `shimmer` were defined twice with IDENTICAL bodies — deletion a no-op.
+- **Inter was inherited by real text on every route** — home 23 elements, /blog
+  16, a post 20, login 1, admin shell 3, About 30, Skills 17, Projects 9, Blog
+  6, Messages 5: section body copy, excerpts, the reading view, footer bio +
+  links, admin card titles/notes/icon buttons. **After: 0 on all 20.** This is
+  the cutover's whole visible effect; line-height unchanged at 25.6px.
+
+### Tests (real numbers in the report)
+Frontend fast gate green: 83 files / 1900 tests, lint 0, build OK. Backend 35
+suites / 607. Mutation: 12 mutants, all killed, control green before and after,
+tree `cmp`-identical to the snapshot. E2E 74/75 — the one failure is
+`footer.spec.js:131` (Outstanding, pre-existing). Built CSS: zero matches for
+every deleted name, `Inter`, `--acc2`.
+
+### Found during recheck
+- **The dev backend's rate limiter blanked a probe screenshot** ("THAT NOTE IS
+  NOT HERE", empty ELSEWHERE column) after ~100 probe requests — the documented
+  trap. Re-run after the window reset rendered correctly.
+- **The sticky probe first measured the wrong element** — the stretching
+  `<aside>` rail (−170 by design) instead of `.sidebarInner`. Correct target:
+  header 0, inner 67 at scrollY 1800.
+- **A malformed `skills` payload did NOT trip the boundary** — the section
+  tolerates it. A render-time throw (an object as a React child) did.
+- The Chrome extension was not connected; every browser check ran through the
+  repo's Playwright from a scratch script instead.
+
+### Outstanding work added by PF-116
+- **ErrorBoundary's TRY AGAIN cannot recover from a bad CACHED payload** — reset
+  re-renders from TanStack's cache and throws again until staleTime. Same as the
+  Phase 1 fallback; recovering would mean resetting the query too (a
+  `QueryErrorResetBoundary`-style change). Not a regression.
+- Stale comments in `Hero`/`About`/`SkillsSection.module.css` still describe the
+  `[id] scroll-margin` rule "until global.css is trimmed at cutover"; that rule
+  went in PF-89 and the `section.x` qualifiers are harmless. Left alone.
+

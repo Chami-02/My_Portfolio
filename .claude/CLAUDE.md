@@ -506,7 +506,7 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, PF-111 built 2026-09-23, PF-112 built 2026-09-25, PF-113 built 2026-10-03, PF-114 built 2026-10-05, **PF-115 built 2026-10-07**; branch `sprint-14-admin_page_rebuild` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, PF-111 built 2026-09-23, PF-112 built 2026-09-25, PF-113 built 2026-10-03, PF-114 built 2026-10-05, PF-115 built 2026-10-07, **PF-116 built 2026-10-08**; branch `sprint-14-admin_page_rebuild` |
 | **Sprint 15 (PF-123 → PF-125)** | **Auth + email** — contact notification, credential editing, password reset | **planned 2026-09-12**, not started |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
@@ -547,7 +547,7 @@ authority; this table is the index.
 | ~~PF-113~~ | Projects panel — rebuild, background image + opacity, tech chip picker ✅ **BUILT 2026-10-03** — ⚠️ scope widened by owner: project DRAFTS (title-only, hidden from the site) + REVERT; upload-only background (no URL box). **~12 pts, not 8**. **Batch 2 (same day, owner):** 4 MB uploads + browser resize, inline errors, drag-and-drop, `f_auto,q_auto` delivery, admin `★ FEATURED` pill on the home cards. Report + `Cloudinary-guide-how-your-images-work.pdf` in `new mds/E9/`. Committed in 7 section commits | High | 8 |
 | ~~PF-114~~ | Skills panel — rebuild + editing ✅ **BUILT 2026-10-05** — ⚠️ scope widened by owner: skill EDIT incl. level, level DOTS + legend on the home page, owner-managed SECTIONS (`SkillCategory`), three-choice section delete, ◀ ▶ + drag-and-drop (cross-box). **~14 pts, not 5**. No drafts (owner) | Medium | 5 |
 | ~~PF-115~~ | Blog + Messages panels restyled ✅ **BUILT 2026-10-07** — ⚠️ scope widened by owner: Blog DRAFTS (title-only, enforced by the MODEL on every path incl. `togglePublish`) + REVERT, checkbox → buttons; Messages STAR + client-side SEARCH (AND, highlighted) + ALL · UNREAD · STARRED, delete confirm. **~11 pts, not 5** | Medium | 5 |
-| PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 |
+| ~~PF-116~~ | Phase 1 cutover — `:root` deletion, font cutover, admin light theme ✅ **BUILT 2026-10-08** — ⚠️ scope SHRANK: the panel tickets had cleared admin; one site-wide Phase 1 reader was left (`ErrorBoundary`). Body → Space Grotesk, `line-height: 1.6` KEPT, `--acc2` DELETED, title → `Parindra Gallage — …` (owner). ~4 pts | Highest | 8 |
 | PF-117 | Admin responsive + state audit, both themes | Medium | 6 |
 | PF-118 | Admin ↔ public-site parity audit | Highest | 8 |
 | PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 |
@@ -593,7 +593,7 @@ PF-120 (security) ← needs PF-108, PF-111, PF-119 landed ───────�
 **PF-118 is scheduled EARLY on purpose** — it is a diagnostic, and what it
 finds should shape the panel tickets rather than arrive after them.
 
-#### ▶ NEXT: owner picks — PF-116 is UNBLOCKED — and what to raise at the END of the sprint plan
+#### ▶ NEXT: owner picks — PF-117 is UNBLOCKED — and what to raise at the END of the sprint plan
 
 - **PF-114 is BUILT (2026-10-05)** — see `sprint-log.md` and
   `new mds/E9/PF-114-skills-panel-sections-levels-reorder.md`. Skills took NO
@@ -607,7 +607,11 @@ finds should shape the panel tickets rather than arrive after them.
   `new mds/E9/PF-115-blog-messages-panels-drafts.md`. **Every admin panel is now
   Phase 2**, so PF-116 (the cutover) is unblocked; zero Phase 1 tokens/classes
   remain in `components/admin` outside comments (grep with a control, 2026-10-07).
-  Remaining: PF-116 → PF-117, PF-118 (scheduled early, still not run), PF-119,
+- **PF-116 is BUILT (2026-10-08)** — see `sprint-log.md` and
+  `new mds/E9/PF-116-phase1-cutover.md`. `global.css` is Tailwind's entry point
+  only; body is Space Grotesk; zero Phase 1 tokens/classes anywhere in `src/`
+  (guarded by `cutover.test.js`). PF-117 (audit) is unblocked.
+  Remaining: PF-117, PF-118 (scheduled early, still not run), PF-119,
   PF-120, PF-121, PF-122. Sprint 14 tickets stay on `sprint-14-admin_page_rebuild`.
 - **⚠️ `e2e/footer.spec.js:131` now fails 5/5 in isolation, on clean HEAD too**
   — not a flake any more. Needs a fix ticket before PF-121's gate (Outstanding).
@@ -708,7 +712,9 @@ frontend/
   src/
     main.jsx                     stylesheet import order is load-bearing, see below
     styles/
-      global.css                 Phase 1 :root + the Tailwind import
+      global.css                 Tailwind's entry point ONLY since PF-116 —
+                                 @import, @source not, @theme, root overflow.
+                                 ⚠️ No visual value goes here; tokens.css wins
       tokens.css                 Phase 2 tokens, dual theme, Anton fallback @font-face
       keyframes/
         index.css                single import point — import this, not the parts
@@ -789,14 +795,17 @@ frontend/src/styles/
                                  badges, list rows, empty states, skeletons,
                                  banners. ⚠️ Compose from this; adding a
                                  Phase 1 token to any admin stylesheet turns
-                                 adminFoundation.test.js red and BLOCKS PF-116
+                                 adminFoundation.test.js red (the token no
+                                 longer exists since PF-116 — it resolves to
+                                 nothing)
   __tests__/adminFoundation.test.js  postcss-parsed structural guards — **24
                                  cases as of PF-112**, not the 18 once written
                                  here. The count tracks PHASE_2_SHEETS, grown
                                  from 3 entries to 6. ⚠️ That list is EXPLICIT,
                                  not globbed: a sheet left out of it is silently
-                                 exempt from the Phase-1-token guard, the only
-                                 thing gating PF-116
+                                 exempt from the Phase-1-token guard.
+                                 cutover.test.js (PF-116) now scans ALL of
+                                 src/ as the backstop
 frontend/src/components/admin/
   AdminLayout.jsx + .module.css  rebuilt shell. ⚠️ --admin-header-h is 67px,
                                  MEASURED — the reused 44px ThemeToggle is the
@@ -872,18 +881,18 @@ Phase 1 classes and `onMouseEnter` — the inline-style blind spot.
 and `.shell` paints NO background — an opaque one hides the canvas with no
 error. `AdminLayout.test.jsx` guards both.
 
-⚠️ **Light theme on `/admin` is deliberately MIXED until PF-116.** Header,
-sidebar, footer and the Overview panel are Phase 2 and measure zero AA
-failures; About (PF-112), Projects (PF-113), Skills (PF-114), Blog and Messages
-(PF-115) are Phase 2 too. What is left Phase 1 is `global.css`'s `:root` itself
-and the body font — PF-116's job.
+✅ **`/admin` is fully Phase 2 in both themes since PF-116 (2026-10-08)** —
+every panel moved off Phase 1 in PF-107 → PF-115, and PF-116 deleted
+`global.css`'s `:root` and switched the body font. The light theme is still the
+one the owner finds hard to read site-wide — that is the separate light-theme
+sprint, not a cutover leftover.
 
 - **Motion primitives**: `import { Reveal, CountUp, Marquee } from
   '../components/motion'`. `Reveal` needs `type="up"|"pop"|"rise"|"left"`
   matched to the prototype's `data-reveal` for that element.
 - **Tokens**: flat tokens + 5 channel triplets, dual-theme via
-  `html[data-theme]`. `--acc2`/`--acc2rgb` have **zero** consumers today
-  (the sun/moon toggle replaced their only one) — orphaned, not live.
+  `html[data-theme]`. `--acc2`/`--acc2rgb` were **DELETED in PF-116** (owner)
+  — the prototype's pill was their only consumer, and no screen uses it.
 - **Fonts**: `--font-display` (Anton 400 only), `--font-body` (Space
   Grotesk), `--font-mono` (JetBrains Mono), all in `tokens.css`, served
   from the Google Fonts CDN — there are no `.woff2` files in this repo.
@@ -1963,8 +1972,11 @@ omitted — keep the two straight.
   pre-2023 engines — known and accepted.
 - **Fonts are deliberately NOT in `@theme`** — `--font-*` collides with
   `tokens.css`'s own names, so the reference would be self-referential.
-- **`body { font-family }` is NOT set until cutover**, so Phase 1 keeps
-  Inter.
+- **Body is `font-family: var(--font-body)` + `line-height: 1.6`** (PF-116,
+  2026-10-08). The font is the prototype's; **the 1.6 is NOT** (the prototype
+  sets none) — owner kept Phase 1's value so inheriting text did not re-space,
+  and deleting it would give Tailwind's 1.5, not the prototype's `normal`.
+  Inter is no longer downloaded.
 - **A context lives in its own module**, separate from its provider —
   `react-refresh/only-export-components` fails CI otherwise. This has cost
   a lint cycle three times.
@@ -2226,7 +2238,7 @@ omitted — keep the two straight.
 - **The login's theme toggle is the site's 44×44 sun/moon `ThemeToggle`**
   (PF-109) — PF-107's decision applied to the last screen that would have
   carried `Admin.dc.html:92-98`'s `--acc2` pill. Consequence: `--acc2` /
-  `--acc2rgb` stay at ZERO consumers (auroraB would have been the first).
+  `--acc2rgb` stayed at ZERO consumers, and PF-116 deleted them.
 - **`riseIn` is a PER-SCREEN keyframe** (PF-109, owner decision
   2026-09-16) — `riseIn-portfolio` 16px, `riseIn-blog` 22px, `riseIn-admin`
   18px, the `flt`/`drift`/`sheen` treatment. ⚠️ The single 14px body it
