@@ -250,9 +250,12 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
                 See .sidebarInner in the module for why the height went. */}
             <div className={styles.sessionCard}>
               <p className={styles.sessionLabel}>SESSION</p>
+              {/* PF-115: was "Every change here is written straight to the
+                  live site." — true once, untrue since every panel STAGES until
+                  SAVE (PF-112) and Projects and Blog have DRAFTS (PF-113/115). */}
               <p className={styles.sessionBody}>
-                Signed in as admin. Every change here is written straight to the
-                live site.
+                Signed in as admin. Changes go live when you press SAVE. Drafts
+                stay hidden.
               </p>
             </div>
           </div>
