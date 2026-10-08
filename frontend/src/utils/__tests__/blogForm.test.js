@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { emptyForm, emptySection, postToForm, formToPayload, formErrors,
+import { emptyForm, emptySection, postToForm, formToPayload, formErrors, isPostDirty,
          tagList, hasTag, toggleTag, removeTag } from '../blogForm';
 
 // A post shaped exactly as `GET /api/blog/admin/all` returns one: the
@@ -390,5 +390,69 @@ describe('tag helpers', () => {
     it('handles removing the only tag', () => {
       expect(removeTag('React', 'React')).toBe('');
     });
+  });
+});
+
+// ── PF-115 — drafts and dirty tracking ─────────────────────────────────────
+describe('formErrors — a DRAFT needs only a title (PF-115)', () => {
+  const DRAFT = { ...emptyForm(), title: 'Idea', published: false };
+
+  it('passes a title-only draft that would fail every publish rule', () => {
+    expect(formErrors(DRAFT)).toEqual([]);
+    // The control: the SAME form, publishing, is refused — so the pass above
+    // is the draft rule talking, not a validator that accepts everything.
+    expect(formErrors({ ...DRAFT, published: true }).length).toBeGreaterThan(0);
+  });
+
+  it('keeps a half-written section in a draft without complaint', () => {
+    const form = { ...DRAFT, sections: [{ heading: '', body: ['text'], bullets: [] }, { heading: 'H', body: [], bullets: [] }] };
+    expect(formErrors(form)).toEqual([]);
+  });
+
+  it('still requires the title, in draft words', () => {
+    expect(formErrors({ ...DRAFT, title: ' ' }))
+      .toEqual([{ field: 'title', message: 'A draft needs at least a title.' }]);
+  });
+
+  it('still enforces the length ceilings on a draft', () => {
+    expect(formErrors({ ...DRAFT, excerpt: 'x'.repeat(301) }).map((e) => e.field)).toEqual(['excerpt']);
+    expect(formErrors({ ...DRAFT, title: 'x'.repeat(151) }).map((e) => e.field)).toEqual(['title']);
+  });
+
+  it('treats a form with no published flag as PUBLISHING — over-checked, never waved through', () => {
+    const noFlag = { ...DRAFT };
+    delete noFlag.published;
+    expect(formErrors(noFlag).length).toBeGreaterThan(0);
+  });
+});
+
+describe('isPostDirty (PF-115)', () => {
+  it('is clean for a post opened and left alone', () => {
+    expect(isPostDirty(postToForm(API_POST), API_POST)).toBe(false);
+  });
+
+  it('is clean for an untouched new-post form', () => {
+    expect(isPostDirty(emptyForm(), null)).toBe(false);
+  });
+
+  it('sees a typed change, and its undoing', () => {
+    const form = postToForm(API_POST);
+    expect(isPostDirty({ ...form, title: 'Changed' }, API_POST)).toBe(true);
+    expect(isPostDirty({ ...form, title: API_POST.title }, API_POST)).toBe(false);
+  });
+
+  // ⚠️ The case a PAYLOAD comparison misses: formToPayload drops an empty
+  // section, so "+ ADD SECTION" would change nothing it compares.
+  it('sees an added EMPTY section', () => {
+    const form = postToForm(API_POST);
+    expect(isPostDirty({ ...form, sections: [...form.sections, emptySection()] }, API_POST)).toBe(true);
+  });
+
+  it('ignores the published flag — the button decides that, not the form', () => {
+    expect(isPostDirty({ ...postToForm(API_POST), published: false }, API_POST)).toBe(false);
+  });
+
+  it('sees a changed reading-time pin', () => {
+    expect(isPostDirty({ ...postToForm(API_POST), readingTimeOverride: '9' }, API_POST)).toBe(true);
   });
 });

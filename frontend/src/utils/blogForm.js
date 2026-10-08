@@ -170,8 +170,38 @@ export const toggleTag = (tags, label) => {
 export const removeTag = (tags, label) =>
   tagList(tags).filter((t) => t.toLowerCase() !== String(label).toLowerCase()).join(', ');
 
-/** The server's own ceiling, from blogRules' `isLength({ max: 300 })`. */
+/** The server's own ceilings, from blogRules' `isLength({ max })`. */
 const MAX_EXCERPT = 300;
+const MAX_TITLE   = 150;
+
+/**
+ * Has the editor moved away from what is SAVED? — PF-115.
+ *
+ * `post` is the stored record, or null/undefined for a new post (compared
+ * against a blank form).
+ *
+ * ⚠️ Compares the FORM, not the payload. `formToPayload` drops a completely
+ * empty section, so a payload comparison could not see "+ ADD SECTION" at all:
+ * SAVE would stay dim and REVERT hidden while a new block sat on screen — the
+ * exact shape of the owner's About-panel report (a `+ ADD STAT` row that made
+ * nothing dirty, 2026-09-25).
+ *
+ * `published` is left out: which rule set applies is the BUTTON's decision, so
+ * it is not an edit to the form.
+ *
+ * ⚠️ About CHANGE, never VALIDITY — an invalid form is dirty, because SAVE must
+ * be pressable for the guard to refuse it and say why.
+ */
+export const isPostDirty = (form, post) => {
+  const comparable = (f) => JSON.stringify({
+    title:               f.title,
+    excerpt:             f.excerpt,
+    tags:                f.tags,
+    readingTimeOverride: String(f.readingTimeOverride ?? ''),
+    sections:            f.sections,
+  });
+  return comparable(form) !== comparable(post ? postToForm(post) : emptyForm());
+};
 
 /**
  * Everything that must be fixed before the post is worth sending.
@@ -192,8 +222,32 @@ export const formErrors = (form = {}) => {
   const payload = formToPayload(form);
   const errors  = [];
 
+  // ── PF-115 — DRAFT vs PUBLISH ────────────────────────────────────────────
+  // `form.published` is the INTENT, set by the button pressed — the panel
+  // passes `{ ...form, published: <publish?> }`, exactly as Projects does. A
+  // draft needs only a title and must fit the length ceilings (owner,
+  // 2026-10-03); everything below the ceilings is a PUBLISH rule. The server
+  // applies the same split (models/Blog.js), so this stays a courtesy.
+  //
+  // `!== false`, matching projectFormErrors: anything that does not say
+  // "draft" gets the full rules, so a caller that forgets the flag is
+  // over-checked rather than waved through.
+  const publish = form.published !== false;
+
   if (!payload.title) {
-    errors.push({ field: 'title', message: 'Title is required.' });
+    errors.push({ field: 'title', message: publish ? 'Title is required.' : 'A draft needs at least a title.' });
+  } else if (payload.title.length > MAX_TITLE) {
+    errors.push({ field: 'title', message: `Title cannot exceed ${MAX_TITLE} characters.` });
+  }
+
+  if (!publish) {
+    if (payload.excerpt.length > MAX_EXCERPT) {
+      errors.push({
+        field:   'excerpt',
+        message: `Excerpt cannot exceed ${MAX_EXCERPT} characters — this one is ${payload.excerpt.length}.`,
+      });
+    }
+    return errors;
   }
 
   if (!payload.excerpt) {

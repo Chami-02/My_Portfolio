@@ -90,8 +90,20 @@ const dialog = () => within(screen.getByRole('dialog'));
 
 const openEditor = async (user) => {
   render(<AdminBlogPanel />);
-  await user.click(screen.getByRole('button', { name: 'Edit' }));
+  // PF-115: the row's EDIT is named for its post, `Edit <title>`.
+  await user.click(screen.getByRole('button', { name: `Edit ${POST.title}` }));
 };
+
+/**
+ * PF-115: SAVE is DIM until the form is dirty (the standing staging rule), so a
+ * test that saves an untouched post must first change something. A trailing
+ * space on the excerpt dirties the FORM while `formToPayload` trims it away —
+ * so the payload these tests inspect is exactly what an untouched save sent
+ * before the rule existed.
+ */
+const touch = (user) => user.type(screen.getByLabelText(/^Excerpt/), ' ');
+
+const saveChanges = () => screen.getByRole('button', { name: 'SAVE CHANGES' });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -154,7 +166,7 @@ describe('AdminBlogPanel — editing sections', () => {
     await openEditor(user);
 
     expect(screen.getAllByLabelText(/^Heading/)).toHaveLength(2);
-    await user.click(screen.getByRole('button', { name: '+ Add Section' }));
+    await user.click(screen.getByRole('button', { name: '+ ADD SECTION' }));
     expect(screen.getAllByLabelText(/^Heading/)).toHaveLength(3);
   });
 
@@ -174,7 +186,7 @@ describe('AdminBlogPanel — editing sections', () => {
 
     // Section 02 starts with no paragraphs — bullets only.
     const before = screen.getAllByPlaceholderText(/^Paragraph/).length;
-    await user.click(screen.getAllByRole('button', { name: '+ Add paragraph' })[1]);
+    await user.click(screen.getAllByRole('button', { name: '+ ADD PARAGRAPH' })[1]);
 
     expect(screen.getAllByPlaceholderText(/^Paragraph/)).toHaveLength(before + 1);
     // The first section's own paragraph is untouched — the shared-array bug
@@ -187,7 +199,7 @@ describe('AdminBlogPanel — editing sections', () => {
     await openEditor(user);
 
     await user.click(screen.getByRole('button', { name: 'Move section 01 down' }));
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await user.click(saveChanges());
 
     const { data } = updateMutation.mutateAsync.mock.calls[0][0];
     expect(data.sections.map((s) => s.heading)).toEqual(['Planning', 'Introduction']);
@@ -208,7 +220,8 @@ describe('AdminBlogPanel — what the save actually sends', () => {
     const user = userEvent.setup();
     await openEditor(user);
 
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await touch(user);
+    await user.click(saveChanges());
 
     expect(updateMutation.mutateAsync).toHaveBeenCalledTimes(1);
     const { id, data } = updateMutation.mutateAsync.mock.calls[0][0];
@@ -228,7 +241,8 @@ describe('AdminBlogPanel — what the save actually sends', () => {
     async (field) => {
       const user = userEvent.setup();
       await openEditor(user);
-      await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+      await touch(user);
+      await user.click(saveChanges());
 
       expect(updateMutation.mutateAsync.mock.calls[0][0].data).not.toHaveProperty(field);
     },
@@ -238,7 +252,8 @@ describe('AdminBlogPanel — what the save actually sends', () => {
   it('sends null for the pin when the field is left blank', async () => {
     const user = userEvent.setup();
     await openEditor(user);
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await touch(user);
+    await user.click(saveChanges());
 
     expect(updateMutation.mutateAsync.mock.calls[0][0].data.readingTimeOverride).toBeNull();
   });
@@ -247,7 +262,7 @@ describe('AdminBlogPanel — what the save actually sends', () => {
     const user = userEvent.setup();
     await openEditor(user);
     await user.type(screen.getByLabelText(/Reading time override/i), '8');
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await user.click(saveChanges());
 
     expect(updateMutation.mutateAsync.mock.calls[0][0].data.readingTimeOverride).toBe(8);
   });
@@ -280,8 +295,8 @@ describe('AdminBlogPanel — what the save actually sends', () => {
     const submits = [...form.querySelectorAll('button')]
       .filter((b) => (b.getAttribute('type') ?? 'submit') === 'submit');
 
-    // Exactly one: Save Changes. Anything else here submits on click.
-    expect(submits.map((b) => b.textContent)).toEqual(['Save Changes']);
+    // Exactly one: SAVE CHANGES. Anything else here submits on click.
+    expect(submits.map((b) => b.textContent)).toEqual(['SAVE CHANGES']);
   });
 });
 
@@ -294,7 +309,8 @@ describe('AdminBlogPanel — failures are visible', () => {
 
     const user = userEvent.setup();
     await openEditor(user);
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await touch(user);
+    await user.click(saveChanges());
 
     expect(await screen.findByText(/A post needs a body/)).toBeInTheDocument();
   });
@@ -306,7 +322,8 @@ describe('AdminBlogPanel — failures are visible', () => {
 
     const user = userEvent.setup();
     await openEditor(user);
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await touch(user);
+    await user.click(saveChanges());
 
     expect(await screen.findByText(/Cannot reach the server/)).toBeInTheDocument();
   });
@@ -317,7 +334,7 @@ describe('AdminBlogPanel — failures are visible', () => {
 
     // Empty section 01's only paragraph, leaving a heading with no body.
     await user.clear(screen.getByDisplayValue('I wanted my portfolio to do more.'));
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await user.click(saveChanges());
 
     expect(await screen.findByText('Section 01 needs at least one paragraph or bullet.')).toBeInTheDocument();
     expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
@@ -354,7 +371,7 @@ describe('AdminBlogPanel — list view', () => {
 
     const user = userEvent.setup();
     render(<AdminBlogPanel />);
-    await user.click(screen.getByRole('button', { name: 'Unpublish' }));
+    await user.click(screen.getByRole('button', { name: `Unpublish ${POST.title}` }));
 
     expect(await screen.findByText('Post not found')).toBeInTheDocument();
   });
@@ -410,7 +427,7 @@ describe('AdminBlogPanel — tag picker', () => {
     await openEditor(user);
 
     await user.click(chip('Docker'));
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await user.click(saveChanges());
 
     expect(updateMutation.mutateAsync.mock.calls[0][0].data.tags)
       .toEqual(['React', 'Node.js', 'Docker']);
@@ -679,7 +696,7 @@ describe('validation refuses the save (2026-09-25)', () => {
     // matter what the validator returns.
     const user = userEvent.setup();
     const { container } = render(<AdminBlogPanel />);
-    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: `Edit ${POST.title}` }));
 
     expect(container.querySelector('form')).toHaveAttribute('novalidate');
   });
@@ -746,12 +763,10 @@ describe('validation refuses the save (2026-09-25)', () => {
     const emptyIdx  = before;       // left completely empty — dropped by the payload
     const brokenIdx = before + 1;   // a paragraph, no heading — the real problem
 
-    // ⚠️ BY PLACEHOLDER, not by label. The paragraph textareas have NO
-    // accessible name at all — `getAllByLabelText(/paragraph 1$/i)` matches the
-    // "Remove paragraph 1" BUTTONS instead, and typing into a button silently
-    // does nothing, so the save went through and the test failed claiming the
-    // validator was broken. (The missing label is a real a11y gap; it is on
-    // Outstanding work, not fixed here.)
+    // ⚠️ BY PLACEHOLDER, kept from before PF-115: until then the paragraph
+    // textareas had NO accessible name, so `getAllByLabelText(/paragraph 1$/i)`
+    // matched the "Remove paragraph 1" BUTTONS. PF-115 named them
+    // ("Section 03, paragraph 1") — pinned in the PF-115 block below.
     const paragraphs = screen.getAllByPlaceholderText(/^Paragraph 1/);
     await user.type(paragraphs[paragraphs.length - 1], 'Some body text.');
 
@@ -823,5 +838,255 @@ describe('validation refuses the save (2026-09-25)', () => {
     expect(await screen.findByText(/Cannot reach the server/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
     expect(screen.queryByText(/CHECK THE CHANGES AGAIN/i)).not.toBeInTheDocument();
+  });
+});
+
+// ══ PF-115 — drafts, staging, and the list row's PUBLISH ══════════════════
+// Owner rules: a new post can be SAVED AS A DRAFT with only a title (2026-10-03);
+// SAVE is dim until something changed and REVERT restores the SAVED state
+// (2026-09-25); PUBLISH on an incomplete draft's row sends nothing and opens
+// the editor with the fields marked (2026-10-07).
+describe('PF-115 — drafts and staging', () => {
+  // A draft that would fail every publish rule: no excerpt, a heading-only
+  // section. Distinct from emptyForm() on purpose — REVERT must land HERE.
+  const DRAFT = {
+    _id: 'draft-1', title: 'Half Written Idea', slug: 'half-written-idea',
+    excerpt: '', tags: [], published: false, readingTimeMinutes: 1, views: 0,
+    publishedAt: null, createdAt: '2026-10-01T10:00:00.000Z',
+    sections: [{ heading: 'Outline', body: [], bullets: [] }],
+  };
+  const COMPLETE_DRAFT = { ...POST, _id: 'draft-2', title: 'Ready To Go', published: false };
+
+  const newPost = async (user) => {
+    render(<AdminBlogPanel />);
+    await user.click(screen.getByRole('button', { name: '+ NEW POST' }));
+  };
+
+  it('has no "Publish immediately" checkbox — the buttons decide (owner, 2026-10-07)', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Publish immediately/i)).not.toBeInTheDocument();
+  });
+
+  it('a new post offers CREATE POST and SAVE AS DRAFT, both dim until something is typed', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+
+    expect(screen.getByRole('button', { name: 'CREATE POST' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'SAVE AS DRAFT' })).toBeDisabled();
+
+    await user.type(screen.getByLabelText(/^Title/), 'Idea');
+    expect(screen.getByRole('button', { name: 'CREATE POST' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'SAVE AS DRAFT' })).toBeEnabled();
+  });
+
+  it('SAVE AS DRAFT sends a title-only post as published:false', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+
+    await user.type(screen.getByLabelText(/^Title/), 'Just an idea');
+    await user.click(screen.getByRole('button', { name: 'SAVE AS DRAFT' }));
+
+    expect(createMutation.mutateAsync).toHaveBeenCalledTimes(1);
+    const data = createMutation.mutateAsync.mock.calls[0][0];
+    expect(data.published).toBe(false);
+    expect(data.title).toBe('Just an idea');
+  });
+
+  // The control for the test above: the SAME form through the publish button
+  // is refused — so the draft passing is the draft rule, not a lax validator.
+  it('CREATE POST refuses that same title-only post and sends nothing', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+
+    await user.type(screen.getByLabelText(/^Title/), 'Just an idea');
+    await user.click(screen.getByRole('button', { name: 'CREATE POST' }));
+
+    expect(createMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/^Excerpt/)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'CREATE POST' }).className).toMatch(/shake/);
+  });
+
+  it('SAVE AS DRAFT still needs a title, in draft words', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+
+    await user.type(screen.getByLabelText(/^Excerpt/), 'x');   // dirty, but no title
+    await user.click(screen.getByRole('button', { name: 'SAVE AS DRAFT' }));
+
+    expect(createMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('A draft needs at least a title.')).toBeInTheDocument();
+    // The button PRESSED is the one that shakes.
+    expect(screen.getByRole('button', { name: 'SAVE AS DRAFT' }).className).toMatch(/shake/);
+    expect(screen.getByRole('button', { name: 'CREATE POST' }).className).not.toMatch(/shake/);
+  });
+
+  it('a live post offers SAVE CHANGES only — dim until edited — and no draft button', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    expect(saveChanges()).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /DRAFT/ })).not.toBeInTheDocument();
+
+    await touch(user);
+    expect(saveChanges()).toBeEnabled();
+  });
+
+  it('a draft offers PUBLISH (lit while untouched) and SAVE DRAFT', async () => {
+    useBlogPostAdmin.mockReturnValue({ data: [COMPLETE_DRAFT], isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminBlogPanel />);
+    await user.click(screen.getByRole('button', { name: `Edit ${COMPLETE_DRAFT.title}` }));
+
+    // Publishing IS the change on a draft, so PUBLISH is the one button lit
+    // without an edit (PF-113's rule).
+    expect(screen.getByRole('button', { name: 'PUBLISH' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'SAVE DRAFT' })).toBeDisabled();
+    expect(screen.getByText('DRAFT')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'PUBLISH' }));
+    expect(updateMutation.mutateAsync.mock.calls[0][0].data.published).toBe(true);
+  });
+
+  describe('REVERT CHANGES', () => {
+    it('appears only while there are changes, with the UNSAVED CHANGES marker', async () => {
+      const user = userEvent.setup();
+      await openEditor(user);
+
+      expect(screen.queryByRole('button', { name: 'REVERT CHANGES' })).not.toBeInTheDocument();
+      await user.type(screen.getByLabelText(/^Title/), '!');
+      expect(screen.getByRole('button', { name: 'REVERT CHANGES' })).toBeInTheDocument();
+      expect(screen.getByText('UNSAVED CHANGES')).toBeInTheDocument();
+    });
+
+    // ⚠️ The owner's objection to the old Projects cancel was that it BLANKED
+    // the form. The fixture is a real post, distinct from a blank form, so a
+    // revert-to-empty fails here.
+    it('restores the SAVED values — never a blank form', async () => {
+      const user = userEvent.setup();
+      await openEditor(user);
+
+      await user.clear(screen.getByLabelText(/^Title/));
+      await user.type(screen.getByLabelText(/^Title/), 'Something else');
+      await user.click(screen.getByRole('button', { name: 'Remove section 01' }));
+      await user.click(screen.getByRole('button', { name: 'REVERT CHANGES' }));
+
+      expect(screen.getByLabelText(/^Title/)).toHaveValue(POST.title);
+      expect(screen.getByDisplayValue('Introduction')).toBeInTheDocument();
+      expect(saveChanges()).toBeDisabled();
+      // Still editing — REVERT is "undo my typing", not "leave".
+      expect(screen.getByRole('heading', { name: 'Edit post' })).toBeInTheDocument();
+    });
+
+    it('clears the field marks with the values', async () => {
+      const user = userEvent.setup();
+      await openEditor(user);
+
+      await user.clear(screen.getByLabelText(/^Title/));
+      await user.click(saveChanges());
+      expect(screen.getByLabelText(/^Title/)).toHaveAttribute('aria-invalid', 'true');
+
+      await user.click(screen.getByRole('button', { name: 'REVERT CHANGES' }));
+      expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
+      expect(screen.queryByText(/CHECK THE CHANGES AGAIN/)).not.toBeInTheDocument();
+    });
+
+    it('treats "+ ADD SECTION" as a change — an empty block is still on screen', async () => {
+      const user = userEvent.setup();
+      await openEditor(user);
+
+      await user.click(screen.getByRole('button', { name: '+ ADD SECTION' }));
+      expect(saveChanges()).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'REVERT CHANGES' })).toBeInTheDocument();
+    });
+  });
+
+  it('CANCEL leaves the editor without saving', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await touch(user);
+    await user.click(screen.getByRole('button', { name: 'CANCEL' }));
+
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '+ NEW POST' })).toBeInTheDocument();
+  });
+
+  it('returns to the list after a successful save', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await touch(user);
+    await user.click(saveChanges());
+
+    expect(await screen.findByRole('button', { name: '+ NEW POST' })).toBeInTheDocument();
+  });
+
+  describe('the list row PUBLISH', () => {
+    it('labels the row badge and toggle by state', () => {
+      useBlogPostAdmin.mockReturnValue({ data: [POST, DRAFT], isLoading: false });
+      render(<AdminBlogPanel />);
+
+      expect(screen.getByText('● PUBLISHED')).toBeInTheDocument();
+      expect(screen.getByText('○ DRAFT')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: `Unpublish ${POST.title}` })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: `Publish ${DRAFT.title}` })).toBeInTheDocument();
+    });
+
+    it('on an INCOMPLETE draft sends nothing and opens the editor with the fields marked', async () => {
+      useBlogPostAdmin.mockReturnValue({ data: [DRAFT], isLoading: false });
+      const user = userEvent.setup();
+      render(<AdminBlogPanel />);
+
+      await user.click(screen.getByRole('button', { name: `Publish ${DRAFT.title}` }));
+
+      expect(toggleMutation.mutate).not.toHaveBeenCalled();
+      expect(screen.getByRole('heading', { name: 'Edit post' })).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Title/)).toHaveValue(DRAFT.title);
+      expect(screen.getByLabelText(/^Excerpt/)).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.getByText(/CHECK THE CHANGES AGAIN — 2 fields need attention/)).toBeInTheDocument();
+    });
+
+    it('on a COMPLETE draft publishes straight from the row', async () => {
+      useBlogPostAdmin.mockReturnValue({ data: [COMPLETE_DRAFT], isLoading: false });
+      const user = userEvent.setup();
+      render(<AdminBlogPanel />);
+
+      await user.click(screen.getByRole('button', { name: `Publish ${COMPLETE_DRAFT.title}` }));
+
+      expect(toggleMutation.mutate).toHaveBeenCalledWith('draft-2', expect.any(Object));
+    });
+
+    // UNPUBLISH needs nothing complete — a live post is already complete, and
+    // taking it down must never be refused by a content check.
+    it('UNPUBLISH toggles without checking anything', async () => {
+      const user = userEvent.setup();
+      render(<AdminBlogPanel />);
+      await user.click(screen.getByRole('button', { name: `Unpublish ${POST.title}` }));
+      expect(toggleMutation.mutate).toHaveBeenCalledWith('post-1', expect.any(Object));
+    });
+  });
+
+  it('names every paragraph and bullet input (was placeholder-only)', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    expect(screen.getByRole('textbox', { name: 'Section 01, paragraph 1' }))
+      .toHaveValue('I wanted my portfolio to do more.');
+    expect(screen.getByRole('textbox', { name: 'Section 02, bullet 2' }))
+      .toHaveValue('Branching strategy');
+  });
+
+  it('DELETE asks first, with the prototype copy, and deletes on YES', async () => {
+    const user = userEvent.setup();
+    render(<AdminBlogPanel />);
+
+    await user.click(screen.getByRole('button', { name: `Delete ${POST.title}` }));
+    expect(deleteMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(dialog().getByText(/permanently delete/)).toBeInTheDocument();
+
+    await user.click(dialog().getByRole('button', { name: 'YES, DELETE' }));
+    expect(deleteMutation.mutateAsync).toHaveBeenCalledWith('post-1');
   });
 });

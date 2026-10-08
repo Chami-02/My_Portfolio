@@ -137,7 +137,8 @@ test.describe('Admin Authentication Flow', () => {
     // panel mounts in list view and must arrive with its editor open.
     await page.getByRole('button', { name: '+ NEW POST', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Blog', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'New Post', exact: true })).toBeVisible();
+    // PF-115: the prototype's casing, `New post` (Admin.dc.html:1191).
+    await expect(page.getByRole('heading', { name: 'New post', exact: true })).toBeVisible();
 
     // Back to the overview by the sidebar, then a plain tab-switch action.
     await page.getByRole('navigation', { name: 'Admin sections' })

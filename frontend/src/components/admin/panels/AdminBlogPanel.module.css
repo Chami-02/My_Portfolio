@@ -1,0 +1,244 @@
+/* frontend/src/components/admin/panels/AdminBlogPanel.module.css
+ *
+ * PF-115 — the Blog panel's own pieces. Everything shared (panel, inputs,
+ * buttons, rows, badges, banners) composes from styles/admin.module.css; this
+ * file holds only what the Blog editor has and no other panel does.
+ *
+ * Transcribed from Admin.dc.html:454-536 where the prototype has a value. The
+ * SECTIONS EDITOR has no prototype source at all — the export still shows
+ * Phase 1's single "Content * (Markdown supported)" textarea, which PF-97
+ * replaced and which must NOT be restored — so its cards borrow the
+ * prototype's own inset surfaces (the tag picker's `rgba(var(--gnd),.32)`
+ * panel) rather than inventing a look.
+ *
+ * ⚠️ Registered in adminFoundation.test.js's PHASE_2_SHEETS — that list is
+ * explicit, not globbed, so a sheet left out is silently exempt from the
+ * Phase-1-token guard that gates PF-116.
+ */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--strong);
+}
+
+/* ── The sections editor ─────────────────────────────────────────── */
+
+.sectionsHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sections {
+  display: grid;
+  gap: 14px;
+}
+
+.section {
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(var(--gnd), .32);
+  border: 1px solid rgba(var(--ln), .14);
+}
+
+.sectionTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* The numeral the reading view prints — 01·02·03 — so the order here is
+   visibly the order a visitor reads. */
+.sectionNumber {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--acc, #FCA311);
+}
+
+.sectionTools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ↑ ↓ — a compact square of the row-button family. */
+.move {
+  composes: btnRow from '../../../styles/admin.module.css';
+  padding: 6px 11px;
+}
+
+.move:disabled {
+  /* ⚠️ Not a low opacity on its own — the disabled look comes from losing
+     the border, the same rule admin.module.css's .input:disabled states. */
+  border-color: transparent;
+  color: var(--muted2);
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.linesHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.linesBlock + .linesBlock {
+  margin-top: 14px;
+}
+
+.lines {
+  display: grid;
+  gap: 9px;
+}
+
+.line {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.lineMark {
+  flex: none;
+  min-width: 22px;
+  margin-top: 12px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted2);
+}
+
+.lineInput {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The × on a section or a line. `.btnIcon`'s hover goes to --danger; at rest
+   it is muted so a column of them does not read as a column of warnings. */
+.remove {
+  composes: btnIcon from '../../../styles/admin.module.css';
+  flex: none;
+  margin-top: 9px;
+  padding: 2px 6px;
+  font-size: 18px;
+}
+
+.sectionTools .remove {
+  margin-top: 0;
+}
+
+.none {
+  margin: 0;
+  padding: 2px 0 2px 31px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted2);
+}
+
+.hint {
+  margin: 7px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted2);
+}
+
+/* ── Buttons row ─────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.unsaved {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--acc, #FCA311);
+}
+
+/* ── The post list ──────────────────────────────────────────────── */
+
+.list {
+  display: grid;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Admin.dc.html:518 — the prototype's row is 16px 18px with a .14 line and an
+   accent border on hover, where the shared .row is 15px 17px / .1 and keeps
+   its border. */
+.row {
+  composes: row from '../../../styles/admin.module.css';
+  padding: 16px 18px;
+  border-color: rgba(var(--ln), .14);
+}
+
+.row:hover {
+  border-color: var(--acc, #FCA311);
+}
+
+.rowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+/* The per-post view count (PF-99) as a chip beside the badge — the badge's
+   geometry in neutral ink. */
+.views {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .18);
+  color: var(--muted);
+}
+
+/* ⚠️ PF-91's substitution, applied not re-decided (as PF-107/110/114 did on
+   their surfaces): --muted2 at 11px on the panel card is under AA in DARK.
+   (0,2,1) so it wins on specificity; light is untouched. */
+:global(html[data-theme='dark']) .lineMark,
+:global(html[data-theme='dark']) .none,
+:global(html[data-theme='dark']) .hint,
+:global(html[data-theme='dark']) .rowMeta { color: var(--muted); }
+
+.rowMeta {
+  composes: rowMeta from '../../../styles/admin.module.css';
+}
