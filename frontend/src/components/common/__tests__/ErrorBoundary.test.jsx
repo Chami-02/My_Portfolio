@@ -62,4 +62,45 @@ describe('ErrorBoundary', () => {
 
     expect(screen.getByText('Content rendered fine')).toBeInTheDocument();
   });
+
+  // ── PF-116 — the fallback moved onto Phase 2 ─────────────────────────
+
+  it('the reset control is type="button", never an implicit submit', () => {
+    // A boundary can wrap a <form> (Contact does). A type-less <button>
+    // rendered inside a form is a SUBMIT button — see CLAUDE.md's
+    // Silent-failures entry from PF-97.
+    shouldThrow = true;
+    render(
+      <ErrorBoundary>
+        <ThrowingComponent />
+      </ErrorBoundary>
+    );
+    expect(screen.getByRole('button', { name: /try again/i })).toHaveAttribute('type', 'button');
+  });
+
+  it('announces the failure and prints the error message', () => {
+    shouldThrow = true;
+    render(
+      <ErrorBoundary>
+        <ThrowingComponent />
+      </ErrorBoundary>
+    );
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/something went wrong/i);
+    expect(alert).toHaveTextContent('Test render error');
+  });
+
+  it('carries no inline style — every colour comes from the module', () => {
+    // The Phase 1 fallback was all inline style={{}}: a --text-muted
+    // detail line (2.67:1 in dark) and #f87171 reds that never flipped.
+    // Inline styles are invisible to the stylesheet guards, which is how
+    // they outlived every Phase 1 sweep; pin that none come back.
+    shouldThrow = true;
+    const { container } = render(
+      <ErrorBoundary>
+        <ThrowingComponent />
+      </ErrorBoundary>
+    );
+    expect(container.querySelector('[style]')).toBeNull();
+  });
 });
