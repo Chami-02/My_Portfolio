@@ -137,3 +137,65 @@ describe('DELETE /api/contact/:id', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ── PF-115 — the owner's STAR (owner, 2026-10-07) ──────────────────────────
+describe('PATCH /api/contact/:id/star', () => {
+  it('stars and unstars a message — an explicit value, not a flip', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    expect(message.starred).toBe(false);
+
+    const on = await request(app).patch(`/api/contact/${message._id}/star`)
+      .set(await authHeader()).send({ starred: true });
+    expect(on.status).toBe(200);
+    expect(on.body.data.starred).toBe(true);
+
+    // The same request twice must leave it starred — a toggle would unstar.
+    const again = await request(app).patch(`/api/contact/${message._id}/star`)
+      .set(await authHeader()).send({ starred: true });
+    expect(again.body.data.starred).toBe(true);
+
+    const off = await request(app).patch(`/api/contact/${message._id}/star`)
+      .set(await authHeader()).send({ starred: false });
+    expect(off.body.data.starred).toBe(false);
+  });
+
+  it('does not touch the read flag', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    const res = await request(app).patch(`/api/contact/${message._id}/star`)
+      .set(await authHeader()).send({ starred: true });
+    expect(res.body.data.read).toBe(false);
+  });
+
+  it.each([[{}], [{ starred: 'yes' }], [{ starred: 1 }]])(
+    'refuses a body that is not a boolean: %j',
+    async (body) => {
+      const message = await Contact.create(VALID_MESSAGE);
+      const res = await request(app).patch(`/api/contact/${message._id}/star`)
+        .set(await authHeader()).send(body);
+      expect(res.status).toBe(400);
+      expect((await Contact.findById(message._id)).starred).toBe(false);
+    },
+  );
+
+  it('returns 404 for a missing message and 400 for a malformed id', async () => {
+    const missing = await request(app).patch('/api/contact/000000000000000000000000/star')
+      .set(await authHeader()).send({ starred: true });
+    expect(missing.status).toBe(404);
+
+    const bad = await request(app).patch('/api/contact/not-an-id/star')
+      .set(await authHeader()).send({ starred: true });
+    expect(bad.status).toBe(400);
+  });
+
+  it('answers 401 without a token — even with a bad body', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    const res = await request(app).patch(`/api/contact/${message._id}/star`).send({ starred: 'x' });
+    expect(res.status).toBe(401);
+  });
+
+  it('a visitor cannot star their own message through the public form', async () => {
+    await request(app).post('/api/contact').send({ ...VALID_MESSAGE, starred: true });
+    const [saved] = await Contact.find();
+    expect(saved.starred).toBe(false);
+  });
+});

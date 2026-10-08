@@ -72,6 +72,30 @@ const markAsRead = async (req, res, next) => {
   }
 };
 
+// ── PATCH /api/contact/:id/star ──────────────────────────────────────────────
+// Protected — PF-115. Sets the star to an EXPLICIT value rather than flipping
+// it, so a double-click or a retried request can never land on the opposite of
+// what the owner pressed. A toggle is only correct if every request arrives
+// exactly once.
+const starRules = [
+  body('starred').isBoolean({ strict: true }).withMessage('starred must be true or false'),
+];
+
+const setStarred = async (req, res, next) => {
+  try {
+    const message = await Contact.findByIdAndUpdate(
+      req.params.id,
+      { starred: req.body.starred },
+      { returnDocument: 'after' }
+    );
+    if (!message) return next(new AppError('Message not found', 404));
+    res.json({ status: 'success', data: message });
+  } catch (err) {
+    if (err.name === 'CastError') return next(new AppError('Invalid message ID', 400));
+    next(err);
+  }
+};
+
 // ── DELETE /api/contact/:id ──────────────────────────────────────────────────
 // Protected — admin can delete messages
 const deleteMessage = async (req, res, next) => {
@@ -84,4 +108,7 @@ const deleteMessage = async (req, res, next) => {
   }
 };
 
-module.exports = { contactRules, submitContact, getAllMessages, markAsRead, deleteMessage };
+module.exports = {
+  contactRules, submitContact, getAllMessages, markAsRead, deleteMessage,
+  starRules, setStarred,
+};
