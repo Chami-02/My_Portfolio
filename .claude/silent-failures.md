@@ -3274,3 +3274,36 @@ vite and @vitejs/plugin-react are devDependencies yet produce the shipped bundle
 Auto-merge #10 (vite 8.0 → 8.3) went live via Vercel before this was noticed — the
 site was healthy (HTTP 200, health green), and the policy now treats build tools
 as live-site.
+
+## PF-115 (2026-10-07)
+
+### A rule enforced only in the ROUTE's validators does not cover a route that skips them
+"A post needs a body" lived only in `blogRules`. `PATCH /api/blog/:id/publish`
+(`togglePublish`) runs no `blogRules` — it loads, flips and saves. While no post
+could exist without a body it did not matter; the moment drafts could, a
+list-row PUBLISH would have put an EMPTY post on the public site with a 200.
+**Put a rule that every write must respect in the MODEL, not in one route's
+rule array.** And the model's refusal then surfaced as a **500**: errorHandler
+has no global ValidationError mapping, so each controller maps its own.
+
+### TanStack dedupes an invalidation into a query's FIRST, still-in-flight fetch
+A save landing ~1s after `/admin` loaded (against Atlas) invalidated
+`DASHBOARD_KEY` while the shell's first stats fetch was pending. No new request
+went out; the first fetch's pre-save answer landed and stayed for staleTime.
+Measured: `0 DRAFT` with a draft stored; letting the first fetch land first →
+`1 DRAFT`. The tell is in a request log: a stats RESPONSE after the click with no
+stats REQUEST after it. Probes that act faster than a human hit this; humans
+rarely do. Pre-existing, every panel — on Outstanding work.
+
+### A computed style read inside a CSS transition reports the OLD value
+Reading `backgroundColor` right after clicking a filter pill (0.2s transition)
+showed the OLD pill filled and the new one plain — reading exactly like a class
+bug, while `aria-pressed` and the classes were right. Settled 1.2s later, correct.
+Same family as "a stale DOM handle answers with old computed style": **settle,
+or read the class/state, before believing a colour.**
+
+### `[class*="…hint"]` matched ANOTHER component's `hint` first
+Dev-mode CSS-module names are `<File>-module__<local>`, so `[class*="module__hint"]`
+matched `VocabularyPicker-module__hint` before `AdminBlogPanel-module__hint` and
+measured the wrong element (4.30 — which turned out to be a real failure of the
+other one). The documented substring-selector trap; name the FILE in the selector.

@@ -519,7 +519,7 @@ record; that file is the sprint's authority.
 | PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 | To Do | not started |
 | ~~PF-113~~ | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | ✅ **BUILT 2026-10-03** — ⚠️ scope widened: project DRAFTS + REVERT (owner), upload-only background; ~12 pts, see entry |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 | Done | **BUILT 2026-10-05** — scope ~14 pts (owner): edit incl. level, level dots, owner-managed sections, drag-and-drop |
-| PF-115 | Blog + Messages panels restyled | Medium | 5 | To Do | not started |
+| ~~PF-115~~ | Blog + Messages panels restyled | Medium | 5 | Done | ✅ **BUILT 2026-10-07** — ⚠️ scope widened (owner): Blog DRAFTS + REVERT, Messages STAR + SEARCH + filters; ~11 pts, see entry |
 | PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | To Do | not started |
 | PF-117 | Admin responsive + state audit, both themes | Medium | 6 | To Do | not started |
 | PF-118 | Admin ↔ public-site parity audit | Highest | 8 | To Do | not started |
@@ -7462,8 +7462,11 @@ stats, socialExtra, location, bio and post titles unchanged.
 
 - **Projects, Skills and Messages still use native `required` or nothing.**
   Deferred by agreement; PF-113 → PF-115 apply the standing rule.
+  ✅ **CLOSED** — Projects (PF-113), Skills (PF-114); Messages has NO form, so
+  the rule does not apply to it (PF-115).
 - **Blog's paragraph and bullet inputs need accessible names.** A placeholder is
   not a label. Touches markup PF-115 will rebuild.
+  ✅ **FIXED in PF-115** — `aria-label="Section 02, paragraph 1"`, pinned.
 
 ---
 
@@ -7692,11 +7695,13 @@ URL.
 
 - **PF-115 owes the Blog half of the drafts rule** — SAVE AS DRAFT (title-only
   needs Blog's required fields relaxed for drafts) and REVERT CHANGES on edit.
-  Owner asked for this to be remembered explicitly.
-- **Messages delete confirm** → `ConfirmDialog` in PF-115.
+  Owner asked for this to be remembered explicitly. ✅ **BUILT in PF-115.**
+- **Messages delete confirm** → `ConfirmDialog` in PF-115. ✅ **BUILT.**
 - **The admin sidebar's SESSION card says "Every change here is written
   straight to the live site."** — untrue since staging and drafts. Copy
-  decision for the owner; not changed.
+  decision for the owner; not changed. ✅ **REWORDED in PF-115** (owner: "if
+  you think that need to be changed go ahead") — "Changes go live when you
+  press SAVE. Drafts stay hidden.
 - **No UNPUBLISH for a live project** — not asked for; DELETE exists.
 - **`useProject` / `GET /api/projects/:id`** remain clientless (now draft-aware).
 
@@ -7908,3 +7913,68 @@ clean.
 - **No Jira ticket** for this work (owner decision). Owner's teaching material:
   `new mds/Automation-and-CI-CD-Handbook.pdf` (77 pp) and the session record
   `new mds/E9/2026-10-05-session-PF-114-and-automation.md`.
+
+## PF-115 — Blog + Messages panels: Phase 2, Blog drafts + REVERT, Messages star/search/filters (2026-10-07)
+
+**Report:** `new mds/E9/PF-115-blog-messages-panels-drafts.md`. Decisions:
+`locked-decisions.md` "PF-115".
+
+### Scope as approved, and how it grew
+Plan: restyle both panels; the Blog half of the drafts rule (SAVE AS DRAFT,
+title-only) and REVERT CHANGES on edit; SAVE dim until dirty; Messages delete
+confirm. Owner decisions at planning: the "Publish immediately" checkbox is
+REPLACED by Projects' buttons; a list-row PUBLISH on an incomplete draft opens
+the editor marked and sends nothing; the SESSION card copy reworded. Added during
+planning (owner, before code): Messages STAR, SEARCH (AND, highlighted) and
+ALL · UNREAD · STARRED filters. ~11 pts, not 5.
+
+### Built
+Backend: `Blog.js` — excerpt / section heading / section body rules apply only
+when `published === true`; NEW `sections` path validator "a published post needs
+a body" (was ONLY in `blogRules`, which `togglePublish` never runs — an empty
+draft would have gone live from the list row with a 200). `blogController.js` —
+`blogRules` skip content rules unless `req.body.published === true`;
+`togglePublish` maps ValidationError/CastError to 400 (was a 500 — no global
+mapping). `Contact.starred` + `PATCH /api/contact/:id/star` (explicit value,
+`isBoolean({strict})`, protect first).
+Frontend: `AdminBlogPanel.jsx` rewritten (Projects' derived-form structure:
+`draft ?? postToForm(saved)`), NEW `.module.css`; `blogForm.js` `isPostDirty`
+(compares the FORM, so "+ ADD SECTION" is dirty) and draft rules in `formErrors`;
+paragraph/bullet inputs named. `AdminMessagesPanel.jsx` rewritten, NEW
+`.module.css`; NEW `utils/messageSearch.js`; `useStarMessage` (invalidates the
+list only, not DASHBOARD_KEY); `contactService.star`. `AdminLayout` SESSION copy.
+`VocabularyPicker.module.css` caption dark → `--muted`. `adminFoundation.test.js`
+registers both sheets + both JSX files. `e2e/admin.spec.js` heading `New post`.
+
+### Tests (real numbers in the report)
+Frontend fast gate green (83 files, 1887 tests, before the last CSS-only fix —
+re-run at hand-off). Backend 35 suites / 607, branch 72.67%. Mutation: 9 frontend
++ 8 backend mutants, all killed; controls clean. E2E 74/75 — the one failure is
+`footer.spec.js:131`, see Outstanding.
+
+### Found during recheck
+- **The tag picker's caption measured 4.30 in DARK** (PF-113's component, now in
+  the Blog editor) — fixed with PF-91's substitution.
+- **The probe's `[class*="module__hint"]` matched the PICKER's caption, not the
+  Blog hint** — the documented substring-selector trap, again.
+- **A filter pill read "wrong" mid-transition** — computed style during the 0.2s
+  fade reports the old value; settled values were correct.
+- **zsh did not word-split `$T`** in the backend mutation harness, so five
+  mutants ran against NO test file and printed nothing — rerun with literal
+  paths (all killed). Same trap PF-114 recorded.
+- Playwright's Chromium was missing after the master sync (`npx playwright
+  install chromium`) — every E2E "failed" without launching a browser.
+
+### Outstanding work added by PF-115
+- **`e2e/footer.spec.js:131` now fails 5/5 IN ISOLATION** — on clean `HEAD`
+  too (worktree control), so not PF-115. Recorded as a load-sensitive flake
+  (9/9 in isolation, 2026-09-07); it is now deterministic. Likely the Chromium
+  153 / dependency bumps from the master sync. Needs its own fix ticket.
+- **Dashboard counts stay stale if a mutation lands during the shell's FIRST
+  stats fetch** — TanStack dedupes an invalidation into an in-flight initial
+  fetch, so the old answer wins until staleTime (5 min). Measured: draft saved
+  ~1s after login against Atlas → `0 DRAFT`; after the first fetch landed →
+  `1 DRAFT`. Every panel, pre-existing; a human rarely saves that fast.
+- `portfolio_e2e.contacts` gained ~20 probe rows (same growth as the contact spec).
+- The Messages panel has no pagination; search is client-side over every row.
+  Fine at 100s of messages; revisit if it reaches thousands.

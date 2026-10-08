@@ -4007,3 +4007,73 @@ releases. Sprint 14 finishes on its branch.
 Allow auto-merge ON; Dependabot alerts + security updates ON; delete head
 branches ON; owner's notifications: Dependabot alerts weekly digest, Actions
 failures only, repo watch "Participating and @mentions".
+
+## PF-115 — Blog + Messages panels (owner decisions 2026-10-07)
+
+### Blog DRAFTS need only a title — on EVERY path, enforced by the MODEL
+Owner rule of 2026-10-03, Blog half. `models/Blog.js`: excerpt, section heading
+and section "paragraph or bullet" apply only when `published === true`
+(`=== true`, not Project's `!== false` — Blog's default has always been false,
+so every stored row carries the field). "A published post needs a body" MOVED
+INTO THE SCHEMA as a `sections` path validator: it used to live only in
+`blogRules`, and `togglePublish` never runs `blogRules`, so a list-row PUBLISH
+would have put an empty draft live with a 200. `blogRules` keeps a copy keyed on
+`req.body.published === true` for the early 400; the model is the gate.
+⚠️ The conditions read `this` — document path only (create / load→set→save()).
+Never move `updatePost` or `togglePublish` to `findByIdAndUpdate`.
+⚠️ `togglePublish` maps ValidationError → 400. errorHandler has NO global
+mapping, so without it a refused publish reads as a server crash (500).
+
+### The "Publish immediately" CHECKBOX is REMOVED — buttons decide (sanctioned deviation)
+`Admin.dc.html:500-503` has it; with SAVE AS DRAFT beside the publish button the
+two could disagree. Projects' button set: new → `CREATE POST` + `SAVE AS DRAFT`;
+draft → `PUBLISH` (lit untouched) + `SAVE DRAFT`; live → `SAVE CHANGES`.
+UNPUBLISH stays on the list row. A fidelity pass that "restores" the checkbox
+re-opens this. Tests pin its absence.
+
+### A list-row PUBLISH on an INCOMPLETE draft sends NOTHING
+It opens that post in the editor with the fields marked and the CHECK THE
+CHANGES AGAIN banner — the editor's own refusal, reached from the list. A
+complete draft publishes from the row as before. UNPUBLISH is never checked.
+
+### Blog REVERT, dirty and copy
+Form DERIVED from the stored record (`draft ?? postToForm(saved)`), so REVERT is
+`setDraft(null)` and can only land on the saved state. `isPostDirty` compares the
+FORM, not the payload — a payload comparison cannot see "+ ADD SECTION" (the
+payload drops empty sections), the owner's 2026-09-25 "+ ADD STAT" report in a
+new place. Copy is the prototype's casing: `New post` / `Edit post`, `● PUBLISHED`
+/ `○ DRAFT`, `UNPUBLISH`/`PUBLISH`/`EDIT`/`DELETE`, `← BACK TO LIST`, `CANCEL`.
+The sections editor's own controls (`+ ADD SECTION/PARAGRAPH/BULLET`) took the
+admin mono casing; it has no prototype source.
+
+### Messages: STAR, SEARCH, ALL · UNREAD · STARRED (owner additions, no prototype source)
+Owner: *"special messages can be put a star… it goes to star section but it see
+in the all messages section too… i could be able to search any term in the
+message and that message should come up."*
+- `Contact.starred`, `PATCH /api/contact/:id/star` with an EXPLICIT boolean —
+  never a flip, so a retried request cannot land opposite. Immediate, not
+  staged: the staging rule is about the PUBLIC site; a star is admin-only like
+  MARK READ. `submitContact` copies fields BY NAME, so a visitor cannot star
+  their own message (pinned).
+- Search is CLIENT-SIDE over the loaded list (`utils/messageSearch.js`): words
+  ANDed, substring, case-insensitive, name + email + text; NO RegExp from user
+  input; hits wrapped in `<mark>` as TEXT. A per-keystroke API call was
+  rejected: rate-limit budget and latency for data already in hand.
+- Filters are aria-pressed toggle buttons (the /blog chip semantics), NOT a
+  tablist — that role promises arrow-key roving and a tabpanel. Counts are the
+  filter totals before the search, so they do not jump while typing.
+- Card border priority: unread GREEN over starred accent (unread needs action).
+- `useStarMessage` invalidates the list ONLY — a star changes no dashboard count.
+- The old `N unread · N total` line is gone: the filter counts carry it, and the
+  shell header already prints both.
+
+### Messages DELETE asks first — `ConfirmDialog`, prototype copy (Admin.dc.html:1227)
+
+### SESSION card copy reworded (owner: "if you think that need to be changed go ahead")
+"Every change here is written straight to the live site." → "Changes go live
+when you press SAVE. Drafts stay hidden." The old line stopped being true with
+PF-112's staging.
+
+### PF-91's substitution applied to the TAG PICKER caption (dark only)
+`VocabularyPicker.module.css` `.hint` 10px `--muted2` measured 4.30 in dark on
+the Blog editor → `--muted` 7.25; light 6.05 untouched. Also covers Projects.

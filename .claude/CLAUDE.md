@@ -413,12 +413,12 @@ exactly these two categories.
 recorded for uploads. Every client rule mirrors one the server already
 enforces.
 
-**Applied to About, Blog, Projects (PF-113) and Skills (PF-114). PF-115 inherits
-it** for Messages, which still uses native `required` or nothing.
+**Applied to About, Blog, Projects (PF-113) and Skills (PF-114).** Messages has
+no form, so there is nothing for it to apply to (PF-115).
 
 ### New records SAVE AS DRAFT; existing records REVERT
 
-**Owner requirement, 2026-10-03. Built for Projects by PF-113; Blog is PF-115;
+**Owner requirement, 2026-10-03. Built for Projects by PF-113 and Blog by PF-115;
 binds every panel after it.** Owner's words: *"when i create a new project or a
 new blog post suddenly i have to close it and go, there should be an option
 called save as a draft… when i am editing an existing project or a blog or
@@ -429,10 +429,10 @@ changes like the about section."*
   a title**, is **invisible on the public site**, and publishing it later
   requires everything (shake + mark as usual).
 - **Editing** → `REVERT CHANGES` restores the last SAVED state, never blank.
-- ⚠️ **PF-115 owes the Blog half**: SAVE AS DRAFT on a new post (Blog already
-  has server-side `published`, but its title/excerpt/section requireds would
-  need relaxing for a draft) and REVERT CHANGES on post edits, which the Blog
-  editor does not have today.
+- ✅ **Blog half BUILT by PF-115.** ⚠️ Blog's draft rules live in the MODEL
+  (`published === true` gates excerpt, section rules and "needs a body"),
+  because `togglePublish` never runs `blogRules` — a rule only in a route's
+  validators would have let a list-row PUBLISH put an empty draft live.
 
 ### A blank FIXED field may be empty; a row you ADDED may not
 
@@ -506,7 +506,7 @@ only the current position.
 | Sprint 11 — E7 (PF-75 → PF-84) | chrome + Hero → Skills | merged, PR #5, `b8cef24` |
 | Sprint 12 (PF-85 → PF-94) | Projects, Blog, Contact, Footer, cutover, a11y | merged, PR #6, `79835e0` |
 | Sprint 13 — E8 (PF-95 → PF-106) | Blog | merged, PR #7, `9b2a1ad` |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, PF-111 built 2026-09-23, PF-112 built 2026-09-25, PF-113 built 2026-10-03, **PF-114 built 2026-10-05**; branch `sprint-14-admin_page_rebuild` |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 built 2026-09-12, PF-108, PF-109 and PF-110 built 2026-09-16, PF-111 built 2026-09-23, PF-112 built 2026-09-25, PF-113 built 2026-10-03, PF-114 built 2026-10-05, **PF-115 built 2026-10-07**; branch `sprint-14-admin_page_rebuild` |
 | **Sprint 15 (PF-123 → PF-125)** | **Auth + email** — contact notification, credential editing, password reset | **planned 2026-09-12**, not started |
 
 Numbering note: six Jira epics consumed PF-53–PF-58, so the jump from PF-52
@@ -546,7 +546,7 @@ authority; this table is the index.
 | ~~PF-112~~ | About panel — rebuild, portrait upload, résumé card ✅ **BUILT 2026-09-25** — ⚠️ scope widened TWICE: everything STAGES (incl. the availability toggle), and then a second batch made the panel actually drive the public site (sidebar order, `name`/`title` dropped, location/email wired, dynamic social links). **~21 pts, not 8** | High | 8 |
 | ~~PF-113~~ | Projects panel — rebuild, background image + opacity, tech chip picker ✅ **BUILT 2026-10-03** — ⚠️ scope widened by owner: project DRAFTS (title-only, hidden from the site) + REVERT; upload-only background (no URL box). **~12 pts, not 8**. **Batch 2 (same day, owner):** 4 MB uploads + browser resize, inline errors, drag-and-drop, `f_auto,q_auto` delivery, admin `★ FEATURED` pill on the home cards. Report + `Cloudinary-guide-how-your-images-work.pdf` in `new mds/E9/`. Committed in 7 section commits | High | 8 |
 | ~~PF-114~~ | Skills panel — rebuild + editing ✅ **BUILT 2026-10-05** — ⚠️ scope widened by owner: skill EDIT incl. level, level DOTS + legend on the home page, owner-managed SECTIONS (`SkillCategory`), three-choice section delete, ◀ ▶ + drag-and-drop (cross-box). **~14 pts, not 5**. No drafts (owner) | Medium | 5 |
-| PF-115 | Blog + Messages panels restyled | Medium | 5 |
+| ~~PF-115~~ | Blog + Messages panels restyled ✅ **BUILT 2026-10-07** — ⚠️ scope widened by owner: Blog DRAFTS (title-only, enforced by the MODEL on every path incl. `togglePublish`) + REVERT, checkbox → buttons; Messages STAR + client-side SEARCH (AND, highlighted) + ALL · UNREAD · STARRED, delete confirm. **~11 pts, not 5** | Medium | 5 |
 | PF-116 | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 |
 | PF-117 | Admin responsive + state audit, both themes | Medium | 6 |
 | PF-118 | Admin ↔ public-site parity audit | Highest | 8 |
@@ -593,7 +593,7 @@ PF-120 (security) ← needs PF-108, PF-111, PF-119 landed ───────�
 **PF-118 is scheduled EARLY on purpose** — it is a diagnostic, and what it
 finds should shape the panel tickets rather than arrive after them.
 
-#### ▶ NEXT: PF-115 (Blog + Messages panels) — and what to raise at the END of the sprint plan
+#### ▶ NEXT: owner picks — PF-116 is UNBLOCKED — and what to raise at the END of the sprint plan
 
 - **PF-114 is BUILT (2026-10-05)** — see `sprint-log.md` and
   `new mds/E9/PF-114-skills-panel-sections-levels-reorder.md`. Skills took NO
@@ -603,20 +603,22 @@ finds should shape the panel tickets rather than arrive after them.
   bots on `master`, GitHub Flow from Sprint 15. See "The GitHub bots" and
   "Branching" sections. Owner's PDF guide goes to `new mds/` (owner is adding
   content requests before it is written).
-- **PF-115 is next.** It owes Blog's SAVE AS DRAFT + REVERT CHANGES halves (see
-  Standing product requirements) and Messages' delete confirm via the shared
-  `ConfirmDialog` (which grew `confirmTone`/`extra`/`secondary` in PF-114).
-  Sprint 14 tickets stay on `sprint-14-admin_page_rebuild` (synced with
-  `master` at `b15b42b`).
+- **PF-115 is BUILT (2026-10-07)** — see `sprint-log.md` and
+  `new mds/E9/PF-115-blog-messages-panels-drafts.md`. **Every admin panel is now
+  Phase 2**, so PF-116 (the cutover) is unblocked; zero Phase 1 tokens/classes
+  remain in `components/admin` outside comments (grep with a control, 2026-10-07).
+  Remaining: PF-116 → PF-117, PF-118 (scheduled early, still not run), PF-119,
+  PF-120, PF-121, PF-122. Sprint 14 tickets stay on `sprint-14-admin_page_rebuild`.
+- **⚠️ `e2e/footer.spec.js:131` now fails 5/5 in isolation, on clean HEAD too**
+  — not a flake any more. Needs a fix ticket before PF-121's gate (Outstanding).
 - **⚠️ ASK THE OWNER ABOUT THE LIGHT-THEME UPGRADE at the end of the sprint plan**
   (the PF-121 gate / Sprint 15 planning). Owner, 2026-10-03: light mode is hard
   to read across the home page AND every admin panel; they want a whole sprint
   for it, discussed separately before anything is scoped. Do not start
   re-tuning light values unasked.
-- **Two small owner questions are still open from PF-113:** keep the background
-  block's status badge + `MAX 4 MB` caption? Reword the admin sidebar's SESSION
-  card ("Every change here is written straight to the live site" — untrue since
-  staging and drafts)?
+- **One small owner question is still open from PF-113:** keep the background
+  block's status badge + `MAX 4 MB` caption? (The SESSION card was reworded in
+  PF-115.)
 
 #### 🎯 The four the owner named for master-level care (2026-09-08)
 
@@ -872,9 +874,9 @@ error. `AdminLayout.test.jsx` guards both.
 
 ⚠️ **Light theme on `/admin` is deliberately MIXED until PF-116.** Header,
 sidebar, footer and the Overview panel are Phase 2 and measure zero AA
-failures; About (PF-112), Projects (PF-113) and Skills (PF-114) are Phase 2 too;
-the Blog and Messages interiors are still Phase 1 and still washed out. That is the dependency spine, not a
-regression.
+failures; About (PF-112), Projects (PF-113), Skills (PF-114), Blog and Messages
+(PF-115) are Phase 2 too. What is left Phase 1 is `global.css`'s `:root` itself
+and the body font — PF-116's job.
 
 - **Motion primitives**: `import { Reveal, CountUp, Marquee } from
   '../components/motion'`. `Reveal` needs `type="up"|"pop"|"rise"|"left"`
@@ -1190,7 +1192,7 @@ are transcribed static (PF-81)" is HISTORY. Hero stays static apart from
 literals by owner decision. `/admin/login` and the
 `/admin` shell are Phase 2 (PF-107, PF-109) and mount the same ambient
 layer; the Overview (PF-110), About (PF-112), Projects (PF-113) and Skills
-(PF-114) panels are Phase 2, and Blog and Messages are still Phase 1 until PF-115.
+(PF-114), Blog and Messages (PF-115) panels are Phase 2 — every admin panel.
 ⚠️ **The home Skills section is built from the owner's SECTIONS** (PF-114): one
 box per `SkillCategory` holding ≥ 1 skill — PF-82's fixed five is HISTORY.
 
@@ -2132,7 +2134,7 @@ omitted — keep the two straight.
   pre-PF-113 rows have no field), a draft needs only a title, `GET
   /api/projects/admin/all` for the panel. ⚠️ `updateProject` is `findById` +
   `save()` because the conditional `required` reads `this` — see Silent
-  failures. PUBLISH is lit on an untouched draft. Blog's half is PF-115.
+  failures. PUBLISH is lit on an untouched draft. Blog's half: PF-115 (built).
 - **Skills (PF-114, owner 2026-10-05)** — NO drafts; level shown on the home page
   as ACCENT dots + a 12px legend (hover → `currentColor`; empty ring `.8`,
   measured); sections are owner-managed `SkillCategory` rows (key never changes
@@ -2141,11 +2143,21 @@ omitted — keep the two straight.
   + N SKILLS (`deleteSkills === true`); ◀ ▶ + drag-and-drop write ONE staged
   layout, cross-box allowed, drag off while editing; new skills go LAST. Full
   entries: `locked-decisions.md` "PF-114".
+- **Blog + Messages (PF-115, owner 2026-10-07)** — Blog drafts need only a
+  title, enforced in the MODEL on every path (incl. `togglePublish`, now a 400
+  not a 500); the "Publish immediately" checkbox is REPLACED by Projects'
+  buttons (sanctioned deviation); a list-row PUBLISH on an incomplete draft
+  opens the editor marked and sends nothing; `isPostDirty` compares the FORM.
+  Messages: `Contact.starred` via `PATCH /:id/star` (explicit value, immediate,
+  not staged); CLIENT-SIDE search, words ANDed, no RegExp from input, `<mark>`
+  as text; filters are aria-pressed toggles, not a tablist; unread green beats
+  the starred tint. SESSION card reworded. Full entries: `locked-decisions.md`
+  "PF-115".
 - **The Projects card background is UPLOAD ONLY** (PF-113, owner) — the
   prototype's URL box is NOT built: PF-111 strips `backgroundImage.src` from
   every save, so a pasted URL would vanish silently.
 - **One `ConfirmDialog` for every admin delete** (PF-113) — project, post and
-  vocabulary chip; Messages joins in PF-115. Focus lands on CANCEL. Both
+  vocabulary chip; Messages joined in PF-115. Focus lands on CANCEL. Both
   buttons `type="button"`.
 - **The owner's address is `pcgallege@gmail.com`** (PF-122, owner decision
   2026-09-12) — public contact address AND the admin login account, which was
