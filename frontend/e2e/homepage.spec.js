@@ -11,8 +11,9 @@ test.describe('Homepage', () => {
   });
 
   test('loads and displays hero section', async ({ page }) => {
-    // Page title — still the Phase 1 string; the cutover ticket owns it.
-    await expect(page).toHaveTitle(/Parindra Chameekara/i);
+    // Page title — the hero's name since PF-116 (owner, 2026-10-08), which
+    // retired the Phase 1 "Parindra Chameekara" string.
+    await expect(page).toHaveTitle(/^Parindra Gallage — Full-Stack Developer$/);
 
     // Hero heading. PF-80 replaced the Phase 1 hero, and the Phase 2 H1 is
     // "Parindra Gallage" — two block-level spans, so `textContent` reads

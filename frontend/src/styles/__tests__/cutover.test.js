@@ -29,6 +29,7 @@
 // `scroll-margin-top` is unreachable. Silent either way is precisely when a
 // test is worth having.
 import { describe, it, expect } from 'vitest';
+import postcss from 'postcss';
 import fs   from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -125,5 +126,189 @@ describe('PF-89 cutover — the [id] scroll-margin rule stays deleted', () => {
       expect(css, `${mod} must qualify with the element name`)
         .toMatch(new RegExp(`section\\.${id}\\s*\\{[^}]*scroll-margin-top:\\s*var\\(--header-h\\)`));
     }
+  });
+});
+
+/* ── PF-116 (2026-10-08) — the Phase 1 layer of global.css is gone ─────────
+ *
+ * PF-116 deleted global.css's `:root` palette, its body font/colour rules,
+ * its global utility classes and its six keyframes, once PF-80 → PF-115 had
+ * moved every consumer onto tokens.css. Nothing fails on its own if any of
+ * it comes back, and two of the ways it could come back are SILENT:
+ *
+ *   - a `var(--text-muted)` written today resolves to NOTHING, so the
+ *     declaration drops and the element inherits whatever is above it —
+ *     usually readable, so nobody looks;
+ *   - a `className="glass"` matches no rule, so the element renders
+ *     unstyled with no error.
+ *
+ * ⚠️ Parsed or comment-stripped throughout. Every file this touches names
+ * these identifiers in prose at the place they used to be.
+ */
+const PHASE_1_TOKENS = [
+  // Copied from adminFoundation.test.js, which keeps the same list for the
+  // admin stylesheets. Both are the record of names that no longer exist,
+  // so neither can drift from a live source; `--bg` and `--font-mono` are
+  // absent on purpose — tokens.css declares them as Phase 2 tokens too.
+  '--bg-surface', '--bg-elevated',
+  '--border', '--border-bright',
+  '--accent', '--accent-hover', '--accent-dim', '--accent-glow',
+  '--green', '--green-glow',
+  '--text-primary', '--text-body', '--text-muted',
+  '--font-sans',
+  '--section-y', '--content-max', '--content-px',
+];
+
+/** The global classes global.css used to define. Exact names only — Tailwind
+ *  has its own `animate-*` utilities (spin, ping, pulse, bounce), and none
+ *  of those were Phase 1's. */
+const DELETED_CLASSES = [
+  'glass', 'btn-primary', 'btn-outline', 'skeleton', 'tech-tag',
+  'gradient-text', 'glow-accent', 'glow-green',
+  'section-wrapper', 'section-label', 'section-title', 'section-divider',
+  'animate-fade-in-up', 'animate-fade-in-up-delay-1', 'animate-fade-in-up-delay-2',
+  'animate-fade-in-up-delay-3', 'animate-fade-in-up-delay-4', 'animate-fade-in-up-delay-5',
+  'animate-blink', 'animate-float', 'animate-pulse-glow',
+  'reveal', 'revealed',
+];
+
+const notATest = (f) => !f.includes(`${path.sep}__tests__${path.sep}`) && !/\.test\.jsx?$/.test(f);
+
+describe('PF-116 cutover — global.css is Tailwind\'s entry point and nothing else', () => {
+  const root = postcss.parse(fs.readFileSync(path.join(SRC, 'styles/global.css'), 'utf8'));
+
+  it('still carries the Tailwind entry and the @theme bridge', () => {
+    // The control. Everything below is an ABSENCE assertion, and an empty
+    // or unparsed file satisfies every one of them.
+    const atRules = [];
+    root.walkAtRules((a) => atRules.push(a.name));
+    expect(atRules).toEqual(expect.arrayContaining(['import', 'source', 'theme']));
+  });
+
+  it('has no :root rule', () => {
+    const selectors = [];
+    root.walkRules((r) => selectors.push(...r.selectors));
+    expect(selectors.filter((sel) => sel.includes(':root'))).toEqual([]);
+  });
+
+  it('declares no custom property outside the @theme bridge', () => {
+    const declared = [];
+    root.walkDecls((d) => { if (d.prop.startsWith('--')) declared.push(d.prop); });
+    expect(declared.filter((p) => !p.startsWith('--color-'))).toEqual([]);
+  });
+
+  it('defines no @keyframes — the library lives in styles/keyframes/', () => {
+    // Two of the six it carried (`blink`, `shimmer`) duplicated keyframes/
+    // base.css. Identical bodies, so harmless — but a redefined keyframe of
+    // the same name is decided by import order alone, and global.css loads
+    // FIRST, so an edit here would be dead code with nothing to say so.
+    const keyframes = [];
+    root.walkAtRules('keyframes', (a) => keyframes.push(a.params));
+    expect(keyframes).toEqual([]);
+  });
+
+  it('defines none of the deleted global classes', () => {
+    const offenders = [];
+    root.walkRules((r) => r.selectors.forEach((sel) => {
+      for (const c of DELETED_CLASSES) {
+        if (new RegExp(`\\.${c}(?![\\w-])`).test(sel)) offenders.push(`${sel} (${c})`);
+      }
+    }));
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe('PF-116 cutover — nothing reads the deleted Phase 1 layer', () => {
+  const sheets = walk(SRC, ['.css']).filter(notATest);
+  const code   = walk(SRC, ['.js', '.jsx']).filter(notATest);
+  const reads  = (text) => PHASE_1_TOKENS.filter(
+    (t) => text.includes(`var(${t})`) || text.includes(`var(${t},`),
+  );
+
+  it('scanned a plausible number of files', () => {
+    expect(sheets.length).toBeGreaterThan(30);
+    expect(code.length).toBeGreaterThan(80);
+  });
+
+  it('no stylesheet reads a Phase 1 token', () => {
+    const offenders = [];
+    for (const f of sheets) {
+      postcss.parse(fs.readFileSync(f, 'utf8')).walkDecls((d) => {
+        const hit = reads(d.value);
+        if (hit.length) offenders.push(`${path.relative(SRC, f)}: ${d.prop}: ${d.value}`);
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('no JS/JSX reads a Phase 1 token — inline styles included', () => {
+    // The stylesheet walk above cannot see `style={{ color: 'var(…)' }}`,
+    // and that blind spot is exactly where ErrorBoundary's --text-muted
+    // survived every sweep until PF-116.
+    const offenders = code
+      .map((f) => [path.relative(SRC, f), reads(strip(fs.readFileSync(f, 'utf8')))])
+      .filter(([, hit]) => hit.length);
+    expect(offenders).toEqual([]);
+  });
+
+  it('no className uses a deleted global class', () => {
+    const literal = /className\s*=\s*(?:"([^"]*)"|'([^']*)'|\{\s*`([^`]*)`\s*\})/g;
+    const offenders = [];
+    let used = 0;
+    for (const f of code) {
+      const text = strip(fs.readFileSync(f, 'utf8'));
+      for (const m of text.matchAll(literal)) {
+        used += 1;
+        const tokens = (m[1] ?? m[2] ?? m[3]).split(/\s+/);
+        for (const t of tokens) if (DELETED_CLASSES.includes(t)) offenders.push(`${path.relative(SRC, f)}: ${t}`);
+      }
+    }
+    // Self-check: the pattern must actually find className literals.
+    expect(used).toBeGreaterThan(20);
+    expect(offenders).toEqual([]);
+  });
+
+  it('no JS/JSX carries a Phase 1 red literal', () => {
+    // #f87171 / #dc2626 / rgba(239,68,68,…) never flip with the theme
+    // (#f87171 measured 2.48:1 on the light ground). var(--danger) does.
+    const red = /#f87171|#dc2626|rgba\(\s*239\s*,\s*68\s*,\s*68/i;
+    const offenders = code
+      .filter((f) => red.test(strip(fs.readFileSync(f, 'utf8'))))
+      .map((f) => path.relative(SRC, f));
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe('PF-116 cutover — the body font is the prototype\'s', () => {
+  const tokens = postcss.parse(fs.readFileSync(path.join(SRC, 'styles/tokens.css'), 'utf8'));
+  const body = {};
+  tokens.walkRules((r) => {
+    if (r.selectors.includes('body')) r.walkDecls((d) => { body[d.prop] = d.value; });
+  });
+
+  it('body sets Space Grotesk through --font-body', () => {
+    expect(body['font-family']).toBe('var(--font-body)');
+  });
+
+  it('body keeps line-height 1.6 (owner, 2026-10-08)', () => {
+    // NOT the prototype's — its body sets none. 1.6 is what Phase 1's body
+    // rule shipped, kept so inheriting text does not tighten. Without it
+    // the value silently falls to Tailwind preflight's 1.5.
+    expect(body['line-height']).toBe('1.6');
+  });
+
+  it('no stylesheet names Inter, and index.html no longer downloads it', () => {
+    const named = walk(SRC, ['.css']).filter(notATest).filter((f) => {
+      let hit = false;
+      postcss.parse(fs.readFileSync(f, 'utf8')).walkDecls((d) => {
+        if (/font/.test(d.prop) && /\bInter\b/.test(d.value)) hit = true;
+      });
+      return hit;
+    });
+    expect(named.map((f) => path.relative(SRC, f))).toEqual([]);
+
+    const html = fs.readFileSync(path.resolve(SRC, '../index.html'), 'utf8');
+    expect(html).toMatch(/fonts\.googleapis\.com\/css2\?family=Anton/); // control
+    expect(html).not.toMatch(/family=Inter/);
   });
 });

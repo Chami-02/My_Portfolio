@@ -13,10 +13,10 @@
  * Their values are preserved in the git history of this file and in the
  * prototype, which is frozen rather than deleted.
  *
- * This is no longer the only consumer of --acc2 / --acc2rgb — it is now
- * the consumer of NONE of it. The steel-blue pair is unused by any
- * component as of this change; it stays declared in tokens.css because
- * the prototype still uses it and the Blog/Admin screens are unbuilt.
+ * This was the prototype's only consumer of --acc2 / --acc2rgb, and it
+ * now consumes NONE of it. The steel-blue pair outlived it until PF-116
+ * (2026-10-08), which deleted both tokens once Blog and Admin had shipped
+ * without claiming them either.
  */
 
 /* ⚠️ 44x44 is load-bearing, not a touch-target rounding.

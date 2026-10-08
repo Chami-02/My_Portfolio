@@ -13,8 +13,9 @@
 //      carried them, four had silently drifted apart, and one was
 //      re-allocated on every render.
 //   2. The three new stylesheets never reach for a Phase 1 token. This
-//      is the gate PF-116 depends on: global.css's :root can only be
-//      deleted once nothing reads it, and admin is the last consumer.
+//      was the gate PF-116 depended on: global.css's :root could only
+//      be deleted once nothing read it, and admin was the last consumer.
+//      PF-116 deleted it (2026-10-08); a read now resolves to nothing.
 //   3. The shared .input keeps a real focus indicator. Every constant
 //      it replaced carried `outline: none` with nothing put back.
 import { readFileSync, readdirSync, statSync } from 'fs';
@@ -88,8 +89,9 @@ describe('no admin file re-introduces a local style constant', () => {
 
 /* ── 2. The new stylesheets are Phase-1-free ──────────────────────── */
 
-// Every custom property declared in global.css's :root. PF-116 deletes
-// that block; anything below reading one of these names blocks it.
+// Every custom property global.css's Phase 1 :root declared. PF-116
+// DELETED that block, so a read of any of these names now resolves to
+// nothing at all — the guards below keep it from coming back.
 const PHASE_1_TOKENS = [
   '--bg-surface', '--bg-elevated',
   '--border', '--border-bright',
@@ -142,19 +144,24 @@ describe("PF-107's stylesheets read no Phase 1 token", () => {
     expect(hits).toEqual([]);
   });
 
-  it('the token list itself is not stale', () => {
-    // If a Phase 1 token is renamed in global.css, the list above stops
-    // covering it and every assertion here quietly weakens. Pin the
-    // list against the real :root block rather than trusting a copy.
-    const root = read(resolve(src, 'styles/global.css'));
-    const block = root.slice(root.indexOf('\n:root {'), root.indexOf('}', root.indexOf('\n:root {')));
+  it('the token list outlived the block it was copied from', () => {
+    // Until PF-116 this pinned PHASE_1_TOKENS against global.css's real
+    // :root, so a rename there could not quietly weaken the guard. PF-116
+    // DELETED that :root, which leaves nothing to drift from — the list is
+    // now the permanent record of the banned names, not a copy of live
+    // ones. What must hold instead is that the block STAYS gone: if
+    // global.css declares any custom property again, Phase 1 consumers
+    // have something to resolve against and every guard in this file is
+    // back to protecting a live dependency. cutover.test.js pins the same
+    // fact from the other side.
     const declared = [];
-    postcss.parse(`:root {${block.split('{')[1]}}`).walkDecls((d) => declared.push(d.prop));
-
-    // --bg and --font-mono are declared in BOTH layers; tokens.css wins
-    // on import order, so reading them is not a Phase 1 dependency.
-    const phase1Only = declared.filter((p) => p !== '--bg' && p !== '--font-mono');
-    expect([...phase1Only].sort()).toEqual([...PHASE_1_TOKENS].sort());
+    postcss.parse(read(resolve(src, 'styles/global.css'))).walkDecls((d) => {
+      if (d.prop.startsWith('--')) declared.push(d.prop);
+    });
+    // The @theme bridge declares --color-* properties. They are Tailwind's
+    // namespace, each a var() onto a tokens.css name, not a Phase 1 token.
+    expect(declared.filter((p) => !p.startsWith('--color-'))).toEqual([]);
+    expect(PHASE_1_TOKENS).toHaveLength(17);
   });
 });
 

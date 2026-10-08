@@ -14,19 +14,12 @@
 :root {
   /* ── Accent ──────────────────────────────────────────────── */
   --acc:      #FCA311;   /* the loud one */
-  /* ⚠️ --acc2 / --acc2rgb have ZERO consumers and the comment that
-     used to sit here — "theme toggle only" — was stale: the 2026-08-22
-     rework replaced the prototype's switch with a 44x44 sun/moon icon
-     button and its .track/.knob/.label went with it. The stated reason
-     they survived was that the Blog and Admin screens were unbuilt.
-     Blog shipped in Sprint 13; PF-107 built the admin shell and
-     deliberately reuses the site's toggle rather than the prototype's
-     --acc2 pill, so admin does not claim them either. That
-     justification has now expired. They are NOT deleted here — a
-     token removal is its own change with its own test updates, and
-     tokens.test.js pins both names. Logged to Outstanding work. */
-  --acc2:     #7AA6D6;
-  --acc2rgb:  122,166,214;
+  /* ⚠️ The prototype's second accent, --acc2 / --acc2rgb, is DELETED
+     (PF-116, owner decision 2026-10-08), in both themes. Its only
+     consumer in all three prototypes was the theme-toggle pill, and the
+     site, the admin shell and the login all use the 44x44 sun/moon
+     button instead. Zero consumers since the 2026-08-22 rework. Do not
+     re-add it "to match the export" without a consumer to give it. */
   --accInk:   #0a0a0a;   /* ink placed ON accent fills */
 
   /* ── Ground and text ─────────────────────────────────────── */
@@ -85,13 +78,11 @@
  * matches for scroll-behavior anywhere in it. Raised explicitly and
  * approved, same category as the cursor-web density change.
  *
- * ⚠️ This is a DUPLICATE, deliberately. global.css:86 has carried the
- * identical rule since Phase 1, so smooth scrolling was already live
- * on the site before PF-79 — the ticket's framing of it as newly
- * introduced is wrong. Restated here because global.css is the Phase 1
- * stylesheet and gets trimmed at cutover; if the behaviour is only
- * declared there, it disappears with it. Same value in both, so the
- * cascade order between them does not matter.
+ * ⚠️ This is now the ONLY declaration. Phase 1's global.css carried
+ * the identical rule, so smooth scrolling was live before PF-79; it
+ * was restated here precisely because global.css's Phase 1 layer was
+ * due to be deleted, and PF-116 deleted it. Removing this one turns
+ * smooth scroll off site-wide.
  *
  * CSS rather than a JS scrollTo, so it covers every source of anchor
  * navigation — nav clicks, browser back/forward, a typed URL with a
@@ -106,8 +97,6 @@ html[data-theme="light"] {
   /* Accent is DEEPENED, not lightened. #FCA311 on a light ground
      sits near 2:1 against a 4.5:1 requirement — it fails AA badly. */
   --acc:      #7E4800;
-  --acc2:     #2F5D8C;
-  --acc2rgb:  47,93,140;
   --accInk:   #ffffff;   /* ink FLIPS to white on accent fills */
 
   --bg:       #EDE8DF;   /* warm paper */
@@ -154,10 +143,23 @@ body {
      both are still clipped — but `hidden` makes <body> a scroll container
      and silently disables `position: sticky` on every descendant, which is
      how the admin header and sidebar came to scroll away. Full reasoning
-     and the measurements are in global.css's body rule. */
+     and the measurements are on global.css's overflow rules. */
   overflow-x: clip;
   background: var(--bg);
   color: var(--text);
+  /* The FONT CUTOVER (PF-116). Space Grotesk is the prototype's body
+     font — `body{…font-family:'Space Grotesk',system-ui,sans-serif…}`
+     in all three .dc.html files. Until PF-116 body inherited Phase 1's
+     Inter, which every element WITHOUT its own font-family showed:
+     section body copy, excerpts, the reading view, the footer, and a
+     long tail of admin titles and notes. Measured before the change. */
+  font-family: var(--font-body);
+  /* ⚠️ NOT the prototype's. Its body sets no line-height (`normal`).
+     1.6 is what Phase 1's body rule shipped and every inheriting element
+     has rendered with since; the owner chose to keep it (2026-10-08)
+     rather than tighten every inheriting paragraph at once. Without this
+     line the value would silently become Tailwind preflight's 1.5. */
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -286,8 +288,8 @@ main[tabindex="-1"]:focus {
  * and ErrorBoundary is NOT one, because it WRAPS the section rather
  * than nesting inside it, so its fallback replaces `#projects` entirely.
  *
- * ⚠️ global.css's `:root` STAYS. /admin still reads it, and it comes out
- * with the admin rebuild — not here.
+ * global.css's `:root` itself went later, in PF-116, once the admin
+ * rebuild had moved its last reader off it.
  */
 
 html[data-theme="light"] [data-lightplate] { opacity: 1; }
