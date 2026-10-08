@@ -4,6 +4,18 @@ const AppError = require('../utils/AppError');
 const { buildMatch, sortedPipeline } = require('../utils/blogQuery');
 
 // ── Validation rules ────────────────────────────────────────────────────────
+//
+// PF-115: a request that is not PUBLISHING is a draft, and a draft needs only
+// a title (owner, 2026-10-03). The length ceilings still apply to a draft —
+// they are about what fits, not about what is finished.
+//
+// ⚠️ `=== true`, strictly. The admin panel always sends a boolean; anything
+// else (absent, "true", 1) is not a publish request, so the content rules are
+// skipped here and the MODEL's identical rules (models/Blog.js) still decide
+// on the stored `published` value. This copy exists so a publish request
+// gets the 400 before a database round trip; the model's is the gate.
+const isPublishing = (value, { req }) => req.body.published === true;
+
 const blogRules = [
   body('title')
     .trim()
@@ -11,8 +23,9 @@ const blogRules = [
     .isLength({ max: 150 }).withMessage('Title cannot exceed 150 characters'),
   body('excerpt')
     .trim()
-    .notEmpty().withMessage('Excerpt is required')
-    .isLength({ max: 300 }).withMessage('Excerpt cannot exceed 300 characters'),
+    .isLength({ max: 300 }).withMessage('Excerpt cannot exceed 300 characters')
+    .if(isPublishing)
+    .notEmpty().withMessage('Excerpt is required'),
   // ── CHANGED IN PF-97 ──────────────────────────────────────────────────
   // Was `body('content').trim().notEmpty()`, which rejected every
   // sections-shaped post with `400 "Blog content is required"`. PF-59 moved
@@ -40,6 +53,7 @@ const blogRules = [
   // probe, not assumed. A second copy of that rule here would be a second
   // source of truth for it.
   body('sections').custom((sections, { req }) => {
+    if (!isPublishing(sections, { req })) return true;   // PF-115: drafts
     const hasSections = Array.isArray(sections) && sections.length > 0;
     const hasContent  = typeof req.body.content === 'string' && req.body.content.trim() !== '';
 
@@ -265,7 +279,18 @@ const togglePublish = async (req, res, next) => {
       message: `Post "${post.title}" is now ${post.published ? 'published' : 'a draft'}`,
       data:    post,
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    // PF-115: publishing an incomplete DRAFT is refused by the model's
+    // published-only rules. Without this it reached errorHandler as a 500 —
+    // there is no global ValidationError mapping — telling the admin the
+    // server broke when it had correctly said no.
+    if (err.name === 'CastError') return next(new AppError('Invalid post ID', 400));
+    if (err.name === 'ValidationError') {
+      const message = Object.values(err.errors).map((e) => e.message).join(', ');
+      return next(new AppError(message, 400));
+    }
+    next(err);
+  }
 };
 
 // ── DELETE /api/blog/:id ──────────────────────────────────────────────────────

@@ -41,6 +41,31 @@ function calculateReadingTimeMinutes(doc) {
 }
 // ──────────────────────────────────────────────────────────────
 
+// ── NEW IN PF-115 — a DRAFT needs only a title ──────────────────
+// Owner, 2026-10-03: a new post can be SAVED AS A DRAFT with nothing but a
+// title, and publishing it later demands everything. Every content rule
+// below therefore asks "is this post published?" first.
+//
+// ⚠️ `=== true`, not `!== false` as Project.js uses: Blog's `published`
+// defaults to FALSE and has done since Phase 1, so every stored post
+// carries the field and "absent" never means "published" here.
+//
+// ⚠️ These conditions read `this`, so they hold only on the DOCUMENT path
+// (create / load → set → save()). `updatePost` and `togglePublish` both
+// use it. Under findByIdAndUpdate's update validators `this` would be the
+// Query, `published` would read undefined, and every rule would wave a
+// published post through — PF-113 recorded the same trap for Project.js.
+function isPublished() {
+  return this.published === true;
+}
+
+// The section rules run on a SUBDOCUMENT, whose `this` is the section; the
+// post that decides is its owner.
+function ownerIsPublished(section) {
+  const owner = typeof section.ownerDocument === 'function' ? section.ownerDocument() : null;
+  return Boolean(owner && owner.published === true);
+}
+
 // ── NEW IN PF-59 ──────────────────────────────────────────────
 // One section of a blog post. The reading view renders these
 // in order, numbered 01, 02, 03…
@@ -51,7 +76,9 @@ const sectionSchema = new mongoose.Schema(
   {
     heading: {
       type:      String,
-      required:  [true, 'Section heading is required'],
+      // PF-115: required only once the post is published — a draft may
+      // hold a section whose heading has not been written yet.
+      required:  [function () { return ownerIsPublished(this); }, 'Section heading is required'],
       trim:      true,
       maxlength: [200, 'Heading cannot exceed 200 characters'],
     },
@@ -67,8 +94,10 @@ const sectionSchema = new mongoose.Schema(
   { _id: false }   // sections are positional, not independently addressable
 );
 
-// A section with no content at all is meaningless
+// A section with no content at all is meaningless — on a PUBLISHED post.
+// PF-115: a draft keeps a half-written section rather than losing it.
 sectionSchema.pre('validate', function () {
+  if (!ownerIsPublished(this)) return;
   if (this.body.length === 0 && this.bullets.length === 0) {
     throw new Error('A section must have at least one paragraph or bullet');
   }
@@ -92,7 +121,7 @@ const blogSchema = new mongoose.Schema(
     },
     excerpt: {
       type:      String,
-      required:  [true, 'Excerpt is required'],
+      required:  [isPublished, 'Excerpt is required'],   // PF-115: not for a draft
       trim:      true,
       maxlength: [300, 'Excerpt cannot exceed 300 characters'],
     },
@@ -108,6 +137,23 @@ const blogSchema = new mongoose.Schema(
     sections: {
       type:    [sectionSchema],
       default: [],
+      // ── NEW IN PF-115 — "a published post needs A body" ─────────
+      // Until PF-115 this rule lived ONLY in blogRules, which was enough
+      // while no post could exist without a body. Drafts change that, and
+      // `togglePublish` (load → flip → save()) never passes through
+      // blogRules — so a list-row PUBLISH would have put an empty draft on
+      // the public site with a 200. Here, every path that saves a post
+      // enforces it. `content` still satisfies it while that deprecated
+      // column exists, exactly as blogRules' copy does.
+      validate: {
+        validator(sections) {
+          if (this.published !== true) return true;
+          const hasSections = Array.isArray(sections) && sections.length > 0;
+          const hasContent  = typeof this.content === 'string' && this.content.trim() !== '';
+          return hasSections || hasContent;
+        },
+        message: 'A post needs a body — add at least one section',
+      },
     },
     // ──────────────────────────────────────────────────────────
     // ⚠️ `coverImage` WAS HERE AND WAS DELETED IN PF-111. It was a bare

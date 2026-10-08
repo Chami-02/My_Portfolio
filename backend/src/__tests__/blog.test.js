@@ -155,7 +155,9 @@ describe('POST /api/blog', () => {
       const res = await request(app)
         .post('/api/blog')
         .set(await authHeader())
-        .send({ title: 'Bodyless Post', excerpt: 'This post has no body at all.' });
+        // PF-115: `published: true` — without it this is a DRAFT, which may
+        // now be bodyless (see the drafts block below).
+        .send({ title: 'Bodyless Post', excerpt: 'This post has no body at all.', published: true });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/needs a body/i);
@@ -165,7 +167,7 @@ describe('POST /api/blog', () => {
       const res = await request(app)
         .post('/api/blog')
         .set(await authHeader())
-        .send({ title: 'Empty Sections', excerpt: 'Sections present but empty.', sections: [] });
+        .send({ title: 'Empty Sections', excerpt: 'Sections present but empty.', sections: [], published: true });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/needs a body/i);
@@ -183,6 +185,7 @@ describe('POST /api/blog', () => {
           title:    'Hollow Section Post',
           excerpt:  'One section that carries no text of any kind.',
           sections: [{ heading: 'Empty', body: [], bullets: [] }],
+          published: true,
         });
 
       expect(res.status).toBe(400);
@@ -359,5 +362,111 @@ describe('DELETE /api/blog/:id', () => {
       .set(await authHeader());
 
     expect(res.status).toBe(400);
+  });
+});
+
+// ── PF-115 — a DRAFT needs only a title (owner, 2026-10-03) ────────────────
+// Publishing it later demands everything, on EVERY path that can publish:
+// the PUT the editor sends and the list row's PATCH /publish.
+describe('drafts (PF-115)', () => {
+  const TITLE_ONLY = { title: 'Half Written Idea', published: false };
+  const COMPLETE = {
+    excerpt:  'Now it has an excerpt.',
+    sections: [{ heading: 'Intro', body: ['A real paragraph.'], bullets: [] }],
+  };
+
+  it('creates a title-only draft', async () => {
+    const res = await request(app).post('/api/blog').set(await authHeader()).send(TITLE_ONLY);
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.published).toBe(false);
+    expect(res.body.data.slug).toBe('half-written-idea');
+  });
+
+  it('keeps a half-written section in a draft — heading with no text, text with no heading', async () => {
+    const res = await request(app).post('/api/blog').set(await authHeader()).send({
+      ...TITLE_ONLY,
+      sections: [
+        { heading: 'Heading only', body: [], bullets: [] },
+        { heading: '', body: ['Text, no heading yet.'], bullets: [] },
+      ],
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.sections).toHaveLength(2);
+  });
+
+  it('still requires a title for a draft', async () => {
+    const res = await request(app).post('/api/blog').set(await authHeader())
+      .send({ title: '', published: false });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/title is required/i);
+  });
+
+  it('still enforces the excerpt length ceiling on a draft', async () => {
+    const res = await request(app).post('/api/blog').set(await authHeader())
+      .send({ ...TITLE_ONLY, excerpt: 'x'.repeat(301) });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/cannot exceed 300/i);
+  });
+
+  it('updates a draft with a title-only body', async () => {
+    const post = await Blog.create(TITLE_ONLY);
+    const res = await request(app).put(`/api/blog/${post._id}`).set(await authHeader())
+      .send({ title: 'Renamed Idea', published: false });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.title).toBe('Renamed Idea');
+  });
+
+  it('refuses to PUBLISH an incomplete draft through PUT', async () => {
+    const post = await Blog.create(TITLE_ONLY);
+    const res = await request(app).put(`/api/blog/${post._id}`).set(await authHeader())
+      .send({ title: TITLE_ONLY.title, published: true });
+
+    expect(res.status).toBe(400);
+    expect((await Blog.findById(post._id)).published).toBe(false);
+  });
+
+  // ⚠️ THE HOLE: togglePublish never runs blogRules. Before the model learned
+  // the "needs a body" rule this flipped an empty draft live with a 200 — and
+  // the model's refusal then surfaced as a 500, since errorHandler has no
+  // ValidationError mapping.
+  it('refuses to PUBLISH an incomplete draft through PATCH /publish, as a 400', async () => {
+    const post = await Blog.create(TITLE_ONLY);
+    const res = await request(app).patch(`/api/blog/${post._id}/publish`).set(await authHeader());
+
+    expect(res.status).toBe(400);
+    expect((await Blog.findById(post._id)).published).toBe(false);
+  });
+
+  // The model's body rule specifically — this draft HAS an excerpt, so only
+  // the missing body can be what refuses it.
+  it('refuses PATCH /publish on a draft with an excerpt but no body', async () => {
+    const post = await Blog.create({ ...TITLE_ONLY, excerpt: 'Has an excerpt.' });
+    const res = await request(app).patch(`/api/blog/${post._id}/publish`).set(await authHeader());
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/needs a body/i);
+  });
+
+  it('publishes a draft once it is complete', async () => {
+    const post = await Blog.create({ ...TITLE_ONLY, ...COMPLETE });
+    const res = await request(app).patch(`/api/blog/${post._id}/publish`).set(await authHeader());
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.published).toBe(true);
+  });
+
+  it('never serves a draft publicly — list or slug', async () => {
+    await Blog.create(TITLE_ONLY);
+
+    const list = await request(app).get('/api/blog');
+    expect(list.body.data.map((p) => p.title)).not.toContain(TITLE_ONLY.title);
+
+    const one = await request(app).get('/api/blog/half-written-idea');
+    expect(one.status).toBe(404);
   });
 });
