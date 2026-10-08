@@ -4127,3 +4127,1156 @@ section's crash state to one page's stylesheet. Heading inked `--danger` (this
 reports a failure; /blog's reports an absence). Measured dark/light: heading
 7.05/5.26, detail 7.39/6.21, button 9.64/5.98.
 
+
+
+---
+
+# Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
+
+CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
+sections were moved here word-for-word, headings demoted one level; CLAUDE.md
+now keeps a one-line rule per entry. Where an entry above says the same thing,
+this copy is the newer wording.
+
+### Locked decisions — do not reopen
+
+**Full reasoning, measurements and revision history for every entry:
+`.claude/locked-decisions.md`.** This list is what is decided; that file is
+why. Read the full entry before changing anything here — several of these
+reverse an earlier decision, and both halves are recorded there so a
+settled question does not get re-derived from scratch.
+
+Every deviation below was **raised and approved before shipping**. That is
+the process, and it is not optional: see "Where you can exceed the
+prototype" above.
+
+#### ⚠️ `docs/design/` is FROZEN as of 2026-08-22
+
+Nothing is written there. Re-exporting from Claude Design was considered and
+**rejected finally** — a re-export regenerates the whole file, and an
+unrequested token change would arrive carrying design authority while every
+test stayed green.
+
+**Consequence, accepted: the prototype no longer shows the site's real
+header.** Anyone diffing live against the `.dc.html` files WILL see
+differences. The sanctioned-deviation entries are the only record that they
+are intentional — a fidelity pass that cannot find them will "restore" the
+prototype's switch, its loud ADMIN pill and its inboard logo.
+
+#### Sanctioned deviations from the prototype
+
+Each is owner-requested. **Do not "restore" any of them to match the
+export** — the mismatch is deliberate and is exactly what a fidelity check
+flags as a bug.
+
+**Reductions** — the only three:
+- **Cursor web toned down twice** — `WEB_LINK_PX` 150 → **105**,
+  `WEB_ALPHA` 0.14 → **0.065**. The cursor→star spray is a *separate* line
+  family, still at the prototype's 0.3, and is the next lever if needed.
+- **The splash's two travelling scan lines removed** (elements, not just
+  their animation). ⚠️ `.scanTexture` is a different element and **stays**.
+  Splash is **12** animated elements, not 14.
+- **The hero marquee band slimmed** — font and padding together; 84px → 52px.
+
+**Removals** — each is the element, not just its paint, and each has a
+sibling that must NOT be swept up with it:
+| Removed | Keep |
+| --- | --- |
+| Contact's accent glow layer | `overflow: hidden` — the prototype's own |
+| Blog featured card's ghost `01` | `.sweep`, and the 02/03/04 numerals — ⚠️ which sit at `top: -2px` since PF-103, NOT the export's `-18px`; `.card`'s `overflow: hidden` STAYS |
+| About portrait's caption | `.portraitFade` |
+| About portrait's **sweep** (2026-09-07) — ⚠️ only ever visible because PF-101 fixed the keyframe hours earlier | `.portraitFade` again, and the blog cards' `.sweep` ×2 |
+| Blog reading view's "GOT A QUESTION" block (decision only, unbuilt) | — |
+| REPLAY INTRO + SCROLL BACK UP from the footer | — |
+| All section washes, site-wide | card and panel surfaces |
+
+⚠️ The section-wash removal was **narrowed on 2026-08-27**: the footer now
+takes the navbar's surface (`rgba(var(--ftr),.86)` + blur). Chrome vs
+section is the distinction. The prototype's own footer *gradient* is still
+omitted — keep the two straight.
+
+**Additions and overrides:**
+- **The blog teaser's featured card carries a FIXED backdrop photograph —
+  ONE PER THEME** (2026-09-07) — `.featuredCard::before`, pure CSS.
+  ⚠️ **Supersedes an always-dark card decided the same day**; that decision
+  was sound (PF-91's terminal-panel precedent) and was replaced only
+  because a light-appropriate photo arrived. Do not re-add the light token
+  block — a test asserts its absence.
+  ⚠️ **The two crops differ on purpose**: the light photo contains the word
+  "BLOG" and `left center` **slices the G**, while the dark photo's objects
+  need `left center`. Normalising them breaks one.
+  ⚠️ The light scrim (`--gnd` .84 / .84 / .80 / .34 / .16) is a
+  **legibility requirement** —
+  19.7% of that image is dark and its p5 backdrop gives **1.07**; a ~.50
+  estimate put the excerpt at 2.64 because it eased off across the
+  excerpt's own band.
+  ⚠️ `::before` paints **above** the element's background, so the card's
+  gradient does not attenuate it; `position: absolute` is load-bearing
+  (the card is `display: flex`).
+  ⚠️ **First theme-scoped image in the repo** — only the active theme's
+  file downloads, so a toggle fetches the other and can pop. Not preloaded,
+  deliberately. ⚠️ NOT wired to `Blog.coverImage`, which exists unused.
+  Both assets resampled from ~4MB originals to 299KB / 350KB.
+- **The blog teaser's featured card FILLS its grid cell** (2026-09-07) —
+  `align-self: stretch` on `.featuredCard` plus `margin-top: auto` on
+  `.featuredFooter`. The prototype declares `align-items: start` (line 421)
+  and the transcription was faithful; the card ended **238px** above the
+  column's bottom (394 vs 631) and showed background beneath it.
+  ⚠️ **The GRID keeps `align-items: start`** — stretching it would also
+  stretch the right column, which is the case PF-86 was right to prevent
+  (it only arises at a *lower* post count). ⚠️ `.featuredPlaceholder`
+  stretches too, or the load jumps 237px instead of 2px.
+  ⚠️ `justify-content: space-between` was tried and **rejected** — it
+  overrides the card's transcribed `gap: 16px`.
+- **Hero**: a fourth pill-row item (the LOUD CTA), **ten** floating chips
+  not eight, a two-layer `mask-image` on the portrait (both radii **50%**,
+  both `mask-composite` spellings required), `.blobC` at **z-index 2** not
+  the prototype's 4.
+- **Nine links carry brand icons** the prototype has no icon for; all
+  `aria-hidden`, trailing `→`/`↗` retained. ⚠️ `public/icons.svg` is
+  unusable — hardcoded fills, zero consumers.
+- **LIVE SITE carries a pulsing green dot** — added `@keyframes dot-ok`,
+  the 33rd and the only one with no prototype source.
+- **Marquee `copies` exceeds the prototype's 2** — hero **8**, footer
+  **18**. The requirement is `copies ≥ 2 × band / copy`, **not**
+  `copy ≥ band`. Counts must stay **EVEN**.
+- **Both bands run at 50 px/s** — hero 84s, footer 70.7s. Equal **SPEED**
+  is the contract; equal duration is the bug. Durations are un-round
+  because they encode one speed over two distances.
+- **`STAR_DRIFT = 0.35`**, 3.89× the prototype. ⚠️ No design source — an
+  owner call, not "what Admin does". Guarded as *direction*, not an exact
+  number, so re-tuning by eye does not turn the suite red.
+- **The About portrait is a different photograph.** ⚠️ Never point an
+  import at the `.heic` — only Safari decodes it and Vite emits it without
+  complaint.
+- **Smooth scroll**, which the prototype does not use. CSS, not a JS
+  `scrollTo`, so it covers back/forward and typed hashes.
+- **`data-terminal` attached** to the terminal panel, activating a
+  `tokens.css` rule that had never matched an element.
+
+#### Chrome (the 2026-08-22 navbar rework)
+
+- **The header is FULL-BLEED** — no `max-width`. ⚠️ This *reversed* a
+  same-day decision that added one. **Accepted consequence: above ~1320px
+  the header no longer aligns with section content.** Restoring the cap to
+  "fix" that is the thing that was rejected.
+- **ADMIN is isolated as chrome** — outline, not fill; **`--muted`, not the
+  requested `--muted2`**, which fails AA in dark here. Isolation comes from
+  FORM, not darker ink. ⚠️ `.adminDivider` was built and **removed**;
+  `.divider` (the prototype's, on the toggle's LEFT) **stays**. ⚠️ The
+  requested `margin-left: auto` is a **silent no-op** in this layout — do
+  not add it back.
+- **The theme toggle is a 44×44 sun/moon icon button**, not the prototype's
+  switch. ⚠️ 44 is chosen to **equal the logo** — it is what keeps
+  `--header-h` at 71px, which every section's `scroll-margin-top` reads.
+  The icon shows the **destination**. Glow is **theme-scoped** and uses
+  `drop-shadow`, never `box-shadow`.
+- **The navbar is route-aware** — bare hashes on `/` (e2e depends on it),
+  absolute `/?nosplash=1#…` elsewhere. ⚠️ **`/blog*` is NO LONGER the
+  prototype's nav (PF-103, 2026-09-05)**: it is **ABOUT · SKILLS ·
+  PROJECTS · CONTACT · `← GO BACK`** · divider · toggle · ADMIN. No BLOG
+  link. `Blog.dc.html:50-61`'s PROJECTS · ABOUT · `← PORTFOLIO` is the
+  frozen export — restoring it re-breaks an owner decision. Mobile
+  overlay focusables on `/blog` are **8**, not 6. `.contactPill` keeps
+  its name while carrying GO BACK, deliberately.
+- **`ScrollToHash` is gated on splash readiness and passes NO `behavior`
+  argument**, so it inherits the root's `scroll-behavior` and the
+  reduced-motion override reaches it. It is mounted **inside
+  `SplashProvider` in `HomePage`**, not `App.jsx` — an App-level mount
+  compiles, renders, and silently skips the gate.
+- **`--header-h` is 71px, and it is measured** — 12 + 44 + 12 + 2 + **1px
+  border**. The ticket's estimate of 70 dropped the border.
+
+#### Motion and accessibility
+
+- **Hover lifts are UNGATED under `prefers-reduced-motion`** — transitions
+  are already collapsed, so a lift is an instant state change, same
+  category as the `border-color` beside it. `.reveal`'s opacity stays
+  unconditional; only the transform half is `:not(:hover)`.
+- **The card hover-transition deviation was WITHDRAWN** (PF-93). Both cards
+  let `Reveal` own `transition`. Do not re-add one.
+- **PF-91 contrast pass** — five groups, all approved, all deviations from
+  prototype values: `--muted2` → `--muted` in **dark only** on tinted
+  surfaces; `--faint` → `--muted`; the terminal panel's ink becomes
+  **literal**; `--ok` light `#0E7A55` → **`#0B6446`**; both Blog separators
+  unified on `var(--acc)` at `.9`. Result: **zero AA failures** across the
+  Phase 2 surface, both themes.
+  - ⚠️ **The SURFACE decides, not the colour.** `#34d399` stays literal on
+    the terminal (deliberately dark in both themes) and becomes `var(--ok)`
+    on the form. Three files apart this looks like an oversight;
+    "unifying" it reintroduces a 2.82:1 line while reading as a cleanup.
+- **PF-91 exemptions, decided not omitted**: the six decorative numerals
+  (all `aria-hidden`) and the 17 control borders (every one on a control
+  whose *label* passes) stay as they are.
+- **`main[tabindex="-1"]:focus { outline: none }` is the repo's ONLY
+  `outline: none`.** ⚠️ The scoping is the entire justification —
+  discriminator is whether a keyboard can **OPERATE** the element, not
+  whether it can receive focus. Never quote it to excuse an unscoped one;
+  Contact's fields resolve the same question the *opposite* way.
+- **About's stat labels are one token lighter in DARK only.** Wins on
+  **specificity** (0,2,1), never emission order.
+- **The splash plays ONCE PER DOCUMENT LOAD** (PF-106) — first open and
+  refresh play it; Back from `/blog` and every nav link do not. A
+  module-scoped `shownThisDocument` in `utils/splash.js`, set from
+  `Splash.jsx`'s `finish()`. ⚠️ The old "no module-scoped flag" warning is
+  **narrowed**: the mount TIME was the problem, and `finish()` is ~4.5s
+  past StrictMode's remount. ⚠️ `HomePage` now **strips `?nosplash` from
+  the address bar** on mount — load-bearing, or refresh would replay on `/`
+  but not on the URL the nav produces. `sessionStorage` and `location.key`
+  were both measured and rejected.
+- **Splash timing**: `SPLASH_MS` **4500** (slightly *shorter* than the
+  prototype's 4600). Boot lines and `BAR_TICKS` are **DERIVED** from it, so
+  changing it keeps everything in step. The exit is a fixed timer and must
+  **not** be driven by the bar reaching 100%.
+- **Mobile nav overlay**: the ambient layer shows through; z-index 80;
+  breakpoint 768px; **the overlay root IS the backdrop** (one element).
+
+#### Architecture
+
+- **No frontend animation libraries.** CSS keyframes plus vanilla JS. Not
+  reopened by an argument that some library is better architecture.
+- **Channel-triplet tokens stay triplets.**
+- **`tokens.css` imports AFTER `global.css`** in `main.jsx`; `motion.css`
+  is LAST. The order is load-bearing and breaks silently.
+- **Tailwind `@theme` uses `var()` references** to `tokens.css`, so colour
+  utilities follow the theme. Opacity modifiers degrade to full opacity on
+  pre-2023 engines — known and accepted.
+- **Fonts are deliberately NOT in `@theme`** — `--font-*` collides with
+  `tokens.css`'s own names, so the reference would be self-referential.
+- **Body is `font-family: var(--font-body)` + `line-height: 1.6`** (PF-116,
+  2026-10-08). The font is the prototype's; **the 1.6 is NOT** (the prototype
+  sets none) — owner kept Phase 1's value so inheriting text did not re-space,
+  and deleting it would give Tailwind's 1.5, not the prototype's `normal`.
+  Inter is no longer downloaded.
+- **A context lives in its own module**, separate from its provider —
+  `react-refresh/only-export-components` fails CI otherwise. This has cost
+  a lint cycle three times.
+- **`SplashProvider` fails open** (`{ ready: true }` default, no throw
+  outside a provider), unlike Theme and Motion. A missing theme is a bug
+  worth surfacing; a missing splash is the normal case.
+- **Splash read and write are separate hooks** — `useSplashReady()` and
+  `useSplashControls()` — so every consumer of splash state is not also
+  able to control it.
+- **Projects: the big card is chosen by `order`, the badge by `featured`.**
+  ⚠️ An unfeatured first project renders **nothing** in that slot, never a
+  `01`. Reordering is an admin-panel edit, not a code change.
+  ⚠️ **Since 2026-09-16 EVERY featured project shows the badge** — small
+  cards too, beside their numeral in a `.cardHead` row. ⚠️ **Since
+  2026-10-03 it is the admin list's `★ FEATURED` pill**, not the prototype's
+  solid orange box (owner, PF-113 batch 2). NOT `position:
+  absolute`: the `.card > *` layering rule at (0,3,0) overrides it silently.
+- **`About.availableForWork` drives the hero badge, the footer row and the
+  About line** (2026-09-16) — OFF is `CURRENTLY BUILDING`, `--muted`,
+  neutral tint, and the OFF classes compose NO carrier so the animation
+  stops. ON is untouched (the hero badge stays ORANGE, not the Phase 1
+  green a pasted spec named). About's line shows the panel's
+  `availabilityNote`; hidden when OFF. The footer MARQUEE is still a
+  literal, flagged. `?? true` while loading. Never a constant.
+- **The admin unread-message dot is `--ok` GREEN**, not the prototype's
+  orange (2026-09-16) — prototype geometry (17/17px, row padded 20px),
+  global `kf-glowdot` carrier with inline longhands. PF-115 keeps it.
+- **ClearDrive keeps 10 tech pills**; the prototype's 9 is stale. The API
+  wins here — opposite resolution to PF-82's skill-order finding, and
+  deliberately so.
+- **CORS allows a localhost dev-port range in NON-PRODUCTION only.**
+  Production stays exact-match.
+- **Cursor-web frame budget**: lower the 80-node web cap first; the 2600
+  star-density divisor is the fallback.
+- **Vocabulary deletion is hard-delete with cascade**, behind an
+  impact-count confirm.
+- **Cloudinary for file storage**, behind a provider interface.
+- **Résumé is PDF only; a new upload hard-deletes the old.**
+- **Every media field is written by a DEDICATED route, never by a save**
+  (PF-111) — `PUT|DELETE /api/about/avatar` and
+  `PUT|DELETE /api/projects/:id/background`, each doing upload → save →
+  destroy-old in one handler. ⚠️ **The reason is SECURITY, not symmetry:**
+  the rejected generic-upload-then-diff design makes a destructive Cloudinary
+  delete depend on a **client-supplied publicId**. So `PUT /api/about` strips
+  `avatar`/`resume` and `PUT|POST /api/projects` strips
+  `backgroundImage.src`/`.publicId`, keeping `opacity` — written as the **dot
+  path** `backgroundImage.opacity`, because a nested object makes Mongoose
+  `$set` the whole sub-document and wipe `src`/`publicId`. ⚠️ `POST
+  /api/upload` now has ZERO consumers; kept + given its missing 503 guard,
+  deletion is PF-120's call. ⚠️ Folding the two handlers into one helper was
+  REJECTED — six parameters, each a place to destroy the wrong file.
+- **A media file is destroyed on REPLACE *and* on RECORD DELETE** (PF-111,
+  owner 2026-09-23). ⚠️ The **row goes first**, the file second, non-fatally:
+  an outage must not block a delete. ⚠️ `storage.destroy(id, 'image')` — a
+  wrong `resourceType` returns `{ result: 'not found' }`, an HTTP success that
+  deletes nothing and orphans silently. `'raw'` is the résumé's alone.
+- **Uploaded images are PNG / JPEG / WebP, by MAGIC BYTES** (PF-111, owner).
+  SVG rejected — XML that can carry `<script>`, same reason `backgroundImage.
+  src` rejects `data:`. GIF offered and declined. ⚠️ `utils/fileType.js`'s
+  `MEDIA_IMAGE_MIME` is deliberately NARROWER than `middleware/upload.js`'s
+  `ALLOWED_IMAGE_MIME` (which has `avif`) — multer screens the *claimed* type,
+  the handler's list *decides*. Do not unify them.
+- **Blog content is `sections[]`**, not a flat string.
+- **`readingTimeMinutes` is DERIVED, one writer, client value IGNORED**
+  (PF-103). The author's pin is a **separate** field,
+  `readingTimeOverride` (`default: null`, `min: 1`); null means compute
+  at 200 wpm over headings + body + bullets. ⚠️ The seeded 6/7/4/5 were
+  **fiction** — the real bodies are 158/123/89/64 words, so every post
+  is **1 MIN READ**, and that disagrees with `docs/design/Blog.dc.html`
+  on purpose. Migration **006** clears it from a live database; **005 is
+  frozen, it ran in production**. ⚠️ Do NOT re-add a
+  `readingTimeMinutes` literal to `seed.js`.
+- **The admin Blog editor is a STRUCTURED SECTIONS EDITOR, not the
+  prototype's markdown textarea** (PF-97, owner-approved 2026-09-04).
+  ⚠️ `Admin.dc.html:478-481` still shows the single "Content * (Markdown
+  supported)" box — it predates PF-59's schema change. **Restoring it to
+  match the export re-breaks the panel completely.**
+- **The admin Blog form has the design's TAG CHIP PICKER**, backed by the
+  `Vocabulary` API that PF-61/PF-62 built and nothing consumed until
+  PF-97. The comma-separated text input **stays alongside it** — one is
+  for a one-off tag, the other for the shared pool. ⚠️ The `×` is a
+  **cascading delete across every post**, behind an impact-count confirm.
+- **`?q=` searches the WHOLE POST since PF-104** — title, excerpt, tags
+  AND `sections.heading` / `.body` / `.bullets`. ⚠️ Reverses PF-96, which
+  restricted it to the design's own three fields; `blog.query.test.js`'s
+  `does not match section body text` tripwire is now inverted. The
+  deprecated `content` is still NOT searched, and a test pins that. No
+  index backs this — a collection scan, fine at four posts.
+- **`publishedAt` is STAMPED at publish time (PF-104)** — one line in
+  `applyDerivedFields`, `== null` guarded so seed/migration dates survive.
+  Unpublishing does not clear it. ⚠️ `blogQuery.js` used to record this as
+  rejected; that note is rewritten — the `$ifNull` fallback STAYS too.
+- **Card dates are FULL dates and the helper is `formatDate`, not
+  `formatMonth`** (PF-104) — `14 JUL 2026`, `day: '2-digit'`, both
+  consumers including the home teaser.
+- **`/blog` filters by SEVERAL tags, ANDed** (PF-105) — `?tag=a&tag=b`,
+  `$and` of one anchored regex each (NOT `$all`, whose regex behaviour
+  varies by version). ⚠️ OR was recommended first and rejected: measured,
+  it returns 3 of 4 posts for a pair, so it barely filters.
+  ⚠️ A chip that would return zero is **disabled**, derived from
+  `everyPost` — never from `list`, which is already filtered. This NARROWS
+  PF-98's "chips must not shrink"; they stay present and readable.
+  ⚠️ `!isSelected(label)` in that rule looks redundant and is not — it is
+  the only thing making `?tag=Docker&tag=Java` escapable chip by chip.
+- **CLEAR ALL is `var(--danger)`** (PF-105) — the only sanctioned red,
+  7.32 dark / 5.38 light. Hover keeps the red, thickening the underline.
+  ⚠️ Never the admin panel's `#dc2626` / `rgba(239,68,68,…)`: Phase 1
+  literals that do not flip with the theme.
+- **`/blog`'s search row is a `<form role="search">`** (PF-104), so every
+  chip's `type="button"` is load-bearing, not merely tidy. Three clearing
+  affordances: the field's `×`, the active chip toggling off, and an
+  always-visible CLEAR ALL. The empty state NAMES the term, inline with
+  `role="status"` — deliberately not a modal, because live search hits
+  zero results mid-word.
+- **`/blog`'s chip row = pool tags carried by at least one PUBLISHED
+  post** — `GET /api/vocabulary/tag?inUse=true`, PF-98 prepends `'All'`.
+  ⚠️ Not the whole pool (dead chips) and NOT derived from the fetched
+  posts (PF-96 filters server-side, so they would shrink as you filter).
+- **`impact` and `?inUse=true` use DIFFERENT filters on purpose** — impact
+  counts every post including drafts, inUse counts published only.
+  Unifying them breaks one or the other.
+- **`GET /api/blog/:slug` returns `index` + `total`** (PF-99) alongside
+  `{ post, prev, next }` — the reading view's `01 ·` numeral. ⚠️ Both were
+  ALREADY computed to build the neighbours; rejected letting the client
+  fetch the list and find the position, which re-expresses an ordering
+  `blogQuery.js` owns.
+- **The VIEW COUNTER is an ADDITION with no prototype source** (PF-99,
+  owner-requested). ⚠️ Almost none of it was new code — the field, the
+  `$inc` endpoint, its limiter and `views` in every list payload all
+  already existed with **no caller**. Do not add an endpoint or projection
+  to "expose views"; grep first. **Nothing renders below one view**, and
+  the CTA is the FIRST child of a `space-between` row so an absent counter
+  moves nothing.
+- **`← ALL POSTS` becomes `← BACK TO RESULTS`** when the reader arrived
+  from a filtered index, and returns to it (PF-99). The filter travels as
+  **router state**, never in the post's URL. ⚠️ The not-found panel's link
+  is `BROWSE FIELD NOTES →`, NOT a second `← ALL POSTS` — two links with
+  one accessible name to one destination.
+- **A bad slug renders an INLINE not-found panel, keeping the URL** (PF-99)
+  — not `NotFoundPage`. ⚠️ The original reason (`NotFoundPage` was Phase 1's
+  layout) EXPIRED with PF-100, but the decision stands on its other half:
+  keeping the URL visible so a mistyped link can be seen.
+- **The reading view uses NO `Reveal`** (PF-99) — transcription, not an
+  omission. ⚠️ So PF-93's transition rule is VACUOUS there and `.tagPill`'s
+  own transition is correct.
+- **The reading view has TWO `← ALL POSTS` controls** (2026-09-07) — top and
+  after prev/next. Both read the same `backTo`/`backLabel`. ⚠️ **Two links
+  sharing one accessible name is CORRECT here and was a DEFECT one day
+  earlier** (the not-found panel's, renamed in PF-99): those two were visible
+  together in one region; this is ordinary top-and-bottom repetition. E2E
+  names which end it means with `.first()`/`.last()`.
+- **`/blog` scrolls to top on a PUSH arrival, never on a POP** (2026-09-07)
+  — the bottom back control otherwise landed readers at the *bottom* of a
+  shorter filtered index (measured `scrollY 912` vs `maxScroll 911`), with
+  the search box and chips above the fold. ⚠️ Once per mount via a ref, or
+  every keystroke would yank the page upward mid-filter.
+- **`.pillLink` is the reading view's one pill-shape declaration**, composed
+  by three classes. ⚠️ Does NOT reopen the rejection of `composes: pill from
+  patterns.module.css` — that pattern declares `color` and would tie at
+  (0,1,0); a local shape-only class does not.
+- **The `tech` chip picker for Projects is BUILT (PF-113)** — PF-97's picker,
+  extracted to `components/admin/VocabularyPicker.jsx` and parameterised by
+  `type`. ⚠️ `useDeleteVocabulary('tech')` invalidates `PROJECTS_KEY`, never the
+  blog keys; a test pins both halves.
+- **Projects have DRAFTS (PF-113, owner 2026-10-03)** — `published` default
+  true, public filter `{ published: { $ne: false } }` (NOT `published: true`:
+  pre-PF-113 rows have no field), a draft needs only a title, `GET
+  /api/projects/admin/all` for the panel. ⚠️ `updateProject` is `findById` +
+  `save()` because the conditional `required` reads `this` — see Silent
+  failures. PUBLISH is lit on an untouched draft. Blog's half: PF-115 (built).
+- **Skills (PF-114, owner 2026-10-05)** — NO drafts; level shown on the home page
+  as ACCENT dots + a 12px legend (hover → `currentColor`; empty ring `.8`,
+  measured); sections are owner-managed `SkillCategory` rows (key never changes
+  on rename; all six equal; Other stays); EMPTY sections are HIDDEN on the home
+  page (reverses PF-82); section delete = CANCEL / MOVE & DELETE / DELETE SECTION
+  + N SKILLS (`deleteSkills === true`); ◀ ▶ + drag-and-drop write ONE staged
+  layout, cross-box allowed, drag off while editing; new skills go LAST. Full
+  entries: `locked-decisions.md` "PF-114".
+- **Blog + Messages (PF-115, owner 2026-10-07)** — Blog drafts need only a
+  title, enforced in the MODEL on every path (incl. `togglePublish`, now a 400
+  not a 500); the "Publish immediately" checkbox is REPLACED by Projects'
+  buttons (sanctioned deviation); a list-row PUBLISH on an incomplete draft
+  opens the editor marked and sends nothing; `isPostDirty` compares the FORM.
+  Messages: `Contact.starred` via `PATCH /:id/star` (explicit value, immediate,
+  not staged); CLIENT-SIDE search, words ANDed, no RegExp from input, `<mark>`
+  as text; filters are aria-pressed toggles, not a tablist; unread green beats
+  the starred tint. SESSION card reworded. Full entries: `locked-decisions.md`
+  "PF-115".
+- **The Projects card background is UPLOAD ONLY** (PF-113, owner) — the
+  prototype's URL box is NOT built: PF-111 strips `backgroundImage.src` from
+  every save, so a pasted URL would vanish silently.
+- **One `ConfirmDialog` for every admin delete** (PF-113) — project, post and
+  vocabulary chip; Messages joined in PF-115. Focus lands on CANCEL. Both
+  buttons `type="button"`.
+- **The owner's address is `pcgallege@gmail.com`** (PF-122, owner decision
+  2026-09-12) — public contact address AND the admin login account, which was
+  `admin@portfolio.dev`, the demo address printed in `seed.js`. ⚠️ **`docs/
+  design/`'s three `.dc.html` files still carry the OLD address and are
+  FROZEN** — the mismatch is deliberate, and a fidelity pass that "fixes" it
+  is editing a frozen export. ⚠️ `.claude/sprint-log.md`'s historical mentions
+  also keep the old address: they record what was true when written.
+  ⚠️ The git commit identity is the owner's personal identity and is **not**
+  part of this swap.
+- **The admin header REUSES the site's 44×44 sun/moon `ThemeToggle`** (PF-107,
+  owner-approved 2026-09-12) — NOT `Admin.dc.html:128-133`'s `--acc2` pill
+  switch with its LIGHT MODE caption. ⚠️ **Consequence: the admin header is
+  67px, not the prototype's 63px** — the 44px toggle is the tallest child, not
+  the 40px logo. Exposed as `--admin-header-h`, read by the sidebar's sticky
+  offset, and **measured**. ⚠️ Declining the pill means `--acc2`/`--acc2rgb`
+  lose their last notional consumer.
+- **The admin footer DOES take the prototype's gradient** (PF-107) —
+  `Admin.dc.html:572`. ⚠️ **Not a contradiction of the 2026-08-27 footer
+  decision**, which is about the PUBLIC site's footer in a different
+  prototype. Keep the two straight in BOTH directions.
+- **Below 899px `/admin`'s sidebar becomes a horizontal scrolling strip**
+  (PF-107) — CSS only, no drawer, no hamburger, no focus trap. ⚠️ **This
+  ticket's own judgment call**, licensed because the prototype has no mobile
+  admin treatment at any width — same position as PF-79's mobile overlay. It
+  replaced a sidebar that was **unreachable**: a `mobile` state nothing set
+  `true` plus a media query sliding it off-screen. ⚠️ The header must
+  `flex-wrap: wrap` there and `.spacer`/`.email`/`.divider` must be hidden, or
+  the theme toggle lands off-screen. PF-117 may reopen it with evidence.
+- **PF-91's contrast substitution was APPLIED, not re-decided, on the admin
+  shell** (PF-107) — six dark-only failures, zero in light, fixed by
+  `--muted2` → `--muted` and `--faint` → `--muted` scoped to dark, winning on
+  specificity (0,2,1). 3.36–4.30 → 7.23–7.68.
+- **The session model is a 15-min access JWT IN MEMORY + a rotating opaque
+  refresh token in `localStorage`, backed by a `Session` collection** (PF-108,
+  owner-delegated 2026-09-16). ⚠️ **NOT an httpOnly cookie — measured dead**:
+  a Vercel external rewrite does not forward `Set-Cookie`, and `vercel.app` is
+  on the Public Suffix List so frontend/backend are cross-SITE. Deferred, not
+  rejected: a custom domain flips it, and then only the refresh token's
+  transport changes. `frontend/vercel.json` is the SPA catch-all ONLY — do
+  not re-add the `/api/*` rewrite without a reader.
+  ⚠️ The JWT names the session **family** (`fam`), not the row, so rotation
+  never kills an in-flight access token; logout / reuse / `revokeAllForUser`
+  do. A token with no `fam` is refused. **One `issueSession(user)` for every
+  door** — PF-119 calls it; nothing else signs a JWT. ⚠️ PF-119: a backend
+  OAuth callback cannot place a Bearer session in the browser — GIS ID-token
+  POST or a one-time-code handoff.
+  ⚠️ `api.js` never touches `window.location`; a failed refresh writes
+  **`null`** into `['auth','me']` (not `removeQueries` — that loops).
+  `ProtectedRoute`: 401/null → login with `state.from`; **any other error →
+  inline RETRY**, or a network blip bounces login ↔ /admin forever.
+  `refreshLimiter` is 60/15 min, its own — never `authLimiter`.
+  `JWT_EXPIRES_IN` is retired; `ACCESS_TOKEN_TTL` (15m) and
+  `REFRESH_TOKEN_TTL_DAYS` (7) replace it.
+- **`/admin/login` and `/admin` share the MAIN PAGE's background** (PF-109,
+  owner decision 2026-09-16) — `StarfieldCanvas` + `CursorGlow` +
+  `GrainOverlay`, exactly what `HomePage` mounts. ⚠️ **The prototype's login
+  stage is NOT built**: `Admin.dc.html:48-50`'s two aurora orbs and the
+  12%-tall scanline sweep are omitted (the scanline also extends the
+  2026-08-17 splash decision). ⚠️ **DESIGN.md §6.2's denser node-lattice
+  canvas is REJECTED**, not deferred — PF-107 deferred it; the owner's
+  answer was "the same as the main page", so there is nothing left to
+  build. `auroraA`/`auroraB` stay in the library, corrected and unconsumed.
+  Owner's words: *"the main page, admin page and the login page background
+  should be same with same attributes and animations."*
+- **The login's theme toggle is the site's 44×44 sun/moon `ThemeToggle`**
+  (PF-109) — PF-107's decision applied to the last screen that would have
+  carried `Admin.dc.html:92-98`'s `--acc2` pill. Consequence: `--acc2` /
+  `--acc2rgb` stayed at ZERO consumers, and PF-116 deleted them.
+- **`riseIn` is a PER-SCREEN keyframe** (PF-109, owner decision
+  2026-09-16) — `riseIn-portfolio` 16px, `riseIn-blog` 22px, `riseIn-admin`
+  18px, the `flt`/`drift`/`sheen` treatment. ⚠️ The single 14px body it
+  replaced matched **none** of the three prototypes, so all four existing
+  consumers (Splash ×2, ScrollToTop, NotFoundPage → portfolio;
+  BlogPostPage → blog) changed their entrance travel — a correction to the
+  export's own value, not a re-tune. No bare `riseIn` exists; a "unify
+  them" edit fails `keyframes.test.js`.
+- **The login prints NO "DESIGN PREVIEW" credential line** (PF-109) —
+  `Admin.dc.html:100` is design-tool furniture and names `Admin@1234!`,
+  which CI's credential scan greps for. **No spinner either**: the export's
+  busy state is the label becoming `SIGNING IN…`, and that is all it does.
+- **The login's dark-theme labels and placeholder are one token lighter**
+  (PF-109) — PF-91's substitution applied, not re-decided: `--muted2` →
+  `--muted` on `.brandSub`/`.fieldLabel` and `--faint` → `--muted` on the
+  placeholder, dark-scoped at (0,2,1). Measured 4.02 / 2.98 → 6.79 / 6.43;
+  light was already 6.07 / 5.73 and is untouched.
+- **`GET /api/dashboard/stats` returns SEVEN fields** (PF-110) —
+  `{ projects, skills, posts, published, drafts, messages, unread }`, not
+  the sprint plan's five; the shell's `N TOTAL` and blog badge need the two
+  totals. ⚠️ `unread` is `read: { $ne: true }` and `drafts` is
+  `total − published` — a row with no field counts, matching the `!m.read`
+  client filters it replaced. **Invalidation is explicit per hook**, ten
+  mutations; NOT `useUpdateProject`, NOT `useRecordView` (both pinned as
+  negatives). A global `MutationCache` hook was rejected.
+- **The admin shell paints NOTHING count-shaped while stats load** (PF-110)
+  — no badge, no `0 ITEMS`, no footer counts; the panel's cards show a
+  shimmer in the value slot. A `0` default fails a test in both.
+- **`+ NEW POST` opens the blog editor; the other three quick actions are
+  tab switches** (PF-110) — `AdminPage` carries `{ tab, compose }`,
+  `AdminBlogPanel` takes `initialView`. The Overview's "Parindra" is the
+  export's literal, the stat values are printed not counted up, and the
+  action pill is its own class, not `.chip`.
+- **The Overview's stat label is one token lighter in DARK** (PF-110) —
+  PF-91's substitution again: `--muted2` 4.15 → `--muted` 7.00 on the card;
+  light 5.95, untouched.
+- **The admin About panel is a STAGED FORM** (PF-112, owner 2026-09-25) — see
+  Standing product requirements above; it is a site-wide rule, not a panel
+  detail. ⚠️ **Supersedes PF-111 §3.4's résumé half.** `availableForWork` rides
+  `PUT /api/about` (new `isBoolean()` rule — ⚠️ `.optional()` validates `false`,
+  the case that matters), and `useToggleAvailability` +
+  `aboutService.toggleAvailability` are **DELETED**; the backend PATCH route
+  stays with no client, for PF-120. SAVE is **sequential, profile first** — not
+  `Promise.all` — so a storage outage still lets a text edit land and the banner
+  can name which file was refused. ⚠️ **A partial failure never flashes "Profile
+  saved."**
+- **Two NEW badge states, `PENDING SAVE` and `REMOVE ON SAVE`** (PF-112) — the
+  prototype's `LIVE`/`MISSING` cannot express "picked but not committed". Both
+  on the existing accent `a.badge`; no new colour. ⚠️ The prototype's toggle
+  flash copy is **dropped** — it announces a save that has not happened.
+- **The résumé picker is `accept=".pdf"`** (PF-112) — the export offers
+  `.doc,.docx` and `uploadResume` 415s them. ⚠️ **Every upload limit is 4 MB
+  since PF-113 batch 2** (was 2 MB images / 5 MB PDF); captions say `MAX 4 MB`.
+  Large photos are RESIZED in the browser (`utils/resizeImage.js`, long edge
+  2400 px, WebP) before staging; a PDF never is. Pick errors render INSIDE the
+  card; all three slots take drag-and-drop (`DropZone`). A 10 MB direct-to-
+  Cloudinary route and storing PDFs in Atlas were both REJECTED — see
+  locked-decisions.md "PF-113 batch 2".
+- **The About portrait card has NO prototype source and mirrors the résumé
+  card** (PF-112, owner) — nothing in `Admin.dc.html` or DESIGN.md §6.3.
+  ⚠️ The two cards are deliberately **NOT** one parameterised component: four
+  differing axes, and the failure mode of confusing them is destroying the wrong
+  file — PF-111's reasoning, reapplied.
+- **The portrait's ALT TEXT follows the source** (PF-112) — the bundled photo's
+  alt names the green Mini in it, so an upload gets `Portrait of Parindra
+  Gallage` instead. Reusing the specific sentence would describe a picture that
+  is not there, which a screen-reader user cannot detect.
+- **The upload input is CLIPPED, not `display: none`** (PF-112) — the
+  prototype's `<label>` + `display:none` pill cannot be reached or operated by a
+  keyboard. The label draws the ring with `:focus-within`, and carries no
+  `border-radius` there.
+
+### The design is the authority
+
+`docs/design/` holds the Claude Design prototype this project is rebuilding
+toward. **These files are the source of truth for every visual decision.**
+
+```
+docs/design/
+  Portfolio Revolution.dc.html   main page — splash, hero, about, skills,
+                                 projects, blog teaser, contact, footer
+  Blog.dc.html                   Field Notes — index, search, reading view
+  Admin.dc.html                  CMS — login plus six panels
+  DESIGN.md                      design system spec
+  github.md                      sync log and screen map
+  assets/                        9 source images, full resolution
+```
+
+#### ⚠️ The design is the baseline, NOT the ceiling — restated 2026-09-02
+
+Owner's words: the design files are to be followed, **but the implementation
+already differs and will differ more** — things added, things removed, on
+their recommendation and their requirements. From here on there is work to
+do *beyond* the design, not only transcription of it.
+
+**Both halves are true at once, and neither cancels the other:**
+
+- **Transcribe faithfully by default.** Where the prototype has a value and
+  nothing overrides it, that value ships exactly — `scale(1.022)`, not
+  `scale(1.02)`. That has not loosened.
+- **The shipped site is deliberately not the prototype.** The header, the
+  theme toggle, the section washes, the marquee bands, the hero chips, the
+  splash scan lines, the footer, the star drift, the About portrait — all
+  diverge on owner instruction, and every one is recorded in
+  `.claude/locked-decisions.md`.
+
+**So the authority is layered:** the prototype, *plus* the sanctioned
+deviations, *plus* whatever the owner directs next. **Where they conflict,
+the most recent owner decision wins** — and the prototype is only the
+authority for what nothing has overridden.
+
+⚠️ **The practical consequence: a value that looks wrong against
+`docs/design/` is not evidence of a bug.** Grep
+`.claude/locked-decisions.md` before "fixing" it. `docs/design/` has been
+**frozen since 2026-08-22**, so it will drift further from the live site by
+design, and that gap is expected to widen — not a sync failure to repair.
+
+⚠️ **What has NOT changed: I still do not get to decide a visual deviation
+alone.** "More than the design" means the owner adds and removes; it does
+not license my own aesthetic judgement, in either direction. Raise it, get
+agreement, then build — and record it. That process is the reason every
+divergence above is legible today instead of looking like a transcription
+error.
+
+#### ⚠️ `docs/screenshots/` is NOT the design
+
+That directory holds an image of the **Phase 1 UI** — the old site, before this
+rebuild. It is historical reference only.
+
+**Never use it as a visual target.** It shows the previous slate/indigo palette
+and Inter typography, both of which Phase 2 replaces. If a screenshot and the
+prototype disagree, the screenshot is the outdated one.
+
+#### Working with the prototype
+
+**Read the relevant file before implementing any visual work.** Grep for the
+exact value rather than reasoning from a description:
+
+```bash
+grep -n "keyframes glowdot" docs/design/*.dc.html
+grep -n "data-screen-label" "docs/design/Portfolio Revolution.dc.html"
+```
+
+**If a ticket and the prototype disagree, the prototype wins.** Say so, then
+implement what the prototype says. This has happened repeatedly — tickets have
+carried wrong keyframe values, a wrong test directory, a wrong import order,
+and a wrong z-index (grain guessed at a low single digit; the prototype has it
+at 70, above the header). The prototype has never been wrong.
+
+**Transcribe exactly. Never round.** `scale(1.022)` is not `scale(1.02)`.
+`translateY(-14px)` is not `-12px`. These carry the design's feel; rounding
+produces something that looks approximately right and feels wrong, in a way
+that is very hard to diagnose later.
+
+**Three keyframes differ per screen** — `flt`, `drift`, `sheen`. Check which
+screen you are building before copying a value. They live under explicit
+variant names (`flt-portfolio`, `flt-blog`, `flt-admin`) in
+`frontend/src/styles/keyframes/`.
+
+#### Where you can exceed the prototype, and where you can't
+
+"The prototype wins" governs visual and UX values — colours, spacing, timing,
+easing curves, copy, layout, which features exist. Those transcribe exactly.
+Nothing above or below this section changes that.
+
+Everything else — architecture, robustness, test coverage, performance
+safeguards not visible to the user, accessibility, code organisation — has no
+floor at the prototype's own implementation. The `.dc.html` files are a design
+tool's export: a single class component driving a live preview, not a
+production React app. Treating its JS *structure* as a second source of truth
+alongside its visual values is a mistake this project doesn't need to make.
+Improve it freely, no need to ask first. Scope: work on `sprint-N-*` branches,
+`master` excluded.
+
+⚠️ This grant used to be worded as inheriting the sprint-branch *commit*
+authorization. That authorization was revoked on 2026-08-17 (see the Working
+agreement) and the cross-reference was removed then. The two are independent
+and always were: this one is about making implementation decisions without
+asking first, and it still stands. It has never implied permission to commit,
+and now explicitly does not — improve freely, then hand the work over.
+
+One limit on "freely", and it already exists elsewhere in this file: **Locked
+decisions still bind.** "No frontend animation libraries" is not reopened by an
+argument that some library is better architecture, and the same holds for every
+other entry there.
+
+Already-sanctioned examples, for calibration:
+
+- **The `visibilitychange` pause (PF-76)** — zero visual difference, pure
+  resource efficiency for a hidden tab. Confirmed absent from the prototype
+  (zero matches for `visibilitychange`, `document.hidden`, `visibilityState`).
+  The cleanest case: nothing to compare on screen, so nothing to raise.
+- **`useSplashReady()`/`SplashProvider` (PF-75)** — note the prototype does
+  gate reveals on the splash; it calls `hideReveals()` at mount (line 892) and
+  defers `startReveals()` until `finishSplash()` (line 945). What it doesn't
+  need is a *propagated* flag, because it arms every reveal in one imperative
+  sweep over `document.querySelectorAll('[data-reveal]')` — deferring a single
+  call is the entire gate. A React port where each `Reveal` mounts and arms its
+  own observer has no such single call, so the state has to travel. The
+  improvement is in porting the concept, not inventing one.
+- **`SplashProvider`'s `initialReady` prop (PF-78)** — fixes a race the
+  prototype is not exposed to. Not because it isn't React: it is
+  (`class Component extends DCLogic`, `React.createRef()`, `this.setState()`).
+  It dodges the race because reveals are armed by that one imperative DOM
+  sweep rather than by per-element effects reading state, so there is no
+  effect that can arm under a stale value while a `setState` is still pending.
+
+Those three share a shape worth naming: each is a place where the prototype's
+*structure* doesn't carry over, not a place where its *judgement* was wrong.
+Read that way, "improve freely" almost never conflicts with fidelity.
+
+**The one rule that doesn't bend: never reduce, and never substitute your own
+aesthetic judgement for the design's, even upward.** A colour that reads as
+more harmonious, a curve that feels smoother, a layout that seems more
+balanced — all real improvements they might be, and all still need to be
+raised and agreed to first, not decided alone. The reduced cursor-web density
+is the model for how this should go: proposed explicitly, reasoned about
+explicitly (which parameters, by how much, why), executed only after being
+asked for, and then recorded in this file as a sanctioned exception — not
+decided unilaterally and presented as already correct.
+
+**The test**: if a person comparing the live site to the prototype side by side
+would notice a difference — in what's visible, audible, interactive, worded, or
+how a specific transition feels — that's a design change. Raise it first,
+regardless of how it's motivated or how minor it seems. If the only difference
+is in code nobody sees without opening dev tools, it's an implementation
+choice. Go ahead.
+
+### Working agreement
+
+#### ⚠️ Ticket authoring — CHANGED 2026-09-02, applies from PF-96 onward
+
+**The owner states the plan. I write the ticket. The owner approves it. Then
+I implement.** Direct instruction, and it inverts how every ticket up to and
+including PF-95 was run.
+
+| | up to PF-95 | **from PF-96** |
+| --- | --- | --- |
+| who writes the ticket | the owner, as a `.md` pasted into chat | **me**, from the owner's stated plan |
+| what it was to me | the source of truth, to follow | **a proposal, to be approved** |
+| approval | implicit — it arrived written | **explicit, and required before any code** |
+| implementation | after reading the doc | **only after the owner approves the ticket** |
+| commit | the owner's | **the owner's — unchanged** |
+
+**The sequence, and do not collapse it:**
+
+1. The owner describes what they want, in their own words.
+2. **I write the ticket** — scope, the files it touches, the approach, the
+   verification, and what is explicitly out of scope. Grounded in what the
+   code actually does today (trace first, per Engineering discipline) and in
+   what the companion files already record about the area.
+3. **I stop and wait for approval.** No implementation before it, and no
+   treating a "yes, that sounds right" about the *plan* as approval of the
+   *ticket*.
+4. **Implement.**
+5. **Test.**
+6. **Recheck, re-test, fix what surfaces** — an explicit second pass, not a
+   re-run of the first. This is where mutation testing, the live/browser
+   checks, the fast gate (`npm run check` + backend `test:coverage`) and —
+   when the ticket touches what it covers — local E2E belong. CI runs all
+   seven after the push.
+7. **Write the ticket report as a `.md` FILE** (below). Not a chat summary —
+   a file, every time.
+8. **Write the commit message and stop.** The owner reviews and commits by
+   hand.
+
+#### ⚠️ The ticket report — a required deliverable after EVERY ticket
+
+Added 2026-09-02 by direct instruction. **Its purpose is the owner's own
+learning**, so it is written to teach, not to summarise. A report that
+proves the work happened but leaves the owner unable to explain the change
+to someone else has failed, however accurate it is.
+
+**Where:** OUTSIDE this repo, in the owner's own notes tree, one folder
+per Jira epic:
+
+```
+/Users/chami02/Documents/Personal/Projects/Portfolio/new mds/E<N>/PF-NN-short-description.md
+```
+
+**Sprint 14 is Epic 9, so `new mds/E9/`** — confirmed by the owner
+2026-09-08. (Sprint 13 was Epic 8, `new mds/E8/`.) Say where it was written when
+handing over.
+
+⚠️ **This said `docs/tickets/PF-NN.md` until 2026-09-02 and that was
+wrong** — corrected by the owner during PF-96. `docs/tickets/` has never
+existed; PF-95's report was in `new mds/E8/` all along
+(`PF-95-blog-publish-dates-and-reading-time.md`, the template to follow
+for depth). Do not create `docs/tickets/`.
+
+**It must answer three questions, in this order and separately:**
+
+| | |
+| --- | --- |
+| **WHAT** | what changed — every file, every code block |
+| **HOW** | the mechanism — how the change actually works, walked through |
+| **WHY** | why this way — what was rejected, and what breaks without it |
+
+**Every single change gets its code shown, with its file path.** Added,
+deleted, updated, upgraded, downgraded, moved, renamed — no exceptions and
+no summarising a diff in prose. For each:
+
+- the **full path** (`backend/src/models/Blog.js`), and whether the file is
+  **new**, **modified** or **deleted**
+- the code **before** and **after** for a modification; the code itself for
+  an addition; what was there for a deletion
+- **why that change**, at that place — the mechanism, not the intent alone
+
+**Also required:**
+
+- **The trace** — what the code did *before*, established by reading it, and
+  where the defect actually lived. This is usually the most educational part
+  and is the thing a diff cannot show.
+- **What was rejected and why.** The alternative that looked right and
+  wasn't is worth more than the fix, because it is what stops the same wrong
+  turn next time.
+- **Test results, real numbers**, from steps 5 and 6 — counts, not
+  "passing". Both passes, including anything that failed in between and what
+  it turned out to be.
+- **Bugs found during recheck**, with their cause. A ticket where the second
+  pass found nothing should say so explicitly.
+- **Anything found but deliberately NOT fixed**, and why — these go to
+  Outstanding work in `sprint-log.md` too.
+- **The commit message**, at the end.
+
+⚠️ **Write it for someone who does not have the conversation.** No "as
+discussed", no "the fix we talked about" — the file is the record, and it is
+read later without the session that produced it.
+
+⚠️ **The report does not replace updating `.claude/`.** Findings still go to
+`sprint-log.md`, `silent-failures.md` or `locked-decisions.md` as they
+always have. The report teaches the ticket; those files carry the standing
+rules. Doing one and not the other loses either the lesson or the rule.
+
+⚠️ **A ticket I authored has NO independent authority.** A pasted ticket was
+the owner's instruction; one I wrote is my own reasoning, so it cannot be
+cited back as justification — "the ticket said so" is now circular. If
+implementation shows the ticket was wrong, say so and re-plan rather than
+building to a plan I know to be wrong. The whole point of the approval step
+is that the owner has seen it; changing it afterwards needs them again.
+
+⚠️ **This raises the stakes on the prototype rule, not lowers them.** With
+the owner writing tickets, a scope error surfaced in their own words. Now it
+surfaces in mine — so "the prototype wins", "trace before you write" and "no
+speculative surface" are what keep an authored ticket honest.
+
+**Historical note:** older entries in this file say a pasted `.md` is the
+source of truth for its ticket, and describe correcting tickets that were
+wrong about paths or mechanisms. That was accurate through PF-95 and is why
+those corrections are recorded. It no longer describes how tickets arrive.
+
+**Never run `git commit`. Committing is the user's, on every branch.**
+
+⚠️ **Per-PR exceptions granted 2026-10-05, NOT standing:** the owner said "do it by
+yourself now" for PR #22 (remove Claude bot) and yes to PR #23 (build-tools
+policy) — commit, push, open, squash-merge. Each was explicit and scoped; the rule
+above is unchanged. Ask again for any future PR.
+
+⚠️ **The owner wants HANDS-ON learning (2026-10-05, interview prep):** for git,
+GitHub and ops steps, give the COMMAND and explain each part (and the interview
+angle) for them to run, rather than running it silently.
+
+⚠️ **How the owner commits a ticket (2026-10-03):** stage ONE logical section
+(`git add <paths>`), show the staged stat, give that section's commit message,
+and WAIT for "committed" before staging the next, until every file is in. Check
+each section is self-contained (everything it imports is committed or staged).
+**Commit messages go in CHAT as PLAIN TEXT** (not a code block, which the owner
+cannot select; no message files), short, and **with NO `Co-Authored-By:`
+trailer, ever**, whatever the harness's attribution reminder says.
+
+Stated directly by the user on **2026-08-17**, during PF-79, after four
+commits had gone in under the previous authorization: *"dont commit by your
+self keep it to me as my part."* No sprint-branch exception, no
+"as work completes" — Claude prepares the work and hands it over, the user
+authors the commit.
+
+This is a standing instruction, not a per-session mood. Do not infer that a
+`sprint-N-*` branch, a green test run, or an explicit "go ahead" on a *ticket*
+re-opens it — "go ahead" authorizes the work, never the commit. Only the user
+saying so in as many words does.
+
+**Handing off instead.** Do the full verification (tests, lint, browser
+checks) and report it, stage nothing unless asked, and make
+`git status --short` plus `git diff --cached --stat` the **last** thing run
+before handing back — see the staging-drift note below for why the timing is
+load-bearing. Say plainly what changed, what is staged, what is not, and why.
+Writing a suggested commit message into chat is useful and welcome; running
+`git commit` is not.
+
+Pushing was already the user's and stays that way. When asked whether a push
+landed, offer the check — `git ls-remote --heads origin <branch>` must match
+local `HEAD`, compared rather than assumed.
+
+History of this permission, since it has moved several times and the reasoning
+matters more than the verdict:
+
+- Granted in `dfe813e` (2026-08-16), scoped to sprint branches.
+- Revoked ~2 hours later inside `9ad74c0`, the PF-77 *feature* commit, with no
+  mention in that commit's message.
+- Restored on 2026-08-16 after that revocation's stated evidence was checked
+  and did not hold up: it cited PF-61 (2026-08-08), but this file did not exist
+  then — created 2026-08-13 in `5be0e66` — so nothing said during PF-61 could
+  countermand a permission granted eight days later. That left one instance,
+  not a pattern.
+- **Revoked for good on 2026-08-17 by direct instruction**, quoted above. This
+  one needs no inference and rests on no disputed evidence, which the earlier
+  two did. It supersedes `dfe813e` entirely.
+
+If it is ever restored, it takes an unambiguous statement from the user, and
+the restoring commit's message must say so.
+
+**Stage exactly the files the ticket touches** — `git add <paths>`, never
+`git add -A` or `git add .` — and run the full verification (tests, lint,
+browser checks) before committing, reporting it. When handing off *without*
+committing, show `git status --short` and `git diff --cached --stat` as the
+**last** thing before doing so, and say plainly what is staged, what is not,
+and why. Either way the index moves on its own here, so the check is the last
+thing run, never merely an earlier one.
+
+VS Code's Git extension has staged things nobody asked it to **four** times now.
+The first two were unintended files appearing in the index. The third, during
+PF-76's follow-up just before `22cf50c`, is why the timing above is spelled
+out: `.claude/CLAUDE.md` was checked and confirmed *unstaged* — deliberately
+held back for its own commit — then showed up staged a few minutes later, with
+no command run against it in between. The earlier clean check proved nothing
+about the index by the time the commit came.
+
+The fourth was PF-77: the same file, again deliberately held back and again
+confirmed unstaged right after `git add` of the six code files, was staged by
+the time the ticket was reported done. Nothing ran against it in between. So
+the check binds at both moments — immediately before a commit, and immediately
+before a hand-off — because a drift nobody re-checks lands silently either way:
+the commit succeeds regardless and its message says nothing about docs. That is
+exactly how `9ad74c0` came to carry a Working-agreement rewrite under a feature
+message.
+
+The mechanism differs from the first two: staging *drift* on an already-tracked
+file, not new files appearing. `git status --short` catches both, but only as
+the last thing run before handing off. Check content as well as the file list —
+confirm the staged diffstat still matches what was actually reviewed.
+
+**Never paste a credential into chat — not a connection string, not a
+`.env` line, not a token.** Read the value's *shape* if you must
+(`does MONGO_URI end in a database path?`), or have the tool print only
+what is being asked about; never the whole line. A conversation is not a
+secure channel, and the only remedy afterwards is rotation.
+
+Written down on **2026-08-31**, after the third incident, because it had
+been a habit rather than a rule and habits do not survive a session that
+is busy with something else:
+
+- **PF-49 (2026-07-19)**, found 2026-08-07 — real Atlas password and JWT
+  secret committed to `backend/.env.example` in a **public** repo. Both
+  rotated, the file restored to placeholders, `.env` added to
+  `.gitignore`, GitHub's secret-scanning alert closed as *Revoked*.
+  History was never rewritten; the dead credential is still visible in
+  `88c9e2c` and is inert.
+- A second occurrence, remediated the same way.
+- **2026-08-31**, during the database restructure — the full
+  `mongodb+srv://` string, password included, pasted while working out
+  which database was production. `portfolio_admin`'s password rotated in
+  Atlas and propagated to `backend/.env`, `backend/.env.e2e` and
+  Vercel's `MONGO_URI`, each **re-verified live** rather than assumed
+  from the edit.
+
+⚠️ The rotation is the cheap part. What makes this worth a standing rule
+is that the *third* one happened while doing careful, well-verified work
+— the leak was incidental to a task that was otherwise going well, which
+is exactly when nobody is watching for it.
+
+**Never document something as existing until it does.** This file is read as
+fact by every session. A pointer to a file that was never written, or a hook
+described as "ready to build with" before its ticket ships, sends the next
+session chasing something that isn't there — and it declines to look in the
+place that does have the answer. Both have already happened here. If it is
+planned, say which ticket builds it.
+
+**Flag concerns before executing, not after.**
+
+**Ticket file paths are sometimes wrong for this repo.** When a ticket's path
+conflicts with the actual convention, the convention wins — note it as a correct
+deviation, not a defect.
+
+Prefer verifying against generated output or a real browser over reasoning from
+description — grepping built CSS and driving Playwright have both caught things
+a visual check would have missed.
+
+Explain **why**, not just what. When something breaks, give the causal
+mechanism.
+
+
+## (continued) Companion-files intro, engineering discipline, styling, React conventions — moved verbatim 2026-10-08
+
+### ⚠️ Companion files — this file is a SUMMARY, and you must go read them
+
+Split out on 2026-09-02. CLAUDE.md was 8,767 lines and consumed most of a
+context window before any work started; the record now lives beside it.
+
+| File | Lines | What is in it |
+| --- | --- | --- |
+| `.claude/sprint-log.md` | 5,017 | every `PF-NN` ticket, sprint gates, the owner-requested revision passes, and **Outstanding work** |
+| `.claude/silent-failures.md` | 1,570 | the full entry for each trap — mechanism, measurements, build output, mutation records |
+| `.claude/locked-decisions.md` | 1,594 | the full reasoning behind each decision, including both halves of every reversal |
+
+**Nothing was deleted — it was moved.** The compact lists below name every
+trap and every decision, and they are authoritative for **what** the rule
+is. They are NOT sufficient for **why**, for measurements, or for what a
+past ticket already tried.
+
+#### When to read them — not optional
+
+**Grep, don't scroll.** Every entry carries its own key, so a targeted grep
+costs one tool call and a few hundred tokens:
+
+```bash
+grep -n "BlogSection\|PF-86" .claude/sprint-log.md        # before touching a file
+grep -n "backdrop-filter" .claude/silent-failures.md      # before trusting a probe
+grep -n "marquee\|Marquee" .claude/locked-decisions.md    # before changing a value
+```
+
+Read the relevant entry **before**:
+
+- **touching a file a ticket already worked on** — grep the filename in
+  `sprint-log.md`. Nearly every file in `frontend/src` has a ticket behind
+  it, and that entry usually records something measured that is not
+  visible in the code.
+- **changing any transcribed value** — colour, timing, spacing, copy,
+  count. Grep `locked-decisions.md` first; a surprising number of
+  "obviously wrong" values are owner-approved deviations, and reverting one
+  looks exactly like fixing a bug.
+- **concluding a documented trap does not apply.** The compact entry tells
+  you the trap exists; the full entry is what tells you whether your case
+  is the exception. This project's traps have all fired at least once on
+  someone who had read the summary.
+- **reporting something as a new bug or a regression** — check Outstanding
+  work in `sprint-log.md`. A long list of known, deliberately-deferred
+  defects lives there, several of which look like fresh regressions.
+- **any verification claim.** "Verified" is worth nothing next session
+  without its numbers, and the numbers are in the companion file.
+
+⚠️ **The known cost of this split: serendipity.** With the whole record
+inline, a session could stumble on a relevant past finding it was not
+looking for. Grep only finds what you think to search for. So when work
+touches an area with history, skim that entry properly rather than grepping
+one keyword and moving on — and when something surprises you, search the
+companion files *before* deriving an explanation from scratch. This project
+has re-derived a wrong answer to an already-settled question more than
+once, and that was true even when the file was fully loaded.
+
+### Engineering discipline: the real fix, not a plausible one
+
+Added 2026-09-01, after PF-95's Step 0 turned up two different-shaped
+mistakes worth naming so they don't recur.
+
+**Trace before you write.** A ticket's proposed diff is a hypothesis about
+what the code does, not a fact. PF-95 proposed a second `pre('validate')`
+hook on `Blog.js` because it assumed the schema had one gate; the schema
+actually has two (`pre('validate')` and `pre('insertMany')`, sharing
+`applyDerivedFields()`), and a second hook bolted on next to the real one
+would have left both in place, fighting — with the *existing* hook still
+winning. The correct fix turned out to be two lines inside the function
+that already existed, not a new one beside it. Before adding a hook,
+function, file, or config knob: find out what the real file does today. If
+a ticket's assumption is wrong, the file wins and the diff gets rewritten
+against it, not layered on top of it.
+
+**No speculative surface.** Don't create a function, hook, file, or
+abstraction because it might be needed, because a pattern elsewhere
+suggests it, or because reconciling with what exists is more work than
+writing something parallel. PF-95 also proposed a new
+`frontend/src/utils/blog.js` for a date formatter that already existed,
+two lines away, inside `BlogSection.jsx` — same mistake, smaller stakes.
+If the real fix is a two-line change to an existing function, ship the
+two lines.
+
+**Delete what stops earning its place.** Code that becomes dead,
+redundant, or superseded by a ticket's own work does not get left behind
+"in case." Remove it in the same ticket and say so in the commit message —
+the same way a Locked-decision reversal gets recorded rather than
+silently swapped.
+
+**A green test suite is not proof the mechanism is right.** Tests can pass
+against a plausible-but-wrong fix if they don't exercise the real call
+path. A migration test that regex-pins `seed.js`'s source text against a
+`TARGET_DATA` object would pass even if the seeded value never survived a
+real `insertMany()` — it never touches the database or the hook. Before
+trusting a green run as verification, trace whether the test actually
+goes through the code path the bug lives in, not a stand-in for it.
+
+#### Reading `.dc.html` files
+
+They use a custom DSL compiled by the Claude Design runtime: `<x-dc>` root,
+`<sc-if>` conditionals, `{{ handler }}` bindings, `ref="{{ x }}"`, and a
+`<script type="text/x-dc" data-dc-script>` logic block.
+
+Styling is almost entirely **inline `style` attributes** — no class names to
+map. Read the inline value and re-express it.
+
+`support.js` is the Claude Design runtime. It is deliberately **not** in this
+repo and must never be added.
+
+`Admin.dc.html` contains hardcoded demo credentials in its logic block. That is
+expected for design reference, and CI's credential scan skips `.html`
+deliberately. Do not strip them; do not copy them into application code.
+
+### Stack
+
+React 19 · Vite · Tailwind v4 · CSS Modules · React Router v7 · TanStack Query v5
+Express · MongoDB Atlas · Mongoose · JWT · Cloudinary
+Vitest · Jest · Supertest · Playwright · GitHub Actions
+
+### Styling approach
+
+**CSS Modules** (`*.module.css`) for anything copied from the prototype —
+gradients, shadows, keyframe applications, layered backgrounds, transforms.
+Paste the value verbatim; no translation, no drift.
+
+**Tailwind utilities** for simple layout only — `flex`, `gap-4`, `items-center`.
+
+Rationale: translating `radial-gradient(120% 90% at 78% 18%, rgba(var(--srf),.62)…)`
+into a Tailwind arbitrary value needs underscore-escaping, and a mistake **fails
+silently** — no error, the element just renders without a background.
+
+Shared structural patterns live in `frontend/src/styles/patterns.module.css`
+and are pulled in with `composes:`. Do not generalise a value used once.
+
+**Animations are the one thing a CSS Module cannot express directly.** A
+keyframe name written in a `*.module.css` gets scoped and silently resolves to
+nothing. Pull the name in with `composes: kf-<name> from global` and keep the
+timing values in the module as longhands:
+
+```css
+.ringOuter {
+  composes: kf-pulsering from global;   /* must be the first declaration */
+  animation-duration: 6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+```
+
+Full reasoning in Silent failures; carriers in `styles/animations.css`.
+
+### React conventions
+
+CI runs ESLint with `--max-warnings=0`, and React 19's hooks plugin enforces two
+rules that shape how components here are written. Both cost a full CI cycle at
+the end of Sprint 10. Sprint 11 writes far more effects than Sprint 10 did —
+two canvases, a splash sequence, scroll and pointer handlers — so read these
+before the first `useEffect`.
+
+**Never call `setState` in an effect body** (`react-hooks/set-state-in-effect`).
+Derive the value during render instead. This is not a style preference: the
+effect version renders once with the wrong value and then re-renders, so the
+user sees the wrong frame first. In Sprint 10 that meant `Reveal` painting one
+frame of its *hidden* state for reduced-motion users, and `ThemeProvider`
+flashing the wrong theme whenever the FOUC guard hadn't run — a FOUC inside the
+component built to prevent FOUC. `setState` inside a callback the effect
+registers (an `IntersectionObserver` callback, a `requestAnimationFrame` step,
+an event listener) is fine and is what effects are for; only the synchronous
+body is the problem. The rule reports one violation per effect, so fixing the
+first can uncover a second in the same hook.
+
+**A provider file exports components and nothing else**
+(`react-refresh/only-export-components`). Contexts live in their own module —
+`providers/ThemeContext.js`, `providers/MotionContext.js` — and the provider
+imports from there. A context exported alongside its provider forces a full page
+reload on every edit instead of a hot swap. `providers/SplashContext.js`
+follows the same split, added in PF-75. Any future provider must too, or it
+lands on a red CI for the identical reason.
+

@@ -3307,3 +3307,511 @@ Dev-mode CSS-module names are `<File>-module__<local>`, so `[class*="module__hin
 matched `VocabularyPicker-module__hint` before `AdminBlogPanel-module__hint` and
 measured the wrong element (4.30 — which turned out to be a real failure of the
 other one). The documented substring-selector trap; name the FILE in the selector.
+
+
+---
+
+# Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
+
+CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
+sections were moved here word-for-word, headings demoted one level; CLAUDE.md
+now keeps a one-line rule per entry. Where an entry above says the same thing,
+this copy is the newer wording.
+
+### Silent failures
+
+This project has been bitten repeatedly. **Assume any of these can happen
+with no error message.** Every entry below is real and was found here.
+
+**Full mechanism, measurements, build output and mutation records for each:
+`.claude/silent-failures.md`.** The list here is the rule and the tell —
+go there before working in an area one of these covers, and *always* before
+concluding "this is fine, I read the source".
+
+#### CSS and the cascade
+
+- **Mistyped custom property** → declaration dropped, element inherits.
+- **Mistyped `animation-name`** → element simply does not animate.
+  `drift-blog` is the trap: it looks like it should exist by symmetry, and
+  it does not.
+- **⚠️ Naming a keyframe inside a `*.module.css` breaks it — ALWAYS**, and
+  not as a typo class; correct spellings fail too. CSS Modules scopes the
+  name and rewrites it in the `animation` declaration, so it resolves to a
+  scoped name matching nothing. **Fix: `composes: kf-<name> from global`**
+  as the first declaration, timing as longhands (the shorthand resets
+  `animation-name` to `none`). ⚠️ `getComputedStyle` reports it as running;
+  the only reliable tell is **`el.getAnimations().length === 0`**. 16 live
+  declarations shipped this way once.
+- **⚠️ A bare `transition:` on a `Reveal`-wrapped element eats the entrance
+  easing.** `.reveal` and a section class both land at (0,1,0), so the
+  section wins on emission order. **Rule: never declare a `transition` on a
+  Reveal-wrapped element — not gated, not at all.** An element that is
+  *not* Reveal-wrapped must keep its own. Guarded repo-wide by
+  `styles/__tests__/revealTransition.test.js`.
+- **`rgba(#hex, .5)`** → invalid, produces nothing. The five channel
+  triplets must stay bare `R,G,B`.
+- **Redefined `@keyframes` of the same name** → later definition wins.
+- **A `var()` inside an `@supports` condition makes it answer `true`
+  without testing anything** — the declaration is *assumed valid*, so the
+  fallback never applies on the one engine it exists for. Keep conditions
+  var()-free; put the token in the rule body.
+- **`html[data-motion="reduced"] *` never matches `<html>` itself.** Cost
+  the reduced-motion `scroll-behavior` override once. Any property that
+  lives on the root needs its own rule.
+- **`border-radius` inside a `:focus-visible` rule reshapes the ELEMENT,
+  not the ring** — it squares off 999px pills while focused, and only then.
+  Omit it; the outline follows the element's own curve for free.
+- **⚠️ `backdrop-filter` BEFORE `-webkit-backdrop-filter` ships
+  webkit-only, and Chrome ignores the prefix — so the blur silently does
+  not render.** esbuild keeps only the last of the pair. **Order:
+  `-webkit-` first, standard last.** Shipped broken on the header and
+  mobile nav for a full sprint. ⚠️ `CSS.supports()` returns true while the
+  property computes to `none`.
+- **Two stacked full-size layers: only the top one gets clicks.** Neither
+  `z-index: -1` nor ordering saves a backdrop under a full-viewport panel.
+  The overlay root must *be* the backdrop.
+- **⚠️ `overflow-x: hidden` on `<body>` SILENTLY DISABLES EVERY DESCENDANT
+  `position: sticky`.** It makes body a scroll container, and the body box is
+  exactly as tall as its content so it never scrolls — a sticky element has no
+  scrollport to stick inside and travels with the page. Measured on `/admin` at
+  `scrollY 1200`: the admin **header** read `top: -1200` and the sidebar
+  `-1133`, both gone, no error. Hid for three sprints because `.header` and
+  `.sidebar` are the repo's ONLY two `sticky` rules — everything else that
+  stays put is `position: fixed` and unaffected, so there was no second
+  witness. **Fix: `overflow-x: clip`**, which clips identically and creates no
+  scrollport. ⚠️ `html` keeps `hidden` deliberately — the root's overflow
+  propagates to the VIEWPORT, already the scroll container. ⚠️ Applies to any
+  full-width wrapper, not just body: `PageShell.module.css` had it too, over
+  five routes. Guarded by `styles/__tests__/stickyOverflow.test.js`.
+- **⚠️ `align-items: start` on a grid sizes a column to its CONTENT, not the
+  row** — so a sidebar's background and border stop mid-page on a long panel
+  while every box measurement reads clean. And a sticky element cannot be
+  stretched *and* travel: one element cannot be both the full-height rail and
+  the sticky box. **Split them** — `.sidebar` stretches, `.sidebarInner`
+  sticks. ⚠️ A viewport-tall sticky column is then PUSHED where its containing
+  block ends, and the grid row ends at the FOOTER, not the viewport: measured
+  `top: -170px` at the bottom of `/admin`'s About panel, with four nav items
+  unreachable. Keep that column at content height.
+- **Inline custom property on `<html>`** beats the `html[data-theme]`
+  block, making every later `tokens.css` edit dead code. Set `data-theme`
+  and nothing else.
+
+#### Tests that pass while asserting nothing
+
+- **⚠️ A raw-text CSS assertion can match a COMMENT instead of the rule.**
+  This codebase documents removed values in prose exactly where the rule
+  was, so the searched-for string is very often in the comment explaining
+  it. Produces a **false positive** — passes while asserting nothing.
+  **Fix: parse with `postcss`**, or strip comments first. Eight test files
+  carry a workaround; five were confirmed blind and caught only by
+  mutation. **Not detectable by inspection — mutate it or parse it.**
+- **⚠️ `link.firstElementChild === svg` does not test ordering.**
+  `firstElementChild` skips text nodes by definition, so the label is
+  invisible to it and the icon passes from either position. Use
+  `src/test/leadsWithIcon.js`. Generalises: **any `*Element*` DOM accessor
+  filters out text**, so none can answer a question about where text sits.
+- **⚠️ Playwright's `getByRole({ name })` matches by SUBSTRING; testing-
+  library's matches a string in FULL.** `'Search'` also resolves
+  `'Clear search'` — a strict-mode violation in E2E while the identical-
+  looking unit assertion stays green. Pass `exact: true` whenever one
+  control's name contains another's.
+- **⚠️ Counting every control in a landmark as a proxy for one component.**
+  `main.getByRole('button')` stood in for the chip row and broke when an
+  unrelated button joined `<main>` — failing under a name that pointed at
+  the wrong cause. Assert NAMES, not a count; icon-only controls have empty
+  text and filter themselves out.
+- **A `[class*="name"]` selector silently matches longer class names.**
+  `pill`/`pillRow` and `card`/`cardPlaceholder` both exist; the substring
+  form counted 31 pills where there were 26. `[class~=]` does not fix it
+  (the token is `_pill_f5cf21`). Unwrap the local name and compare exactly.
+- **⚠️ A PINNED MOCK disarms a "does not happen again" guard.** Measured:
+  deleting the once-per-mount ref on `/blog`'s landing scroll left all 103
+  tests green, because the mocked `useNavigationType` returned ONE value, so
+  the effect's dependency never changed and it never re-ran. Same family as
+  the entry below: **the fixture must make the thing that would RE-TRIGGER
+  the behaviour actually change.** Only mutation testing finds it.
+- **⚠️ A guard against a FUTURE change is vacuous unless its fixture can
+  tell the two outcomes apart.** PF-95's "publishedAt is not wired to
+  sort yet" absence-assertion was recorded as PF-96's safety net and was
+  not one — its fixture's publish-date order coincided with the `_id`
+  order it pinned, so **61 of 63 tests passed against the reverted
+  rule**. Any "X is what decides" assertion needs a fixture where X-order
+  and Y-order DIFFER. Mutation-test a guard when you write it.
+- **⚠️ `insertMany` does NOT stamp one identical `createdAt`** — a batch
+  routinely straddles a millisecond (measured: 3 of 5, then 1 of 3). A
+  test asserting the stamps tie passes alone and in three consecutive
+  runs, then fails in the full suite. Corollary: **assert the weakest
+  property the test depends on**; a stronger one imports assumptions that
+  are not yours to make.
+- **A shared mutable test fixture disarms the guard watching it.** A
+  "does not mutate" test passed because an earlier test in the same file
+  had already sorted the fixture. `Object.freeze` it — the same mutant then
+  fails 13 tests instead of 0. ⚠️ Mutation-test with the **whole file**,
+  never `-t`.
+- **⚠️ A green test suite actively HIDES dead code.** A module's own test
+  file keeps passing forever after its last consumer disappears, so the
+  suite says *alive* about unreachable code. Count consumers by grepping
+  the identifier and **discounting the module's own file and its own
+  test** — that discount is what makes the count look non-zero if skipped.
+- **A stability check that accepts the first plateau is a timer wearing a
+  measurement's clothes.** Under load the main thread stalls, which pauses
+  a smooth scroll — two readings then agree mid-animation. Retry the whole
+  check (`expect.poll`), and make sure the failure state does not also
+  satisfy the predicate.
+- **Polling a predicate the failure state also satisfies is a vacuous
+  poll** — it returns on the first tick and a later assertion eats the
+  failure. The poll must cover the whole condition.
+- **`document.body.focus()` is a silent no-op in jsdom** (`<body>` is not
+  focusable), so a test simulating "focus escaped" asserts a different case
+  than it names. Use `document.activeElement.blur()`.
+- **⚠️ jsdom has NO `DragEvent`** — `fireEvent.dragOver(el, { clientX })`
+  silently drops `clientX`, so every "drop BEFORE" assertion passes against code
+  that ignores the pointer. Polyfill `DragEvent extends MouseEvent` in the test
+  (PF-114). A Chrome-automation mouse drag fires no native DnD either.
+- **⚠️ A mutation harness whose snapshot step failed STACKS mutants into the real
+  tree** — zsh does not word-split `$FILES`. `cmp` the snapshot before the first
+  mutant and after every restore (PF-114).
+- **CSS-Module rules are invisible to Vitest** — no stylesheet is ever
+  applied and `document.styleSheets.length === 0`. Assert stylesheets as
+  parsed text; assert the DOM only for what JS writes inline. ⚠️ This means
+  "use the CSSOM" is *not* available as the fix for the comment trap above.
+- **`el.style.opacity` reads back normalised** — a component writing the
+  prototype's `'.13'` reads back `'0.13'`. Assert the effective value.
+
+#### Tooling and gates whose scope is narrower than it reads
+
+- **`npm test` does not run the E2E suite**, and CI runs it. A "full" local
+  gate can be green while CI is red. **The fast gate runs coverage in BOTH
+  packages, and CI runs all seven** (since 2026-10-05) — the two coverage
+  steps were the second hole in this same wall. ⚠️ Unit
+  green + E2E red is the signature of a **removed feature whose tests were
+  not cleaned up**; unit *red* means broken code — opposite diagnoses.
+- **⚠️ A required check that NEVER STARTED looks like "nothing failing".** PR #23
+  (2026-10-05): GitHub never fired the PR-opened event, so CI never ran — only
+  Vercel's checks existed, `gh pr checks --watch` exited 0, and a pass-count read
+  as green. Branch protection blocked the merge (`BLOCKED`), correctly. **Before
+  merging, confirm `All Checks Pass` is IN the list AND `pass`.** Fix for a missing
+  event: close + reopen the PR.
+- **⚠️ After a re-trigger, `gh pr checks` mixes the CANCELLED old run's `fail`
+  rows with the new run's `pending` ones** (`ci.yml` cancels in-progress runs).
+  Read the LATEST run (`gh run list --branch … --limit 1` → `gh run watch`), not
+  the merged check list.
+- **⚠️ Piping a long run through `tail` buffers everything to the end**, so
+  an in-progress suite writes an EMPTY file and reads as a hang. Cost a
+  wrong diagnosis when the backend suite slowed to 335s against a laggy
+  Atlas link; it was passing throughout (341). **Redirect (`> log 2>&1`),
+  don't pipe, when you mean to watch.** ⚠️ And `timeout` does not exist on
+  macOS — `timeout N cmd | grep …` exits 0 with no output, which looks
+  exactly like a clean run. Use `gtimeout` or background mode.
+- **⚠️ Name the lint SCRIPT, never a path.** `npm run lint` once covered
+  `src/` only, so eight root config files were linted by nothing — CI
+  included, because CI runs the script. A live `no-undef` sat in
+  `vite.config.js` for ten days. A documented path is a second source of
+  truth that drifts; the script cannot.
+- **A tool given an explicit path lints exactly that path, and a file's
+  absence from the report is indistinguishable from a clean file.** Check
+  what a gate command actually covers before trusting "exit 0".
+- **`playwright-report/` and `test-results/` are git-ignored and were not
+  ESLint-ignored**, so `eslint .` reported 642 errors in vendor code after
+  any E2E run — the gate breaking itself. Same for `dist-*/`, which this
+  file's own verification recipe creates.
+- **The root `.gitignore` has no `node_modules` entry** — running vitest
+  from the repo root leaves an untracked cache file that `git add -A`
+  would stage.
+- **A test file under `src/` ships dead CSS** — Tailwind v4 scans it and
+  emits any bare utility-looking token into the shipped stylesheet.
+  `global.css` carries `@source not` for `__tests__/` and `*.test.js`;
+  a helper named outside those patterns is **not** excluded.
+
+#### Playwright and E2E
+
+- **`toBeVisible()` ignores occlusion** — an element fully covered by the
+  splash still passes. `click()` is the opposite: actionability hit-tests,
+  so a click under the splash silently retries for ~5.65s rather than
+  failing. A slow suite, not a red one.
+- **⚠️ `test.use({ reducedMotion })` is silently INERT here** — measured
+  `matches === false` at file and describe level. Use
+  `await page.emulateMedia({ reducedMotion: 'reduce' })` in the test body
+  **and assert the emulation took**. Same caution for `colorScheme` and
+  `forcedColors`.
+- **`page.route()` matches handlers in REVERSE registration order** — a
+  narrow stub registered before a `**/api/**` catch-all is silently
+  overridden. **Register the catch-all FIRST.**
+- **⚠️ `reuseExistingServer` will adopt a STALE dev server** with whatever
+  env it was launched with, so the suite drives the real page against the
+  *development* database. Everything renders; only the data is wrong.
+  Now `!!process.env.CI` — the inverse of the usual idiom, deliberately.
+  Check what is on 5174 before believing any E2E auth failure.
+- **A duplicated in-page anchor turns a selector into a strict-mode
+  throw**, and it reads as the feature being gone. The footer repeats all
+  six section anchors. ⚠️ `getByText` **ignores `aria-hidden`** (only
+  `getByRole` respects it), so a decorative marquee still breaks a text
+  locator. Scope to the landmark.
+- **Playwright reports `flaky` in a bucket separate from `passed`**, so a
+  suite that ran everything can read as one that skipped tests. Diagnose
+  from the JSON reporter's per-attempt data. ⚠️ Redirect stdout to a
+  *different* file than the reporter writes.
+- **The backend rate-limits at 100 req / 15 min / IP.** Automated browser
+  verification exhausts it easily; it presents as sections rendering their
+  error state for no reason. Prefer `route.fulfill()` with a fixture.
+  ⚠️ **The E2E SUITE is exempt as of 2026-09-07** (`globalLimiter` skips
+  under `NODE_ENV=test`) — but a browser-tool probe is NOT, because it drives
+  the dev backend on `NODE_ENV=development`. ⚠️ And the reason this went
+  unnoticed for a sprint generalises: the limiter's window opens on the FIRST
+  request and resets 15 min later, so a long-lived local server refills the
+  budget mid-run while a freshly-started CI one never does. **"It passes
+  locally" is not evidence about a request-budget failure.**
+- **The E2E contact spec writes a row per run and never cleans up** —
+  `portfolio_e2e.contacts` grows monotonically. Not a usable signal there.
+
+#### Backend, database and environment
+
+- **⚠️ An array silently bypasses `typeof x === 'string'`.** The `: ''`
+  fallback means "no filter", so an unexpected TYPE is indistinguishable
+  from an absent value — the feature quietly stops applying and returns
+  200. Bit `/blog`'s tag filter when it went multi-tag: measured, an array
+  returned every post. **Grep every `typeof … === 'string'` on a value
+  before widening it to an array, and always assert a ZERO case** — every
+  positive assertion passes under a filter that matches everything.
+- **⚠️ A `FormData` body sent through `api.js` is SILENTLY CONVERTED TO JSON
+  and the File is destroyed.** The instance sets `Content-Type:
+  application/json`, and axios's own `transformRequest` answers
+  `hasJSONContentType ? JSON.stringify(formDataToJSON(data)) : data` — so the
+  request leaves as **`'{"file":{}}'`**. Measured both ways. Multer then parses
+  no multipart body and the server answers **400 "No file uploaded — send a
+  'file' field"**, which indicts the field NAME while the name is correct.
+  **Fix: `headers: { 'Content-Type': undefined }` on every multipart call.**
+  ⚠️ Naming `'multipart/form-data'` explicitly is ALSO broken — it omits the
+  boundary, which only the browser can generate. Applies to every future
+  upload, PF-113's background included.
+- **⚠️ A `raw` Cloudinary asset downloads with NO EXTENSION, and a `.pdf`
+  public id is REFUSED (401) on the free plan.** `fl_attachment` cannot add one
+  (a dot in the flag is a 400). The CV saved as `PC_Gallage`, a valid PDF that
+  the OS could not open. **`GET /api/resume` PROXIES the bytes and names the file
+  itself** (2026-10-04). Never redirect it to Cloudinary, and never add `.pdf` to
+  the id.
+- **⚠️ axios serialises arrays as `tag[]=a&tag[]=b`; `URLSearchParams`
+  writes `tag=a&tag=b`.** `qs` parses both, so it "works" while the address
+  bar and the wire disagree. `paramsSerializer: { indexes: null }` on the
+  shared instance; verify from `performance.getEntriesByType('resource')`
+  that the bracket form appears zero times.
+- **A connection string with no database path** → the driver silently uses
+  a database literally named `test`. **This already happened here** and is
+  why `assertExplicitDatabase` exists (PF-66). ⚠️ Production is
+  `portfolio_prod` now. The frozen `test` rollback and the unused
+  `portfolio_test` were DROPPED by the owner on 2026-10-05 (verified unused
+  first) — so a pathless URI now silently CREATES an empty `test` database
+  instead of reading a stale one. Same trap, new symptom. Re-read, don't remember.
+- **⚠️ A production outage where `/api/health` returned 200 throughout.**
+  It sits *in front of* the `connectDB()` middleware and swallows connect
+  errors. **`database` is the only field carrying the truth** — assert it
+  is a non-null string, ideally the expected name.
+- **⚠️ `findOneAndUpdate` / `findByIdAndUpdate` RUN NO `pre('save')` HOOK**,
+  so a password set that way lands in the database as **plaintext** while
+  every field looks correct — and every subsequent login fails with no clue
+  why, because `matchPassword` bcrypt-compares against a non-hash. ⚠️ The
+  document reads back perfectly in Compass. Same family as the
+  `validateSync()` entry below and as `insertMany` bypassing
+  `pre('validate')`. **Use `.save()` for anything a hook derives.**
+- **⚠️ `validateSync()` runs NO middleware**, so a field derived by
+  `pre('validate')` is silently not derived — and it returns `undefined`
+  for a valid doc exactly like a success. Measured: a doc pinned at 99
+  stayed 99 through `validateSync()` and became 3 through
+  `await validate()`. Bit migration 006's dry run, where the failure
+  prints `Already correct: 4` — **identical to the correct output**.
+  ⚠️ Only the control caught it: plant the dirty state and check the
+  probe sees it. Use `await doc.validate()`.
+- **A red backend suite has FOUR distinct shapes**, all on diffs that never
+  touched the backend: a **timeout** (no `expect` diff), **SRV DNS**
+  (`querySrv ENOTFOUND`, every route fails), **isolation residue**
+  (`E11000` in a `beforeEach`), and a **real assertion diff** caused by a
+  transient connection — a 404 test receiving 500, because `connectDB()`
+  runs ahead of the router. ⚠️ So "no `expect` diff" is *not* the reliable
+  discriminator; **reproducibility is**. `mongodb-memory-server` removes
+  all four.
+- **⚠️ The Vite dev proxy targets `http://backend:5000` — a DOCKER
+  hostname — and local dev BYPASSES it** via `.env.development`'s absolute
+  `VITE_API_URL`. A probe using a relative `/api/…` URL gets `502
+  getaddrinfo ENOTFOUND backend` while the app works perfectly and
+  `/api/health` returns 200. **Probe the URL the app actually calls.** Same
+  family as `?nosplash` removing the splash from an a11y audit: the
+  instrument took a path the product does not.
+- **`mongodb+srv://` needs SRV DNS** — a broken resolver presents as a
+  broken backend. Compare your resolver against `1.1.1.1`. ⚠️ Do NOT "fix"
+  it by hardcoding shard hostnames in the repo.
+- **The CORS allowlist is exact-match**, so a stale dev server on an
+  incremented Vite port breaks every API call while the site loads fine.
+  A dev-port range is allowed in **non-production only**.
+- **A single fallback error string collapsed "wrong password" and "no
+  server" into one message.** No `err.response` fell through to the
+  credential sentence. Fixed by `utils/loginError.js`. ⚠️ The
+  documentation half matters too: it shipped inside an unrelated commit
+  and was invisible here for three sprints.
+- **⚠️ A Vercel PRODUCTION ALIAS serves the production BRANCH**, so a pushed
+  sprint-branch change is invisible there and reads as a stale edge cache
+  (`x-vercel-cache: HIT`). Cache-busting returns a fresh, identically wrong
+  answer. Test the branch's `…-git-<branch>-…` preview alias. ⚠️ Previews
+  sit behind Vercel SSO, which answers with its OWN `Set-Cookie`
+  (`_vercel_sso_nonce`) — **grep the cookie's NAME, never the header** —
+  and only the owner's signed-in browser passes the gate. ⚠️ **A tunnel has
+  two ends**: an absent header proves nothing until both are on the change.
+  Fourth and real: **a Vercel external rewrite drops `Set-Cookie`**
+  (PF-108, four measurements).
+- **⚠️ `authLimiter` (10 / 15 min) is live under `NODE_ENV=test`**, so a
+  suite that logs in over HTTP per case goes red on the 11th login while
+  the mechanism under test passes. Mint through `issueSession`; leave the
+  login route to `auth.test.js`. ⚠️ And `express-rate-limit` v8 has **no
+  `getOptions()`** — an assertion against `?? fallback` values compares
+  literals. A limiter's counter is per module instance, per Jest file.
+- **⚠️ Deleting a stored refresh token does NOT end a session** — the
+  in-memory access token stays valid for 15 min and cached queries fire
+  nothing. To reach the real end-of-session state, revoke server-side
+  (rotate, then replay the old token), THEN load the page.
+
+#### Prototype-specific
+
+- **⚠️ A prototype element's real behaviour often lives in the SCRIPT
+  BLOCK, not its `style` attribute.** Four times now: `data-cardbg`,
+  `data-cv`, `data-strip`/`data-ok`, `data-heroimg`. **Grep the script for
+  the element's own attribute before calling an href dead or a value
+  complete.**
+- **The prototype's reveal transition is INLINE and PERMANENT** —
+  `hideReveals()` writes it and nothing clears it, so a revealed element
+  eases *every* later property change including hover. "The stylesheet
+  declares no transition" does not mean "it snaps".
+- **Prototype line 834 reads an undeclared `acc`** → transcribe as
+  `self.accColor`. The only known case of the prototype being wrong, and
+  it is a JS bug, not a design value.
+- **Grain's `0.42` opacity looks like a bug and is not** — `paintGrain()`
+  overwrites the theme value on mount, in both themes. Reordering the two
+  effects silently changes the shipped look.
+- **⚠️ A library keyframe transcribed from the WRONG SCREEN — or from
+  nothing — sits green for as long as nothing consumes it.** PF-109 found
+  SIX admin-only bodies that matched nothing in `Admin.dc.html:27-38`
+  (`typeIn` 6px vs 14px, `floatY` -10 vs -9, `ringPulse` a box-shadow ring
+  vs scale+opacity, `sheen-admin` with a skew the export never had, both
+  auroras in px), plus `riseIn` at 14px against three prototypes saying
+  16/22/18. The name guard passed, the property guard passed for five of
+  the six, and no consumer existed to look wrong. **Verify a body against
+  the prototype that OWNS it, and grep all three before calling a
+  keyframe "shared".** `keyframes.test.js` now pins the corrected
+  magnitudes.
+- **⚠️ An opaque `background` on an ancestor hides a `position: fixed;
+  z-index: 0` canvas with no error at all.** `AdminLayout`'s `.shell`
+  painted `var(--bg)`; mounting `StarfieldCanvas` beneath it rendered a
+  full canvas nobody could see, and `getContext`, `getAnimations` and the
+  rAF loop all reported healthy. The tell is a hit-test or a screenshot,
+  never a measurement of the canvas itself. Guarded by a parsed
+  `.shell has no background` assertion.
+- **A design image referenced by URL 404s in silence.** `docs/design/assets/`
+  is not served. Copy into `frontend/src/assets/` and `import` it, so an
+  unresolvable path fails the build loudly.
+
+#### Measurement
+
+- **⚠️ `location.key`/`history.state.idx` cannot distinguish an initial
+  load from a Back to the FIRST entry** — Back restores the original entry,
+  so both read `{ idx: 0 }` with no key and `location.key` is `'default'`
+  again. The History API is positional, not temporal: "is this the first
+  time in this document" needs runtime state. Passes every unit test you
+  would naturally write; wrong only on the untested journey.
+- **⚠️ The browser-tool round-trip (~8s) is slower than a 4.5s splash**, so
+  point-in-time samples reported "not showing" three times on a page where
+  it was. **Print `msSinceNavigationStart` alongside any such result**, use
+  a `MutationObserver` for anything transient — and give the observer a
+  control, because "never fired" and "never worked" look identical.
+- **⚠️ A stale DOM handle after a React re-render answers with OLD
+  computed style**, which reads as a theme/token bug. Cost ~15 minutes in
+  PF-105: a chip sampled after a theme toggle reported dark tokens while
+  `:root` was light; re-querying fixed it instantly. **Re-query after any
+  state change**, and for theme work prefer **one clean page load per
+  theme** (set the persisted key, reload) over toggling mid-session — three
+  in-session measurements disagreed before this was spotted. The tell was
+  an impossible reading: two elements declaring the same colour measuring
+  1.72 and 6.13.
+- **⚠️ `opacity` on a disabled control can make it unreadable while looking
+  fine in review.** `/blog`'s dimmed chips at `.38` measured **1.86 light /
+  1.21 dark** composited against the real page. WCAG EXEMPTS inactive
+  controls, so nothing flags it. Get the disabled look from losing the
+  shape (no surface, no border) and keep opacity high enough to read —
+  `.72` gives 3.41 / 4.36. ⚠️ `:hover` still matches a `disabled` button,
+  so cancel the hover lift explicitly.
+- **⚠️ CLIPPED and OCCLUDED look identical in a screenshot and are
+  opposite defects** — one is overflow, one is stacking. Every box
+  measurement reports clean on an occluded element, because every box *is*
+  clean. **Hit-test it** (`elementFromPoint`). Third member of a family
+  with the splash gate and `toBeVisible()`: **a position-based check
+  cannot see what is painted on top.**
+- **⚠️ The optimisation that makes a probe fast is what puts a surface
+  outside it.** `?nosplash` removed the entire splash from every audit —
+  five AA failures went unmeasured through a ticket whose whole purpose was
+  the a11y contract. Same shape as a probe that never scrolled far enough
+  to mount `ScrollToTop`. **Name what a probe EXCLUDES in the same breath
+  as its result.**
+- **⚠️ The browser tool REDACTS any result key containing "token"** — the
+  value was a status code, the key name tripped it, and it read as a failed
+  measurement. Name keys for meaning (`replayStatus`), keep tokens in-page.
+- **Always run the control.** A broken probe reports zero exactly like a
+  clean one. ⚠️ A rAF-based counter **self-drives** and reads ~61 in both
+  modes — `getAnimations()` filtered on `playState === 'running'` is the
+  instrument that works.
+- **`:focus-visible` DOES match a programmatically-focused element** —
+  Chromium keys on input *modality*, so a `.focus()` after an Enter press
+  matches. ⚠️ And a UA default ring sits behind ours; only an explicit
+  suppression removes it.
+- **⚠️ A FLEX ROW can overflow while the PAGE reports no overflow at all.**
+  Admin's header needed 534px against 492px at 500px wide; two children were
+  crushed to `width: 0` and the theme toggle sat off-screen and unreachable —
+  while `document.scrollWidth === clientWidth` stayed `false`, correctly,
+  because nothing scrolled. Compare the CONTAINER's own `scrollWidth` to its
+  `clientWidth` and print each child's rect. ⚠️ A `width: 0` child still in
+  the DOM is the signature; `offsetParent !== null` cannot tell it from a
+  healthy one. Fourth mechanism under the entry below.
+- **`scrollWidth === clientWidth` proves nothing about whether a page looks
+  right on a phone.** Three real defects — a field off-screen, two chips
+  sliced in half, the primary nav at 32px — all sat behind an ancestor that
+  clips, a media query a sweep never fires, or a width band nobody tests.
+  **Open the menus and look at the screenshots.**
+- **⚠️ A `<button>` inside a `<form>` with no `type` is a SUBMIT button,
+  so a dialog rendered inside a form saves the form.** PF-97's tag-delete
+  confirm sat inside the post `<form>`; "Yes, Remove" deleted the tag AND
+  silently saved and closed the post. **It looked like it worked** — the
+  tag really was gone. Caught only by a test asserting the editor was
+  still open. The sibling Delete-Post modal escapes it purely by being
+  rendered outside the form. **Always `type="button"` on any button that
+  is not the form's submit.**
+- **⚠️ Snapshot for a mutation restore AFTER the edit under test, and
+  ALWAYS run a control.** In PF-97 the copy was taken *before* the
+  feature was written, so the first restore silently reverted it and
+  four later mutations ran against code that no longer contained the
+  fix — reporting failures that meant nothing. The only tell was the
+  **control run** failing. A failing control means a broken harness,
+  not a broken fix. ⚠️ The documented "restore from a copy, not `git
+  checkout`" rule does NOT protect you if the copy is of the wrong
+  state.
+- **Mutate the code, then confirm the file actually changed.** Several
+  mutations reported clean because the regex hit a *comment* naming the
+  value, or did not match at all. ⚠️ And restore from a **copy**, never
+  `git checkout`, while unstaged work is in the tree — that silently
+  reverted a real edit once.
+- **⚠️ `grep … | head -N` reads exactly like a complete answer when it
+  truncated.** Cost a whole ticket: an audit reported
+  `assertExplicitDatabase` as unexported because `head -60` cut the output
+  at line 104 — it is on 105. ⚠️ **`wc -l` AGREED (104)**, because it
+  counts newlines and the last line has none, so a second instrument
+  confirmed the wrong answer for an unrelated reason. **Never answer an
+  existence question through a pipe that can truncate**; use `grep -c`, or
+  `awk 'NR>=N'`/`awk 'END{print NR}'`, which run out at the real end.
+- **⚠️ A test asserting on an error MESSAGE can match the banner that
+  DESCRIBES the condition rather than the guard that responds to it.**
+  Measured: the guard call was deleted and **all 39 tests still passed** —
+  `run.js:92`'s own `??` fallback prints the searched-for phrase either
+  way, and the exit code is 1 either way because `connect()` then dies on
+  DNS. The **raw-text-matching-a-COMMENT trap in a different medium**, and
+  this codebase's explanatory banners make it common. **Grep the source for
+  your assertion's string before trusting it** — one hit means it
+  discriminates. ⚠️ `/Mongo/i` cannot be the "no connection error"
+  assertion: the guard's own message begins `MONGO_URI`.
+
+Where a mistake would be silent, add a test that would catch it.
+
