@@ -521,7 +521,7 @@ record; that file is the sprint's authority.
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 | Done | **BUILT 2026-10-05** — scope ~14 pts (owner): edit incl. level, level dots, owner-managed sections, drag-and-drop |
 | ~~PF-115~~ | Blog + Messages panels restyled | Medium | 5 | Done | ✅ **BUILT 2026-10-07** — ⚠️ scope widened (owner): Blog DRAFTS + REVERT, Messages STAR + SEARCH + filters; ~11 pts, see entry |
 | ~~PF-116~~ | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | Done | ✅ **BUILT 2026-10-08** — ⚠️ scope SHRANK: PF-107→115 had already cleared every admin consumer; one site-wide Phase 1 reader left (ErrorBoundary). ~4 pts, see entry |
-| PF-117 | Admin responsive + state audit, both themes | Medium | 6 | To Do | not started |
+| ~~PF-117~~ | Admin responsive + state audit, both themes | Medium | 6 | Done | ✅ **BUILT 2026-10-11** — audit found 8 defects incl. a data-loss path (About's empty form on a failed load); new shared `LoadError`; see entry |
 | PF-118 | Admin ↔ public-site parity audit | Highest | 8 | To Do | not started |
 | PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 | To Do | not started |
 | PF-120 | Security review and hardening | High | 5 | To Do | not started |
@@ -7832,10 +7832,12 @@ control-proven; backend mutants ran in the watched tree (breaking the
 2026-10-03 rule) — final state proved by cmp + forced reload + live API.
 
 ### Outstanding work added by PF-114
-- **Skills panel at phone width — UNVERIFIED** (window would not resize).
-  PF-117.
-- **Disabled primary buttons keep their glow** (shared `.btnPrimary:disabled`,
-  0.72 opacity) — reads as lit. Owner question, every panel.
+- ~~**Skills panel at phone width — UNVERIFIED** (window would not resize).
+  PF-117.~~ ✅ **MEASURED in PF-117** (iframe harness, 320–1280): clean apart
+  from the shared fixes (dark `×` contrast, tap area).
+- ~~**Disabled primary buttons keep their glow** (shared `.btnPrimary:disabled`,
+  0.72 opacity) — reads as lit. Owner question, every panel.~~ ✅ **FIXED in
+  PF-117** (owner: drop the glow).
 - Seeded levels 11 beginner / 15 intermediate / 0 advanced — owner content.
 - Native DnD is pointer-only; keyboard/touch path is the edit card's arrows +
   Category dropdown (cross-box via dropdown). Accepted, recorded.
@@ -8057,6 +8059,81 @@ every deleted name, `Inter`, `--acc2`.
   went in PF-89 and the `section.x` qualifiers are harmless. Left alone.
 
 
+
+---
+
+## PF-117 — Admin responsive + state audit, both themes (2026-10-11)
+
+**Report:** `new mds/E9/PF-117-admin-responsive-state-audit.md`. Decisions:
+`locked-decisions.md` "PF-117". Traps: `silent-failures.md` "PF-117".
+
+### Owner decisions at planning (2026-10-11)
+- **Light theme:** fix every light BUG now; UPGRADES only with approval; the
+  full light restoration is a POST-LAUNCH maintenance project (after the custom
+  domain). Dark is `DEFAULT_THEME` and the OS preference is ignored, so light is
+  opt-in. Suggested first ticket of that project: Playwright `toHaveScreenshot`
+  baselines in both themes.
+- **Disabled SAVE:** drop the glow. **Mobile nav strip:** keep unless a measured
+  defect (one was found and fixed in place; no drawer).
+- **Tap targets:** fix the AA (<24px) failures INVISIBLY; keep 36–42px buttons.
+- **Error state:** mockup first → owner revised: shorter wording, RETRY on its
+  OWN line on a phone, and a RETRY that fails again must SAY so.
+
+### How it was measured
+Chrome window would not go below 1141px (PF-114's blocker) → **same-origin
+iframe harness** at exact widths 320/375/768/899/900/1280; control: `innerWidth`
+and `matchMedia('(max-width: 899px)')` read 320/true … 899/true, 900/false.
+One clean load per theme, then the iframe RESIZED in place (reloading per width
+blew the 100/15-min limiter — 429 mid-sweep). Probe per cell: container
+overflow (not document), off-right leaves, `elementFromPoint` hit-tests, untyped
+buttons, contrast vs the first opaque ancestor (gradient/outline text excluded),
+<44px targets. States: loading (backend SIGSTOP), failed load (backend killed),
+editing, dirty, refused save, confirm dialog, disabled SAVE, login (refresh
+token stashed in a page variable, restored byte-identical), reduced motion.
+**Zero untyped buttons in any state; zero write requests from any probe.**
+
+### Found → fixed
+| # | Defect (measured) | Fix |
+|---|---|---|
+| 1 | **Failed load = empty state.** Projects/Skills/Blog/Messages: "No … yet. Add one above.", counts (0). **About: an EMPTY, EDITABLE profile** (every field `""`, no alert) — type one field, SAVE after the server returns, blanks overwrite the real profile | NEW `components/admin/LoadError.jsx` in 5 panels + Overview (its inline banner deleted). Condition is `isError && data === undefined` — a failed BACKGROUND refetch keeps good data. About: `if (about === undefined) return <LoadError/>`, no form |
+| 2 | **Row collapse:** `.rowBody { flex: 1 }` (basis 0) never wrapped — Blog title column **5px at 375** with UNPUBLISH/EDIT/DELETE painted over title + badge; Projects 63px at 320 | `.rowBody flex: 1 1 200px`; `.rowActions max-width: 100%` → 210px |
+| 3 | About + Projects 8px past the right edge at 320 (card border cut) — `min-width: 220px` set the grid track minimum | `min(220px, 100%)` on `.mediaBody` / `.bgBody` |
+| 4 | Messages 10px wider than 320 — 210px unbreakable address | `.email { overflow-wrap: anywhere }` |
+| 5 | Strip: "+ NEW POST" → Blog, strip at scrollLeft 0, active item off-screen (748px of nav in 312) | `AdminLayout` effect nudges `scrollLeft` (not `scrollIntoView` — it scrolls/animates the page); no-op when the row does not overflow |
+| 6 | DARK AA: `--muted2` on tinted cards 3.83–4.42 (`.btnIcon`, `.badgeMuted`, `.emptyState`, `.rowMeta`, About `.mediaMeta`/`.thumbEmpty`/`.bioNo`, VocabularyPicker `.remove`) | PF-91 substitution, dark-scoped (0,2,1); `.btnIcon:not(:hover)` and `.chip:not(.chipOn) > .remove:not(:hover)` so hover red / picked-chip ink survive |
+| 7 | Disabled SAVE kept its amber glow (`opacity .72` + `box-shadow`) | `box-shadow: none` on `.btnPrimary:disabled` |
+| 8 | `×` buttons 12×15 (AA 2.5.8 needs 24) | `.btnIcon::before { inset: -6px }` → 24×27 tap area, glyph unchanged; hit at 5px outside on all 4 sides, control misses at 9px |
+| 9 | "All projects (0)" / "All skills (0)" / "ALL 0" while loading or failed | count rendered only when loaded |
+
+**Light theme: ZERO AA failures** on any surface/state. Only disabled controls
+(WCAG-exempt) read 2.79–3.52. Light's readability is an UPGRADE question.
+
+### Checked and fine
+Overview at every width; login page at every width (its outline "sign in" and
+clipped sheen are by design); header blur (see silent-failures: iframe capture);
+Skills `.dropBox` 6px overhang is deliberate (`margin:-6px`); refused save at 320
+both themes (banner, marks, focus, no request); ConfirmDialog focus on CANCEL;
+About dirty → REVERT; reduced motion applies (`1e-05s`, 1 iteration).
+
+### Verification
+Live after fixes, both themes, 320: zero container overflow on all 6 panels, zero
+dark/light AA failures, strip brings Blog into view (`scrollLeft 297`), disabled
+SAVE `box-shadow: none`. Built bundle grepped for every fix (minifier writes
+`flex:200px`). Tests: frontend **1931** (84 files) incl. LoadError ×4, panel
+failed-load pairs ×12, strip ×3, Overview +1, `mobile.test.js` +7 PF-117 cases;
+backend **607**. **22 mutants, 22 killed**, each restored byte-identical (`cmp`).
+
+### Outstanding work added by PF-117
+- **Login form has no `noValidate`/JS validation** — relies on the native bubble.
+  Left for **PF-119**, which replaces this form with Google sign-in.
+- **`admin.module.css` is emitted several times in the production CSS** (once per
+  module that `composes` from it; identical copies) — bloat, and the same
+  mechanism that made dev HMR serve STALE copies mid-ticket. Pre-existing.
+- Tap targets 36–42px (above AA, under AAA 44) kept by owner decision.
+- `ProtectedRoute`'s session-check banner keeps its own RETRY (auth, not data) —
+  not converted to `LoadError` deliberately.
+- Light-theme upgrade list: none built; disabled controls 2.79–3.52 are the only
+  sub-4.5 light readings.
 
 ---
 

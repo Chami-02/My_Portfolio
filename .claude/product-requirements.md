@@ -221,5 +221,25 @@ which receives too much other mail for a portfolio enquiry to be noticed in.
 This is both the public contact address and the admin login account. **PF-122
 does the swap; see Locked decisions for what is deliberately NOT changed.**
 
+#### A panel that could not load says so — never "nothing here", never a form
+
+**Owner requirement, 2026-10-11 (PF-117). Built.**
+
+When a panel's data fails to load it shows `LoadError` (`components/admin/
+LoadError.jsx`) — `COULDN'T LOAD YOUR <THING>` + RETRY:
+
+- **Never the empty state.** "No projects yet" with a count of 0 tells the owner
+  their content is gone. No count is shown until there is something to count.
+- **Never a form over missing data.** About renders NO fields without a profile:
+  an empty editable form has an empty saved baseline, and SAVE would write the
+  blanks over the real profile. A list panel keeps its ADD form.
+- **A RETRY that fails again says so** — `STILL CAN'T REACH THE SERVER — TRY
+  AGAIN IN A MINUTE.` — and shows `RETRYING…` while in flight.
+- **On a phone, RETRY sits on its own line** under the message.
+- Only when the data is MISSING (`isError && data === undefined`): a failed
+  background refetch keeps the last good data on screen.
+
+Every new admin panel must handle this branch before its empty branch.
+
 ---
 

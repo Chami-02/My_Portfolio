@@ -3309,6 +3309,68 @@ measured the wrong element (4.30 — which turned out to be a real failure of th
 other one). The documented substring-selector trap; name the FILE in the selector.
 
 
+## PF-117 (2026-10-11)
+
+### A query default of `[]` turns a FAILED load into the EMPTY state
+`const { data: projects = [], isLoading } = useX()` — on failure `isLoading` is
+false and `data` falls back to `[]`, so the panel says "No projects yet. Add
+one above." with a count of 0. Every unit test passed: none mocked `isError`.
+Worse when a FORM derives from the data (About: `form = draft ??
+aboutToForm(about)`): a failed load renders an EMPTY EDITABLE form whose saved
+baseline is empty, so SAVE after the server returns overwrites real data with
+blanks. Branch on `isError && data === undefined` BEFORE the empty branch
+(`data === undefined`, because a failed BACKGROUND refetch keeps good data and
+still sets isError). Measured by stopping the backend.
+
+### `flex: 1` has a basis of 0 — a `flex-wrap` row with it NEVER wraps
+`.rowBody { flex: 1 }` beside `.rowActions { flex: none }`: the body's
+hypothetical size is 0, so everything "fits" on one line and the body is
+crushed (5px at 375) while the actions paint over its text. Give the shrinking
+item a real basis (`flex: 1 1 200px`). And `flex: none` sizes an item to
+max-content, so ITS OWN `flex-wrap` never fires — add `max-width: 100%`.
+The occlusion probe missed the overlap: it hit-tests controls, and what was
+covered was a badge. Look at a screenshot.
+
+### Vite DEV injects a `composes`-shared sheet once per composing module — HMR can leave a STALE copy winning
+`admin.module.css` arrived as several `<style>` copies; after an edit some
+updated and some did not, and a later stale copy won the cascade (`flex: 1 1 0%`
+read back after the source said `1 1 200px`). Restart the dev server before
+believing a CSS fix failed. The production bundle also carries several
+identical copies (harmless, bloat — Outstanding).
+
+### `npm run preview` serves the PRODUCTION env — it talks to the production API
+`.env.production` sets `VITE_API_URL` to the Vercel backend. Serving `dist`
+locally sent the local dev refresh token to PRODUCTION's `/auth/refresh`
+(rejected, 401 — no data touched) and the app correctly cleared the local
+session, signing the owner out of dev. For built-output checks: grep the built
+CSS/JS, or `vite build --mode development` into a `dist-*` dir. Check `.env.*`
+before serving any build.
+
+### Chrome will not shrink below ~1141px — use a same-origin iframe, and know its traps
+Media queries evaluate against an iframe's own viewport (control: `innerWidth`
++ `matchMedia` at 899/900). Traps met: (1) the refresh token is single-use with
+reuse detection — load ONE iframe at a time; (2) `pg-theme` syncs across
+same-origin frames via the `storage` event — two frames at once both take the
+last theme; (3) reloading per width costs ~10 requests and hit the 100/15-min
+limiter (429) — load once per theme and RESIZE the frame; (4) an iframe capture
+can drop `backdrop-filter` (header looked see-through; fine top-level).
+
+### `scrollIntoView` under the site's CSS smooth scroll — the rect is read BEFORE the scroll lands
+Bit TWICE in one ticket: first as "controls off-viewport", then as "the 24px
+hit area does not work" (it did). Set `documentElement.style.scrollBehavior =
+'auto'` in every probe that scrolls then measures.
+
+### `getAnimations()` says "running" in a tab whose timeline is frozen
+A background tab's document timeline did not advance (`localTime` 0 after
+600ms), so 0.01ms reduced-motion animations stayed "running". Read
+`getComputedTiming()` / computed `animation-duration` instead of play state.
+
+### Contrast probes: outline/gradient text reads 1.00, and a mid-transition read is transient
+`-webkit-text-fill-color: transparent` (outline "sign in", gradient
+"Parindra") measures 1.00 — exclude, it is not a colour problem. A 1.00 on every
+shell text was a reading taken mid-transition; re-measured clean.
+
+
 ---
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures

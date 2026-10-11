@@ -4129,6 +4129,42 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
 
 
 
+## PF-117 — admin responsive + state audit (owner decisions 2026-10-11)
+
+- **Light theme: bugs now, the restoration AFTER LAUNCH.** Owner's plan: deploy
+  (custom domain) first, then restore light as a post-launch upgrade —
+  deliberately, to practise maintaining a live product. PF-117 fixes light BUGS;
+  an UPGRADE (a value that passes but reads poorly) is proposed with numbers and
+  built only on approval. Why it is safe: `DEFAULT_THEME = 'dark'` and the OS
+  preference is ignored, so light is opt-in. Measured: light has ZERO AA
+  failures on the admin; dark had eleven groups. Suggested first ticket of the
+  restoration: Playwright `toHaveScreenshot` baselines in both themes.
+- **A disabled primary button has NO glow** (`.btnPrimary:disabled
+  { box-shadow: none }`). Reverses PF-107's transcription of the prototype,
+  which left the glow on: a dim SAVE that glowed read as "press me" on every
+  panel's clean form. Opacity stays 0.72.
+- **Tap targets: AA (24px) via an INVISIBLE hit area; 36–42px buttons stay.**
+  `.btnIcon::before { inset: -6px }` gives the 12×15 `×` a 24×27 tap area with
+  no visual change. Growing every admin button to AAA's 44px was offered and
+  declined — it is a visible change on all six panels.
+- **A failed load shows `LoadError`, never the empty state and never a form.**
+  Wording (owner-revised from a mockup): `COULDN'T LOAD YOUR <THING>` + RETRY;
+  `RETRYING…` while in flight; after a retry that fails again: `STILL CAN'T
+  REACH THE SERVER — TRY AGAIN IN A MINUTE.` On a phone (≤560px) RETRY sits on
+  its OWN line under the text (owner: beside a two-line message it looked
+  broken). List panels keep their ADD form; About renders NO form at all.
+  Shown only when `isError && data === undefined` — a failed background
+  refetch keeps good data on screen. "Retried" is local state set in the click
+  handler, not the query's error count (which survives a remount).
+- **The mobile strip stays (PF-107's CSS-only call) — with one fix.** It did not
+  bring the active section into view when a panel changed without a tap on it
+  (`+ NEW POST`); an `AdminLayout` effect now nudges `scrollLeft`. No drawer.
+- **The dark `--muted2` → `--muted` substitution (PF-91) was APPLIED, not
+  re-decided,** to eight more classes. Two selectors carry `:not(:hover)` /
+  `:not(.chipOn)` on purpose — a bare dark override at (0,2,1) beats
+  `.btnIcon:hover` and the picked chip's `--accInk`.
+
+
 ---
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
