@@ -1,5 +1,6 @@
 // frontend/src/components/admin/panels/AdminOverviewPanel.jsx
 import { useDashboardStats } from '../../../hooks/useDashboardStats';
+import { LoadError } from '../LoadError';
 import { greetingFor } from '../../../utils/dashboard';
 import styles from './AdminOverviewPanel.module.css';
 import a from '../../../styles/admin.module.css';
@@ -50,7 +51,8 @@ const ACTIONS = [
 ];
 
 export function AdminOverviewPanel({ onNavigate }) {
-  const { data: stats, isError, refetch } = useDashboardStats();
+  const statsQuery = useDashboardStats();
+  const { data: stats, isError } = statsQuery;
 
   return (
     <div className={styles.stack}>
@@ -70,18 +72,9 @@ export function AdminOverviewPanel({ onNavigate }) {
         </p>
       </section>
 
-      {isError && (
-        /* role="alert": the numbers the whole panel exists to show are
-           missing, which is worth interrupting for — unlike the save
-           flash, which is role="status". */
-        <div className={a.bannerError} role="alert">
-          <span aria-hidden="true" className={a.bannerDot} />
-          COULDN&rsquo;T LOAD THE DASHBOARD COUNTS
-          <button type="button" onClick={() => refetch()} className={a.bannerAction}>
-            RETRY
-          </button>
-        </div>
-      )}
+      {/* Only when there are no counts at all — a failed BACKGROUND refetch
+          keeps the last good numbers on screen (PF-117, LoadError). */}
+      {isError && !stats && <LoadError what="THE DASHBOARD COUNTS" query={statsQuery} />}
 
       {/* ── Stats ── */}
       <div className={styles.statGrid}>

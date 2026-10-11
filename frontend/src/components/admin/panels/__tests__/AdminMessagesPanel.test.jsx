@@ -314,3 +314,24 @@ describe('SEARCH (owner, 2026-10-07)', () => {
     expect(cardOf('Unread Sender').textContent).toContain('<b>bold</b>');
   });
 });
+
+// PF-117 — a failed load used to read "No messages yet" with ALL 0 / UNREAD 0.
+describe('when the messages could not be loaded', () => {
+  const failed = (data) => ({ data, isLoading: false, isError: true, isFetching: false, refetch: vi.fn() });
+
+  it('says so, with no empty-inbox sentence and no zero counts', () => {
+    useMessages.mockReturnValue(failed(undefined));
+    render(<AdminMessagesPanel />);
+    expect(screen.getByRole('alert')).toHaveTextContent('COULDN’T LOAD YOUR MESSAGES');
+    expect(screen.queryByText(/No messages yet/)).not.toBeInTheDocument();
+    // The filters stay usable, but name no count they do not have.
+    expect(screen.getByRole('button', { name: 'ALL', exact: true })).toBeInTheDocument();
+  });
+
+  it('keeps showing the inbox when only a background refetch failed', () => {
+    useMessages.mockReturnValue(failed(MESSAGES));
+    render(<AdminMessagesPanel />);
+    expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `ALL ${MESSAGES.length}`, exact: true })).toBeInTheDocument();
+  });
+});

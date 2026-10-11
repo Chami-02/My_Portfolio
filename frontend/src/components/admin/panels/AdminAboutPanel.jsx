@@ -24,6 +24,7 @@ import {
 import { DropZone } from '../DropZone';
 import { badgeFor } from '../mediaBadge';
 import { UploadPill } from '../UploadPill';
+import { LoadError } from '../LoadError';
 import a      from '../../../styles/admin.module.css';
 import styles from './AdminAboutPanel.module.css';
 
@@ -247,7 +248,8 @@ function PortraitCard({ stored, staged, onPick, onReject, onRemove, onUndo, erro
 }
 
 export function AdminAboutPanel() {
-  const { data: about, isLoading } = useAbout();
+  const aboutQuery = useAbout();
+  const { data: about, isLoading } = aboutQuery;
   const updateAbout  = useUpdateAbout();
   const uploadAvatar = useUploadAvatar();
   const removeAvatar = useRemoveAvatar();
@@ -398,6 +400,15 @@ export function AdminAboutPanel() {
         <div className={a.skelRow} />
       </div>
     );
+  }
+
+  // ⚠️ PF-117: NO FORM without a profile. `form` derives from `about`, so a
+  // failed fetch used to render every field EMPTY with an empty "saved"
+  // baseline — type one field, SAVE once the server is back, and every blank
+  // field overwrites the real profile. `about === undefined` rather than
+  // isError: a failed BACKGROUND refetch keeps the last good profile.
+  if (about === undefined) {
+    return <LoadError what="YOUR PROFILE" query={aboutQuery} />;
   }
 
   return (

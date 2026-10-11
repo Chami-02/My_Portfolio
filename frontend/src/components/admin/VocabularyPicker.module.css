@@ -144,3 +144,7 @@
    measured 4.30:1 in DARK on the Blog editor — under AA. --muted in dark only,
    at (0,2,1) so it wins on specificity; light (above 6) is untouched. */
 :global(html[data-theme='dark']) .hint { color: var(--muted); }
+
+/* PF-117: an unpicked chip's × — 4.42 in DARK. Not a picked chip's (that ×
+   sits on the accent fill in --accInk) and not on hover (white on danger). */
+:global(html[data-theme='dark']) .chip:not(.chipOn) > .remove:not(:hover) { color: var(--muted); }

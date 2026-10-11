@@ -559,3 +559,31 @@ describe('the tech picker', () => {
     expect(hooks.update.mutateAsync).not.toHaveBeenCalled();
   });
 });
+
+// PF-117 — a failed load used to fall through to the EMPTY state: "No
+// projects yet", count (0), measured with the backend stopped.
+describe('when the projects could not be loaded', () => {
+  const failed = (data) => ({ data, isLoading: false, isError: true, isFetching: false, refetch: vi.fn() });
+
+  it('says so, and never claims there are no projects', () => {
+    hooks.useAdminProjects.mockReturnValue(failed(undefined));
+    render(<AdminProjectsPanel />);
+    expect(screen.getByRole('alert')).toHaveTextContent('COULDN’T LOAD YOUR PROJECTS');
+    expect(screen.queryByText(/No projects yet/)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'All projects', exact: true })).toBeInTheDocument();
+  });
+
+  it('keeps showing the list when only a background refetch failed', () => {
+    hooks.useAdminProjects.mockReturnValue(failed([LIVE, DRAFT]));
+    render(<AdminProjectsPanel />);
+    expect(screen.getByRole('button', { name: `Edit ${LIVE.title}` })).toBeInTheDocument();
+    expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'All projects (2)', exact: true })).toBeInTheDocument();
+  });
+
+  it('shows no count while loading', () => {
+    hooks.useAdminProjects.mockReturnValue({ data: undefined, isLoading: true });
+    render(<AdminProjectsPanel />);
+    expect(screen.getByRole('heading', { name: 'All projects', exact: true })).toBeInTheDocument();
+  });
+});

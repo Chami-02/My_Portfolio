@@ -165,3 +165,92 @@ describe('mobile pass (2026-08-25)', () => {
     expect(decls(sheet, 'chipNext').left).toBe('-5%');
   });
 });
+
+/**
+ * Declarations of the top-level rules whose selector list contains EXACTLY
+ * `selector` as one part. `decls()` merges every rule naming a class, which
+ * is right for "what does this class end up with" and wrong for "does this
+ * one rule exist" — a dark override or a ::before would fold into the base.
+ */
+function rule(sheet, selector) {
+  const out = {};
+  postcss.parse(sheet).walkRules((r) => {
+    if (r.parent.type !== 'root') return;
+    if (!r.selector.split(',').map((s) => s.trim()).includes(selector)) return;
+    r.walkDecls((d) => { out[d.prop] = d.value; });
+  });
+  return out;
+}
+
+const DARK = ":global(html[data-theme='dark'])";
+
+// PF-117 — the admin at phone width, measured in a real browser at
+// 320/375/768/899/900/1280 in both themes. Every value here was a defect the
+// page-level scrollWidth check did not see.
+describe('admin responsive + state audit (PF-117)', () => {
+  const admin = () => css('styles/admin.module.css');
+
+  it('lets a list row wrap its actions instead of crushing the title', () => {
+    // ⚠️ `flex: 1` has a basis of 0, so the row never wrapped: at 375 the
+    // Blog title column was 5px wide with UNPUBLISH/EDIT/DELETE painted over
+    // the title and the PUBLISHED badge.
+    expect(decls(admin(), 'rowBody').flex).toBe('1 1 200px');
+    // `flex: none` sizes the actions to max-content; without a cap their own
+    // `flex-wrap` never fires on a line narrower than every button.
+    expect(decls(admin(), 'rowActions')['max-width']).toBe('100%');
+  });
+
+  it('keeps the media cards inside the card at 320px', () => {
+    // A bare `min-width: 220px` set the grid track's minimum: every panel on
+    // About and Projects ran 8px off the right edge, border and all.
+    expect(decls(css('components/admin/panels/AdminAboutPanel.module.css'), 'mediaBody')['min-width'])
+      .toBe('min(220px, 100%)');
+    expect(decls(css('components/admin/panels/AdminProjectsPanel.module.css'), 'bgBody')['min-width'])
+      .toBe('min(220px, 100%)');
+  });
+
+  it('lets a long sender address break inside a message card', () => {
+    // 210px of unbreakable address pushed the page 10px wider than 320.
+    expect(decls(css('components/admin/panels/AdminMessagesPanel.module.css'), 'email')['overflow-wrap'])
+      .toBe('anywhere');
+  });
+
+  it('gives the × buttons a 24px tap area without growing the ×', () => {
+    // 12×15 is under WCAG AA 2.5.8. The pseudo-element hit-tests as the
+    // button; the glyph's own box is unchanged (owner, 2026-10-11).
+    expect(rule(admin(), '.btnIcon')).toMatchObject({ position: 'relative' });
+    expect(rule(admin(), '.btnIcon::before')).toMatchObject({ content: "''", position: 'absolute', inset: '-6px' });
+    expect(rule(admin(), '.btnIcon').padding).toBe('0 0 0 3px');
+  });
+
+  it('puts RETRY on its own line on a phone, beside the message on desktop', () => {
+    // Owner, 2026-10-11: on mobile RETRY sat beside a message already broken
+    // over two lines.
+    expect(decls(admin(), 'loadErrorText', '(max-width: 560px)')['flex-basis']).toBe('calc(100% - 17px)');
+    expect(decls(admin(), 'loadError')['flex-wrap']).toBe('wrap');
+    expect(decls(admin(), 'loadErrorText')['flex-basis']).toBeUndefined();
+  });
+
+  it('drops the glow from a disabled primary button', () => {
+    // Owner-approved: a dim SAVE that still glowed read as lit.
+    expect(rule(admin(), '.btnPrimary:disabled')['box-shadow']).toBe('none');
+    // …while the enabled button keeps it.
+    expect(rule(admin(), '.btnPrimary')['box-shadow']).not.toBe('none');
+  });
+
+  it('applies PF-91\'s --muted substitution to the --muted2 admin text that failed in dark', () => {
+    // 4.15–4.42:1 in dark, all --muted2 on a tinted card; light passes.
+    for (const sel of [`${DARK} .btnIcon:not(:hover)`, `${DARK} .badgeMuted`, `${DARK} .emptyState`, `${DARK} .rowMeta`]) {
+      expect(rule(admin(), sel).color, sel).toBe('var(--muted)');
+    }
+    const about = css('components/admin/panels/AdminAboutPanel.module.css');
+    for (const cls of ['mediaMeta', 'thumbEmpty', 'bioNo']) {
+      expect(rule(about, `${DARK} .${cls}`).color, cls).toBe('var(--muted)');
+    }
+    expect(rule(css('components/admin/VocabularyPicker.module.css'), `${DARK} .chip:not(.chipOn) > .remove:not(:hover)`).color)
+      .toBe('var(--muted)');
+    // ⚠️ Never a bare `.btnIcon` — at (0,2,1) it would beat `.btnIcon:hover`
+    // and the × would never turn red in dark.
+    expect(rule(admin(), `${DARK} .btnIcon`)).toEqual({});
+  });
+});

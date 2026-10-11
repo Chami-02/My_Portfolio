@@ -1090,3 +1090,22 @@ describe('PF-115 — drafts and staging', () => {
     expect(deleteMutation.mutateAsync).toHaveBeenCalledWith('post-1');
   });
 });
+
+// PF-117 — a failed load used to read "No blog posts yet".
+describe('when the posts could not be loaded', () => {
+  const failed = (data) => ({ data, isLoading: false, isError: true, isFetching: false, refetch: vi.fn() });
+
+  it('says so, and never claims there are no posts', () => {
+    useBlogPostAdmin.mockReturnValue(failed(undefined));
+    render(<AdminBlogPanel />);
+    expect(screen.getByRole('alert')).toHaveTextContent('COULDN’T LOAD YOUR POSTS');
+    expect(screen.queryByText(/No blog posts yet/)).not.toBeInTheDocument();
+  });
+
+  it('keeps showing the posts when only a background refetch failed', () => {
+    useBlogPostAdmin.mockReturnValue(failed([POST]));
+    render(<AdminBlogPanel />);
+    expect(screen.getByRole('button', { name: `Edit ${POST.title}` })).toBeInTheDocument();
+    expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
+  });
+});

@@ -5,6 +5,7 @@ import { searchWords, messageMatches, highlightParts, MESSAGE_TABS }
   from '../../../utils/messageSearch';
 import { CloseIcon }     from '../../icons/BrandIcons';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { LoadError }     from '../LoadError';
 import a      from '../../../styles/admin.module.css';
 import styles from './AdminMessagesPanel.module.css';
 
@@ -44,7 +45,11 @@ const messageFor = (err, fallback) =>
 
 export function AdminMessagesPanel() {
   // PF-107 moved these into hooks/useMessages.js; the key is still ['messages'].
-  const { data: messages = [], isLoading } = useMessages();
+  const messagesQuery = useMessages();
+  const { data: messages = [], isLoading } = messagesQuery;
+  // Failed AND nothing to show. A background refetch that fails keeps the
+  // last good `data` and still sets isError — that list is fine to show.
+  const isError = messagesQuery.isError && messagesQuery.data === undefined;
   const markRead  = useMarkMessageRead();
   const star      = useStarMessage();
   const deleteMsg = useDeleteMessage();
@@ -135,7 +140,9 @@ export function AdminMessagesPanel() {
                 aria-pressed={t.key === tab}
                 onClick={() => setTab(t.key)}
               >
-                {t.label} <span className={styles.filterCount}>{messages.filter(t.test).length}</span>
+                {t.label}{!isLoading && !isError && (
+                  <> <span className={styles.filterCount}>{messages.filter(t.test).length}</span></>
+                )}
               </button>
             ))}
           </div>
@@ -145,6 +152,8 @@ export function AdminMessagesPanel() {
           <div className={styles.list} aria-busy="true">
             <div className={a.skelRow} /><div className={a.skelRow} /><div className={a.skelRow} />
           </div>
+        ) : isError ? (
+          <LoadError what="YOUR MESSAGES" query={messagesQuery} />
         ) : visible.length === 0 ? (
           // Inline and polite, never a modal — a live search hits zero
           // results mid-word as a matter of course (the /blog decision).

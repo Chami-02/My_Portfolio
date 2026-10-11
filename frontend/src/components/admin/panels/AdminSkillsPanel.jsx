@@ -12,6 +12,7 @@ import {
 import { fieldProps, errorId } from '../../../utils/formErrors';
 import { messageFor } from '../../../utils/mediaFile';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { LoadError }     from '../LoadError';
 import { SkillSectionsCard } from '../SkillSectionsCard';
 import a      from '../../../styles/admin.module.css';
 import styles from './AdminSkillsPanel.module.css';
@@ -49,12 +50,22 @@ function FieldError({ field, guard }) {
  *  - × asks first, through the shared ConfirmDialog.
  */
 export function AdminSkillsPanel() {
-  const { data: skills = [], isLoading: skillsLoading } = useSkills();
-  const { data: rawCategories = [], isLoading: sectionsLoading } = useSkillCategories();
+  const skillsQuery   = useSkills();
+  const sectionsQuery = useSkillCategories();
+  const { data: skills = [], isLoading: skillsLoading } = skillsQuery;
+  const { data: rawCategories = [], isLoading: sectionsLoading } = sectionsQuery;
   const categories = sortedSections(rawCategories);
   const sectionKeys = categories.map((c) => c.key);
   const labelOf = Object.fromEntries(categories.map((c) => [c.key, c.label]));
   const isLoading = skillsLoading || sectionsLoading;
+  // Either half missing makes the boxes wrong, so either failing is the
+  // panel's error, and RETRY asks for both (PF-117).
+  const isError = (skillsQuery.isError && skillsQuery.data === undefined)
+    || (sectionsQuery.isError && sectionsQuery.data === undefined);
+  const listQuery = {
+    isFetching: skillsQuery.isFetching || sectionsQuery.isFetching,
+    refetch: () => Promise.all([skillsQuery.refetch(), sectionsQuery.refetch()]),
+  };
 
   const createSkill   = useCreateSkill();
   const updateSkill   = useUpdateSkill();
@@ -466,9 +477,9 @@ export function AdminSkillsPanel() {
       <section className={a.panel} aria-labelledby="skill-list-title">
         {/* `{{ skillsCountLabel }}` — Admin.dc.html:1139. */}
         <h2 className={styles.listTitle} id="skill-list-title">
-          All skills ({skills.length})
+          All skills{!isLoading && !isError && ` (${skills.length})`}
         </h2>
-        {!isLoading && skills.length > 1 && (
+        {!isLoading && !isError && skills.length > 1 && (
           <p className={styles.cardNote}>
             {!canDrag
               ? 'Dragging is paused while a skill is open above.'
@@ -489,6 +500,8 @@ export function AdminSkillsPanel() {
           <div className={styles.chipRow} aria-busy="true">
             {[1, 2, 3, 4, 5].map((n) => <span key={n} className={a.skelPill} />)}
           </div>
+        ) : isError ? (
+          <LoadError what="YOUR SKILLS" query={listQuery} />
         ) : skills.length === 0 && categories.length === 0 ? (
           <p className={a.emptyState}>No skills yet. Add one above.</p>
         ) : (
@@ -542,7 +555,7 @@ export function AdminSkillsPanel() {
         )}
       </section>
 
-      {!isLoading && <SkillSectionsCard categories={categories} counts={counts} />}
+      {!isLoading && !isError && <SkillSectionsCard categories={categories} counts={counts} />}
 
       {confirmId && (
         <ConfirmDialog

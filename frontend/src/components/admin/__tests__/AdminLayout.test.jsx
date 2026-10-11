@@ -19,7 +19,7 @@ import { fileURLToPath } from 'url';
 import postcss from 'postcss';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ThemeProvider } from '../../../providers/ThemeProvider';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
@@ -401,5 +401,55 @@ describe('AdminLayout — stray file drops', () => {
     const { unmount } = renderShell();
     unmount();
     expect(fire('drop', ['Files']).defaultPrevented).toBe(false);
+  });
+});
+
+// PF-117 — below 899px the nav is a sideways-scrolling strip, and a panel can
+// change without a tap on it (Overview's "+ NEW POST" opens Blog). Measured at
+// 320px: the strip stayed at its left edge with the active item off-screen.
+// jsdom has no layout, so the geometry is stubbed: a 312px strip holding 748px
+// of nav, and `scrollLeft` recorded (jsdom ignores writes to it).
+describe('the mobile strip keeps the active section in view', () => {
+  const restore = [];
+  const stub = (proto, prop, desc) => {
+    const prev = Object.getOwnPropertyDescriptor(proto, prop);
+    Object.defineProperty(proto, prop, { configurable: true, ...desc });
+    restore.push(() => (prev ? Object.defineProperty(proto, prop, prev) : delete proto[prop]));
+  };
+  const scrolled = new WeakMap();
+
+  const layout = ({ overflow, item }) => {
+    stub(Element.prototype, 'scrollWidth', { get() { return overflow ? 748 : 312; } });
+    stub(Element.prototype, 'clientWidth', { get() { return 312; } });
+    stub(Element.prototype, 'scrollLeft', {
+      get() { return scrolled.get(this) ?? 0; },
+      set(v) { scrolled.set(this, v); },
+    });
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function () {
+      return this.getAttribute('aria-current') === 'page'
+        ? { left: item[0], right: item[1], top: 0, bottom: 44, width: item[1] - item[0], height: 44 }
+        : { left: 0, right: 312, top: 0, bottom: 60, width: 312, height: 60 };
+    });
+  };
+  const strip = () => nav().parentElement;
+
+  afterEach(() => { restore.splice(0).forEach((fn) => fn()); vi.restoreAllMocks(); });
+
+  it('scrolls an off-screen active item fully into view, with 16px to spare', () => {
+    layout({ overflow: true, item: [500, 600] });
+    renderShell({ activeTab: 'blog' });
+    expect(strip().scrollLeft).toBe(600 - 312 + 16);
+  });
+
+  it('scrolls back for an item off the LEFT edge', () => {
+    layout({ overflow: true, item: [-80, 20] });
+    renderShell({ activeTab: 'overview' });
+    expect(strip().scrollLeft).toBe(-(0 - -80 + 16));
+  });
+
+  it('leaves a strip that does not overflow alone — the desktop sidebar', () => {
+    layout({ overflow: false, item: [500, 600] });
+    renderShell({ activeTab: 'blog' });
+    expect(strip().scrollLeft).toBe(0);
   });
 });

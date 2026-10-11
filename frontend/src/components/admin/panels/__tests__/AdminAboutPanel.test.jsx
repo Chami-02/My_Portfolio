@@ -1317,3 +1317,26 @@ describe('a blank FIXED social field is fine; a blank ADDED row is not', () => {
     expect(screen.getByText(/starting with https/i)).toBeInTheDocument();
   });
 });
+
+// ⚠️ PF-117 — a failed load rendered an EMPTY, EDITABLE profile whose saved
+// baseline was also empty: type one field, SAVE once the server was back,
+// and every blank field overwrote the real profile.
+describe('when the profile could not be loaded', () => {
+  const failed = (data) => ({ data, isLoading: false, isError: true, isFetching: false, refetch: vi.fn() });
+
+  it('shows no form at all — not one field, not SAVE', () => {
+    hooks.useAbout.mockReturnValue(failed(undefined));
+    render(<AdminAboutPanel />);
+    expect(screen.getByRole('alert')).toHaveTextContent('COULDN’T LOAD YOUR PROFILE');
+    // The ZERO case: a count of fields, not "the location field is absent".
+    expect(screen.queryAllByRole('textbox')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: /SAVE/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps the form when only a background refetch failed', () => {
+    hooks.useAbout.mockReturnValue(failed(ABOUT));
+    render(<AdminAboutPanel />);
+    expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole('textbox').length).toBeGreaterThan(0);
+  });
+});

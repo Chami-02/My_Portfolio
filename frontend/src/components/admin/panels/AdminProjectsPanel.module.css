@@ -110,9 +110,12 @@
   background-position: center;
 }
 
+/* PF-117: `min(…, 100%)` — a bare 220px is the wrap trigger on a wide card
+   but, at 320px, wider than the card's own content box: it set the grid
+   track's minimum and pushed every panel 8px off the right edge. */
 .bgBody {
   flex: 1;
-  min-width: 220px;
+  min-width: min(220px, 100%);
   display: grid;
   gap: 9px;
 }

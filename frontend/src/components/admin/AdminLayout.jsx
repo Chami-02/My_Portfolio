@@ -1,5 +1,5 @@
 // frontend/src/components/admin/AdminLayout.jsx
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { authService } from '../../services/authService';
@@ -69,6 +69,24 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
   const { flash, dismissFlash } = useAdminFlash();
 
   const { data: me } = useMe();
+
+  // ── Keep the active section in view on the mobile strip (PF-117) ──────────
+  // Below 899px the nav is a sideways-scrolling row (see .sidebarInner). A
+  // panel can change WITHOUT a tap on it — Overview's "+ NEW POST" opens Blog
+  // — and the strip stayed at its left edge, the active item off-screen.
+  // Measured at 320px: 748px of nav in a 312px row. scrollLeft, not
+  // scrollIntoView: that also scrolls the PAGE, and animates it.
+  // On a wide screen the row does not overflow, so this does nothing.
+  const stripRef = useRef(null);
+  useEffect(() => {
+    const strip = stripRef.current;
+    const item = strip?.querySelector('[aria-current="page"]');
+    if (!item || strip.scrollWidth <= strip.clientWidth) return;
+    const box = strip.getBoundingClientRect();
+    const { left, right } = item.getBoundingClientRect();
+    if (left < box.left) strip.scrollLeft -= box.left - left + 16;
+    else if (right > box.right) strip.scrollLeft += right - box.right + 16;
+  }, [activeTab]);
 
   // ── A file dropped OUTSIDE an upload card is ignored (PF-113 batch 2) ─────
   // The browser's default for a dropped file is to OPEN it — navigating away
@@ -213,7 +231,7 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
             that sticks below the header. One element cannot be both — see the
             note on .sidebarInner in the module. */}
         <aside className={styles.sidebar}>
-          <div className={styles.sidebarInner}>
+          <div ref={stripRef} className={styles.sidebarInner}>
             <p className={styles.manage}>MANAGE</p>
 
             <nav className={styles.nav} aria-label="Admin sections">

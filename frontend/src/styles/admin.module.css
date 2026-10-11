@@ -255,6 +255,16 @@
    `.labelLead` composes `.label`, so it is covered too. */
 :global(html[data-theme='dark']) .label { color: var(--muted); }
 
+/* PF-117, the same substitution for every other admin text set in --muted2
+   on a tinted card — measured in DARK at 4.15 (× buttons, empty lines),
+   4.33 (row meta, MISSING / DRAFT badges), 4.41 (NONE). Light passes and is
+   untouched. `.btnIcon` excludes :hover, or this (0,3,1) rule would beat
+   `.btnIcon:hover` and the × would never turn red in dark. */
+:global(html[data-theme='dark']) .btnIcon:not(:hover),
+:global(html[data-theme='dark']) .badgeMuted,
+:global(html[data-theme='dark']) .emptyState,
+:global(html[data-theme='dark']) .rowMeta { color: var(--muted); }
+
 .checkRow {
   display: inline-flex;
   align-items: center;
@@ -302,11 +312,14 @@
 
 /* ⚠️ `:hover` still matches a disabled button, so the lift has to be
    cancelled explicitly or a disabled submit still rises under the
-   cursor. Same trap as /blog's disabled chips. */
+   cursor. Same trap as /blog's disabled chips.
+   PF-117 (owner-approved 2026-10-11): the glow goes too. A dim button that
+   still glowed read as LIT — "press me" — on every panel's clean SAVE. */
 .btnPrimary:disabled {
   cursor: not-allowed;
   opacity: .72;
   transform: none;
+  box-shadow: none;
 }
 
 .btnOutline {
@@ -408,6 +421,7 @@
 
 /* Icon-only remove. Admin.dc.html:347. */
 .btnIcon {
+  position: relative;
   background: none;
   border: none;
   color: var(--muted2);
@@ -416,6 +430,16 @@
   line-height: 1;
   padding: 0 0 0 3px;
   transition: color .2s;
+}
+
+/* PF-117: the glyph's box is 12×15, under WCAG AA's 24×24 target minimum
+   (2.5.8) — a near-miss on a phone. The TAP area grows, the × does not:
+   an invisible pseudo-element hit-tests as the button itself. Owner chose
+   this over visibly larger controls, 2026-10-11. */
+.btnIcon::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 
 .btnIcon:hover {
@@ -512,11 +536,16 @@
   border-color: var(--acc, #FCA311);
 }
 
+/* ⚠️ PF-117: `flex: 1` alone has a basis of 0, so the row NEVER wrapped —
+   the actions kept their full width and the title column was crushed (5px
+   at 375, with UNPUBLISH/EDIT/DELETE painted over the title and badge). A
+   200px basis is the width below which the actions move to their own line;
+   on a wide row it grows exactly as before. */
 .rowBody {
   display: grid;
   gap: 5px;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 200px;
 }
 
 .rowTitle {
@@ -537,6 +566,9 @@
   gap: 8px;
   flex: none;
   flex-wrap: wrap;
+  /* `flex: none` sizes it to max-content, so its own `wrap` never fired on
+     a line narrower than all three buttons (PF-117, 320px). */
+  max-width: 100%;
 }
 
 /* ═══ States ═════════════════════════════════════════════════════ */
@@ -653,6 +685,41 @@
   composes: btnGhost;
   margin-left: auto;
   flex: none;
+}
+
+/* PF-117: a panel whose data could not be loaded (LoadError.jsx). The error
+   banner, with its RETRY at the trailing end on a wide screen. */
+.loadError {
+  composes: bannerError;
+  flex-wrap: wrap;
+}
+
+.loadErrorText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.loadErrorAction {
+  composes: btnGhost;
+  flex: none;
+}
+
+.loadErrorAction:disabled {
+  cursor: default;
+}
+
+/* Owner, 2026-10-11: on a phone RETRY goes on its OWN line. Left to wrap
+   naturally it sat beside a message already broken over two lines. The text
+   takes the whole first row; the button starts under the text, past the
+   dot (7px dot + 10px gap). */
+@media (max-width: 560px) {
+  .loadErrorText {
+    flex-basis: calc(100% - 17px);
+  }
+
+  .loadErrorAction {
+    margin-left: 17px;
+  }
 }
 
 /* ═══ Layout helpers ═════════════════════════════════════════════ */

@@ -9,6 +9,7 @@ import { useAdminFlash }           from '../../../hooks/useAdminFlash';
 import { fieldProps, errorId, fieldId } from '../../../utils/formErrors';
 import { VocabularyPicker }        from '../VocabularyPicker';
 import { ConfirmDialog }           from '../ConfirmDialog';
+import { LoadError }               from '../LoadError';
 import a      from '../../../styles/admin.module.css';
 import styles from './AdminBlogPanel.module.css';
 
@@ -161,7 +162,11 @@ const messageFor = (err, fallback) =>
  * panel unmounts on every tab change.
  */
 export function AdminBlogPanel({ initialView = 'list' }) {
-  const { data: posts = [], isLoading } = useBlogPostAdmin();
+  const postsQuery = useBlogPostAdmin();
+  const { data: posts = [], isLoading } = postsQuery;
+  // Failed AND nothing to show. A background refetch that fails keeps the
+  // last good `data` and still sets isError — that list is fine to show.
+  const isError = postsQuery.isError && postsQuery.data === undefined;
   const createPost    = useCreatePost();
   const updatePost    = useUpdatePost();
   const togglePublish = useTogglePublish();
@@ -550,6 +555,8 @@ export function AdminBlogPanel({ initialView = 'list' }) {
             <div className={styles.list} aria-busy="true">
               <div className={a.skelRow} /><div className={a.skelRow} /><div className={a.skelRow} />
             </div>
+          ) : isError ? (
+            <LoadError what="YOUR POSTS" query={postsQuery} />
           ) : posts.length === 0 ? (
             <p className={a.emptyState}>
               No blog posts yet. Click &ldquo;+ NEW POST&rdquo; to write your first one.

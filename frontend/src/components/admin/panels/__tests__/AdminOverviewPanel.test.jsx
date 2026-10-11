@@ -116,6 +116,15 @@ describe('AdminOverviewPanel — stat cards', () => {
     render(<AdminOverviewPanel onNavigate={vi.fn()} />);
     expect(screen.queryByRole('alert')).toBeNull();
   });
+
+  // PF-117 — TanStack keeps the last good data when a BACKGROUND refetch
+  // fails, and still sets isError. Those counts are fine to show.
+  it('keeps the last good counts, with no alert, when only a background refetch failed', () => {
+    useDashboardStats.mockReturnValue({ data: STATS, isError: true, refetch: vi.fn() });
+    render(<AdminOverviewPanel onNavigate={vi.fn()} />);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText(String(STATS.projects))).toBeInTheDocument();
+  });
 });
 
 describe('AdminOverviewPanel — quick actions', () => {

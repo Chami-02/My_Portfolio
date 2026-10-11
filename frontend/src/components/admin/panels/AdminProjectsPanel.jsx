@@ -18,6 +18,7 @@ import { badgeFor } from '../mediaBadge';
 import { UploadPill } from '../UploadPill';
 import { VocabularyPicker } from '../VocabularyPicker';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { LoadError }     from '../LoadError';
 import a      from '../../../styles/admin.module.css';
 import styles from './AdminProjectsPanel.module.css';
 
@@ -142,7 +143,11 @@ function BackgroundBlock({ stored, staged, opacity, onOpacity, onPick, onReject,
 }
 
 export function AdminProjectsPanel() {
-  const { data: projects = [], isLoading } = useAdminProjects();
+  const projectsQuery = useAdminProjects();
+  const { data: projects = [], isLoading } = projectsQuery;
+  // Failed AND nothing to show. A background refetch that fails keeps the
+  // last good `data` and still sets isError — that list is fine to show.
+  const isError = projectsQuery.isError && projectsQuery.data === undefined;
   const createProject    = useCreateProject();
   const updateProject    = useUpdateProject();
   const deleteProject    = useDeleteProject();
@@ -496,13 +501,17 @@ export function AdminProjectsPanel() {
 
       <section className={a.panel} aria-labelledby="project-list-title">
         <h2 className={styles.listTitle} id="project-list-title">
-          All projects ({projects.length})
+          {/* No count while there is nothing to count — a loading or failed
+              list is not a list of zero (PF-117). */}
+          All projects{!isLoading && !isError && ` (${projects.length})`}
         </h2>
 
         {isLoading ? (
           <div className={styles.list} aria-busy="true">
             <div className={a.skelRow} /><div className={a.skelRow} /><div className={a.skelRow} />
           </div>
+        ) : isError ? (
+          <LoadError what="YOUR PROJECTS" query={projectsQuery} />
         ) : projects.length === 0 ? (
           <p className={a.emptyState}>No projects yet. Add one above.</p>
         ) : (

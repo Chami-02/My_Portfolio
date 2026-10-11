@@ -525,3 +525,37 @@ describe('drag-and-drop', () => {
     expect(hooks.showFlash).not.toHaveBeenCalled();
   });
 });
+
+// PF-117 — either half (skills or sections) failing is the panel's error;
+// before, it fell through to empty boxes and "All skills (0)".
+describe('when the skills could not be loaded', () => {
+  const failed = (data) => ({ data, isLoading: false, isError: true, isFetching: false, refetch: vi.fn() });
+
+  it.each([
+    ['skills', () => hooks.useSkills.mockReturnValue(failed(undefined))],
+    ['sections', () => sections.useSkillCategories.mockReturnValue(failed(undefined))],
+  ])('says so when the %s fail, with no empty boxes and no count', (_, fail) => {
+    fail();
+    render(<AdminSkillsPanel />);
+    expect(screen.getByRole('alert')).toHaveTextContent('COULDN’T LOAD YOUR SKILLS');
+    expect(screen.queryByText(/Empty — not shown on the home page\./)).not.toBeInTheDocument();
+    expect(screen.queryByText(/All skills \(/)).not.toBeInTheDocument();
+  });
+
+  it('RETRY asks for both halves', async () => {
+    const skillsRefetch = vi.fn(), sectionsRefetch = vi.fn();
+    hooks.useSkills.mockReturnValue({ ...failed(undefined), refetch: skillsRefetch });
+    sections.useSkillCategories.mockReturnValue({ data: SECTIONS, isLoading: false, refetch: sectionsRefetch });
+    render(<AdminSkillsPanel />);
+    await userEvent.click(screen.getByRole('button', { name: 'RETRY', exact: true }));
+    expect(skillsRefetch).toHaveBeenCalledTimes(1);
+    expect(sectionsRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps showing the skills when only a background refetch failed', () => {
+    hooks.useSkills.mockReturnValue(failed(SKILLS));
+    render(<AdminSkillsPanel />);
+    expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
+    expect(screen.getByText(`All skills (${SKILLS.length})`)).toBeInTheDocument();
+  });
+});

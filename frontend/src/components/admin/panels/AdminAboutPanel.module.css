@@ -100,9 +100,12 @@
   border: 1px solid rgba(var(--ln), .14);
 }
 
+/* PF-117: `min(…, 100%)` — a bare 220px is the wrap trigger on a wide card
+   but, at 320px, wider than the card's own content box: it set the grid
+   track's minimum and pushed every panel 8px off the right edge. */
 .mediaBody {
   flex: 1;
-  min-width: 220px;
+  min-width: min(220px, 100%);
   display: grid;
   gap: 8px;
 }
@@ -326,4 +329,9 @@
  * site-wide substitutes `--muted`. Dark-scoped, winning on specificity (0,2,1)
  * rather than emission order — the same shape as AdminOverviewPanel.module.css's
  * `.statLabel` rule and AdminLoginPage.module.css's placeholder. */
-:global(html[data-theme='dark']) .caption { color: var(--muted); }
+/* PF-117: the media meta line (4.30), the empty thumbnail's IMG (3.83) and
+ * the bio paragraph numbers (4.15) are the same --muted2 case. */
+:global(html[data-theme='dark']) .caption,
+:global(html[data-theme='dark']) .mediaMeta,
+:global(html[data-theme='dark']) .thumbEmpty,
+:global(html[data-theme='dark']) .bioNo { color: var(--muted); }

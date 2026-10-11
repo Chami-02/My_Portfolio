@@ -233,6 +233,7 @@ const REBUILT_JSX = [
   'components/admin/SkillSectionsCard.jsx',        // PF-114
   'components/admin/panels/AdminBlogPanel.jsx',     // PF-115
   'components/admin/panels/AdminMessagesPanel.jsx', // PF-115
+  'components/admin/LoadError.jsx',                  // PF-117
 ];
 
 describe('PF-113 rebuilt components carry no Phase 1 styling', () => {
