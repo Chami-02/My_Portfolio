@@ -522,7 +522,7 @@ record; that file is the sprint's authority.
 | ~~PF-115~~ | Blog + Messages panels restyled | Medium | 5 | Done | ✅ **BUILT 2026-10-07** — ⚠️ scope widened (owner): Blog DRAFTS + REVERT, Messages STAR + SEARCH + filters; ~11 pts, see entry |
 | ~~PF-116~~ | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | Done | ✅ **BUILT 2026-10-08** — ⚠️ scope SHRANK: PF-107→115 had already cleared every admin consumer; one site-wide Phase 1 reader left (ErrorBoundary). ~4 pts, see entry |
 | ~~PF-117~~ | Admin responsive + state audit, both themes | Medium | 6 | Done | ✅ **BUILT 2026-10-11** — audit found 8 defects incl. a data-loss path (About's empty form on a failed load); new shared `LoadError`; see entry |
-| PF-118 | Admin ↔ public-site parity audit | Highest | 8 | To Do | not started |
+| ~~PF-118~~ | Admin ↔ public-site parity audit | Highest | 8 | Done | ✅ **BUILT 2026-10-12** — field matrix + owner-approved wiring (timezone, hero intro, footer blurb, band + Contact intro follow availability) + 4 leftovers; see entry |
 | PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 | To Do | not started |
 | PF-120 | Security review and hardening | High | 5 | To Do | not started |
 | PF-121 | Sprint gate, PR, close | Highest | 8 | To Do | not started |
@@ -2269,6 +2269,7 @@ retrospective document** — this section is the record, matching Sprint 10,
   - `Skill.order` and `About.stats[]` not editable; messages delete has no
     confirm; `PUT /api/skills/:id` has no UI (PF-114).
   - The footer marquee copy is still a literal (flagged, owner undecided).
+    ✅ **PF-118:** follows availability (owner, 2026-10-12).
 - **⚠️ PROPOSED EPIC — Analytics panel (owner asked 2026-09-16, discussion
   only). Full plain-English plan, verified against Vercel's docs 2026-09-17:
   `new mds/E9/analytics-panel-plan.md` — Vercel Web Analytics (free, 1-month
@@ -7132,7 +7133,7 @@ route ordering (1 red).
 
 ### Outstanding work added by PF-112
 
-- **⚠️ `en-GB` renders September as `SEPT` — four letters where every other month
+- ✅ **FIXED in PF-118** (owner: three letters). **⚠️ `en-GB` renders September as `SEPT` — four letters where every other month
   has three.** Measured across all twelve. `formatDate` (`utils/blogMeta.js`) is
   shared with the **blog cards**, and its own comment says `day: '2-digit'` was
   chosen so stacked dates do not form a ragged column — which a four-character
@@ -7212,8 +7213,7 @@ Mutation results, all restored with a passing control: blank-URL filter removed 
   wiring it is a build, not a read.
 - **`bio[]` is still hardcoded in three places** (`AboutSection` ×2, `Footer` ×1)
   — PF-118.
-- **`· UTC+5:30` is a literal beside a now-dynamic location** (×2). A move abroad
-  leaves it wrong.
+- ✅ **PF-118:** `About.timezone`, one field for both sites. ~~**`· UTC+5:30` is a literal beside a now-dynamic location** (×2).~~
 - **PF-122 is partly absorbed.** `email` is panel-driven now, so PF-122 shrinks to
   setting the value, fixing the seed and model default, and changing the admin
   login account. ⚠️ Until then the site renders whatever `About.email` holds —
@@ -7360,7 +7360,7 @@ after the edit.
   note pointed at PF-108's rotation and would have sent the next session
   hunting a bug that was not there — a listening socket is not a running
   server.
-- **The Footer's bio blurb is a third, unmanaged piece of copy.** A *different,
+- ✅ **PF-118:** `About.footerBio`. ~~**The Footer's bio blurb is a third, unmanaged piece of copy.**~~ A *different,
   shorter* sentence from `About.bio`, deliberately not merged. Making it editable
   needs its own field.
 - `POST /api/upload` still has zero consumers — PF-120's call, unchanged.
@@ -7969,11 +7969,11 @@ re-run at hand-off). Backend 35 suites / 607, branch 72.67%. Mutation: 9 fronten
   install chromium`) — every E2E "failed" without launching a browser.
 
 ### Outstanding work added by PF-115
-- **`e2e/footer.spec.js:131` now fails 5/5 IN ISOLATION** — on clean `HEAD`
+- ✅ **FIXED in PF-118** (test raced the API data; see entry). **`e2e/footer.spec.js:131` now fails 5/5 IN ISOLATION** — on clean `HEAD`
   too (worktree control), so not PF-115. Recorded as a load-sensitive flake
   (9/9 in isolation, 2026-09-07); it is now deterministic. Likely the Chromium
   153 / dependency bumps from the master sync. Needs its own fix ticket.
-- **Dashboard counts stay stale if a mutation lands during the shell's FIRST
+- ✅ **FIXED in PF-118** (`refreshDashboard` cancels first). **Dashboard counts stay stale if a mutation lands during the shell's FIRST
   stats fetch** — TanStack dedupes an invalidation into an in-flight initial
   fetch, so the old answer wins until staleTime (5 min). Measured: draft saved
   ~1s after login against Atlas → `0 DRAFT`; after the first fetch landed →
@@ -8134,6 +8134,67 @@ backend **607**. **22 mutants, 22 killed**, each restored byte-identical (`cmp`)
   not converted to `LoadError` deliberately.
 - Light-theme upgrade list: none built; disabled controls 2.79–3.52 are the only
   sub-4.5 light readings.
+
+---
+
+## PF-118 — Admin ↔ public-site parity audit, wiring, leftovers (2026-10-12)
+
+**Report:** `new mds/E9/PF-118-parity-audit-and-wiring.md` — **the field matrix lives
+there** (every model field × panel / sent / API / site). Decisions: `locked-decisions.md`
+"PF-118". Traps: `silent-failures.md` "PF-118".
+
+### Owner decisions at planning (2026-10-12)
+- Wire ALL four offered: footer band follows availability; Contact intro leads with the
+  availability note; `timezone` field; `heroIntro` + `footerBio` fields. **Rule: one field
+  drives EVERY render site** (timezone → Contact AND footer status).
+- `publishedAt` control: **leave it** (known gap). Name/title stay literal.
+- Leftovers: `footer.spec.js:131`, fresh About defaults, dashboard stale counts, `SEPT`→`SEP`.
+
+### Built
+- `About.js`: `timezone` / `heroIntro` / `footerBio`, defaults = the literals they
+  replaced (non-lean `findOne` hydrates them — **no migration**, confirmed live); `bio`
+  default = site copy; `stats` default = seed's four (both factories). A STORED `[]` is
+  never refilled.
+- `aboutController.js`: rules for location ≤80, note ≤160, timezone ≤20, two copy ≤300 —
+  `isString()` FIRST (an array passes `isLength` element-wise; mutation-proven).
+- `aboutForm.js`: `TEXT_LIMITS`, timezone in `BASIC_FIELDS`, new `COPY_FIELDS`, all three
+  functions, length courtesy errors in on-screen order. Panel: "Site copy" card.
+- `Footer.jsx`: band = `MARQUEE_OPEN` (70.7s) / `MARQUEE_BUILDING` (**67.1s**, 373.1px
+  measured → 50.04 px/s live); blurb; status `{place}{timezone && ' · …'}`.
+- `ContactSection.jsx`: intro = note-as-sentence + literal rest, sentence hidden while
+  unavailable; location line uses timezone. `HeroSection.jsx`: intro from the field.
+- `blogMeta.js`: month token trimmed to 3 letters (kept `toLocaleDateString` so the
+  locale-spy test stays meaningful).
+- `useDashboardStats.js`: `refreshDashboard(qc)` = cancel → invalidate; 11 call sites in 5
+  hooks.
+- `footer.spec.js:131`: re-scroll until `[data-footer-bottom]` is in view.
+
+### Gate
+Frontend `check`: lint clean, **84 files / 1982 tests**, 95.22 / 91.07 / 90.5 / 96.61,
+build ✓. Backend `test:coverage`: **35 / 637**, branch **72.67**. E2E **75 passed**, 0
+flaky. `footer.spec.js:131` 5/5 (was 0/3). Mutation: **17/17 killed** (12 frontend, 5
+backend in a scratch copy), controls clean.
+
+### Live (dev, real UI)
+Two probe rounds through the panel, every render site matched the API, incl. blank timezone
+(no dangling `·`) and unavailable (band/badge/row CURRENTLY BUILDING, Contact sentence gone).
+Restored through the panel and verified field by field. Light theme checked on the new card.
+
+### Outstanding work added by PF-118
+- **→ PF-120:** `POST /api/upload` + `PATCH /api/about/availability` have no client;
+  `PUT /api/blog/:id` skips `blogRules` (raw API can set `publishedAt`/`views`/`slug`);
+  `backgroundImage.publicId` is in the PUBLIC projects response (confirmed live);
+  `GET /api/blog/:slug` still returns deprecated `content`.
+- Known gaps (recorded, not tickets): no `publishedAt` control (owner: leave); no
+  mark-unread; `useProject` clientless; `Vocabulary.order` never written; `hasAvatar`
+  unread; hero portrait not uploadable; tech chips / role pills / hero marquee literal; no
+  `og:` meta.
+- Dev's About now STORES timezone/heroIntro/footerBio equal to their defaults (were absent)
+  — renders identically.
+- The PostCSS "did not pass the `from` option" build warning is pre-existing (clean HEAD
+  prints it too).
+- Dev has no drafts right now, so a live "no drafts served" check is not discriminating —
+  the backend suites are the guard.
 
 ---
 

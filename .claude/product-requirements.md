@@ -241,5 +241,21 @@ LoadError.jsx`) — `COULDN'T LOAD YOUR <THING>` + RETRY:
 
 Every new admin panel must handle this branch before its empty branch.
 
+#### One panel field drives EVERY place the site shows it
+
+**Owner requirement, 2026-10-12 (PF-118). Built for About.** Owner's words: *"when i
+change the time zone in contact section it should change in footer status panel time
+zone."*
+
+- A value the site prints in several places is ONE field read by every render site —
+  never a second literal, never a second field. Today: `timezone` (Contact + footer
+  status), `location` (Contact, footer, `/blog` byline), `availableForWork` (hero
+  badge, About line, footer row, footer band, Contact intro), `availabilityNote`
+  (About line, Contact intro).
+- Wiring a new field means finding ALL its render sites first (grep the literal),
+  and a test per site.
+- Blank text copy falls back to the component's literal; a blank *label-like* value
+  (timezone, a social URL) is hidden, separator included.
+
 ---
 

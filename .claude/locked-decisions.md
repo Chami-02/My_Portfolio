@@ -4167,6 +4167,33 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
 
 ---
 
+## PF-118 — parity wiring (owner decisions 2026-10-12)
+
+- **One field drives EVERY render site.** Owner's words: "when i change the time zone in
+  contact section it should change in footer status panel time zone." `About.timezone` is
+  read by Contact's location line AND the footer status line; never re-split it into two
+  literals or two fields.
+- **The footer band follows `availableForWork`**: `OPEN TO OPPORTUNITIES ✦ …` /
+  `CURRENTLY BUILDING ✦ …` — the hero badge's own two phrases. TWO `<Marquee>` call sites,
+  70.7s and **67.1s**, because the strings differ in width (392.9 vs 373.1px) and the locked
+  contract is equal SPEED (50 px/s). Never one computed duration — `Marquee.test.jsx` reads
+  the literals out of the source.
+- **Contact's intro leads with `availabilityNote`** (full stop added if missing) and drops
+  that sentence while unavailable — the PF-112 About-line rule. The rest of the paragraph
+  stays literal. ⚠️ Visible copy change, approved: the live note is shorter than the old
+  sentence.
+- **`heroIntro` and `footerBio`** are panel fields ("Site copy" card). Blank → the
+  component's literal (never an empty paragraph). **Blank `timezone` → hidden**, `·` too
+  (`??` not `||`: a missing field falls back, a blank one is the owner's choice).
+- New fields default to the literals they replaced, so deploying moves nothing.
+- **Fresh About defaults = the site**: `bio` = `BIO_FALLBACK`/seed/`SITE_BIO`; `stats` =
+  seed's four. A stored `[]` stays empty (owner deleted every card).
+- **Dates: three-letter months everywhere** (`SEP`, not en-GB's `SEPT`) — owner, blog cards
+  included. Trim the month token; keep the `en-GB` argument.
+- **`publishedAt` gets NO panel control** (owner: leave it). Name/title stay literal.
+- Every count-changing mutation calls **`refreshDashboard(qc)`** (cancel → invalidate),
+  never a bare `invalidateQueries({ queryKey: DASHBOARD_KEY })`.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

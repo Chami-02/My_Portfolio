@@ -3373,6 +3373,35 @@ shell text was a reading taken mid-transition; re-measured clean.
 
 ---
 
+## PF-118 (2026-10-12)
+
+### ⚠️ TanStack swallows an invalidation during a query's FIRST fetch
+`Query.fetch` (v5) cancels an in-flight request on refetch **only when the query already
+has data**. During the first fetch it has none, so `invalidateQueries` is DEDUPED into the
+request already on its way — whose answer predates the mutation — and the cache holds the
+stale value for `staleTime`. No error, no second request. Reproduced against a real
+`QueryClient`: one fetch, stale value. Fix: `cancelQueries` THEN (after it settles)
+`invalidateQueries` → two fetches, fresh value, status `success`. Issuing both in the same
+tick still dedupes (the cancelled promise is still "in flight"). Lives in
+`refreshDashboard()`; guarded by `useDashboardStats.test.jsx` (mutant killed).
+
+### ⚠️ An E2E "scroll to the bottom" before the API data lands scrolls to a bottom that moves
+`footer.spec.js:131` ran `scrollTo(0, body.scrollHeight)` at ~500ms with **zero** of five
+API responses back (page 5801px); data then grew it to 5983px and the scroll stopped
+exactly 182px short — the growth. Its guard `scrollY > 0` passed on the short scroll. The
+test looked like a load-sensitive flake for weeks and became 5/5 deterministic once the page
+started loading faster than its data. **"At the bottom" must be asserted as the bottom
+element being on screen**, re-scrolling until it is; never `scrollY > 0`.
+
+### express-validator `isLength` on an ARRAY checks each element
+`body('x').isLength({ max })` passes `["short"]`; Mongoose then casts it to `"short"` — an
+accepted write of a value nobody sent. `isString().bail()` first. Mutation-proven (5 red).
+
+### A hidden Chrome tab never fires `requestAnimationFrame`
+A probe awaiting rAF in the browser tool's background tab hung the renderer for 45s
+("Runtime.evaluate timed out"); clicks there also intermittently do nothing until a
+screenshot foregrounds it. Use `setTimeout`/direct reads, and re-click after a screenshot.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
