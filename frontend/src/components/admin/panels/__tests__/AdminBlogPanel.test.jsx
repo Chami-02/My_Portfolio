@@ -11,6 +11,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { waitFor } from '@testing-library/react';
+import { renderWithGuard } from '../../../../test/renderWithGuard';
 
 // vi.mock over the hooks module, not a QueryClientProvider: the panel's
 // data layer is not what is under test, and Vite's SSR transform makes
@@ -1107,5 +1109,54 @@ describe('when the posts could not be loaded', () => {
     render(<AdminBlogPanel />);
     expect(screen.getByRole('button', { name: `Edit ${POST.title}` })).toBeInTheDocument();
     expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
+  });
+});
+
+// ── PF-118 batch 2 — the unsaved-changes guard, through the real panel ──────
+describe('leaving unsaved work asks first (PF-118 batch 2)', () => {
+  const leaveBtn = (name) => within(screen.getByRole('dialog')).getByRole('button', { name });
+
+  it('a NEW post: BACK TO LIST asks, and SAVE makes it a DRAFT', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminBlogPanel />);
+
+    await user.click(screen.getByRole('button', { name: '+ NEW POST' }));
+    await user.type(screen.getByLabelText(/^Title/), 'Half an idea');
+    await user.click(screen.getByRole('button', { name: '← BACK TO LIST' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Your new post has changes');
+    await user.click(leaveBtn('SAVE AS DRAFT'));
+
+    await waitFor(() => expect(createMutation.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Half an idea', published: false }),
+    ));
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ NEW POST' })).toBeInTheDocument());
+  });
+
+  it('editing a live post: CANCEL asks, offers SAVE CHANGES; KEEP EDITING stays', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminBlogPanel />);
+
+    // Not `openEditor` — it renders its own, unguarded panel.
+    await user.click(screen.getByRole('button', { name: `Edit ${POST.title}` }));
+    await touch(user);
+    await user.click(screen.getByRole('button', { name: 'CANCEL' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent(`“${POST.title}” has changes`);
+    expect(leaveBtn('SAVE CHANGES')).toBeInTheDocument();
+    await user.click(leaveBtn('KEEP EDITING'));
+
+    expect(screen.getByRole('heading', { name: 'Edit post' })).toBeInTheDocument();
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('an untouched editor closes freely — the zero case', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminBlogPanel />);
+    // Not `openEditor` — it renders its own, unguarded panel.
+    await user.click(screen.getByRole('button', { name: `Edit ${POST.title}` }));
+    await user.click(screen.getByRole('button', { name: '← BACK TO LIST' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: '+ NEW POST' })).toBeInTheDocument();
   });
 });

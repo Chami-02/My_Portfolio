@@ -9,7 +9,8 @@
 // called AND that pressing SAVE then calls it, which is a pair no
 // immediate-upload build can satisfy. Mutation-tested by making the résumé
 // upload fire on pick; five cases go red.
-import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, within, fireEvent, waitFor, act } from '@testing-library/react';
+import { renderWithGuard } from '../../../../test/renderWithGuard';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -1458,5 +1459,42 @@ describe('PF-118 batch 2 — Timezone is a dropdown of places', () => {
     await user.selectOptions(screen.getByLabelText('Timezone'), 'Asia/Colombo');
     await user.click(save());
     expect(hooks.updateAbout.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ timezone: 'Asia/Colombo' }));
+  });
+});
+
+
+// ── PF-118 batch 2 — the unsaved-changes guard, through the real panel ──────
+describe('leaving the About panel with unsaved edits asks first (PF-118 batch 2)', () => {
+  const leaveBtn = (name) => within(screen.getByRole('dialog')).getByRole('button', { name });
+
+  it('a link out is held; SAVE PROFILE saves, then follows it', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithGuard(<AdminAboutPanel />);
+
+    await user.type(screen.getByLabelText('Location'), '!');
+    await act(() => router.navigate('/elsewhere'));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Your profile has changes');
+    await user.click(leaveBtn('SAVE PROFILE'));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/elsewhere'));
+    expect(hooks.updateAbout.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ location: 'Galle, Sri Lanka!' }),
+    );
+  });
+
+  it('a save the form REFUSES stays on the panel, field marked', async () => {
+    hooks.useAbout.mockReturnValue({ data: { ...ABOUT, timezone: 'UTC+5:30' }, isLoading: false });
+    const user = userEvent.setup();
+    const { router } = renderWithGuard(<AdminAboutPanel />);
+
+    await user.type(screen.getByLabelText('Location'), '!');
+    await act(() => router.navigate('/elsewhere'));
+    await user.click(leaveBtn('SAVE PROFILE'));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(router.state.location.pathname).toBe('/admin');
+    expect(hooks.updateAbout.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Timezone')).toHaveAttribute('aria-invalid', 'true');
   });
 });

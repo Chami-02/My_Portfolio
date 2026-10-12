@@ -5,6 +5,7 @@ import { useBlogPostAdmin, useCreatePost, useUpdatePost,
 import { emptySection, postToForm, formToPayload, formErrors,
          isPostDirty, toggleTag, removeTag }                     from '../../../utils/blogForm';
 import { useFormGuard }            from '../../../hooks/useFormGuard';
+import { useUnsavedChanges }       from '../../../hooks/useUnsavedChanges';
 import { useAdminFlash }           from '../../../hooks/useAdminFlash';
 import { fieldProps, errorId, fieldId } from '../../../utils/formErrors';
 import { VocabularyPicker }        from '../VocabularyPicker';
@@ -298,7 +299,7 @@ export function AdminBlogPanel({ initialView = 'list' }) {
     // FIRST, and it returns before anything is sent. `published` here is the
     // INTENT — the button decides which rule set applies, not the record.
     const intent = { ...form, published: publish };
-    if (!guard.check(intent)) return;
+    if (!guard.check(intent)) return false;
     setServerErrors([]);
     setSaving(true);
 
@@ -311,12 +312,26 @@ export function AdminBlogPanel({ initialView = 'list' }) {
       }
       backToList();
       showFlash(!publish ? 'Draft saved' : editingId ? 'Post updated' : 'Post published');
+      return true;
     } catch (err) {
       setServerErrors([messageFor(err)]);
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  // ── PF-118 batch 2 — the unsaved-changes guard ──────────────────────
+  // Same rule as Projects: a NEW post is saved as a DRAFT (title only is
+  // enough — the model's draft rules), an existing post keeps its state.
+  const keepsLive = Boolean(saved) && saved.published !== false;
+  const requestLeave = useUnsavedChanges({
+    dirty: view === 'edit' && dirty,
+    save: () => submit(keepsLive),
+    saveLabel: !saved ? 'SAVE AS DRAFT' : keepsLive ? 'SAVE CHANGES' : 'SAVE DRAFT',
+    what: saved ? `“${saved.title}”` : 'your new post',
+  });
+  const leaveEditor = () => requestLeave(backToList);
 
   // ── The list row's PUBLISH ──────────────────────────────────────────
   /**
@@ -374,7 +389,7 @@ export function AdminBlogPanel({ initialView = 'list' }) {
             + NEW POST
           </button>
         ) : (
-          <button type="button" onClick={backToList} className={a.btnGhost}>
+          <button type="button" onClick={leaveEditor} className={a.btnGhost}>
             ← BACK TO LIST
           </button>
         )}
@@ -532,7 +547,7 @@ export function AdminBlogPanel({ initialView = 'list' }) {
 
               {/* The prototype's CANCEL: leaves the editor, saves nothing.
                   REVERT is the "undo my typing" and keeps the editor open. */}
-              <button type="button" onClick={backToList} className={a.btnOutline}>
+              <button type="button" onClick={leaveEditor} className={a.btnOutline}>
                 CANCEL
               </button>
 

@@ -1,6 +1,7 @@
 import { useState }              from 'react';
 import { AdminLayout }           from '../components/admin/AdminLayout';
 import { AdminFlashProvider }    from '../components/admin/AdminFlashProvider';
+import { UnsavedChangesProvider } from '../components/admin/UnsavedChangesProvider';
 import { AdminOverviewPanel }    from '../components/admin/panels/AdminOverviewPanel';
 import { AdminProjectsPanel }    from '../components/admin/panels/AdminProjectsPanel';
 import { AdminSkillsPanel }      from '../components/admin/panels/AdminSkillsPanel';
@@ -41,9 +42,14 @@ export function AdminPage() {
   // state, and the layout cannot be its own ancestor.
   return (
     <AdminFlashProvider>
-      <AdminLayout activeTab={activeTab} onTabChange={onTabChange}>
-        {panel}
-      </AdminLayout>
+      {/* PF-118 batch 2 — outside the layout for the same reason as the flash
+          provider: the layout's sidebar ASKS and the panel ANSWERS (what is
+          unsaved, how to save it), so both need it as an ancestor. */}
+      <UnsavedChangesProvider>
+        <AdminLayout activeTab={activeTab} onTabChange={onTabChange}>
+          {panel}
+        </AdminLayout>
+      </UnsavedChangesProvider>
     </AdminFlashProvider>
   );
 }

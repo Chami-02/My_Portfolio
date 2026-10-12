@@ -5,6 +5,7 @@ import {
 import { useSkillCategories } from '../../../hooks/useSkillCategories';
 import { useAdminFlash } from '../../../hooks/useAdminFlash';
 import { useFormGuard } from '../../../hooks/useFormGuard';
+import { useUnsavedChanges } from '../../../hooks/useUnsavedChanges';
 import {
   LEVELS, emptySkillForm, skillToForm, formToPayload, isSkillDirty, skillFormErrors,
   sortedSections, defaultSectionKey, mergeLayout, moveInLayout, layoutChanges, isLayoutDirty,
@@ -153,7 +154,7 @@ export function AdminSkillsPanel() {
    */
   const submit = async () => {
     // FIRST, and it returns before anything is sent.
-    if (!guard.check({ form, skills, editingId, sectionKeys })) return;
+    if (!guard.check({ form, skills, editingId, sectionKeys })) return false;
 
     setSaveErrors([]);
     setSaving(true);
@@ -190,7 +191,7 @@ export function AdminSkillsPanel() {
         guard.reset();
       }
       setSaveErrors(fieldsSaved && fieldsDirty ? ['Skill saved.', ...failures] : failures);
-      return;
+      return false;
     }
 
     if (!saved) {
@@ -203,6 +204,7 @@ export function AdminSkillsPanel() {
       open(null);
       showFlash('Skill updated');
     }
+    return true;
   };
 
   // ── SAVE ORDER (drag-and-drop, outside edit mode) ─────────────────────────
@@ -211,15 +213,32 @@ export function AdminSkillsPanel() {
   const saveOrder = async () => {
     setOrderErrors([]);
     setSavingOrder(true);
+    let ok = false;
     try {
       await commitLayout();
       setLayoutDraft(null);
       showFlash('Order saved');
+      ok = true;
     } catch (err) {
       setOrderErrors([`Order: ${messageFor(err)}`]);
     }
     setSavingOrder(false);
+    return ok;
   };
+
+  // ── PF-118 batch 2 — the unsaved-changes guard ────────────────────────────
+  // Skills can hold TWO kinds of unsaved work at once outside edit mode: a
+  // half-typed new skill AND a dragged order, each with its own save button.
+  // The dialog offers SAVE only when there is exactly one save to run; with
+  // both pending it is Keep / Discard, because "SAVE" would silently pick one.
+  const newSkillPending = !saved && fieldsDirty;
+  const orderPending    = !saved && layoutDirty;
+  const leave =
+    saved                             ? { save: submit, saveLabel: 'SAVE CHANGES', what: `“${saved.name}”` }
+    : newSkillPending && orderPending ? { what: 'your new skill and the skill order' }
+    : orderPending                    ? { save: saveOrder, saveLabel: 'SAVE ORDER', what: 'the skill order' }
+    :                                   { save: submit, saveLabel: 'ADD SKILL', what: 'your new skill' };
+  const requestLeave = useUnsavedChanges({ dirty: dirty || orderPending, ...leave });
 
   const handleDelete = async () => {
     const id = confirmId;
@@ -299,7 +318,7 @@ export function AdminSkillsPanel() {
         <button
           type="button"
           className={styles.chipEdit}
-          onClick={() => startEdit(s)}
+          onClick={() => requestLeave(() => startEdit(s))}
           // ⚠️ Opening a skill resets the staged layout (open → discard), so
           // while a drag is unsaved a click here would silently throw the new
           // arrangement away. Save or revert it first — the note says so.
@@ -332,7 +351,7 @@ export function AdminSkillsPanel() {
           </h2>
           <span className={a.spacer} />
           {saved && (
-            <button type="button" className={styles.cancelEdit} onClick={() => open(null)}>
+            <button type="button" className={styles.cancelEdit} onClick={() => requestLeave(() => open(null))}>
               CANCEL EDIT
             </button>
           )}

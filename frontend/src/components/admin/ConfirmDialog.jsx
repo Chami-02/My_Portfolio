@@ -32,13 +32,23 @@ import styles from './ConfirmDialog.module.css';
  *                         action beside the confirm (PF-114's
  *                         "DELETE SECTION + N SKILLS"). Focus still lands on
  *                         CANCEL.
+ * @param cancelLabel      PF-118 batch 2: the unsaved-changes guard's safe
+ *                         answer is KEEP EDITING, not CANCEL. Still the focused,
+ *                         Escape and backdrop answer.
+ *
+ * PF-118 batch 2 also adds `confirmTone: 'primary'` (a constructive confirm —
+ * SAVE — must not look like a delete) and `onConfirm: null`, which renders no
+ * confirm button at all (the guard when a panel has no single save to offer).
  */
 export function ConfirmDialog({
   title, children, onConfirm, onCancel,
   confirmLabel = 'YES, DELETE', busyLabel = 'DELETING…',
   busy = false, confirmDisabled = false,
   confirmTone = 'danger', extra = null, secondary = null,
+  cancelLabel = 'CANCEL',
 }) {
+  const toneClass = { danger: a.btnDanger, neutral: a.btnOutline, primary: a.btnPrimary }[confirmTone]
+    ?? a.btnDanger;
   const cancelRef = useRef(null);
 
   // Focus lands on CANCEL — the safe choice for a destructive dialog, so an
@@ -72,14 +82,16 @@ export function ConfirmDialog({
         <p className={styles.body}>{children}</p>
         {extra && <div className={styles.extra}>{extra}</div>}
         <div className={styles.actions}>
-          <button
-            type="button"
-            className={`${confirmTone === 'neutral' ? a.btnOutline : a.btnDanger} ${styles.yes}`}
-            onClick={onConfirm}
-            disabled={busy || confirmDisabled}
-          >
-            {busy ? busyLabel : confirmLabel}
-          </button>
+          {onConfirm && (
+            <button
+              type="button"
+              className={`${toneClass} ${styles.yes}`}
+              onClick={onConfirm}
+              disabled={busy || confirmDisabled}
+            >
+              {busy ? busyLabel : confirmLabel}
+            </button>
+          )}
           {secondary && (
             <button
               type="button"
@@ -97,7 +109,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             disabled={busy}
           >
-            CANCEL
+            {cancelLabel}
           </button>
         </div>
       </div>

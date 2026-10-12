@@ -5,6 +5,7 @@ import {
 } from '../../../hooks/useProjects';
 import { useAdminFlash } from '../../../hooks/useAdminFlash';
 import { useFormGuard } from '../../../hooks/useFormGuard';
+import { useUnsavedChanges } from '../../../hooks/useUnsavedChanges';
 import { useStagedFile } from '../../../hooks/useStagedFile';
 import {
   projectToForm, formToPayload, projectFormErrors,
@@ -252,7 +253,7 @@ export function AdminProjectsPanel() {
 
     // FIRST, and it returns before anything is sent. `published` here is the
     // INTENT — which rule set applies is decided by the button, not the record.
-    if (!guard.check({ ...form, published: publish })) return;
+    if (!guard.check({ ...form, published: publish })) return false;
 
     setPickError(null);
     setSaveErrors([]);
@@ -295,14 +296,29 @@ export function AdminProjectsPanel() {
         guard.reset();
       }
       setSaveErrors(recordSaved ? [`${publish ? 'Project' : 'Draft'} saved.`, ...failures] : failures);
-      return;
+      return false;
     }
 
     // Full success: back to a blank "Add new project", as the prototype does
     // after either save (Admin.dc.html:918-936).
     open(null);
     showFlash(!publish ? 'Draft saved' : editingId ? 'Project updated' : 'Project added');
+    return true;
   };
+
+  // ── PF-118 batch 2 — the unsaved-changes guard ────────────────────────────
+  // What the dialog's SAVE does is the SAFE save for the record's state: a NEW
+  // project is saved as a DRAFT (invisible publicly — the owner meant to finish
+  // it, not to publish it from a "you're leaving" prompt); an existing project
+  // keeps whatever it already is, so a live one stays live and a draft stays a
+  // draft.
+  const keepsLive = Boolean(saved) && saved.published !== false;
+  const requestLeave = useUnsavedChanges({
+    dirty,
+    save: () => submit(keepsLive),
+    saveLabel: !saved ? 'SAVE AS DRAFT' : keepsLive ? 'SAVE CHANGES' : 'SAVE DRAFT',
+    what: saved ? `“${saved.title}”` : 'your new project',
+  });
 
   const handleDelete = async () => {
     const id = confirmId;
@@ -342,7 +358,7 @@ export function AdminProjectsPanel() {
           {/* Leaves edit mode. The saved record is untouched in the list and
               EDIT brings it straight back; REVERT is the "undo my typing". */}
           {saved && (
-            <button type="button" className={styles.cancelEdit} onClick={() => open(null)}>
+            <button type="button" className={styles.cancelEdit} onClick={() => requestLeave(() => open(null))}>
               CANCEL EDIT
             </button>
           )}
@@ -527,7 +543,7 @@ export function AdminProjectsPanel() {
                   <span className={a.rowMeta}>{(p.tech || []).join(' · ') || 'No tech yet'}</span>
                 </span>
                 <span className={a.rowActions}>
-                  <button type="button" className={a.btnRow} onClick={() => startEdit(p)}
+                  <button type="button" className={a.btnRow} onClick={() => requestLeave(() => startEdit(p))}
                     aria-label={`Edit ${p.title}`}>
                     EDIT
                   </button>

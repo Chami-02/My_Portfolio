@@ -87,3 +87,33 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('button', { name: 'CANCEL' })).toBeEnabled();
   });
 });
+
+// ── PF-118 batch 2 — what the unsaved-changes guard needs from it ───────────
+describe('ConfirmDialog — PF-118 batch 2 extensions', () => {
+  const local = (el) => [...el.classList].map((c) => /^_(.+)_[^_]+$/.exec(c)?.[1] ?? c);
+
+  it('the delete confirms are unchanged: CANCEL, and a red confirm', () => {
+    render(<ConfirmDialog title="Delete?" onConfirm={() => {}} onCancel={() => {}}>Gone.</ConfirmDialog>);
+    expect(screen.getByRole('button', { name: 'CANCEL' })).toHaveFocus();
+    expect(local(screen.getByRole('button', { name: 'YES, DELETE' }))).toContain('btnDanger');
+  });
+
+  it('cancelLabel renames the safe answer — which stays focused', () => {
+    render(<ConfirmDialog title="t" cancelLabel="KEEP EDITING" onConfirm={() => {}} onCancel={() => {}}>b</ConfirmDialog>);
+    expect(screen.getByRole('button', { name: 'KEEP EDITING' })).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'CANCEL' })).toBeNull();
+  });
+
+  it("confirmTone 'primary' — a constructive confirm does not look like a delete", () => {
+    render(<ConfirmDialog title="t" confirmLabel="SAVE" confirmTone="primary" onConfirm={() => {}} onCancel={() => {}}>b</ConfirmDialog>);
+    const save = screen.getByRole('button', { name: 'SAVE' });
+    expect(local(save)).toContain('btnPrimary');
+    expect(local(save)).not.toContain('btnDanger');
+  });
+
+  it('onConfirm null renders no confirm button at all', () => {
+    render(<ConfirmDialog title="t" onConfirm={null} onCancel={() => {}}
+      secondary={{ label: 'DISCARD & LEAVE', onClick: () => {} }}>b</ConfirmDialog>);
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['DISCARD & LEAVE', 'CANCEL']);
+  });
+});

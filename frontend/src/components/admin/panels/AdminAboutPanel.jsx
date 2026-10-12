@@ -17,6 +17,7 @@ import {
   aboutToForm, formToPayload, isAboutDirty, aboutFormErrors,
 } from '../../../utils/aboutForm';
 import { useFormGuard } from '../../../hooks/useFormGuard';
+import { useUnsavedChanges } from '../../../hooks/useUnsavedChanges';
 import { fieldProps, errorId } from '../../../utils/formErrors';
 import { useStagedFile } from '../../../hooks/useStagedFile';
 import {
@@ -367,14 +368,16 @@ export function AdminAboutPanel() {
   // Sequential rather than Promise.all so a 503 on the first upload does not
   // fire a second doomed request, and so the banner can name exactly which file
   // was refused.
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  //
+  // PF-118 batch 2: `save()` resolves `true` only when EVERY part landed, so the
+  // unsaved-changes guard can save-then-leave — and stays put on a refusal or a
+  // partial failure, where the banner is the thing the owner needs to see.
+  const save = async () => {
     // ⚠️ FIRST, and it returns before anything is sent. The whole point of the
     // rule is that an invalid form produces no request at all — a save that
     // fires and then reports a 400 has already told the owner the wrong thing
     // about which system refused them.
-    if (!guard.check(form)) return;
+    if (!guard.check(form)) return false;
 
     setPickErrors({});
     setSaveErrors([]);
@@ -422,11 +425,20 @@ export function AdminAboutPanel() {
       // an operator comes to believe a file is live when it was refused. The
       // failed item stays staged so SAVE can simply be pressed again.
       setSaveErrors(profileSaved ? ['Profile details saved.', ...failures] : failures);
-      return;
+      return false;
     }
 
     showFlash('Profile saved');
+    return true;
   };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    save();
+  };
+
+  // PF-118 batch 2 — leaving this panel with unsaved edits asks first.
+  useUnsavedChanges({ dirty, save, saveLabel: 'SAVE PROFILE', what: 'your profile' });
 
   if (isLoading) {
     return (

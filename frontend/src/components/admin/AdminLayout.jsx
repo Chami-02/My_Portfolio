@@ -9,6 +9,7 @@ import { useDashboardStats } from '../../hooks/useDashboardStats';
 import { useAdminFlash } from '../../hooks/useAdminFlash';
 import { AdminFooter } from './AdminFooter';
 import { SessionExpiryBanner } from './SessionExpiryBanner';
+import { useRequestLeave } from '../../hooks/useUnsavedChanges';
 import { StarfieldCanvas, CursorGlow, GrainOverlay } from '../ambient';
 import logo from '../../assets/logo.png';
 import styles from './AdminLayout.module.css';
@@ -178,6 +179,15 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
     navigate('/admin/login');
   };
 
+  // PF-118 batch 2 — every exit the shell owns asks before unsaved work is
+  // dropped. SIGN OUT is guarded BEFORE the server call, not after: once the
+  // session is revoked, "save first" is no longer possible. `leavingAdmin` stops
+  // the navigate('/admin/login') it ends with from being asked about twice.
+  const requestLeave = useRequestLeave();
+  const signOut = () => requestLeave(handleLogout, { leavingAdmin: true });
+  // Re-clicking the panel you are on loses nothing, so it never asks.
+  const goTo = (id) => (id === activeTab ? onTabChange(id) : requestLeave(() => onTabChange(id)));
+
   return (
     <>
       <StarfieldCanvas />
@@ -213,7 +223,7 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
 
           <Link to="/?nosplash=1" className={styles.homeLink}>↗ HOME</Link>
 
-          <button type="button" onClick={handleLogout} className={styles.signOut}>
+          <button type="button" onClick={signOut} className={styles.signOut}>
             ⏻ SIGN OUT
           </button>
 
@@ -241,7 +251,7 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
                   <button
                     key={id}
                     type="button"
-                    onClick={() => onTabChange(id)}
+                    onClick={() => goTo(id)}
                     className={styles.navItem}
                     /* aria-current drives BOTH the active styling and the
                        screen-reader announcement, so the two cannot drift
@@ -316,7 +326,7 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
         </main>
       </div>
 
-      <AdminFooter email={me?.email} counts={counts} onSignOut={handleLogout} />
+      <AdminFooter email={me?.email} counts={counts} onSignOut={signOut} />
     </div>
 
       {/* Last. z-index 70 beats page content regardless of DOM order. */}

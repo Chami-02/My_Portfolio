@@ -9,6 +9,7 @@
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { renderWithGuard } from '../../../../test/renderWithGuard';
 
 // Mocked at the MODULE level: Vite's SSR transform makes exports getter-only,
 // so vi.spyOn cannot redefine them.
@@ -585,5 +586,78 @@ describe('when the projects could not be loaded', () => {
     hooks.useAdminProjects.mockReturnValue({ data: undefined, isLoading: true });
     render(<AdminProjectsPanel />);
     expect(screen.getByRole('heading', { name: 'All projects', exact: true })).toBeInTheDocument();
+  });
+});
+
+// ── PF-118 batch 2 — the unsaved-changes guard, through the real panel ──────
+describe('leaving unsaved work asks first (PF-118 batch 2)', () => {
+  const dialogBtn = (name) => within(screen.getByRole('dialog')).getByRole('button', { name });
+
+  it('a half-typed NEW project: switching records asks, and SAVE makes it a DRAFT', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminProjectsPanel />);
+
+    await user.type(field('Title'), 'Unfinished idea');
+    await user.click(editRow('ClearDrive'));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Your new project has changes that are not saved yet.');
+    await user.click(dialogBtn('SAVE AS DRAFT'));
+
+    await waitFor(() => expect(hooks.create.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Unfinished idea', published: false }),
+    ));
+    // …and THEN the record that was clicked opens.
+    await waitFor(() => expect(field('Title')).toHaveValue('ClearDrive'));
+  });
+
+  it('editing a LIVE project: CANCEL EDIT asks; KEEP EDITING keeps the typing', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminProjectsPanel />);
+
+    await user.click(editRow('ClearDrive'));
+    await user.type(field('Title'), ' v2');
+    await user.click(btn('CANCEL EDIT'));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('“ClearDrive” has changes');
+    expect(dialogBtn('SAVE CHANGES')).toBeInTheDocument();
+    await user.click(dialogBtn('KEEP EDITING'));
+
+    expect(field('Title')).toHaveValue('ClearDrive v2');
+    expect(hooks.update.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('editing a DRAFT offers SAVE DRAFT — a prompt never publishes', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminProjectsPanel />);
+
+    await user.click(editRow('Half-written'));
+    await user.type(field('Title'), '!');
+    await user.click(btn('CANCEL EDIT'));
+    await user.click(dialogBtn('SAVE DRAFT'));
+
+    await waitFor(() => expect(hooks.update.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'p2', data: expect.objectContaining({ published: false }) }),
+    ));
+  });
+
+  it('DISCARD & LEAVE drops the typing and opens the clicked record', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminProjectsPanel />);
+
+    await user.type(field('Title'), 'Throwaway');
+    await user.click(editRow('ClearDrive'));
+    await user.click(dialogBtn('DISCARD & LEAVE'));
+
+    expect(field('Title')).toHaveValue('ClearDrive');
+    expect(hooks.create.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('nothing typed: records switch freely — the zero case', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminProjectsPanel />);
+    await user.click(editRow('ClearDrive'));
+    await user.click(editRow('Half-written'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(field('Title')).toHaveValue('Half-written');
   });
 });

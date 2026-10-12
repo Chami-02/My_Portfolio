@@ -9,7 +9,7 @@
 // glyphs, which one is current, that the title and meta line follow the
 // active tab, that the header shows the REAL signed-in account, and
 // that signing out both clears the cache and leaves.
-import { render, screen, within, act } from '@testing-library/react';
+import { render, screen, within, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -22,6 +22,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ThemeProvider } from '../../../providers/ThemeProvider';
 import { MotionProvider } from '../../../providers/MotionProvider';
+import { renderWithGuard } from '../../../test/renderWithGuard';
+import { useUnsavedChanges } from '../../../hooks/useUnsavedChanges';
 
 // vi.mock over the hook modules rather than a stubbed network: the data
 // layer is not what is under test, and Vite's SSR transform makes each
@@ -451,5 +453,73 @@ describe('the mobile strip keeps the active section in view', () => {
     layout({ overflow: false, item: [500, 600] });
     renderShell({ activeTab: 'blog' });
     expect(strip().scrollLeft).toBe(0);
+  });
+});
+
+// ── PF-118 batch 2 — the shell's exits go through the unsaved-changes guard ─
+describe('AdminLayout — sidebar and SIGN OUT ask before unsaved work is lost', () => {
+  function DirtyPanel() {
+    useUnsavedChanges({ dirty: true, save: vi.fn(), saveLabel: 'SAVE PROFILE', what: 'your profile' });
+    return <p>dirty panel</p>;
+  }
+
+  const renderGuarded = ({ activeTab = 'about' } = {}) => {
+    const onTabChange = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    renderWithGuard(
+      <QueryClientProvider client={client}>
+        <ThemeProvider>
+          <MotionProvider>
+            <AdminLayout activeTab={activeTab} onTabChange={onTabChange}>
+              <DirtyPanel />
+            </AdminLayout>
+          </MotionProvider>
+        </ThemeProvider>
+      </QueryClientProvider>,
+    );
+    return { onTabChange };
+  };
+  const leaveBtn = (name) => within(screen.getByRole('dialog')).getByRole('button', { name });
+
+  it('another panel: asks first, switches only on DISCARD', async () => {
+    const { onTabChange } = renderGuarded();
+    await userEvent.click(within(nav()).getByRole('button', { name: /Skills/ }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Your profile has changes');
+    expect(onTabChange).not.toHaveBeenCalled();
+
+    await userEvent.click(leaveBtn('DISCARD & LEAVE'));
+    expect(onTabChange).toHaveBeenCalledWith('skills');
+  });
+
+  it('re-clicking the panel you are on never asks — nothing is lost', async () => {
+    const { onTabChange } = renderGuarded({ activeTab: 'about' });
+    await userEvent.click(within(nav()).getByRole('button', { name: /About/ }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(onTabChange).toHaveBeenCalledWith('about');
+  });
+
+  it('both SIGN OUTs (header, footer) ask, and neither touches the server first', async () => {
+    renderGuarded();
+    const [header, footer] = screen.getAllByRole('button', { name: /SIGN OUT/ });
+    for (const button of [header, footer]) {
+      await userEvent.click(button);
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      await userEvent.click(leaveBtn('KEEP EDITING'));
+    }
+    expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('SIGN OUT asks BEFORE the server call — after it, "save first" is impossible', async () => {
+    logout.mockResolvedValue();
+    renderGuarded();
+    await userEvent.click(screen.getAllByRole('button', { name: /SIGN OUT/ })[0]);
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(logout).not.toHaveBeenCalled();
+
+    await userEvent.click(leaveBtn('DISCARD & LEAVE'));
+    await waitFor(() => expect(logout).toHaveBeenCalledTimes(1));
+    expect(navigate).toHaveBeenCalledWith('/admin/login');
   });
 });

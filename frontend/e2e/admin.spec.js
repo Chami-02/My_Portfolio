@@ -147,3 +147,92 @@ test.describe('Admin Authentication Flow', () => {
     await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
   });
 });
+
+// ── PF-118 batch 2 — leaving unsaved work asks first ────────────────────────
+// In THIS file, not a new spec: CI's credential-scan allows the seed password
+// only in seed.js, e2e/admin.spec.js and postman/, and these tests sign in.
+// None of them saves anything — every path is Keep or Discard — so the e2e
+// database is not written to.
+test.describe('Unsaved changes guard (PF-118 batch 2)', () => {
+  const signIn = async (page) => {
+    // Start on the home page so the browser's Back has somewhere to go.
+    await page.goto('/?nosplash');
+    await page.goto('/admin/login');
+    await page.fill('input[type="email"]',    ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('/admin');
+  };
+  const nav = (page) => page.getByRole('navigation', { name: 'Admin sections' });
+  const openProjectsAndType = async (page) => {
+    await nav(page).getByRole('button', { name: /Projects/ }).click();
+    await page.getByLabel('Title', { exact: true }).fill('E2E unsaved idea');
+  };
+  const dialog = (page) => page.getByRole('dialog');
+
+  // ⚠️ ONE sign-in for these three checks, on purpose. authLimiter (10 logins /
+  // 15 min) is live under E2E, and five separate sign-ins pushed a repeated run
+  // into "Too many login attempts" — measured 2026-10-12. A shared storageState
+  // is NOT an option: the refresh token ROTATES, and replaying a used one trips
+  // reuse detection and revokes the whole session family.
+  test('in-app exits: zero case, panel switch (KEEP / DISCARD) and ↗ HOME', async ({ page }) => {
+    await signIn(page);
+
+    // Zero case first: nothing typed → panels switch with no question.
+    await nav(page).getByRole('button', { name: /Projects/ }).click();
+    await nav(page).getByRole('button', { name: /Skills/ }).click();
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Skills', exact: true })).toBeVisible();
+
+    // A half-typed project, then a panel switch: asked; KEEP keeps the typing.
+    await openProjectsAndType(page);
+    await nav(page).getByRole('button', { name: /Skills/ }).click();
+    await expect(dialog(page)).toContainText('Your new project has changes');
+    await dialog(page).getByRole('button', { name: 'KEEP EDITING', exact: true }).click();
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(page.getByLabel('Title', { exact: true })).toHaveValue('E2E unsaved idea');
+
+    // ↗ HOME (a router link) is held too.
+    await page.getByRole('link', { name: '↗ HOME', exact: true }).click();
+    await expect(dialog(page)).toBeVisible();
+    await dialog(page).getByRole('button', { name: 'KEEP EDITING', exact: true }).click();
+    await expect(page).toHaveURL('/admin');
+
+    // DISCARD actually goes.
+    await nav(page).getByRole('button', { name: /Skills/ }).click();
+    await dialog(page).getByRole('button', { name: 'DISCARD & LEAVE', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Skills', exact: true })).toBeVisible();
+  });
+
+  test('the browser Back button is held while dirty', async ({ page }) => {
+    await signIn(page);
+    // ⚠️ Build the history IN-APP. `page.goto` loads a new DOCUMENT, and Back
+    // across documents is a real browser navigation React cannot intercept —
+    // that case gets the browser's own beforeunload prompt (the next test).
+    // Back WITHIN the app is a popstate, and that is what the dialog holds.
+    await page.getByRole('link', { name: '↗ HOME', exact: true }).click();
+    await page.waitForURL(/\/\?nosplash/);
+    await page.getByRole('link', { name: 'ADMIN', exact: true }).click();
+    await page.waitForURL('/admin');
+    await openProjectsAndType(page);
+
+    await page.goBack();
+    await expect(dialog(page)).toBeVisible();
+    await expect(page).toHaveURL('/admin');
+    await dialog(page).getByRole('button', { name: 'DISCARD & LEAVE', exact: true }).click();
+    // The home page drops `?nosplash` from the URL once it has read it.
+    await expect(page).not.toHaveURL(/\/admin/);
+  });
+
+  test('closing the tab while dirty raises the browser prompt', async ({ page }) => {
+    await signIn(page);
+    await openProjectsAndType(page);
+
+    const prompt = new Promise((resolve) => page.once('dialog', async (d) => {
+      resolve(d.type());
+      await d.accept();
+    }));
+    await page.close({ runBeforeUnload: true });
+    expect(await prompt).toBe('beforeunload');
+  });
+});

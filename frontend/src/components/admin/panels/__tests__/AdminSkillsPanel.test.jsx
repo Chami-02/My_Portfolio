@@ -9,6 +9,7 @@
 import { render, screen, within, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
+import { renderWithGuard } from '../../../../test/renderWithGuard';
 
 // Mocked at the MODULE level: Vite's SSR transform makes exports getter-only.
 const hooks = vi.hoisted(() => ({
@@ -557,5 +558,51 @@ describe('when the skills could not be loaded', () => {
     render(<AdminSkillsPanel />);
     expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
     expect(screen.getByText(`All skills (${SKILLS.length})`)).toBeInTheDocument();
+  });
+});
+
+// ── PF-118 batch 2 — the unsaved-changes guard, through the real panel ──────
+describe('leaving unsaved work asks first (PF-118 batch 2)', () => {
+  const leaveBtn = (name) => within(screen.getByRole('dialog')).getByRole('button', { name });
+
+  it('a half-typed NEW skill: clicking another skill asks, offering ADD SKILL', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminSkillsPanel />);
+
+    await user.type(field('Skill name'), 'Go');
+    await user.click(screen.getByRole('button', { name: 'Edit React' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Your new skill has changes');
+    expect(leaveBtn('ADD SKILL')).toBeInTheDocument();
+    await user.click(leaveBtn('DISCARD & LEAVE'));
+
+    expect(field('Skill name')).toHaveValue('React');
+    expect(hooks.create.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('editing a skill: CANCEL EDIT asks; SAVE CHANGES saves it, then leaves edit mode', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminSkillsPanel />);
+
+    await user.click(screen.getByRole('button', { name: 'Edit React' }));
+    await user.selectOptions(field('Level'), 'advanced');
+    await user.click(btn('CANCEL EDIT'));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('“React” has changes');
+    await user.click(leaveBtn('SAVE CHANGES'));
+
+    await waitFor(() => expect(hooks.update.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 's1', data: expect.objectContaining({ level: 'advanced' }) }),
+    ));
+    await waitFor(() => expect(screen.getByRole('heading', { name: /new skill/i })).toBeInTheDocument());
+  });
+
+  it('nothing typed: skills open freely — the zero case', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminSkillsPanel />);
+    await user.click(screen.getByRole('button', { name: 'Edit React' }));
+    await user.click(screen.getByRole('button', { name: 'Edit Next.js' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(field('Skill name')).toHaveValue('Next.js');
   });
 });
