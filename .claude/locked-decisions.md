@@ -4194,6 +4194,31 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
 - Every count-changing mutation calls **`refreshDashboard(qc)`** (cancel → invalidate),
   never a bare `invalidateQueries({ queryKey: DASHBOARD_KEY })`.
 
+### PF-118 batch 2 (owner decisions 2026-10-12)
+
+- **Timezone stores an IANA PLACE** (`Asia/Colombo`), chosen from a dropdown (420
+  places, grouped by region, "None — hide" first). The site prints its offset NOW
+  (`UTC+5:30`), so daylight saving is right (`Europe/London` UTC+0 ↔ +1). Rejected:
+  a fixed list of 38 offsets — simpler, but wrong half the year for a DST country.
+  Batch 1's free-text `'UTC+5:30'` default is superseded; a legacy value renders
+  verbatim, shows as "(old value — pick a place)" and SAVE refuses it.
+- Validity = SHAPE regex AND ICU accepts it (`utils/timeZone.js` ×2, mirrored). ⚠️
+  Never drop the shape check: current Chrome (and newer Node) accept OFFSET strings
+  (`+05:30`) as time zones; Node 20 does not, so a plain test cannot see it — the
+  stubbed-Intl test does.
+- **The unsaved-changes guard** — see `product-requirements.md`. Both halves of the
+  reversal: 2026-09-25 "UNSAVED CHANGES is a marker, not a blocker or a
+  beforeunload dialog" → 2026-10-12 owner asked for exactly that guard.
+  Dialog = the admin's ONE `ConfirmDialog` (gained `cancelLabel`, `confirmTone:
+  'primary'`, `onConfirm: null`), so it shares focus/Escape/backdrop behaviour.
+- **The router is a DATA router** (`createBrowserRouter`, one catch-all route around
+  the unchanged three-`<Routes>` layout) — owner chose it so Back/Forward is guarded
+  (`useBlocker` throws under `<BrowserRouter>`). Do not "modernise" the three
+  `<Routes>` blocks into route objects as a side quest.
+- Known limits, accepted: Back that crosses DOCUMENTS (you arrived by typing a URL)
+  gets the browser's native prompt, not ours; a session that expires mid-edit is not
+  specially handled (its redirect is held by the same dialog).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

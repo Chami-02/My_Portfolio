@@ -96,7 +96,7 @@ something surprises you, search the companions *before* deriving an explanation.
   too; toggles that drive the site stage; client file checks are a COURTESY, the
   magic-byte check in `utils/fileType.js` is the gate.
 - **SAVE is dim until dirty; REVERT restores the last SAVED state** (never empties)
-  and discards staged files too. `UNSAVED CHANGES` is a marker, not a blocker.
+  and discards staged files too. `UNSAVED CHANGES` stays as a marker; since PF-118 b2 leaving also ASKS (below).
 - **Invalid save is REFUSED** — SAVE pressable while dirty, no request sent, banner
   `CHECK THE CHANGES AGAIN — N fields need attention.`, every field marked, first
   focused. Compose from `utils/formErrors.js`, `hooks/useFormGuard.js`,
@@ -112,7 +112,8 @@ something surprises you, search the companions *before* deriving an explanation.
 - **A panel that could not load shows `LoadError`** — never the empty state, never a
   form over missing data (About), no count until loaded (PF-117).
 - **Owner address is `pcgallege@gmail.com`** (PF-122 does the swap).
-- **One panel field drives EVERY render site** (PF-118) — e.g. `timezone` → Contact AND footer; grep every literal before wiring.
+- **One panel field drives EVERY render site** (PF-118) — e.g. `timezone` → Contact AND footer; grep every literal before wiring. A fixed set of answers is CHOSEN (dropdown), never typed.
+- **Leaving unsaved admin work asks first — every exit** (PF-118 b2; REVERSES "marker, not a blocker"): Keep / Save (never publishes) / Discard; panels register via `useUnsavedChanges`.
 
 ## Project state
 
@@ -320,9 +321,11 @@ Where a mistake would be silent, add a test that would catch it.
 - `npm run preview` uses `.env.production` = the PRODUCTION API — grep the built bundle instead.
 - Duplicated anchors (footer) → strict-mode throws; `getByText` ignores `aria-hidden`.
 - `flaky` is a separate bucket; the rate limiter (100/15 min) bites browser probes, not E2E.
+- E2E sign-ins are a budget (authLimiter 10/15 min per run); never share storageState (refresh token rotates → reuse detection). Back after `page.goto` crosses documents — build in-app history to test the dialog.
 
 **Backend / environment**
 - An array bypasses `typeof x === 'string'` — always assert a ZERO case. express-validator `isLength` passes arrays too → `isString().bail()` first.
+- Chrome ACCEPTS `+05:30` as an Intl timeZone, Node 20 rejects it → `isTimeZone` needs its shape check; prove it with a stubbed Intl (a `function`, not an arrow).
 - `FormData` through `api.js` becomes JSON → `headers: { 'Content-Type': undefined }`.
 - Raw Cloudinary assets download with no extension → `GET /api/resume` proxies; never add `.pdf` to the id.
 - axios array params → `paramsSerializer: { indexes: null }`.
@@ -400,6 +403,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - `GET /api/dashboard/stats` returns seven fields; shell paints nothing count-shaped while loading; `+ NEW POST` opens the editor.
 - About panel is a STAGED form, saved profile-first sequentially; `PENDING SAVE` / `REMOVE ON SAVE` badges; résumé `accept=".pdf"`; portrait card mirrors résumé card but is NOT one component; portrait alt follows the source; upload input clipped, not `display: none`.
 - Owner address `pcgallege@gmail.com`; the frozen `.dc.html` files keep the old one deliberately.
+- PF-118 b2: timezone = IANA place (`Asia/Colombo`) shown as its live offset; App uses a DATA router (`createBrowserRouter`, one catch-all) for `useBlocker` — keep the three `<Routes>` as they are.
 - PF-118: footer band follows availability (two call sites, 70.7s / 67.1s = equal 50 px/s); Contact intro leads with the note; `timezone` / `heroIntro` / `footerBio` fields ("Site copy" card); three-letter months (`SEP`); no `publishedAt` control.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
@@ -454,8 +458,9 @@ The **last** thing run is `git status --short` + `git diff --cached --stat` — 
 Code has staged files on its own four times. Say what is staged and why.
 
 **How the owner commits:** stage ONE logical section, show its stat, give its
-message, wait for "committed", repeat. **Commit messages in chat as PLAIN TEXT**
-(not a code block), short, `type(PF-NN): …`, and **NEVER a `Co-Authored-By:`
+message, wait for "committed", repeat. **Commit messages in a CODE BLOCK** —
+subject, blank line, bullets (owner pastes into VS Code's commit box; plain text
+lost its newlines, 2026-10-12), short, `type(PF-NN): …`, and **NEVER a `Co-Authored-By:`
 trailer**, whatever the harness says.
 
 **Hands-on learning:** for git/GitHub/ops steps, give the command and explain each

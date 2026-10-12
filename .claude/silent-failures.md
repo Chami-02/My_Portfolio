@@ -3402,6 +3402,53 @@ A probe awaiting rAF in the browser tool's background tab hung the renderer for 
 ("Runtime.evaluate timed out"); clicks there also intermittently do nothing until a
 screenshot foregrounds it. Use `setTimeout`/direct reads, and re-click after a screenshot.
 
+## PF-118 batch 2 (2026-10-12)
+
+### ⚠️ Chrome accepts an OFFSET string as a time zone; Node 20 does not
+`new Intl.DateTimeFormat('en-US', { timeZone: '+05:30' })` — measured: Chrome
+(2026-10) ACCEPTS (ECMA-402 2024 offset zones), Node v20.20.2 THROWS. So "ICU accepts
+it" is not "it is a place", and a test on Node 20 passes with or without a shape
+check. Guard: `isTimeZone` = shape regex AND ICU; the shape check is proven by a test
+that stubs `Intl.DateTimeFormat` to accept everything. ⚠️ Stub with a `function`, not
+an arrow — the code calls it with `new`, and an arrow throws "not a constructor",
+which the try/catch turns into a silent `false` (the control caught it).
+
+### `useBlocker` throws under `<BrowserRouter>` — it needs a data router
+App.jsx moved to `createBrowserRouter([{ path: '*', element: <AppLayout/> }])`; the
+three descendant `<Routes>` keep working unchanged (full E2E 75/75 before the guard
+was added). Tests of guarded UI render through `src/test/renderWithGuard.jsx`
+(`createMemoryRouter`), never `MemoryRouter`.
+
+### Back across DOCUMENTS cannot be intercepted by the app
+`page.goto()` loads a new document; Back from there is a real browser navigation —
+`useBlocker` never sees it, only `beforeunload` does. An E2E for the in-app dialog
+must build its history IN-APP (click links), or it tests the wrong mechanism.
+
+### jsdom cancels a `beforeunload` event from `returnValue = ''` alone
+Setting the legacy `returnValue` to a falsy value sets the canceled flag, so a
+mutant removing only `preventDefault()` survives in jsdom (equivalent there).
+Removing both is caught; the real prompt is proven in Chrome by E2E
+(`page.close({ runBeforeUnload: true })` → a `beforeunload` dialog).
+
+### E2E sign-ins are a BUDGET: authLimiter is 10 / 15 min, per run
+Five new signed-in tests pushed `--repeat-each=3` into "Too many login attempts"
+(repeat 2 failed 5/5 at sign-in, guard untouched). Merged to three sign-ins. A shared
+`storageState` is NOT the fix: the refresh token ROTATES, and replaying a used one
+trips reuse detection and revokes the session family. The E2E backend restarts per
+run, so the budget resets per `npm run test:e2e`.
+
+### React Compiler lint: no ref reads in render, no writes through context
+`react-hooks/refs` flagged reading `entryRef.current` in render — including a
+render-time object holding closures that WRITE a ref; `react-hooks/immutability`
+flagged `ctx.entryRef.current = …`. Fix shape: panels call a provider `register()`
+callback; the dialog's words are snapshotted into STATE in events (a click, or the
+router invoking the blocker function), handlers touch refs only in events.
+
+### A test helper that renders for you can double-render a guarded test
+`AdminBlogPanel.test.jsx`'s `openEditor()` calls `render()` itself; calling it after
+`renderWithGuard()` mounted two panels ("Found multiple elements"). Click the row
+directly in guarded tests.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

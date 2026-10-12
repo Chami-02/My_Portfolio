@@ -77,8 +77,9 @@ by PF-112; binds every panel after it.**
 - **Reverting must discard staged FILES too.** A revert that restores the text and
   leaves a picked portrait staged is a half-revert, and the tell is nasty: the
   fields look restored, then SAVE uploads a file the owner thought they discarded.
-- Keep the `UNSAVED CHANGES` marker. Deliberately a marker, **not** a navigation
-  blocker or a `beforeunload` dialog.
+- Keep the `UNSAVED CHANGES` marker. ~~Deliberately a marker, **not** a navigation
+  blocker or a `beforeunload` dialog.~~ **REVERSED 2026-10-12 (PF-118 batch 2)** —
+  owner asked for the guard below; the marker stays as well.
 
 #### Admin panels REFUSE an invalid save — shake, count, and mark the field
 
@@ -241,6 +242,28 @@ LoadError.jsx`) — `COULDN'T LOAD YOUR <THING>` + RETRY:
 
 Every new admin panel must handle this branch before its empty branch.
 
+#### Leaving unsaved admin work asks first — every exit
+
+**Owner requirement, 2026-10-12 (PF-118 batch 2). Built.** Owner's words: *"when i
+editing something or creating something in a panel… mistakenly i press another
+section… not saving the existing work… mention as a alert… edit this or save as
+draft or complete this before go anywhere."* **Reverses the 2026-09-25 "a marker,
+not a blocker" rule above.**
+
+- **Every exit asks while a panel is dirty:** sidebar / phone strip, a panel's own
+  record switches (EDIT another, + NEW, CANCEL EDIT, BACK TO LIST, CANCEL), ↗ HOME,
+  ← BACK TO HOME PAGE, both SIGN OUTs, browser Back/Forward (in-app history), and
+  reload / close tab / typed URL (the browser's own prompt — wording not ours).
+- **The dialog:** KEEP EDITING (focused; also Escape and backdrop) · SAVE · DISCARD &
+  LEAVE (red). SAVE is the panel's REAL save: refused (invalid) or failed → you STAY
+  and see why; only a save that fully landed continues.
+- **SAVE never publishes:** a NEW record saves as a DRAFT (`SAVE AS DRAFT`); an
+  existing one keeps its state (`SAVE CHANGES` live, `SAVE DRAFT` draft). About:
+  `SAVE PROFILE`. Skills with a new skill AND an unsaved order: Keep / Discard only.
+- Nothing typed → no question, ever (re-clicking the current panel never asks).
+- SIGN OUT asks BEFORE the server call — after it, saving is impossible.
+- A new admin panel with a form must register through `useUnsavedChanges`.
+
 #### One panel field drives EVERY place the site shows it
 
 **Owner requirement, 2026-10-12 (PF-118). Built for About.** Owner's words: *"when i
@@ -256,6 +279,9 @@ zone."*
   and a test per site.
 - Blank text copy falls back to the component's literal; a blank *label-like* value
   (timezone, a social URL) is hidden, separator included.
+- **A value with a fixed set of valid answers is CHOSEN, never typed** (owner,
+  2026-10-12: "otherwise mistakes can happen… typos"). Timezone is a dropdown of IANA
+  places; the server refuses anything else.
 
 ---
 

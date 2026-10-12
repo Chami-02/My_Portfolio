@@ -8180,6 +8180,36 @@ Two probe rounds through the panel, every render site matched the API, incl. bla
 (no dangling `·`) and unavailable (band/badge/row CURRENTLY BUILDING, Contact sentence gone).
 Restored through the panel and verified field by field. Light theme checked on the new card.
 
+### PF-118 batch 2 — timezone dropdown, data router, unsaved-changes guard (2026-10-12)
+
+Owner, after batch 1 was committed (`27b4cd2`, `993b40c`, `45f6b51`): a timezone
+typed by hand invites typos; and a mis-click on another panel silently throws away
+unsaved work. Folded into PF-118 by owner choice. Report: same file, "Batch 2".
+
+- **Timezone = IANA place** from a dropdown; `utils/timezone.js` (frontend:
+  `timezoneLabel`, `timezoneGroups`, `isTimeZone`) and `backend/src/utils/timeZone.js`
+  (`isTimeZone`, used by the model validator AND the route rule). Default
+  `'Asia/Colombo'`. Legacy free text renders verbatim, shows as "(old value — pick a
+  place)", SAVE refuses it. No migration: the only stored legacy value was dev's,
+  repaired through the panel during verification.
+- **Router:** `App.jsx` → `createBrowserRouter`, one catch-all route around the
+  unchanged layout. Full E2E 75/75 on the swap alone.
+- **Guard:** `UnsavedChangesContext.js`, `UnsavedChangesProvider.jsx` (in AdminPage),
+  `hooks/useUnsavedChanges.js` (`useUnsavedChanges`, `useRequestLeave`). Panels'
+  `submit`/`save` now resolve true/false. ConfirmDialog gained `cancelLabel`,
+  `confirmTone: 'primary'`, `onConfirm: null`. AdminLayout guards sidebar + both
+  SIGN OUTs (before the server call). Projects/Blog/Skills guard their record
+  switches. `src/test/renderWithGuard.jsx` for tests.
+- **Gate:** frontend `check` 86 files / **2043**, 95.45 / 91.16 / 91.02 / 96.74,
+  build ✓; backend **36 / 661**, branch **72.91**; E2E **78 passed** (3 new, in
+  `admin.spec.js` because of the credential-scan allowlist). Mutation: **20 killed**,
+  1 equivalent (jsdom `returnValue`), after 3 survivors drove new tests (hash link,
+  sidebar, sign-out).
+- **Live:** dropdown 420 options / 10 groups; legacy value shown and refused; dialog
+  SAVE PROFILE saved `Asia/Colombo` then switched to Skills; public shows UTC+5:30;
+  dialog at 320px light fits (buttons stack), no overflow. Chrome measured to
+  ACCEPT `+05:30` as a timeZone — the shape check is live protection.
+
 ### Outstanding work added by PF-118
 - **→ PF-120:** `POST /api/upload` + `PATCH /api/about/availability` have no client;
   `PUT /api/blog/:id` skips `blogRules` (raw API can set `publishedAt`/`views`/`slug`);
@@ -8189,8 +8219,12 @@ Restored through the panel and verified field by field. Light theme checked on t
   mark-unread; `useProject` clientless; `Vocabulary.order` never written; `hasAvatar`
   unread; hero portrait not uploadable; tech chips / role pills / hero marquee literal; no
   `og:` meta.
-- Dev's About now STORES timezone/heroIntro/footerBio equal to their defaults (were absent)
-  — renders identically.
+- Dev's About now STORES heroIntro/footerBio equal to their defaults (were absent) and
+  timezone `Asia/Colombo` (batch 2) — renders identically.
+- Batch 2 known limits: Back across DOCUMENTS gets the browser's native prompt, not
+  the dialog; a session expiring mid-edit is held by the same dialog, not handled
+  specially. Three-button dialog wraps KEEP EDITING to a second row at desktop width
+  (existing card width) — reads fine, flagged in case the owner wants it wider.
 - The PostCSS "did not pass the `from` option" build warning is pre-existing (clean HEAD
   prints it too).
 - Dev has no drafts right now, so a live "no drafts served" check is not discriminating —
