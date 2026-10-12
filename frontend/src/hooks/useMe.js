@@ -12,8 +12,8 @@ export { ME_KEY };
  *
  * ⚠️ `authService.getMe` has existed since Phase 1 and had NO caller at
  * any layer — it was written for ProtectedRoute and never wired up.
- * This is its first consumer. The admin header showed a hardcoded
- * `admin@portfolio.dev` instead, which is a lie in any deployment.
+ * This is its first consumer. The admin header showed a hardcoded demo
+ * address instead, which is a lie in any deployment.
  *
  * ⚠️ `retry: false`. The shared QueryClient retries once by default,
  * which is right for a flaky list fetch and wrong here: a 401 means the

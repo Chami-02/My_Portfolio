@@ -46,7 +46,7 @@ const aboutSchema = new mongoose.Schema(
     email: {
       type:    String,
       trim:    true,
-      default: 'parindrachameekara@gmail.com',
+      default: 'pcgallege@gmail.com',
       validate: {
         validator: v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
         message:   props => `${props.value} is not a valid email address`,

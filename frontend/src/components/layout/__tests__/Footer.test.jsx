@@ -125,7 +125,7 @@ function renderFooter({ path = '/' } = {}) {
  */
 const ABOUT_DATA = {
   availableForWork: true,
-  email:    'parindrachameekara@gmail.com',
+  email:    'pcgallege@gmail.com',
   location: 'Galle, Sri Lanka',
   social: {
     github:    'https://github.com/Chami-02',
@@ -573,7 +573,7 @@ describe('Footer (PF-88)', () => {
       expect(link).toHaveAttribute('rel', 'noreferrer');
     }
     const email = screen.getByRole('link', { name: 'Email ↗' });
-    expect(email).toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
+    expect(email).toHaveAttribute('href', 'mailto:pcgallege@gmail.com');
     expect(email).not.toHaveAttribute('target');
   });
 

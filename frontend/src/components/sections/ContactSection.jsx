@@ -35,7 +35,7 @@ import styles from './ContactSection.module.css';
  * VISITOR's address, and two things called `email` a few lines apart is exactly
  * the sort of collision that gets one of them wired to the wrong place.
  */
-const OWNER_EMAIL_FALLBACK = 'parindrachameekara@gmail.com';
+const OWNER_EMAIL_FALLBACK = 'pcgallege@gmail.com';
 
 const EMPTY_FORM = { name: '', email: '', message: '' };
 

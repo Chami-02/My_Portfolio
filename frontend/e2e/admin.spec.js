@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 // deployed environment, where the admin password is NOT the local default.
 // The fallbacks match what `npm run seed` writes when SEED_ADMIN_PASSWORD
 // is unset, so a plain local run needs no setup.
-const ADMIN_EMAIL    = process.env.E2E_ADMIN_EMAIL    || 'admin@portfolio.dev';
+const ADMIN_EMAIL    = process.env.E2E_ADMIN_EMAIL    || 'pcgallege@gmail.com';
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'Admin@1234!';
 
 test.describe('Admin Authentication Flow', () => {
@@ -30,6 +30,51 @@ test.describe('Admin Authentication Flow', () => {
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();
+  });
+
+  // PF-119 — Google sign-in. What this CAN cover: our button reaches our
+  // API, which sends the browser to Google with every parameter the flow's
+  // security rests on. What it CANNOT: Google's consent screen, and the
+  // callback → handoff → session leg after it (real Google cannot be driven
+  // by a test). That leg is covered by backend google.auth.test.js with
+  // real ID-token verification, and by the owner's manual round trip.
+  test('CONTINUE WITH GOOGLE sends the browser to Google with PKCE, state and nonce', async ({ page }) => {
+    // ⚠️ Intercept OUR start route, not accounts.google.com: page.route
+    // never sees a redirect hop, so a handler on Google's host is skipped
+    // and the browser really goes to Google (measured — the first version
+    // of this test landed on Google's "invalid_client" page). Fetch the
+    // real API response WITHOUT following the 302 and read where it points.
+    let googleUrl = null;
+    await page.route('**/api/auth/google/start**', async (route) => {
+      const response = await route.fetch({ maxRedirects: 0 });
+      expect(response.status()).toBe(302);
+      googleUrl = new URL(response.headers().location);
+      return route.fulfill({ status: 200, contentType: 'text/html', body: '<p>stub google</p>' });
+    });
+
+    await page.goto('/admin/login');
+    await page.getByRole('link', { name: 'CONTINUE WITH GOOGLE', exact: true }).click();
+    await expect(page.getByText('stub google')).toBeVisible();
+
+    expect(googleUrl).not.toBeNull();
+    expect(googleUrl.origin).toBe('https://accounts.google.com');
+    const p = googleUrl.searchParams;
+    expect(p.get('response_type')).toBe('code');
+    expect(p.get('scope')).toBe('openid email');
+    expect(p.get('code_challenge_method')).toBe('S256');
+    expect(p.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(p.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(p.get('nonce')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(p.get('redirect_uri')).toMatch(/\/api\/auth\/google\/callback$/);
+    expect(p.get('client_id')).toBeTruthy();
+  });
+
+  test('a refused Google sign-in comes back as a readable error, password door intact', async ({ page }) => {
+    await page.goto('/admin/login#google_error=not_allowed');
+    await expect(page.getByRole('alert')).toHaveText(/isn't an admin account/);
+    // The fragment is wiped once read.
+    await expect(page).toHaveURL(/\/admin\/login$/);
+    await expect(page.locator('input[type="email"]')).toBeVisible();
   });
 
   test('wrong credentials show error message', async ({ page }) => {

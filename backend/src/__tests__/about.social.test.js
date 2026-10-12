@@ -15,7 +15,7 @@ describe('About — social links (PF-60 Step 1)', () => {
   it('holds exactly one email, at the top level', () => {
     const a = new About({});
 
-    expect(a.email).toBe('parindrachameekara@gmail.com');
+    expect(a.email).toBe('pcgallege@gmail.com');
     expect(a.social.email).toBeUndefined();
   });
 
@@ -65,7 +65,7 @@ describe('About — social links (PF-60 Step 1)', () => {
 
     expect(a.validateSync()).toBeUndefined();
     expect(a.social.email).toBeUndefined();
-    expect(a.email).toBe('parindrachameekara@gmail.com');
+    expect(a.email).toBe('pcgallege@gmail.com');
   });
 
 });

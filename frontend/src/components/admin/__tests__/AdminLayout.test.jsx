@@ -195,12 +195,21 @@ describe('AdminLayout — identity', () => {
     expect(screen.getByText('owner@example.com')).toBeInTheDocument();
   });
 
-  it('never renders the placeholder address it replaced', () => {
+  it('renders no address but the one /auth/me returned', () => {
     renderShell();
-    // The Phase 1 header hardcoded this string, which is a lie in any
-    // deployment. A regression here is invisible on a dev machine
-    // seeded with exactly that account, which is why it is pinned.
-    expect(screen.queryByText('admin@portfolio.dev')).not.toBeInTheDocument();
+    // The Phase 1 header hardcoded a demo address, which is a lie in any
+    // deployment. A regression here is invisible on a dev machine seeded
+    // with exactly that account — so pin that EVERY address on screen is
+    // the signed-in one, rather than naming one string that must be absent.
+    // Text node by text node: body.textContent runs neighbouring elements
+    // together ("PANELCMS" + the address) and would invent addresses.
+    const addresses = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      addresses.push(...(walker.currentNode.nodeValue.match(/[^\s@·]+@[^\s@·]+\.[a-z]+/gi) || []));
+    }
+    expect(addresses.length).toBeGreaterThan(0);
+    expect(new Set(addresses)).toEqual(new Set(['owner@example.com']));
   });
 
   it('renders no address at all while /auth/me has not answered', () => {

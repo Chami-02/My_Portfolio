@@ -150,7 +150,7 @@ describe('AboutSection (PF-81)', () => {
     expect(screen.getByText('SEE MY WORK →').closest('a'))
       .toHaveAttribute('href', '#projects');
     expect(screen.getByText('EMAIL ME').closest('a'))
-      .toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
+      .toHaveAttribute('href', 'mailto:pcgallege@gmail.com');
   });
 
   /*
@@ -630,7 +630,7 @@ describe('the EMAIL ME address (PF-112)', () => {
     render(withMotion(<AboutSection />));
 
     expect(screen.getByRole('link', { name: /EMAIL ME/i }))
-      .toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
+      .toHaveAttribute('href', 'mailto:pcgallege@gmail.com');
   });
 });
 

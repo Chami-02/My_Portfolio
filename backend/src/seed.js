@@ -332,7 +332,7 @@ const ABOUT_DATA = {
   name: 'Parindra Chameekara',
   title: 'Computer Science Undergraduate | Full-Stack Developer',
   location: 'Galle, Sri Lanka',
-  email: 'parindrachameekara@gmail.com',
+  email: 'pcgallege@gmail.com',
 
   // ⚠️ THE PUBLIC SITE RENDERS THIS — it is no longer decorative seed text.
   // `AboutSection.jsx` read two hardcoded paragraphs until the About panel was
@@ -394,15 +394,20 @@ const ABOUT_DATA = {
 // That line is gone; the Playwright suite and Postman collection now take
 // the value from the environment with this same fallback.
 //
-// Set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_EMAIL) for any
-// database that is not a throwaway. The env-supplied value is never
-// echoed to the console — only the fallback is, because you need to be
-// told when the shared default is in play.
-const DEMO_ADMIN_EMAIL    = 'admin@portfolio.dev';
+// Set SEED_ADMIN_PASSWORD for any database that is not a throwaway. The
+// env-supplied value is never echoed to the console — only the fallback is,
+// because you need to be told when the shared default is in play.
+//
+// PF-119 — the addresses are NOT configurable (owner, 2026-10-12): the one
+// admin signs in as `pcgallege@gmail.com` or `parindrachameekara@gmail.com`,
+// by password or Google, on every environment. The same pair migration 009
+// writes to an existing database.
+const { PRIMARY_EMAIL: ADMIN_EMAIL, LOGIN_EMAILS: ADMIN_LOGIN_EMAILS } =
+  require('./migrations/009-admin-accounts');
 const DEMO_ADMIN_PASSWORD = 'Admin@1234!';
 
 function resolveAdminCredentials() {
-  const email    = process.env.SEED_ADMIN_EMAIL || DEMO_ADMIN_EMAIL;
+  const email    = ADMIN_EMAIL;
   const password = process.env.SEED_ADMIN_PASSWORD;
 
   if (password) return { email, password, fromEnv: true };
@@ -491,7 +496,7 @@ async function seed() {
 
     // Create admin user — password is hashed by the pre-save hook in User.js
     const admin = resolveAdminCredentials();
-    await User.create({ email: admin.email, password: admin.password });
+    await User.create({ email: admin.email, loginEmails: [...ADMIN_LOGIN_EMAILS], password: admin.password });
 
     if (admin.fromEnv) {
       console.log(`🔐 Created admin user: ${admin.email} (password from SEED_ADMIN_PASSWORD)`);

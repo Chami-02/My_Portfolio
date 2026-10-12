@@ -104,7 +104,7 @@ const pick = (r, name) => pickAll(r, name)[0] ?? null;
  * copy rather than as invented test data.
  */
 const ABOUT_DATA = {
-  email:    'parindrachameekara@gmail.com',
+  email:    'pcgallege@gmail.com',
   location: 'Galle, Sri Lanka',
   social: {
     github:   'https://github.com/Chami-02',
@@ -643,8 +643,8 @@ describe('transcribed copy (Step 9 #15)', () => {
 
   it('renders the email, GitHub and LinkedIn links', () => {
     renderSection();
-    expect(screen.getByRole('link', { name: 'parindrachameekara@gmail.com' }))
-      .toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
+    expect(screen.getByRole('link', { name: 'pcgallege@gmail.com' }))
+      .toHaveAttribute('href', 'mailto:pcgallege@gmail.com');
 
     const github = screen.getByRole('link', { name: 'GITHUB' });
     expect(github).toHaveAttribute('href', 'https://github.com/Chami-02');
@@ -666,7 +666,7 @@ describe('transcribed copy (Step 9 #15)', () => {
   it('fronts all three links with a mark, and none of them is announced', () => {
     renderSection();
     const links = [
-      screen.getByRole('link', { name: 'parindrachameekara@gmail.com' }),
+      screen.getByRole('link', { name: 'pcgallege@gmail.com' }),
       screen.getByRole('link', { name: 'GITHUB' }),
       screen.getByRole('link', { name: 'LINKEDIN' }),
     ];
@@ -881,7 +881,7 @@ describe('Contact — email, location and socials come from the panel (PF-112)',
     useAbout.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
     renderSection();
 
-    expect(screen.getByRole('link', { name: 'parindrachameekara@gmail.com' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'pcgallege@gmail.com' })).toBeInTheDocument();
   });
 });
 

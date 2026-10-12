@@ -273,6 +273,13 @@ jobs:
           PORT: 5055
           MONGO_URI: mongodb://localhost:27017/portfolio_e2e
           JWT_SECRET: ci_test_secret_github_actions_only
+          # PF-119 — PLACEHOLDERS, not credentials. They let /google/start
+          # build a real Google URL; admin.spec.js intercepts it before it
+          # leaves the browser, so Google never sees this client id.
+          GOOGLE_CLIENT_ID: e2e-placeholder.apps.googleusercontent.com
+          GOOGLE_CLIENT_SECRET: e2e-placeholder-not-a-secret
+          GOOGLE_REDIRECT_URI: http://localhost:5055/api/auth/google/callback
+          FRONTEND_URL: http://localhost:5174
         run: npm start > ../backend-server.log 2>&1 &
 
       - name: Wait for backend server

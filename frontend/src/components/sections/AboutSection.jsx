@@ -190,7 +190,7 @@ export function AboutSection() {
               deliberately equal to what the page has always shown so a failed
               fetch degrades to the old behaviour rather than to a blank. */}
               <a
-                href={`mailto:${about?.email || 'parindrachameekara@gmail.com'}`}
+                href={`mailto:${about?.email || 'pcgallege@gmail.com'}`}
                 className={styles.ctaSecondary}
               >
                 {/* Owner-requested 2026-08-29. The prototype's label is
