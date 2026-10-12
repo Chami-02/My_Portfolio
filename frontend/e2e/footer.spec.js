@@ -132,8 +132,22 @@ test.describe('Footer (PF-88)', () => {
     // The reason it exists: ScrollToTop unmounts once this bar is in
     // view, so at the very bottom this is the only way back up.
     await page.goto('/?nosplash');
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-    await expect.poll(() => page.evaluate(() => Math.round(window.scrollY) > 0)).toBe(true);
+
+    // ⚠️ PF-118 — RE-SCROLL UNTIL THE BAR IS IN VIEW; one scroll is a race.
+    // Measured 2026-10-12: the scroll ran at ~500ms with ZERO of the five API
+    // responses back, when the page was 5801px tall; the data then grew it to
+    // 5983px, and the scroll stopped 182px short — exactly the growth. The
+    // bottom bar sat below the viewport, so ScrollToTop correctly stayed and
+    // the next line failed 5/5. It used to be load-sensitive (it passed when
+    // the data happened to win), which is why it was logged as a flake.
+    //
+    // The old guard, `scrollY > 0`, was satisfied by that short scroll too.
+    // "At the very bottom" means the bar is on screen, so that is the poll.
+    await expect.poll(() => page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      const bar = document.querySelector('[data-footer-bottom]').getBoundingClientRect();
+      return bar.top < window.innerHeight && bar.bottom > 0;
+    }), { timeout: 8000 }).toBe(true);
 
     // The floating button is genuinely gone at this point.
     await expect(page.locator('button[aria-label="Scroll to top"]')).toHaveCount(0);

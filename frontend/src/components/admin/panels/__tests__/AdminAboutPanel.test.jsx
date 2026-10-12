@@ -329,12 +329,9 @@ describe('the résumé stages until SAVE', () => {
 
     const resume = card('Résumé / CV');
     expect(within(resume).getByText('Parindra-CV.pdf')).toBeInTheDocument();
-    // ⚠️ `SEPT`, with a T. en-GB renders September's short form with four
-    // letters and every other month with three, so this is the one month where
-    // an assertion written from memory fails. It is also a real ragged-column
-    // defect on the blog cards that share formatDate — reported, not fixed here,
-    // because changing it changes copy on a shipped surface.
-    expect(within(resume).getByText(/248 KB · replaced 23 SEPT 2026/)).toBeInTheDocument();
+    // `SEP`, three letters — en-GB's own `SEPT` was trimmed in PF-118 (owner,
+    // 2026-10-12) for every formatDate consumer, the blog cards included.
+    expect(within(resume).getByText(/248 KB · replaced 23 SEP 2026/)).toBeInTheDocument();
   });
 
   it('offers PREVIEW only once there is a file', () => {
@@ -1338,5 +1335,80 @@ describe('when the profile could not be loaded', () => {
     render(<AdminAboutPanel />);
     expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
     expect(screen.getAllByRole('textbox').length).toBeGreaterThan(0);
+  });
+});
+
+// ── PF-118 — timezone and the Site copy card ────────────────────────────────
+describe('PF-118 — timezone, hero intro, footer blurb', () => {
+  const WITH_COPY = {
+    ...ABOUT, timezone: 'UTC+5:30',
+    heroIntro: 'Stored hero intro.', footerBio: 'Stored footer blurb.',
+  };
+
+  beforeEach(() => {
+    hooks.useAbout.mockReturnValue({ data: WITH_COPY, isLoading: false });
+  });
+
+  it('prefills all three from the document', () => {
+    render(<AdminAboutPanel />);
+    expect(screen.getByLabelText('Timezone')).toHaveValue('UTC+5:30');
+    expect(screen.getByLabelText('Hero intro')).toHaveValue('Stored hero intro.');
+    expect(screen.getByLabelText('Footer blurb')).toHaveValue('Stored footer blurb.');
+  });
+
+  it('the copy fields live in their own "Site copy" card', () => {
+    render(<AdminAboutPanel />);
+    const copy = card('Site copy');
+    expect(within(copy).getByLabelText('Hero intro')).toBeInTheDocument();
+    expect(within(copy).getByLabelText('Footer blurb')).toBeInTheDocument();
+  });
+
+  it('editing one stages it — SAVE lights, nothing is sent until pressed', async () => {
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+    expect(save()).toBeDisabled();
+
+    await user.clear(screen.getByLabelText('Timezone'));
+    await user.type(screen.getByLabelText('Timezone'), 'UTC+0');
+
+    expect(save()).toBeEnabled();
+    expect(hooks.updateAbout.mutateAsync).not.toHaveBeenCalled();
+    await user.click(save());
+    expect(hooks.updateAbout.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timezone: 'UTC+0', heroIntro: 'Stored hero intro.', footerBio: 'Stored footer blurb.',
+      }),
+    );
+  });
+
+  it('clearing a copy field SENDS it blank — that is how the owner hides it', async () => {
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+
+    await user.clear(screen.getByLabelText('Footer blurb'));
+    await user.click(save());
+
+    expect(hooks.updateAbout.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ footerBio: '' }),
+    );
+  });
+
+  it('refuses an over-long hero intro, marks it and sends nothing', async () => {
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+
+    const field = screen.getByLabelText('Hero intro');
+    await user.clear(field);
+    // `paste`, not `type`: 301 keystrokes is slow and proves nothing more.
+    await user.click(field);
+    await user.paste('a'.repeat(301));
+    await user.click(save());
+
+    expect(hooks.updateAbout.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText(/CHECK THE CHANGES AGAIN/i)).toBeInTheDocument();
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    // useFormGuard focuses a frame later, after the mark has painted.
+    await waitFor(() => expect(field).toHaveFocus());
+    expect(screen.getByText('Keep this under 300 characters.')).toBeInTheDocument();
   });
 });

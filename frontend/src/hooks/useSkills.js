@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { skillService } from '../services/skillService';
-import { DASHBOARD_KEY } from './useDashboardStats';
+import { refreshDashboard } from './useDashboardStats';
 
 export const SKILLS_KEY = ['skills'];
 
@@ -14,7 +14,7 @@ export const useCreateSkill = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SKILLS_KEY });
       // PF-110: the admin's skill count lives in one shared stats entry.
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -25,7 +25,7 @@ export const useDeleteSkill = () => {
     mutationFn: skillService.remove,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SKILLS_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };

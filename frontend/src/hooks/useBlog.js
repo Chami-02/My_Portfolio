@@ -5,7 +5,7 @@ import {
   keepPreviousData,
 } from '@tanstack/react-query';
 import { blogService } from '../services/blogService';
-import { DASHBOARD_KEY } from './useDashboardStats';
+import { refreshDashboard } from './useDashboardStats';
 
 export const BLOG_KEY       = ['blog'];
 export const BLOG_ADMIN_KEY = ['blog', 'admin'];
@@ -125,7 +125,7 @@ export const useCreatePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -137,7 +137,7 @@ export const useUpdatePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -149,7 +149,7 @@ export const useTogglePublish = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -161,7 +161,7 @@ export const useDeletePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };

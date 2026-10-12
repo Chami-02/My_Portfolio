@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { projectService } from '../services/projectService';
-import { DASHBOARD_KEY } from './useDashboardStats';
+import { refreshDashboard } from './useDashboardStats';
 
 // Query key constant — always use this, never a raw string
 // TanStack uses these keys to identify and invalidate cached data
@@ -48,7 +48,7 @@ export const useCreateProject = () => {
       // After creating, invalidate the projects list so it re-fetches
       qc.invalidateQueries({ queryKey: PROJECTS_KEY });
       // PF-110: the admin's project count lives in one shared stats entry.
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -71,7 +71,7 @@ export const useDeleteProject = () => {
     mutationFn: projectService.remove,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROJECTS_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };

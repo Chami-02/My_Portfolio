@@ -1,7 +1,7 @@
 // frontend/src/hooks/useMessages.js
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { contactService } from '../services/contactService';
-import { DASHBOARD_KEY } from './useDashboardStats';
+import { refreshDashboard } from './useDashboardStats';
 
 /**
  * PF-107. Extracted from AdminMessagesPanel, which declared this query
@@ -25,7 +25,7 @@ export const useMarkMessageRead = () => {
     mutationFn: contactService.markRead,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MESSAGES_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -52,7 +52,7 @@ export const useDeleteMessage = () => {
     mutationFn: contactService.remove,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MESSAGES_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };

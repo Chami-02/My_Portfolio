@@ -145,3 +145,52 @@ describe('mutations that cannot change a count leave it alone', () => {
     expect(invalidated).toHaveLength(0);
   });
 });
+
+// ── PF-118 — a save during the FIRST stats fetch ────────────────────────────
+// The defect PF-115 measured: a draft saved ~1 s after login left the shell
+// reading `0 DRAFT` for five minutes. TanStack only cancels an in-flight fetch
+// on refetch when the query already has data, so during the first fetch a bare
+// invalidation was deduped into the request that predated the save.
+describe('a count-changing save while the first stats fetch is in flight', () => {
+  const deferred = () => { let resolve; const p = new Promise((r) => { resolve = r; }); return { p, resolve }; };
+
+  it('ends on the post-save answer, not the one that was already on its way', async () => {
+    const answers = [];
+    dashboardService.getStats.mockImplementation(() => {
+      const d = deferred(); answers.push(d); return d.p;
+    });
+
+    const { result } = renderHook(
+      () => ({ stats: useDashboardStats(), create: useCreatePost() }),
+      { wrapper },
+    );
+    await waitFor(() => expect(answers).toHaveLength(1));   // first fetch in flight
+
+    await result.current.create.mutateAsync({ title: 'Draft' });
+
+    // The stale request answers AFTER the save landed — the race itself.
+    answers[0].resolve({ drafts: 0 });
+    await waitFor(() => expect(answers).toHaveLength(2));   // a NEW request
+    answers[1].resolve({ drafts: 1 });
+
+    await waitFor(() => expect(result.current.stats.data).toEqual({ drafts: 1 }));
+    expect(result.current.stats.isError).toBe(false);
+  });
+
+  it('with stats already loaded, still exactly one refetch', async () => {
+    // The control: cancelling first must not cost a second request, or leave
+    // the query in an error state, on the ordinary path.
+    dashboardService.getStats.mockResolvedValueOnce({ drafts: 0 }).mockResolvedValueOnce({ drafts: 1 });
+    const { result } = renderHook(
+      () => ({ stats: useDashboardStats(), create: useCreatePost() }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.stats.data).toEqual({ drafts: 0 }));
+
+    await result.current.create.mutateAsync({ title: 'Draft' });
+
+    await waitFor(() => expect(result.current.stats.data).toEqual({ drafts: 1 }));
+    expect(dashboardService.getStats).toHaveBeenCalledTimes(2);
+    expect(result.current.stats.isError).toBe(false);
+  });
+});

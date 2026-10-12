@@ -69,9 +69,18 @@
 export function formatDate(iso) {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
-  return date
+  const text = date
     .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     .toUpperCase();
+  // ⚠️ PF-118 (owner, 2026-10-12) — every month THREE letters. en-GB writes
+  // September as `SEPT`, the one value wider than the column the 2-digit day
+  // above exists to keep straight. Trimming the month token, not replacing the
+  // word, so a future ICU change to any other month is caught the same way.
+  // An unexpected shape is returned untouched rather than guessed at.
+  const parts = text.split(' ');
+  if (parts.length !== 3) return text;
+  const [day, month, year] = parts;
+  return `${day} ${month.slice(0, 3)} ${year}`;
 }
 
 /**

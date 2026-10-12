@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { skillCategoryService } from '../services/skillCategoryService';
 import { SKILLS_KEY } from './useSkills';
-import { DASHBOARD_KEY } from './useDashboardStats';
+import { refreshDashboard } from './useDashboardStats';
 
 // PF-114 — the owner-managed sections the Skills boxes are built from.
 export const SKILL_CATEGORIES_KEY = ['skillCategories'];
@@ -33,7 +33,7 @@ export const useDeleteSkillCategory = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: SKILL_CATEGORIES_KEY });
       qc.invalidateQueries({ queryKey: SKILLS_KEY });
-      qc.invalidateQueries({ queryKey: DASHBOARD_KEY });
+      refreshDashboard(qc);
     },
   });
 };
