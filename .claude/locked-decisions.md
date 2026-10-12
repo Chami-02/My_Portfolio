@@ -3121,7 +3121,7 @@ instruction to split it per screen if a consumer ever appears.
 
 ### What the login does NOT transcribe, and why
 
-- **`Admin.dc.html:100`, the "DESIGN PREVIEW — try admin@portfolio.dev /
+- **`Admin.dc.html:100`, the "DESIGN PREVIEW — try the old demo address /
   Admin@1234!" line.** Design-tool furniture, and it names the credential
   CI's `credential-scan` job greps for outside `seed.js` / `admin.spec.js` /
   `postman/`. A test asserts the page body never contains `DESIGN PREVIEW`
@@ -4219,6 +4219,38 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
   gets the browser's native prompt, not ours; a session that expires mid-edit is not
   specially handled (its redirect is held by the same dialog).
 
+## PF-119 — Google sign-in and the owner's addresses (owner decisions 2026-10-12)
+
+- **Flow: server redirect, authorization code + PKCE, code exchanged on the
+  backend; a 60 s one-time handoff in the URL FRAGMENT** trades for the SAME
+  session password login issues (`issueSession`). Rejected: Google's GIS popup
+  (Google's script on the page, Google's fixed button, third-party-cookie /
+  FedCM dependence). No Google script runs on the site.
+- **`CONTINUE WITH GOOGLE` + `— OR —` ABOVE the unchanged password form**,
+  site-styled (outlined pill, the submit's geometry and mono label), the "G" in
+  Google's four colours in both themes. The prototype has NO Google door — this
+  is an approved design change, not a transcription.
+- **One admin, two login addresses, one password** (linked identities):
+  `User.email = pcgallege@gmail.com` (shown), `loginEmails =
+  [parindrachameekara@gmail.com]`. Both doors resolve through
+  `User.findByLoginEmail`. Rejected: two admin Users (two passwords, two
+  PF-124 flows, two identities for one person).
+- **Google binds an ADDRESS to the first `sub` that proves it**
+  (`googleIdentities`); a different Google account presenting a bound address
+  is refused. Never creates a User — the User collection is the allowlist.
+- **The site's ONLY address is `pcgallege@gmail.com`; the old demo address is
+  gone everywhere.** `parindrachameekara@gmail.com` is the owner's account on
+  the SERVICES (Atlas, Vercel, Cloudinary, GitHub) and a second admin login —
+  never shown on the site. ⚠️ REVERSES the earlier entry that kept the admin
+  login separate from the public address and gave PF-122 the swap: **PF-122 is
+  ABSORBED into PF-119**. Seed addresses are fixed (`SEED_ADMIN_EMAIL` removed).
+- **The prototype is stale** (owner: ~2 months, "we are far beyond" it) — it
+  gave the idea and the design. `docs/design/` stays untouched and its email
+  strings are NOT targets. The design-authority rules still govern visual
+  values nothing has overridden.
+- `googleLimiter` 30 / 15 min (three requests per sign-in). Fails CLOSED:
+  missing Google config → `#google_error=unavailable`; password always works.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
@@ -4632,7 +4664,7 @@ omitted — keep the two straight.
   buttons `type="button"`.
 - **The owner's address is `pcgallege@gmail.com`** (PF-122, owner decision
   2026-09-12) — public contact address AND the admin login account, which was
-  `admin@portfolio.dev`, the demo address printed in `seed.js`. ⚠️ **`docs/
+  the old demo address, the demo address printed in `seed.js`. ⚠️ **`docs/
   design/`'s three `.dc.html` files still carry the OLD address and are
   FROZEN** — the mismatch is deliberate, and a fidelity pass that "fixes" it
   is editing a frozen export. ⚠️ `.claude/sprint-log.md`'s historical mentions

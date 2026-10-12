@@ -3449,6 +3449,45 @@ router invoking the blocker function), handlers touch refs only in events.
 `renderWithGuard()` mounted two panels ("Found multiple elements"). Click the row
 directly in guarded tests.
 
+## PF-119 (2026-10-12)
+
+### ⚠️ Playwright `page.route` never sees a REDIRECT hop
+A handler on `https://accounts.google.com/**` was skipped when the browser
+reached Google through our API's 302 — the test landed on Google's real
+"invalid_client" page (placeholder client id; harmless, but it LEFT the
+machine). Intercept the route that ISSUES the redirect and read it with
+`route.fetch({ maxRedirects: 0 })` → `headers().location`.
+
+### ⚠️ `verifyIdToken` skips the audience check when `audience` is undefined
+`google-auth-library` `oauth2client.js`: `if (typeof requiredAudience !==
+'undefined' …)`. An unset client id would accept an ID token minted for ANY
+Google app. `services/googleAuth.js` refuses to run without config instead of
+passing `undefined` (mutant `audience: undefined` killed by the wrong-`aud` test).
+
+### ⚠️ The library's verification errors contain the WHOLE token
+`'Invalid token signature: ' + jwt`, `'Wrong number of segments in token: ' + jwt`.
+Never log `err.message` from it — `verifyCode` swallows and rethrows a reason code.
+
+### ⚠️ Mongoose runs `lowercase`/`trim` setters on QUERY values
+`User.findOne({ email: '  X@Y.COM ' })` matches `x@y.com` — for array elements
+(`loginEmails`) too. A hand-written `.trim().toLowerCase()` in front of it was
+dead code; only mutation testing showed it (the mutant survived). Control:
+removing `lowercase` from the schema fails 2 tests.
+
+### Verify a JWT for real in a unit test: inject the key, stub only the network
+Set `client.certificateCache = { [kid]: spkiPem }` and a future
+`certificateExpiry` on the `OAuth2Client`; stub `getToken` to return a token
+SIGNED with the matching private key. `verifyIdToken` then checks signature,
+`iss`, `aud`, `exp` exactly as in production. ⚠️ The library allows 300 s of
+clock skew — an "expired" fixture must be > 5 minutes past.
+
+### `role="link"` + `aria-disabled` is still a link
+A busy placeholder for a link is a STATUS (`role="status"`), not a disabled link.
+
+### `body.textContent` runs neighbouring elements together
+`"PANELCMS" + "owner@example.com"` → one token. Walk text nodes
+(`document.createTreeWalker(…, NodeFilter.SHOW_TEXT)`) when matching per node.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

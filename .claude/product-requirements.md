@@ -217,10 +217,21 @@ only** (the prototype's own choice, reaffirmed by the owner 2026-09-25). Do not
 
 #### The owner's address is `pcgallege@gmail.com`
 
-**Owner decision, 2026-09-12.** Changed from `parindrachameekara@gmail.com`,
+**Owner decision, 2026-09-12.** Changed from the owner's personal address,
 which receives too much other mail for a portfolio enquiry to be noticed in.
-This is both the public contact address and the admin login account. **PF-122
-does the swap; see Locked decisions for what is deliberately NOT changed.**
+This is both the public contact address and the admin login account. **Done in
+PF-119 (which absorbed PF-122), 2026-10-12 — see the next section for the
+second admin login address.**
+
+#### One public address; two admin login addresses (PF-119)
+
+**Owner requirement, 2026-10-12. Built.** Everything the website shows or sends
+— Contact, About, footer, customer mail — uses **`pcgallege@gmail.com` only**.
+The admin signs in with **`pcgallege@gmail.com` OR `parindrachameekara@gmail.com`**,
+by **Google OR email + password**, and both are the full admin (one account,
+one password). The old demo address is removed from the project for good.
+`parindrachameekara@gmail.com` is the owner's account on the services (Atlas,
+Vercel, Cloudinary, GitHub) — never a site address.
 
 #### A panel that could not load says so — never "nothing here", never a form
 

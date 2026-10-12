@@ -523,10 +523,10 @@ record; that file is the sprint's authority.
 | ~~PF-116~~ | Phase 1 cutover — `:root` deletion, font cutover, admin light theme | Highest | 8 | Done | ✅ **BUILT 2026-10-08** — ⚠️ scope SHRANK: PF-107→115 had already cleared every admin consumer; one site-wide Phase 1 reader left (ErrorBoundary). ~4 pts, see entry |
 | ~~PF-117~~ | Admin responsive + state audit, both themes | Medium | 6 | Done | ✅ **BUILT 2026-10-11** — audit found 8 defects incl. a data-loss path (About's empty form on a failed load); new shared `LoadError`; see entry |
 | ~~PF-118~~ | Admin ↔ public-site parity audit | Highest | 8 | Done | ✅ **BUILT 2026-10-12** — field matrix + owner-approved wiring (timezone, hero intro, footer blurb, band + Contact intro follow availability) + 4 leftovers; see entry |
-| PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 | To Do | not started |
+| ~~PF-119~~ | Google sign-in for `/admin` + production-standard auth | High | 8 | Done | ✅ **BUILT 2026-10-12** — auth code + PKCE, one-time handoff, two admin login addresses; ⚠️ ABSORBED PF-122 (owner); ~9 pts, see entry |
 | PF-120 | Security review and hardening | High | 5 | To Do | not started |
 | PF-121 | Sprint gate, PR, close | Highest | 8 | To Do | not started |
-| PF-122 | Owner email address consolidation → `pcgallege@gmail.com` | Medium | 3 | — | **ADDED 2026-09-12**, not started |
+| ~~PF-122~~ | Owner email address consolidation → `pcgallege@gmail.com` | Medium | 3 | — | ✅ **ABSORBED into PF-119 2026-10-12** (owner) — migrations 009 + 010 |
 
 ⚠️ **NUMBERING IS CONTIGUOUS — PF-107 → PF-121, NO GAPS.** Worth recording
 because it nearly went the other way. The first draft ended at PF-118 (the
@@ -595,7 +595,7 @@ it back left all 20 shell tests green, because dead code changes no behaviour.
 **Two live defects fixed.** The mobile sidebar was unreachable — a `mobile`
 state nothing ever set `true`, plus a media query sliding it off-screen below
 768px, so admin had **no navigation at all on a phone**. And the header showed
-a hardcoded `admin@portfolio.dev`; `authService.getMe` had been written and
+a hardcoded the old demo address; `authService.getMe` had been written and
 tested with **no caller at any layer** and this is its first consumer.
 
 ⚠️ **A THIRD defect was introduced by this ticket and caught only in the second
@@ -1044,14 +1044,14 @@ byte-identical to their post-edit snapshots afterwards.
 
 #### PF-122 — Owner email address consolidation · ADDED to Sprint 14, 2026-09-12
 
-**Owner decision.** The public site advertises `parindrachameekara@gmail.com`
+**Owner decision.** The public site advertises the owner's personal address
 in three places — Contact, About and the footer — and the owner reports that
 inbox is too heavily loaded for a portfolio enquiry to surface in it.
 Everything the project controls moves to **`pcgallege@gmail.com`**.
 
 ⚠️ **It is a DATA change as well as a code change, and the data half is easy
 to miss.** Measured 2026-09-12: `portfolio_dev`'s `About` document holds
-`email: parindrachameekara@gmail.com`. No code edit touches it — migration
+`email: <the owner's personal address>`. No code edit touches it — migration
 **007** does (002 is absent from the sequence; 007 is genuinely next).
 
 **Code (6):** `ContactSection.jsx:45`, `AboutSection.jsx:110`, `Footer.jsx:64`,
@@ -1851,7 +1851,7 @@ recoverable.** Recorded because the diagnosis is reusable and the cause is a
 shape that will recur.
 
 **The symptom:** `POST /api/auth/login` returned 401 for
-`admin@portfolio.dev` using `backend/.env`'s `SEED_ADMIN_PASSWORD`.
+the old demo address using `backend/.env`'s `SEED_ADMIN_PASSWORD`.
 
 **The diagnosis, read-only** — a script that connected, read the single `User`
 with `.select('+password')`, and ran `bcrypt.compare` against two candidates,
@@ -1889,7 +1889,7 @@ trusting its own write: `POST /api/auth/login` → 200 with a token, then
 original problem went unnoticed.
 
 **Two changes came with it, both owner decisions:**
-- The account email moved from `admin@portfolio.dev` — the **public demo
+- The account email moved from the old demo address — the **public demo
   address printed in `seed.js`**, and therefore the first thing anyone reading
   the repo would try — to `pcgallege@gmail.com`.
 - A `SEED_ADMIN_EMAIL` line was added to `backend/.env`, which had none, so a
@@ -2297,7 +2297,7 @@ retrospective document** — this section is the record, matching Sprint 10,
   the login's sweep was declined 2026-09-16. If a consumer ever appears, split
   it per screen first (`scanline-portfolio` / `scanline-admin`), the riseIn
   precedent; do not "fix" the base body to one screen's value.
-- **The login's email placeholder still reads `admin@portfolio.dev`**
+- **The login's email placeholder still reads the old demo address**
   (`AdminLoginPage.jsx`, the export's own copy). Once PF-122 makes the real
   account `pcgallege@gmail.com`, a placeholder naming the demo account is
   either stale or, if updated, a public hint at the admin address. PF-122's
@@ -3212,7 +3212,7 @@ than copied forward:
   translucent card. **The trap is the surface, not the token.**
 
 - **⚠️ The contact email and the site's H1 disagree.** H1 is **Parindra
-  Gallage**, the email is **parindrachameekara@gmail.com**. The
+  Gallage**, the email is **the owner's personal address**. The
   prototype has it this way so PF-87 shipped it as found, but it is worth
   the owner confirming rather than discovering live.
 
@@ -5212,7 +5212,7 @@ accent glow was the other, and it was answered the same day (see Locked
 decisions):
 
 - **The email address and the H1 disagree.** The page's H1 is **Parindra
-  Gallage**; the contact email is **parindrachameekara@gmail.com**. Both
+  Gallage**; the contact email is **the owner's personal address**. Both
   are presumably correct and the prototype has it this way, so it ships as
   found — but it is the kind of thing better confirmed than discovered
   live.
@@ -7909,8 +7909,12 @@ clean.
 - **Genuinely failing, follow-up ticket after PF-121:** #15 jsdom 30, #16 vitest
   5 (majors — frontend tests break), #20 backend-site-minor (backend tests
   "buffering timed out" — a DB-library update; investigate before merging).
-- **`deploy.yml` not on master** — arrives with Sprint 14; production migrations
-  still need `migrate:baseline` once (unchanged).
+- **`deploy.yml` not on master** — arrives with Sprint 14. ~~production migrations
+  still need `migrate:baseline` once~~ — ⚠️ **WRONG, see PF-126 above: NEVER
+  baseline production** (006/007 never ran there). Corrected 2026-10-12, when
+  this stale line misled the PF-119 plan; as of that date no `migrate:status`
+  output for `portfolio_prod` exists on record. Path: status → dry → real
+  `migrate`. PF-119's migration 009 must be APPLIED, never baselined.
 - **Security tab ~69 items** (CodeQL first scan + 37 Dependabot alerts, mostly
   about old master) — triage after the sprint merge.
 - **No Jira ticket** for this work (owner decision). Owner's teaching material:
@@ -8229,6 +8233,100 @@ unsaved work. Folded into PF-118 by owner choice. Report: same file, "Batch 2".
   prints it too).
 - Dev has no drafts right now, so a live "no drafts served" check is not discriminating —
   the backend suites are the guard.
+
+---
+
+## PF-119 — Google sign-in, two admin login addresses, PF-122 absorbed (2026-10-12)
+
+**Report:** `new mds/E9/PF-119-google-sign-in.md`. Branch `sprint-14-admin_page_rebuild`.
+
+### Owner decisions (2026-10-12)
+
+- **Flow:** server-side redirect, OAuth 2.0 authorization code + **PKCE**, code
+  exchanged on the backend with the client secret; the SPA gets a **one-time
+  handoff** (PF-108 predicted it: Bearer transport cannot ride a redirect).
+- **Button:** site-styled `CONTINUE WITH GOOGLE` + `— OR —`, ABOVE the
+  unchanged password form. Prototype has no Google door — recorded in
+  locked-decisions.
+- **Addresses:** site/customer mail = `pcgallege@gmail.com` ONLY; admin login =
+  `pcgallege@gmail.com` AND `parindrachameekara@gmail.com`, by Google AND
+  password, both full admin; the old demo address removed everywhere
+  ("forget about it"). The personal address remains the owner's account on the
+  services (Atlas, Vercel, Cloudinary, GitHub).
+- **PF-122 absorbed** (public address swap + its data half).
+- Prototype: owner says it is ~2 months stale and "we are far beyond" it —
+  `docs/design/` left untouched; its emails are not targets.
+
+### Built
+
+| Piece | Where |
+| --- | --- |
+| `GET /api/auth/google/start` → 302 to Google (state, nonce, S256 challenge, `openid email`, `select_account`); `pf_oauth` binding cookie httpOnly/Lax/`Path=/api/auth/google`/10 min | `controllers/authController.js` |
+| `GET /api/auth/google/callback` → single-use flow, cookie check, code exchange + verification, binding, 60 s handoff in the FRAGMENT; every failure → `/admin/login#google_error=<cancelled\|expired\|failed\|not_allowed\|unavailable>` | same |
+| `POST /api/auth/google/exchange` → `issueSession` + the SAME `sessionPayload` as password login, plus `returnTo` | same |
+| Google boundary: `createPkce`, `buildAuthUrl`, `verifyCode` (library `verifyIdToken` + our nonce + `email_verified === true`) | `services/googleAuth.js` (new) |
+| `OAuthFlow` model — flow phase (10 min) and handoff phase (60 s), hashes only, TTL index | `models/OAuthFlow.js` (new) |
+| `User.loginEmails[]`, `User.googleIdentities[{sub,email}]` (`select: false`), `findByLoginEmail` (BOTH doors use it), alias ≠ primary | `models/User.js` |
+| `googleLimiter` 30/15 min, shared by the three routes, live under test | `middleware/rateLimiter.js` |
+| Migration **009** — the one admin → `pcgallege` + `loginEmails [personal]`, whatever it was; REFUSES with 2+ Users | `migrations/009-admin-accounts.js` |
+| Migration **010** — `About.email` old personal → pcgallege ONLY if unchanged (SKIP otherwise) | `migrations/010-about-public-email.js` |
+| Login page: Google link, OR divider, busy `role="status"`, fragment read once + wiped, StrictMode-proof ref, `noValidate`, placeholder `you@example.com` | `pages/AdminLoginPage.jsx` + `.module.css` |
+| `googleErrorMessage`, `googleExchangeErrorMessage` (a 401 there is a spent handoff, never "invalid password") | `utils/loginError.js` |
+| `googleStartUrl`, `googleExchange` | `services/authService.js` |
+| `/auth/google/exchange` added to `AUTH_PATHS` (no silent refresh on its 401) | `services/api.js` |
+| Public address → pcgallege: About default, seed, Contact fallback, About section fallback, 5 test files; seed admin = the pair (SEED_ADMIN_EMAIL override removed) | various |
+| E2E: start redirect parameters; `#google_error` banner. CI e2e + `.env.e2e.example` get PLACEHOLDER Google values | `e2e/admin.spec.js`, `ci.yml` |
+
+### Deviations from the approved ticket, each said at the time
+
+- `googleLimiter` is **30**, not 20: one sign-in costs three requests.
+- `safeReturnTo`'s `//` and `\` clauses DELETED after mutation testing — the
+  anchored `/^\/admin(?:[/?#]|$)/` already rejects everything they caught; the
+  value only reaches the SPA's `navigate()`.
+- `findByLoginEmail`'s `.trim().toLowerCase()` DELETED — Mongoose runs the
+  schema setters on query values (control: removing `lowercase` from the
+  schema fails 2 tests).
+
+### Verification
+
+- Backend `test:coverage`: **41 suites, 728 tests** green; frontend `check`: lint 0,
+  **87 files, 2079 tests**, build ✓. New backend files
+  `google.auth.test.js` (47), `auth.loginEmails.test.js`, `googleLimiter.test.js`,
+  `009-…`, `010-…`. ID tokens SIGNED with a throwaway RSA key injected into the
+  library's certificate cache — `verifyIdToken` runs for real; only `getToken`
+  (the network call) is stubbed.
+- Mutation: backend **26/28** killed (2 survivors = the dead code above,
+  deleted), frontend **12/12**.
+- E2E full run 79 passed + 1 failed → fixed (see silent-failures: `page.route`
+  never sees a redirect hop); `admin.spec.js` 13/13.
+- Migrations 009 + 010 run for real against `portfolio_e2e` (old shape):
+  dry run SAW the admin, real run updated, rerun `✅ OK`.
+- Real browser: login page dark + light, `#google_error` banner, fragment wiped.
+- **Not covered by automation:** Google's consent screen and a real callback —
+  the owner's manual round trip, dev then production.
+
+### ⚠️ Production order (in the report too)
+
+**NEVER `migrate:baseline` production** (PF-126). `migrate:status` against
+`portfolio_prod` → `migrate:dry` → real `migrate`. **009 must be APPLIED before
+the Google client is enabled in production** — baselined, prod keeps its old
+admin address and every Google sign-in is refused (the server logs
+`has migration 009 run?`). After: `migrate:status` shows 009 WITH A DATE.
+
+### Outstanding
+
+- Owner: Google Cloud project + OAuth client (redirect URIs
+  `http://localhost:5050/api/auth/google/callback` + production), test users
+  both addresses, `GOOGLE_*` + `FRONTEND_URL` in `backend/.env` and Vercel.
+- Without `FRONTEND_URL` the start route answers a bare JSON 503 (fails
+  closed; nowhere to redirect). Set it everywhere.
+- The `pf_oauth` cookie is FIRST-party on the API host — expected to survive
+  Vercel + Safari, but **measure it** on the deployed site (PF-108 measured the
+  cross-site case dead, which this is not).
+- Local `backend/.env.e2e` needs the four placeholder Google lines from
+  `.env.e2e.example` (CI already has them).
+- → PF-120: the callback's query string (code, state) appears in morgan's access
+  log — single-use and PKCE-bound, standard for OAuth; review there.
 
 ---
 

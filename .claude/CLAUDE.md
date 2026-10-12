@@ -111,7 +111,7 @@ something surprises you, search the companions *before* deriving an explanation.
   Footer = complete list; Contact = GitHub + LinkedIn only, deliberately.
 - **A panel that could not load shows `LoadError`** — never the empty state, never a
   form over missing data (About), no count until loaded (PF-117).
-- **Owner address is `pcgallege@gmail.com`** (PF-122 does the swap).
+- **Site address is `pcgallege@gmail.com` ONLY; admin logs in as pcgallege OR parindrachameekara** (Google or password, one User, PF-119 absorbed PF-122). Old demo address gone.
 - **One panel field drives EVERY render site** (PF-118) — e.g. `timezone` → Contact AND footer; grep every literal before wiring. A fixed set of answers is CHOSEN (dropdown), never typed.
 - **Leaving unsaved admin work asks first — every exit** (PF-118 b2; REVERSES "marker, not a blocker"): Keep / Save (never publishes) / Discard; panels register via `useUnsavedChanges`.
 
@@ -123,7 +123,7 @@ something surprises you, search the companions *before* deriving an explanation.
 | --- | --- | --- |
 | Phase 1 (PF-1 → PF-51) | original site | complete |
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 → PF-118 built (PF-118 on 2026-10-12) |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 → PF-119 built (PF-119 on 2026-10-12, absorbed PF-122) |
 | Sprint 15 (PF-123 → PF-125) | auth + email | planned, not started |
 
 **Branch `sprint-14-admin_page_rebuild`** (NOT `sprint-14-admin`), cut from
@@ -133,15 +133,13 @@ declined — **if it runs long, a CONTENT ticket slips, never PF-120/PF-121.**
 
 | Remaining | Title |
 | --- | --- |
-| PF-119 | Google sign-in + production auth — allowlist of ONE; `User.role` is read by no route |
 | PF-120 | Security review and hardening |
 | PF-121 | Sprint gate, PR, close |
-| PF-122 | Owner email consolidation → `pcgallege@gmail.com` |
 
 Numbering is contiguous PF-107 → PF-121 (+PF-122). PF-116 was last of the styling
 tickets (inverted spine): `global.css` is now Tailwind's entry point only.
 
-**▶ NEXT:** owner picks — PF-119, PF-120 (PF-118 handed it 5 findings), PF-122; PF-121 last.
+**▶ NEXT:** PF-120 (PF-118 + PF-119 handed it findings), then PF-121. ⚠️ Before merge: owner's Google setup + prod `migrate:status` → dry → real `migrate` (009 APPLIED, NEVER baseline).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -315,7 +313,7 @@ Where a mistake would be silent, add a test that would catch it.
 **Playwright / E2E**
 - `toBeVisible()` ignores occlusion; `click()` under the splash silently retries.
 - `test.use({ reducedMotion })` is inert → `page.emulateMedia` + assert it took.
-- `page.route()` matches in REVERSE order — register the catch-all first.
+- `page.route()` matches in REVERSE order — register the catch-all first. It never sees a REDIRECT hop → route the issuer, `route.fetch({ maxRedirects: 0 })`.
 - `reuseExistingServer` adopts a stale dev server — check port 5174.
 - Vite DEV injects a `composes`-shared sheet per consumer; HMR can leave a stale copy winning — restart before doubting a CSS fix.
 - `npm run preview` uses `.env.production` = the PRODUCTION API — grep the built bundle instead.
@@ -330,7 +328,8 @@ Where a mistake would be silent, add a test that would catch it.
 - Raw Cloudinary assets download with no extension → `GET /api/resume` proxies; never add `.pdf` to the id.
 - axios array params → `paramsSerializer: { indexes: null }`.
 - A URI with no DB path silently uses/creates `test` (`assertExplicitDatabase`).
-- `findOneAndUpdate` runs no `pre('save')` → plaintext password; `validateSync()` runs no middleware.
+- `findOneAndUpdate` runs no `pre('save')` → plaintext password; `validateSync()` runs no middleware. Mongoose DOES run `lowercase`/`trim` setters on query values.
+- `verifyIdToken` skips `aud` when `audience` is undefined, and its errors embed the token — never log them.
 - Four shapes of a red backend suite — reproducibility discriminates.
 - The Vite proxy targets a Docker host; local dev uses absolute `VITE_API_URL` — probe that URL.
 - SRV DNS failures look like a broken backend; CORS is exact-match.
@@ -402,7 +401,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - `/admin/login` and `/admin` share the main page's background; no aurora/scanline; `riseIn` per screen (16/22/18px); no DESIGN PREVIEW line, no spinner.
 - `GET /api/dashboard/stats` returns seven fields; shell paints nothing count-shaped while loading; `+ NEW POST` opens the editor.
 - About panel is a STAGED form, saved profile-first sequentially; `PENDING SAVE` / `REMOVE ON SAVE` badges; résumé `accept=".pdf"`; portrait card mirrors résumé card but is NOT one component; portrait alt follows the source; upload input clipped, not `display: none`.
-- Owner address `pcgallege@gmail.com`; the frozen `.dc.html` files keep the old one deliberately.
+- PF-119: auth code + PKCE, backend exchange, 60 s FRAGMENT handoff → `issueSession`; site-styled Google button ABOVE the form; Google binds address→first `sub`, never creates a User; `googleLimiter` 30. Prototype is stale (owner) — its emails aren't targets.
 - PF-118 b2: timezone = IANA place (`Asia/Colombo`) shown as its live offset; App uses a DATA router (`createBrowserRouter`, one catch-all) for `useBlocker` — keep the three `<Routes>` as they are.
 - PF-118: footer band follows availability (two call sites, 70.7s / 67.1s = equal 50 px/s); Contact intro leads with the note; `timezone` / `heroIntro` / `footerBio` fields ("Site copy" card); three-letter months (`SEP`); no `publishedAt` control.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
