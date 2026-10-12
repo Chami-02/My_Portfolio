@@ -99,4 +99,27 @@ const refreshLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter, refreshLimiter };
+/**
+ * Limiter for the three Google sign-in routes (PF-119), shared between them.
+ *
+ * Its own policy, not `authLimiter`: a Google sign-in is not a password
+ * guess — the proof happens at Google — and one attempt costs THREE requests
+ * here (start, callback, exchange), so 10 would allow barely three tries.
+ * 30 per 15 minutes is ten sign-ins. What it bounds is abuse: every `start`
+ * writes a row, and every `callback` makes an outbound call to Google.
+ *
+ * Live under `NODE_ENV=test` like `authLimiter` and `refreshLimiter`, and
+ * asserted directly in the backend suite.
+ */
+const googleLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             30,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many Google sign-in attempts. Please wait 15 minutes before trying again.',
+  },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter };
