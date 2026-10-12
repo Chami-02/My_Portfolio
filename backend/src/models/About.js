@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { isTimeZone } = require('../utils/timeZone');
 
 // ── NEW IN PF-60 ──────────────────────────────────────────────
 // Shared validator for social profile URLs.
@@ -86,10 +87,18 @@ const aboutSchema = new mongoose.Schema(
     // a missing path from its default on hydrate) and nothing visible moves.
     // An EMPTY value is the owner's choice: timezone blank hides the segment,
     // the two text fields fall back to the component's literal.
+    // ⚠️ PF-118 batch 2 — an IANA PLACE ("Asia/Colombo"), not an offset. The
+    // site works the offset out at render time (UTC+5:30), so a zone with
+    // daylight saving reads correctly in both halves of the year — a stored
+    // "UTC+1" would be wrong every winter. Empty = the owner hiding it.
     timezone: {
       type:    String,
       trim:    true,
-      default: 'UTC+5:30',
+      default: 'Asia/Colombo',
+      validate: {
+        validator: (v) => !v || isTimeZone(v),
+        message:   (props) => `${props.value} is not a time zone`,
+      },
     },
     heroIntro: {
       type:    String,

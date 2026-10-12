@@ -390,7 +390,7 @@ describe('PF-118 — fresh About defaults', () => {
   it('the copy fields default to the literals they replaced', async () => {
     const res = await request(app).get('/api/about');
 
-    expect(res.body.data.timezone).toBe('UTC+5:30');
+    expect(res.body.data.timezone).toBe('Asia/Colombo');
     expect(res.body.data.heroIntro).toMatch(/^I’m a Computer Science undergraduate and Full-Stack Developer/);
     expect(res.body.data.footerBio).toMatch(/^Computer Science undergraduate at the University of Westminster/);
   });
@@ -403,7 +403,7 @@ describe('PF-118 — fresh About defaults', () => {
     const res = await request(app).get('/api/about');
 
     expect(res.body.data.name).toBe('Old Doc');
-    expect(res.body.data.timezone).toBe('UTC+5:30');
+    expect(res.body.data.timezone).toBe('Asia/Colombo');
     // ⚠️ A STORED empty list is the owner's choice and must not be refilled.
     expect(res.body.data.stats).toEqual([]);
   });
@@ -414,7 +414,6 @@ describe('PUT /api/about — PF-118 text fields', () => {
   const FIELDS = [
     ['location', 80],
     ['availabilityNote', 160],
-    ['timezone', 20],
     ['heroIntro', 300],
     ['footerBio', 300],
   ];
@@ -462,5 +461,49 @@ describe('PUT /api/about — PF-118 text fields', () => {
     expect(JSON.stringify(res.body)).toMatch(/must be text/);
     const after = await About.findOne();
     expect(after[field]).toBe('kept');
+  });
+});
+
+// ── PF-118 batch 2 — timezone is an IANA place, never free text ─────────────
+describe('PUT /api/about — timezone', () => {
+  it.each(['Asia/Colombo', 'Europe/London', 'America/Argentina/Buenos_Aires', 'Asia/Kathmandu'])(
+    'accepts the place %s',
+    async (zone) => {
+      const res = await request(app).put('/api/about').set(await authHeader()).send({ timezone: zone });
+      expect(res.status).toBe(200);
+      expect(res.body.data.timezone).toBe(zone);
+    },
+  );
+
+  it('accepts blank — the owner hiding it', async () => {
+    const res = await request(app).put('/api/about').set(await authHeader()).send({ timezone: '' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.timezone).toBe('');
+  });
+
+  // The zero cases: everything a typed box could have produced.
+  it.each([
+    ['a typo', 'Asia/Colmbo'],
+    ['an offset string ICU would otherwise accept', '+05:30'],
+    ['the old free-text form', 'UTC+5:30'],
+    ['prose', 'Sri Lanka time'],
+  ])('400s %s, and writes nothing', async (_why, zone) => {
+    const headers = await authHeader();
+    await request(app).put('/api/about').set(headers).send({ timezone: 'Asia/Colombo' });
+
+    const res = await request(app).put('/api/about').set(headers).send({ timezone: zone });
+
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toMatch(/place from the list/);
+    expect((await About.findOne()).timezone).toBe('Asia/Colombo');
+  });
+
+  it('400s an array', async () => {
+    const res = await request(app).put('/api/about').set(await authHeader()).send({ timezone: ['Asia/Colombo'] });
+    expect(res.status).toBe(400);
+  });
+
+  it('the MODEL refuses a bad zone too — a direct write cannot bypass the route', async () => {
+    await expect(About.create({ timezone: 'Not/AZone' })).rejects.toThrow(/not a time zone/);
   });
 });

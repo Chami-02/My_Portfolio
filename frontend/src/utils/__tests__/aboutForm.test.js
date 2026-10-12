@@ -594,3 +594,16 @@ describe('PF-118 copy fields', () => {
     expect(aboutFormErrors(form).map((e) => e.field)).toEqual(['location', 'email', 'footerBio']);
   });
 });
+
+describe('PF-118 batch 2 — timezone validity', () => {
+  it('a real place, or blank, is never an error', () => {
+    expect(aboutFormErrors({ ...emptyAboutForm(), timezone: 'Asia/Colombo' })).toEqual([]);
+    expect(aboutFormErrors({ ...emptyAboutForm(), timezone: '' })).toEqual([]);
+  });
+
+  it('a legacy free-text value is refused with "pick a place"', () => {
+    expect(aboutFormErrors({ ...emptyAboutForm(), timezone: 'UTC+5:30' })).toEqual([
+      { field: 'timezone', message: 'Pick a place from the list.' },
+    ]);
+  });
+});

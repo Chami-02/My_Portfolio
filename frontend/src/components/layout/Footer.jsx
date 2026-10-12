@@ -7,6 +7,7 @@ import { iconFor } from '../icons';
 import { sectionHref } from '../../utils/nav';
 import { socialEntries } from '../../utils/social';
 import { useAbout } from '../../hooks/useAbout';
+import { timezoneLabel } from '../../utils/timezone';
 import logo from '../../assets/logo.png';
 import styles from './Footer.module.css';
 
@@ -97,7 +98,8 @@ export function Footer() {
   // PF-118 — one field, two render sites (this and ContactSection). `??`, not
   // `||`: a blank timezone is the owner HIDING it, so only a missing field (an
   // older cached document, a failed fetch) falls back to the literal.
-  const timezone = about?.timezone ?? 'UTC+5:30';
+  // PF-118 batch 2: an IANA place, printed as its offset NOW (DST-correct).
+  const timezone = timezoneLabel(about?.timezone ?? 'Asia/Colombo');
 
   const { pathname } = useLocation();
 

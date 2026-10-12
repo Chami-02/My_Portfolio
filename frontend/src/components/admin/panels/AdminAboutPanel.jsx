@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   useAbout, useUpdateAbout,
   useUploadAvatar, useRemoveAvatar,
@@ -11,6 +11,7 @@ import { apiUrl } from '../../../services/api';
 // helper is formatDate"), and a second one-line formatter here is how one of
 // them drifts. The module's name is about its origin, not a fence.
 import { formatDate } from '../../../utils/blogMeta';
+import { timezoneGroups } from '../../../utils/timezone';
 import {
   BASIC_FIELDS, COPY_FIELDS, SOCIAL_FIELDS,
   aboutToForm, formToPayload, isAboutDirty, aboutFormErrors,
@@ -247,6 +248,41 @@ function PortraitCard({ stored, staged, onPick, onReject, onRemove, onUndo, erro
   );
 }
 
+/**
+ * PF-118 batch 2 — the Timezone dropdown. Every IANA place ICU knows, grouped by
+ * region and labelled with today's offset ("Asia/Colombo — UTC+5:30"); a native
+ * <select>, so typing a few letters jumps to them.
+ *
+ * ⚠️ A stored value that is NOT in the list (batch 1's free-text "UTC+5:30") is
+ * shown as its own first option rather than silently swapped for the first
+ * place — a save must never change a field the owner did not touch. The form
+ * guard then asks for a real place (`aboutFormErrors`).
+ *
+ * Options are built once per mount: ~420 rows, and an offset only moves twice a
+ * year.
+ */
+function TimezoneSelect({ value, onChange, ...field }) {
+  const groups = useMemo(() => timezoneGroups(), []);
+  const known = !value || groups.some((g) => g.options.some((o) => o.value === value));
+  return (
+    <select
+      {...field}
+      className={a.select}
+      name="timezone"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">None — hide the timezone</option>
+      {!known && <option value={value}>{value} (old value — pick a place)</option>}
+      {groups.map(({ region, options }) => (
+        <optgroup key={region} label={region}>
+          {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 export function AdminAboutPanel() {
   const aboutQuery = useAbout();
   const { data: about, isLoading } = aboutQuery;
@@ -464,17 +500,25 @@ export function AdminAboutPanel() {
       <section className={a.panel} aria-labelledby="about-basic-title">
         <h2 className={a.panelTitle} id="about-basic-title">Basic info</h2>
         <div className={a.fieldGrid}>
-          {BASIC_FIELDS.map(({ name, label, placeholder }) => (
+          {BASIC_FIELDS.map(({ name, label, placeholder, kind }) => (
             <div key={name}>
               <label className={a.label} htmlFor={`about-${name}`}>{label}</label>
-              <input
-                {...fieldProps(guard.errors, FID, name)}
-                className={a.input}
-                name={name}
-                placeholder={placeholder}
-                value={form[name]}
-                onChange={(e) => edit({ [name]: e.target.value }, name)}
-              />
+              {kind === 'timezone' ? (
+                <TimezoneSelect
+                  {...fieldProps(guard.errors, FID, name)}
+                  value={form[name]}
+                  onChange={(value) => edit({ [name]: value }, name)}
+                />
+              ) : (
+                <input
+                  {...fieldProps(guard.errors, FID, name)}
+                  className={a.input}
+                  name={name}
+                  placeholder={placeholder}
+                  value={form[name]}
+                  onChange={(e) => edit({ [name]: e.target.value }, name)}
+                />
+              )}
               <FieldError field={name} guard={guard} />
             </div>
           ))}

@@ -9,6 +9,7 @@
 // and several forms need them, so a local copy is how one drifts a version
 // behind the server it is supposed to mirror.
 import { isUsableUrl, isUsableEmail } from './formErrors';
+import { isTimeZone } from './timezone';
 
 /**
  * `socialExtra.label`'s ceiling, from the model's own
@@ -27,7 +28,6 @@ const MAX_LINK_LABEL = 40;
  */
 export const TEXT_LIMITS = {
   location:         80,
-  timezone:         20,
   availabilityNote: 160,
   heroIntro:        300,
   footerBio:        300,
@@ -46,8 +46,9 @@ export const TEXT_LIMITS = {
 export const BASIC_FIELDS = [
   { name: 'location',         label: 'Location',          placeholder: 'Galle, Sri Lanka' },
   // PF-118 — printed beside the location in Contact AND the footer status line.
-  // Blank hides it in both.
-  { name: 'timezone',         label: 'Timezone',          placeholder: 'UTC+5:30' },
+  // Blank hides it in both. ⚠️ `kind: 'timezone'` renders a DROPDOWN of IANA
+  // places (batch 2, owner: "otherwise mistakes can happen… typos").
+  { name: 'timezone',         label: 'Timezone',          kind: 'timezone' },
   { name: 'email',            label: 'Contact email',     placeholder: 'pcgallege@gmail.com' },
   { name: 'availabilityNote', label: 'Availability note', placeholder: 'Open to junior roles' },
 ];
@@ -226,6 +227,15 @@ export const aboutFormErrors = (form = {}) => {
   };
 
   BASIC_FIELDS.forEach(({ name }) => {
+    if (name === 'timezone') {
+      // The dropdown cannot produce a bad value; this catches a LEGACY one (the
+      // free-text "UTC+5:30" batch 1 stored), which the server would 400.
+      const zone = (form.timezone || '').trim();
+      if (zone && !isTimeZone(zone)) {
+        errors.push({ field: 'timezone', message: 'Pick a place from the list.' });
+      }
+      return;
+    }
     if (name === 'email') {
       const email = (form.email || '').trim();
       if (email && !isUsableEmail(email)) {

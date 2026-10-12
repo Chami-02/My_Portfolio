@@ -925,10 +925,10 @@ describe('ContactSection — PF-118 wiring', () => {
     expect(intro(container)).not.toMatch(/seeking|looking/);
   });
 
-  it('prints the stored timezone, uppercased, beside the location', () => {
-    useAbout.mockReturnValue(aboutOk(false, { location: 'London, UK', timezone: 'utc+0' }));
+  it('prints the stored place as its UTC offset beside the location', () => {
+    useAbout.mockReturnValue(aboutOk(false, { location: 'Dubai, UAE', timezone: 'Asia/Dubai' }));
     renderSection();
-    expect(screen.getByText('LONDON, UK · UTC+0')).toBeInTheDocument();
+    expect(screen.getByText('DUBAI, UAE · UTC+4')).toBeInTheDocument();
   });
 
   it('a blank timezone drops the segment and its separator', () => {

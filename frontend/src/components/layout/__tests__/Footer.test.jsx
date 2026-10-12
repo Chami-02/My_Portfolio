@@ -1017,10 +1017,11 @@ describe('Footer — PF-118 wiring', () => {
     expect(pickAll(container, 'marqueeText')[0].textContent).toMatch(/^OPEN TO OPPORTUNITIES/);
   });
 
-  it('prints the stored timezone beside the location', () => {
-    useAbout.mockReturnValue(aboutWith({ location: 'London, UK', timezone: 'UTC+0' }));
+  it('prints the stored place as its UTC offset beside the location', () => {
+    // Asia/Dubai: no daylight saving, so the label is the same all year.
+    useAbout.mockReturnValue(aboutWith({ location: 'Dubai, UAE', timezone: 'Asia/Dubai' }));
     const { container } = renderFooter();
-    expect(statusText(container)).toContain('London, UK · UTC+0');
+    expect(statusText(container)).toContain('Dubai, UAE · UTC+4');
     expect(statusText(container)).not.toContain('UTC+5:30');
   });
 

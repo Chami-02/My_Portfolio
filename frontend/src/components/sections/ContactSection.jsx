@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Reveal } from '../motion';
 import { MailIcon, GitHubIcon, LinkedInIcon } from '../icons';
 import { useAbout } from '../../hooks/useAbout';
+import { timezoneLabel } from '../../utils/timezone';
 import { contactService } from '../../services/contactService';
 import { cvAnchorProps } from '../../utils/resume';
 import styles from './ContactSection.module.css';
@@ -128,7 +129,8 @@ export function ContactSection() {
   const contactEmail = about?.email || OWNER_EMAIL_FALLBACK;
   const location     = about?.location || 'Galle, Sri Lanka';
   // PF-118 — shared with the footer status line. `??`: blank = hidden.
-  const timezone     = about?.timezone ?? 'UTC+5:30';
+  // PF-118 batch 2: an IANA place, printed as its offset NOW (DST-correct).
+  const timezone     = timezoneLabel(about?.timezone ?? 'Asia/Colombo');
   const isAvailable  = about?.availableForWork ?? true;
   const note         = about?.availabilityNote?.trim();
   const introLead    = isAvailable ? asSentence(note || INTRO_LEAD_FALLBACK) : '';

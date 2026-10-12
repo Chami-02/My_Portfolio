@@ -1,4 +1,5 @@
 const { body } = require('express-validator');
+const { isTimeZone } = require('../utils/timeZone');
 const About    = require('../models/About');
 const AppError = require('../utils/AppError');
 const storage  = require('../services/storage');
@@ -81,7 +82,6 @@ const aboutRules = [
   ...[
     ['location',         80,  'Location'],
     ['availabilityNote', 160, 'Availability note'],
-    ['timezone',         20,  'Timezone'],
     ['heroIntro',        300, 'Hero intro'],
     ['footerBio',        300, 'Footer blurb'],
   ].map(([field, max, name]) =>
@@ -91,6 +91,15 @@ const aboutRules = [
       .bail()
       .trim()
       .isLength({ max }).withMessage(`${name} cannot exceed ${max} characters`)),
+
+  // PF-118 batch 2 — a real IANA place or blank, never free text. The panel is
+  // a dropdown, so this only ever refuses a raw API call (or a legacy value).
+  body('timezone')
+    .optional()
+    .isString().withMessage('Timezone must be text')
+    .bail()
+    .trim()
+    .custom((v) => v === '' || isTimeZone(v)).withMessage('Timezone must be a place from the list, like Asia/Colombo'),
 ];
 
 // ── GET /api/about ────────────────────────────────────────────────────────────

@@ -1341,7 +1341,7 @@ describe('when the profile could not be loaded', () => {
 // ── PF-118 — timezone and the Site copy card ────────────────────────────────
 describe('PF-118 — timezone, hero intro, footer blurb', () => {
   const WITH_COPY = {
-    ...ABOUT, timezone: 'UTC+5:30',
+    ...ABOUT, timezone: 'Asia/Colombo',
     heroIntro: 'Stored hero intro.', footerBio: 'Stored footer blurb.',
   };
 
@@ -1351,7 +1351,7 @@ describe('PF-118 — timezone, hero intro, footer blurb', () => {
 
   it('prefills all three from the document', () => {
     render(<AdminAboutPanel />);
-    expect(screen.getByLabelText('Timezone')).toHaveValue('UTC+5:30');
+    expect(screen.getByLabelText('Timezone')).toHaveValue('Asia/Colombo');
     expect(screen.getByLabelText('Hero intro')).toHaveValue('Stored hero intro.');
     expect(screen.getByLabelText('Footer blurb')).toHaveValue('Stored footer blurb.');
   });
@@ -1368,15 +1368,14 @@ describe('PF-118 — timezone, hero intro, footer blurb', () => {
     render(<AdminAboutPanel />);
     expect(save()).toBeDisabled();
 
-    await user.clear(screen.getByLabelText('Timezone'));
-    await user.type(screen.getByLabelText('Timezone'), 'UTC+0');
+    await user.selectOptions(screen.getByLabelText('Timezone'), 'Asia/Dubai');
 
     expect(save()).toBeEnabled();
     expect(hooks.updateAbout.mutateAsync).not.toHaveBeenCalled();
     await user.click(save());
     expect(hooks.updateAbout.mutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({
-        timezone: 'UTC+0', heroIntro: 'Stored hero intro.', footerBio: 'Stored footer blurb.',
+        timezone: 'Asia/Dubai', heroIntro: 'Stored hero intro.', footerBio: 'Stored footer blurb.',
       }),
     );
   });
@@ -1410,5 +1409,54 @@ describe('PF-118 — timezone, hero intro, footer blurb', () => {
     // useFormGuard focuses a frame later, after the mark has painted.
     await waitFor(() => expect(field).toHaveFocus());
     expect(screen.getByText('Keep this under 300 characters.')).toBeInTheDocument();
+  });
+});
+
+// ── PF-118 batch 2 — the Timezone dropdown ──────────────────────────────────
+describe('PF-118 batch 2 — Timezone is a dropdown of places', () => {
+  it('is a <select>, never a text box — a typo cannot be entered', () => {
+    hooks.useAbout.mockReturnValue({ data: { ...ABOUT, timezone: 'Asia/Colombo' }, isLoading: false });
+    render(<AdminAboutPanel />);
+    const tz = screen.getByLabelText('Timezone');
+    expect(tz.tagName).toBe('SELECT');
+    expect(within(tz).getByRole('option', { name: 'None — hide the timezone' })).toHaveValue('');
+    expect(within(tz).getByRole('option', { name: /^Asia\/Colombo — UTC\+5:30$/ })).toBeInTheDocument();
+    expect(tz.querySelectorAll('optgroup').length).toBeGreaterThan(5);
+  });
+
+  it('choosing None sends blank — the owner hiding it', async () => {
+    hooks.useAbout.mockReturnValue({ data: { ...ABOUT, timezone: 'Asia/Colombo' }, isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+
+    await user.selectOptions(screen.getByLabelText('Timezone'), '');
+    await user.click(save());
+
+    expect(hooks.updateAbout.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ timezone: '' }));
+  });
+
+  it('a LEGACY free-text value is kept on screen, not silently swapped for a place', () => {
+    hooks.useAbout.mockReturnValue({ data: { ...ABOUT, timezone: 'UTC+5:30' }, isLoading: false });
+    render(<AdminAboutPanel />);
+    const tz = screen.getByLabelText('Timezone');
+    expect(tz).toHaveValue('UTC+5:30');
+    expect(within(tz).getByRole('option', { name: 'UTC+5:30 (old value — pick a place)' })).toBeInTheDocument();
+  });
+
+  it('…and SAVE is refused until a real place is picked, with the field marked', async () => {
+    hooks.useAbout.mockReturnValue({ data: { ...ABOUT, timezone: 'UTC+5:30' }, isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+
+    await user.type(screen.getByLabelText('Location'), '!');
+    await user.click(save());
+
+    expect(hooks.updateAbout.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('Timezone')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('Pick a place from the list.')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Timezone'), 'Asia/Colombo');
+    await user.click(save());
+    expect(hooks.updateAbout.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ timezone: 'Asia/Colombo' }));
   });
 });
