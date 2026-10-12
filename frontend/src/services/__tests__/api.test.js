@@ -170,6 +170,15 @@ describe('response interceptor — silent refresh', () => {
     expect(session.getRefreshToken()).toBe('refresh-1');   // untouched
   });
 
+  it('a 401 from the Google exchange is a spent handoff, not a dead session — no refresh (PF-119)', async () => {
+    session.set(PAIR);
+    install({ '/auth/google/exchange': (c) => { throw unauthorized(c); } });
+
+    await expect(api.post('/auth/google/exchange', {})).rejects.toMatchObject({ response: { status: 401 } });
+    expect(count('/auth/refresh')).toBe(0);
+    expect(session.getRefreshToken()).toBe('refresh-1');   // untouched
+  });
+
   it('replays at most ONCE — a second 401 after a good refresh is surfaced, not looped', async () => {
     session.set(PAIR);
     install({

@@ -1,4 +1,4 @@
-import api, { refreshSession } from './api';
+import api, { refreshSession, apiUrl } from './api';
 import { session, ME_KEY }     from './session';
 import { queryClient }         from '../lib/queryClient';
 
@@ -21,6 +21,27 @@ export const authService = {
     // would bounce straight back here.
     queryClient.removeQueries({ queryKey: ME_KEY });
     return data;
+  },
+
+  /**
+   * PF-119 — where the Google button points. A full-page navigation to the
+   * API, never an XHR: the API sets its flow cookie and redirects the browser
+   * to Google, and both need the browser itself on the API's host.
+   * `returnTo` rides along so the admin lands where they were headed.
+   */
+  googleStartUrl: (returnTo) =>
+    `${apiUrl('/auth/google/start')}?returnTo=${encodeURIComponent(returnTo)}`,
+
+  /**
+   * PF-119 — trade the one-time handoff Google sign-in ends with for a
+   * session. Stored exactly as `login` stores one: there is ONE session
+   * model, whichever door was used. Resolves to where the admin was going.
+   */
+  googleExchange: async (code) => {
+    const { data } = await api.post('/auth/google/exchange', { code });
+    session.set(data);
+    queryClient.removeQueries({ queryKey: ME_KEY });
+    return data.returnTo;
   },
 
   /**

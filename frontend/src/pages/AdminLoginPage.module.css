@@ -25,9 +25,18 @@
  *    2026-08-22 rework replaced that switch everywhere, and this was
  *    the last screen that would have carried a different one.
  *
- * 3. THE "DESIGN PREVIEW — try admin@portfolio.dev / Admin@1234!" LINE
- *    (line 100) IS NOT TRANSCRIBED. It is design-tool furniture, and it
- *    prints a credential that CI's credential-scan job greps for.
+ * 3. THE "DESIGN PREVIEW" LINE (line 100, a demo address and password)
+ *    IS NOT TRANSCRIBED. It is design-tool furniture, and it prints a
+ *    credential that CI's credential-scan job greps for.
+ *
+ * ── Owner-approved addition, PF-119 (2026-10-12) ──────────────────
+ *
+ * 4. CONTINUE WITH GOOGLE + an OR divider, above the form. The
+ *    prototype has no Google door at all. Built in the card's own
+ *    language — the submit's pill radius, padding and mono label, but
+ *    OUTLINED, so the accent-filled SIGN IN stays the page's one solid
+ *    button — rather than Google's stock white button. The "G" keeps
+ *    Google's four colours in both themes (their branding rule).
  *
  * ── Rules this file inherits ──────────────────────────────────────
  *
@@ -237,6 +246,81 @@
   color: var(--danger);
   font-size: 13.5px;
   line-height: 1.5;
+}
+
+/* ── Google door (PF-119) ───────────────────────────────────────── */
+
+/* Same geometry and type as .submit below — so the two doors read as a
+   pair — but outlined. Enters with the same typeIn, just before the form
+   rule (.3s). */
+.google {
+  composes: kf-typeIn from global;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 15px 24px;            /* 16px less the 1px border */
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .22);
+  background: rgba(var(--srf), .5);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: .1em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .25s, border-color .25s, box-shadow .25s;
+  animation-duration: .6s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-delay: .26s;
+  animation-fill-mode: both;
+}
+
+/* `a.google` only — the busy <span> must not lift or glow. */
+a.google:hover {
+  transform: translateY(-3px);
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 12px 30px rgba(var(--shd), .18);
+}
+
+.google:focus-visible {
+  outline: 2px solid var(--acc, #FCA311);
+  outline-offset: 3px;
+}
+
+.google[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.googleMark {
+  flex: none;
+}
+
+/* "— OR —". A <p>, not an <hr>: the word is the content. */
+.divider {
+  composes: kf-fadeIn from global;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 20px 0;
+  animation-duration: .6s;
+  animation-delay: .28s;
+  animation-fill-mode: both;
+}
+
+.dividerLine {
+  flex: 1 1 0;
+  height: 1px;
+  background: rgba(var(--ln), .14);
+}
+
+.dividerText {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--muted2);
 }
 
 /* ── Form ───────────────────────────────────────────────────────── */

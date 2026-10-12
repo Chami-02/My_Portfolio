@@ -1,6 +1,6 @@
 // frontend/src/utils/__tests__/loginError.test.js
 import { describe, it, expect } from 'vitest';
-import { loginErrorMessage } from '../loginError';
+import { loginErrorMessage, googleErrorMessage, googleExchangeErrorMessage } from '../loginError';
 
 /**
  * The regression these guard is specific: a backend that is down must not
@@ -62,5 +62,39 @@ describe('loginErrorMessage', () => {
       expect(msg).toMatch(/HTTP 500/);
       expect(msg).not.toMatch(/invalid email/i);
     });
+  });
+});
+
+describe('googleErrorMessage (PF-119)', () => {
+  it('gives each reason its own sentence', () => {
+    const reasons = ['cancelled', 'not_allowed', 'expired', 'unavailable', 'failed'];
+    const sentences = reasons.map(googleErrorMessage);
+    expect(new Set(sentences).size).toBe(reasons.length);
+  });
+
+  it('points to the password door when Google is unavailable', () => {
+    expect(googleErrorMessage('unavailable')).toMatch(/email and password/);
+  });
+
+  it.each([undefined, '', 'nonsense', 'toString', '__proto__', 'constructor'])(
+    'falls back to the generic sentence for %p — never undefined, never a prototype member',
+    (reason) => expect(googleErrorMessage(reason)).toBe(googleErrorMessage('failed')),
+  );
+});
+
+describe('googleExchangeErrorMessage (PF-119)', () => {
+  it('a 401 is an expired handoff — it never mentions a password', () => {
+    const msg = googleExchangeErrorMessage({ response: { status: 401, data: {} } });
+    expect(msg).toBe(googleErrorMessage('expired'));
+    expect(msg).not.toMatch(/password/i);
+  });
+
+  it('any other HTTP failure is the generic sentence', () => {
+    expect(googleExchangeErrorMessage({ response: { status: 500, data: {} } }))
+      .toBe(googleErrorMessage('failed'));
+  });
+
+  it('no response is reported as an unreachable server, like the password form', () => {
+    expect(googleExchangeErrorMessage({ code: 'ERR_NETWORK' })).toMatch(/cannot reach the server/i);
   });
 });

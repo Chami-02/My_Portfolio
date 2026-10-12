@@ -44,9 +44,10 @@ api.interceptors.request.use(
 
 // ── Silent refresh (PF-108) ───────────────────────────────────────────────────
 // The endpoints that must never trigger a refresh of their own: a 401 from
-// login is a wrong password, from refresh is a dead session, and logout is
-// answered 200 regardless.
-const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout'];
+// login is a wrong password, from refresh is a dead session, logout is
+// answered 200 regardless, and from the Google exchange (PF-119) it is a
+// spent or expired one-time handoff — none of them is fixed by a new token.
+const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/google/exchange'];
 const isAuthPath = (url = '') => AUTH_PATHS.some((p) => url.includes(p));
 
 // Single-flight. When an access token dies, every query in flight 401s at

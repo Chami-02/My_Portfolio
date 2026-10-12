@@ -19,6 +19,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import postcss from 'postcss';
+import { StrictMode } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
@@ -27,8 +28,17 @@ import { ThemeProvider } from '../../providers/ThemeProvider';
 import { MotionProvider } from '../../providers/MotionProvider';
 import { session } from '../../services/session';
 
-const login = vi.hoisted(() => vi.fn());
-vi.mock('../../services/authService', () => ({ authService: { login } }));
+const { login, googleExchange } = vi.hoisted(() => ({ login: vi.fn(), googleExchange: vi.fn() }));
+// googleStartUrl is a pure string builder, so the mock mirrors it rather
+// than stubbing a value — the href assertion then checks what the page
+// passes in (the destination), not a canned string.
+vi.mock('../../services/authService', () => ({
+  authService: {
+    login,
+    googleExchange,
+    googleStartUrl: (returnTo) => `http://api.test/api/auth/google/start?returnTo=${encodeURIComponent(returnTo)}`,
+  },
+}));
 
 const { AdminLoginPage } = await import('../AdminLoginPage');
 
@@ -42,8 +52,10 @@ function Landing() {
 /* Theme and Motion are REQUIRED: ThemeToggle and StarfieldCanvas both
    throw outside their provider, by design. No QueryClientProvider — the
    page fetches nothing on render. */
-function renderAt(entry = '/admin/login') {
+function renderAt(entry = '/admin/login', { strict = false } = {}) {
+  const Wrap = strict ? StrictMode : 'div';
   return render(
+    <Wrap>
     <ThemeProvider>
       <MotionProvider>
         <MemoryRouter initialEntries={[entry]}>
@@ -53,7 +65,8 @@ function renderAt(entry = '/admin/login') {
           </Routes>
         </MemoryRouter>
       </MotionProvider>
-    </ThemeProvider>,
+    </ThemeProvider>
+    </Wrap>,
   );
 }
 
@@ -202,6 +215,127 @@ describe('AdminLoginPage — behaviour (PF-109)', () => {
   });
 });
 
+describe('AdminLoginPage — Google sign-in (PF-119)', () => {
+
+  it('offers CONTINUE WITH GOOGLE as a LINK to the API, carrying the destination', () => {
+    renderAt({ pathname: '/admin/login', state: { from: { pathname: '/admin', search: '?tab=blog' } } });
+    const link = screen.getByRole('link', { name: 'CONTINUE WITH GOOGLE' });
+    expect(link).toHaveAttribute(
+      'href',
+      'http://api.test/api/auth/google/start?returnTo=%2Fadmin%3Ftab%3Dblog',
+    );
+  });
+
+  it('puts the Google door BEFORE the password form, with an OR between', () => {
+    renderAt();
+    const google = screen.getByRole('link', { name: 'CONTINUE WITH GOOGLE' });
+    const or     = screen.getByText('OR');
+    const email  = screen.getByLabelText('Email address');
+    // DOCUMENT_POSITION_FOLLOWING (4): the argument comes after the node.
+    expect(google.compareDocumentPosition(or) & 4).toBe(4);
+    expect(or.compareDocumentPosition(email) & 4).toBe(4);
+  });
+
+  it('leads the link with the G mark, hidden from screen readers', () => {
+    renderAt();
+    const link = screen.getByRole('link', { name: 'CONTINUE WITH GOOGLE' });
+    const mark = link.querySelector('svg');
+    expect(link.firstElementChild).toBe(mark);
+    expect(mark).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('keeps the password door working beside it', async () => {
+    login.mockResolvedValue({});
+    const user = userEvent.setup();
+    renderAt();
+    await fillAndSubmit(user);
+    expect(login).toHaveBeenCalledWith('me@example.com', 'hunter2');
+  });
+
+  it('trades a #handoff for a session ONCE — even under StrictMode\'s double effect', async () => {
+    googleExchange.mockResolvedValue('/admin?tab=blog');
+    renderAt('/admin/login#handoff=one-time-code', { strict: true });
+
+    expect(await screen.findByTestId('landing')).toHaveTextContent('/admin?tab=blog');
+    expect(googleExchange).toHaveBeenCalledTimes(1);
+    expect(googleExchange).toHaveBeenCalledWith('one-time-code');
+  });
+
+  it('says SIGNING IN WITH GOOGLE… while trading, and stops being a link', async () => {
+    let resolve;
+    googleExchange.mockReturnValue(new Promise((r) => { resolve = r; }));
+    renderAt('/admin/login#handoff=code');
+
+    expect(screen.getByRole('status')).toHaveTextContent('SIGNING IN WITH GOOGLE…');
+    expect(screen.queryByRole('link', { name: /GOOGLE/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'SIGN IN →' })).toBeDisabled();
+    resolve('/admin');
+    expect(await screen.findByTestId('landing')).toHaveTextContent('/admin');
+  });
+
+  it('wipes the one-time code from the address bar', async () => {
+    let resolve;
+    googleExchange.mockReturnValue(new Promise((r) => { resolve = r; }));
+    function Where() {
+      const { hash } = useLocation();
+      return <output data-testid="hash">{hash}</output>;
+    }
+    render(
+      <ThemeProvider>
+        <MotionProvider>
+          <MemoryRouter initialEntries={['/admin/login#handoff=secret-code']}>
+            <Routes>
+              <Route path="/admin/login" element={<><AdminLoginPage /><Where /></>} />
+            </Routes>
+          </MemoryRouter>
+        </MotionProvider>
+      </ThemeProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('hash')).toHaveTextContent(/^$/));
+    resolve(null);
+  });
+
+  it('an expired handoff (401) says to try again — never "invalid email or password"', async () => {
+    googleExchange.mockRejectedValue({ response: { status: 401, data: {} } });
+    renderAt('/admin/login#handoff=spent');
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/took too long or was already used/);
+    expect(alert).not.toHaveTextContent(/password/i);
+    // …and the Google door is offered again.
+    expect(screen.getByRole('link', { name: 'CONTINUE WITH GOOGLE' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['not_allowed', /isn't an admin account/],
+    ['cancelled',   /was cancelled/],
+    ['unavailable', /isn't available right now/],
+    ['expired',     /took too long/],
+    ['failed',      /couldn't be completed/],
+    ['<script>',    /couldn't be completed/],
+  ])('#google_error=%s shows its own sentence', (reason, sentence) => {
+    renderAt(`/admin/login#google_error=${encodeURIComponent(reason)}`);
+    expect(screen.getByRole('alert')).toHaveTextContent(sentence);
+    expect(googleExchange).not.toHaveBeenCalled();
+  });
+
+  it('a Google error does not hide the password door', () => {
+    renderAt('/admin/login#google_error=unavailable');
+    expect(screen.getByLabelText('Email address')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'SIGN IN →' })).toBeEnabled();
+  });
+
+  it('turns off native validation — the banner is the one voice (PF-117 follow-up)', () => {
+    renderAt();
+    expect(screen.getByLabelText('Email address').closest('form')).toHaveAttribute('novalidate');
+  });
+
+  it('never prints a demo address as the placeholder', () => {
+    renderAt();
+    expect(screen.getByLabelText('Email address')).toHaveAttribute('placeholder', 'you@example.com');
+  });
+});
+
 /* ── The stylesheet, parsed ─────────────────────────────────────── */
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -247,6 +381,8 @@ describe('AdminLoginPage.module.css — structure (PF-109)', () => {
     ['.submit',  'kf-typeIn from global'],
     ['.sheen',   'kf-sheen-admin from global'],
     ['.foot',    'kf-typeIn from global'],
+    ['.google',  'kf-typeIn from global'],
+    ['.divider', 'kf-fadeIn from global'],
   ])('%s reaches its keyframe through the global carrier %s', (selector, carrier) => {
     // A keyframe NAMED inside a *.module.css is scoped to an identifier
     // no @keyframes defines; the element then silently never animates.
@@ -267,6 +403,8 @@ describe('AdminLoginPage.module.css — structure (PF-109)', () => {
     expect(delay('.brand')).toBe(0.05);
     expect(delay('.heading')).toBe(0.14);
     expect(delay('.lede')).toBe(0.22);
+    expect(delay('.google')).toBe(0.26);   // PF-119, between lede and form
+    expect(delay('.divider')).toBe(0.28);
     expect(delay('.fieldEmail')).toBe(0.34);
     expect(delay('.fieldPassword')).toBe(0.42);
     expect(delay('.submit')).toBe(0.5);
