@@ -38,6 +38,22 @@ const OWNER_EMAIL_FALLBACK = 'parindrachameekara@gmail.com';
 
 const EMPTY_FORM = { name: '', email: '', message: '' };
 
+/* PF-118 — the intro paragraph, split where the owner's data takes over.
+ *
+ * Its first sentence said the same thing as the panel's "Availability note" in
+ * different words, so it now IS the note — shown while available, gone while
+ * not, the rule About's line has followed since PF-112. The fallback is the
+ * sentence it replaces, so a blank note or a failed fetch reads as before. The
+ * rest is not availability copy and stays a literal.
+ */
+const INTRO_LEAD_FALLBACK =
+  "I'm actively looking for junior developer and Software Engineering internship opportunities.";
+const INTRO_REST =
+  'If you have a role, a project, or just want to connect — send me a message. I respond within 24 hours.';
+
+/** The note as a sentence: the panel stores "Currently seeking …" with no stop. */
+const asSentence = (text) => (/[.!?…✔]$/.test(text) ? text : `${text}.`);
+
 /**
  * The prototype's own validation, transcribed rather than rewritten —
  * both the checks and the copy (lines 1138-1139).
@@ -111,6 +127,11 @@ export function ContactSection() {
   // the rule About.js has stated since PF-60.
   const contactEmail = about?.email || OWNER_EMAIL_FALLBACK;
   const location     = about?.location || 'Galle, Sri Lanka';
+  // PF-118 — shared with the footer status line. `??`: blank = hidden.
+  const timezone     = about?.timezone ?? 'UTC+5:30';
+  const isAvailable  = about?.availableForWork ?? true;
+  const note         = about?.availabilityNote?.trim();
+  const introLead    = isAvailable ? asSentence(note || INTRO_LEAD_FALLBACK) : '';
   const github       = about?.social?.github?.trim() || '';
   const linkedin     = about?.social?.linkedin?.trim() || '';
 
@@ -194,9 +215,7 @@ export function ContactSection() {
         <div className={styles.grid}>
           <div>
             <Reveal as="p" type="up" delay={120} className={styles.intro}>
-              I&apos;m actively looking for junior developer and Software Engineering
-              internship opportunities. If you have a role, a project, or just want to
-              connect — send me a message. I respond within 24 hours.
+              {introLead ? `${introLead} ${INTRO_REST}` : INTRO_REST}
             </Reveal>
 
             <Reveal type="up" delay={180} className={styles.ctaRow}>
@@ -258,9 +277,9 @@ export function ContactSection() {
             <Reveal as="p" type="up" delay={220} className={styles.location}>
               {/* Uppercased HERE rather than stored uppercase, so the admin panel
                   shows the location the way it reads and the footer can print the
-                  same value in title case. ⚠️ The UTC offset stays a literal — a
-                  timezone, not part of the location field. */}
-              {location.toUpperCase()} · UTC+5:30
+                  same value in title case. PF-118: the timezone is its own panel
+                  field, shared with the footer; blank drops it and the "·". */}
+              {location.toUpperCase()}{timezone && ` · ${timezone.toUpperCase()}`}
             </Reveal>
           </div>
 

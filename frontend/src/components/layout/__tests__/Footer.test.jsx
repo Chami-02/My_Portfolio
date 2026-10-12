@@ -992,3 +992,62 @@ describe('availability row', () => {
     expect(declsOf('availabilityDot').composes).toBe('kf-dot from global');
   });
 });
+
+// ── PF-118 — one field, every render site ───────────────────────────────────
+describe('Footer — PF-118 wiring', () => {
+  const statusText = (container) => pick(container, 'statusLines').textContent;
+
+  it('the band follows availability: CURRENTLY BUILDING while unavailable', () => {
+    useAbout.mockReturnValue(aboutWith({ availableForWork: false }));
+    const { container } = renderFooter();
+    const strips = pickAll(container, 'marqueeText');
+
+    expect(strips).toHaveLength(18);
+    for (const strip of strips) {
+      // `\u00a0` spelled out: the trailing gap is load-bearing (see above).
+      expect(strip.textContent).toBe("CURRENTLY BUILDING ✦ LET'S BUILD SOMETHING LOUD ✦\u00a0");
+    }
+    // The zero case: not one copy of the available phrase survives.
+    expect(container.textContent).not.toMatch(/OPEN TO OPPORTUNITIES/);
+  });
+
+  it('the band stays OPEN TO OPPORTUNITIES while loading — the same default as the row', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    const { container } = renderFooter();
+    expect(pickAll(container, 'marqueeText')[0].textContent).toMatch(/^OPEN TO OPPORTUNITIES/);
+  });
+
+  it('prints the stored timezone beside the location', () => {
+    useAbout.mockReturnValue(aboutWith({ location: 'London, UK', timezone: 'UTC+0' }));
+    const { container } = renderFooter();
+    expect(statusText(container)).toContain('London, UK · UTC+0');
+    expect(statusText(container)).not.toContain('UTC+5:30');
+  });
+
+  it('a blank timezone drops the segment and its separator', () => {
+    useAbout.mockReturnValue(aboutWith({ location: 'London, UK', timezone: '' }));
+    const { container } = renderFooter();
+    expect(statusText(container)).toContain('London, UK');
+    expect(statusText(container)).not.toMatch(/London, UK ·/);
+    expect(statusText(container)).not.toContain('UTC');
+  });
+
+  it('falls back to UTC+5:30 when the document has no timezone field at all', () => {
+    // An older cached document, or the failed-fetch path — not a blank.
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    const { container } = renderFooter();
+    expect(statusText(container)).toContain('Galle, Sri Lanka · UTC+5:30');
+  });
+
+  it('renders the panel’s footer blurb', () => {
+    useAbout.mockReturnValue(aboutWith({ footerBio: 'A different sentence.' }));
+    const { container } = renderFooter();
+    expect(pick(container, 'bio').textContent).toBe('A different sentence.');
+  });
+
+  it('a blank footer blurb falls back to the built-in sentence, never an empty paragraph', () => {
+    useAbout.mockReturnValue(aboutWith({ footerBio: '' }));
+    const { container } = renderFooter();
+    expect(pick(container, 'bio').textContent).toMatch(/^Computer Science undergraduate at the University of Westminster/);
+  });
+});

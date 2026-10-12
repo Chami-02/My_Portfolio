@@ -21,7 +21,21 @@ import { isUsableUrl, isUsableEmail } from './formErrors';
 const MAX_LINK_LABEL = 40;
 
 /**
- * Basic info — five fields, transcribed from Admin.dc.html:1009-1013.
+ * PF-118 — the free-text fields' ceilings, mirroring `aboutRules`
+ * (aboutController.js). Same reason as MAX_LINK_LABEL for being numbers in one
+ * place: the message interpolates them.
+ */
+export const TEXT_LIMITS = {
+  location:         80,
+  timezone:         20,
+  availabilityNote: 160,
+  heroIntro:        300,
+  footerBio:        300,
+};
+
+/**
+ * Basic info — transcribed from Admin.dc.html:1009-1013, minus `name`/`title`
+ * (PF-112, below) and plus `timezone` (PF-118).
  *
  * ⚠️ `email` lives HERE and deliberately not in SOCIAL_FIELDS. The prototype's
  * `socials` array (Admin.dc.html:1014-1018) and DESIGN.md §6.3 both list a
@@ -31,6 +45,9 @@ const MAX_LINK_LABEL = 40;
  */
 export const BASIC_FIELDS = [
   { name: 'location',         label: 'Location',          placeholder: 'Galle, Sri Lanka' },
+  // PF-118 — printed beside the location in Contact AND the footer status line.
+  // Blank hides it in both.
+  { name: 'timezone',         label: 'Timezone',          placeholder: 'UTC+5:30' },
   { name: 'email',            label: 'Contact email',     placeholder: 'pcgallege@gmail.com' },
   { name: 'availabilityNote', label: 'Availability note', placeholder: 'Open to junior roles' },
 ];
@@ -55,6 +72,16 @@ export const BASIC_FIELDS = [
  * so an omitted field keeps its stored value rather than being cleared.
  */
 
+/**
+ * PF-118 — the two lines of site copy the hero and the footer used to hardcode.
+ * A BLANK one is not an error: the component falls back to its built-in line,
+ * the same rule as the availability note.
+ */
+export const COPY_FIELDS = [
+  { name: 'heroIntro', label: 'Hero intro',   hint: 'The paragraph under your name at the top of the home page.' },
+  { name: 'footerBio', label: 'Footer blurb', hint: 'The sentence under your name in the footer.' },
+];
+
 export const SOCIAL_FIELDS = [
   { name: 'github',    label: 'GitHub URL',    placeholder: 'https://github.com/Chami-02' },
   { name: 'linkedin',  label: 'LinkedIn URL',  placeholder: 'https://linkedin.com/in/...' },
@@ -74,7 +101,8 @@ const SOCIAL_KEYS = SOCIAL_FIELDS.map((f) => f.name);
  * empty strings match the prototype's two-paragraph bio.
  */
 export const emptyAboutForm = () => ({
-  location: '', email: '', availabilityNote: '',
+  location: '', timezone: '', email: '', availabilityNote: '',
+  heroIntro: '', footerBio: '',
   bio: ['', ''],
   availableForWork: true,
   social: SOCIAL_KEYS.reduce((acc, k) => ({ ...acc, [k]: '' }), {}),
@@ -104,8 +132,11 @@ export const aboutToForm = (about) => {
 
   return {
     location:         about.location         || '',
+    timezone:         about.timezone         || '',
     email:            about.email            || '',
     availabilityNote: about.availabilityNote || '',
+    heroIntro:        about.heroIntro        || '',
+    footerBio:        about.footerBio        || '',
     bio:              about.bio?.length ? [...about.bio] : empty.bio,
     availableForWork: about.availableForWork ?? true,
     social:           { ...empty.social, ...(about.social || {}) },
@@ -129,8 +160,11 @@ export const aboutToForm = (about) => {
 /** What SAVE PROFILE sends to `PUT /api/about`. */
 export const formToPayload = (form) => ({
   location:         form.location.trim(),
+  timezone:         form.timezone.trim(),
   email:            form.email.trim(),
   availabilityNote: form.availabilityNote.trim(),
+  heroIntro:        form.heroIntro.trim(),
+  footerBio:        form.footerBio.trim(),
   // Blank paragraphs are dropped rather than stored — an empty <p> on the
   // public page is worse than a shorter bio. A bio edited down to nothing
   // still sends [], which the schema accepts.
@@ -175,15 +209,33 @@ export const formToPayload = (form) => ({
  *   - a blank `email`      → the public site falls back to its literal
  *   - a blank `social.*`   → the icon is HIDDEN (About.js's rule since PF-60)
  *   - an empty `bio`       → no paragraphs render
- *   - an empty `stats`     → the four built-in cards render
+ *   - an empty `stats`     → no cards render (the owner removed every one)
+ *   - a blank `timezone`   → the segment is hidden in Contact and the footer
+ *   - a blank hero intro / footer blurb → the built-in line renders
  */
 export const aboutFormErrors = (form = {}) => {
   const errors = [];
 
-  const email = (form.email || '').trim();
-  if (email && !isUsableEmail(email)) {
-    errors.push({ field: 'email', message: 'That email address looks off.' });
-  }
+  // ⚠️ In ON-SCREEN order — Basic info, then the copy card — because the guard
+  // focuses the FIRST error it is given.
+  const tooLong = (name) => {
+    const max = TEXT_LIMITS[name];
+    if ((form[name] || '').trim().length > max) {
+      errors.push({ field: name, message: `Keep this under ${max} characters.` });
+    }
+  };
+
+  BASIC_FIELDS.forEach(({ name }) => {
+    if (name === 'email') {
+      const email = (form.email || '').trim();
+      if (email && !isUsableEmail(email)) {
+        errors.push({ field: 'email', message: 'That email address looks off.' });
+      }
+      return;
+    }
+    tooLong(name);
+  });
+  COPY_FIELDS.forEach(({ name }) => tooLong(name));
 
   // ── The five FIXED social keys ───────────────────────────────────────────
   // ⚠️ AN EMPTY ONE IS NEVER AN ERROR, and this is the half of the rule that is

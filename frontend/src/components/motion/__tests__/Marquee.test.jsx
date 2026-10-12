@@ -150,7 +150,8 @@ describe('Marquee (PF-74)', () => {
       return Number(m[1]);
     };
 
-    const footer = durationOf(read('../../layout/Footer.jsx'));
+    const footerSrc = read('../../layout/Footer.jsx');
+    const footer = durationOf(footerSrc);
     const hero = durationOf(read('../../sections/HeroSection.jsx'));
 
     expect(footer).toBe(70.7);
@@ -170,6 +171,16 @@ describe('Marquee (PF-74)', () => {
     expect(footerPxS).toBeCloseTo(SPEED, 0);
     expect(heroPxS).toBeCloseTo(SPEED, 0);
     expect(Math.abs(footerPxS - heroPxS)).toBeLessThan(1);
+
+    // ⚠️ PF-118 — the footer band has a SECOND call site, for the shorter
+    // CURRENTLY BUILDING string (373.1px against 392.9). Same contract: its
+    // own duration over its own distance. Reusing 70.7 would run it at 47.5.
+    const footerDurations = [...footerSrc.matchAll(/<Marquee[^>]*\sduration=\{([\d.]+)\}/g)]
+      .map((m) => Number(m[1]));
+    expect(footerDurations).toEqual([70.7, 67.1]);
+    const buildingPxS = (18 / 2 * 373.1) / footerDurations[1];
+    expect(buildingPxS).toBeCloseTo(SPEED, 0);
+    expect(Math.abs(buildingPxS - footerPxS)).toBeLessThan(1);
   });
 
 });

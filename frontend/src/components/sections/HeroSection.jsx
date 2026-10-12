@@ -37,6 +37,13 @@ const CHIPS = [
 ];
 
 /** Lines 100-108. Each pill's lead dot pulses at its own rate. */
+/* PF-118 — the intro paragraph is the panel's "Hero intro". This is what a
+   blank field or a failed fetch shows, and the schema default (About.js
+   `heroIntro`) is the same sentence. */
+const HERO_INTRO_FALLBACK =
+  'I’m a Computer Science undergraduate and Full-Stack Developer passionate about '
+  + 'building modern, scalable web applications.';
+
 const ROLE_PILLS = [
   { text: 'Full-Stack Web Developer',  delay: 200, cls: 'rolePillDotA' },
   { text: 'Cloud & DevOps Enthusiast', delay: 280, cls: 'rolePillDotB' },
@@ -164,8 +171,7 @@ export function HeroSection() {
                 paragraph is meant to arrive while the pills are still
                 landing, not after them. Not a typo to "fix". */}
             <Reveal as="p" type="up" delay={260} className={styles.body}>
-              I’m a Computer Science undergraduate and Full-Stack Developer passionate about building modern, 
-              scalable web applications.
+              {about?.heroIntro || HERO_INTRO_FALLBACK}
             </Reveal>
 
             <Reveal type="up" delay={320} className={styles.ctaRow}>

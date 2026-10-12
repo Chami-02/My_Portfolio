@@ -71,6 +71,26 @@ const aboutRules = [
   body('stats')
     .optional()
     .isArray().withMessage('Stats must be a list'),
+
+  // ── PF-118 — the free-text profile fields ────────────────────────────────
+  // `location` and `availabilityNote` had no rule at all; the three new fields
+  // join them. ⚠️ `isString()` FIRST: express-validator's `isLength` measures an
+  // array's elements one by one, so `["x"]` would pass a length rule and reach
+  // `$set`, where Mongoose casts it to the string "x" — an accepted write of a
+  // value nobody sent. Empty is allowed for every one (the owner's "hide it").
+  ...[
+    ['location',         80,  'Location'],
+    ['availabilityNote', 160, 'Availability note'],
+    ['timezone',         20,  'Timezone'],
+    ['heroIntro',        300, 'Hero intro'],
+    ['footerBio',        300, 'Footer blurb'],
+  ].map(([field, max, name]) =>
+    body(field)
+      .optional()
+      .isString().withMessage(`${name} must be text`)
+      .bail()
+      .trim()
+      .isLength({ max }).withMessage(`${name} cannot exceed ${max} characters`)),
 ];
 
 // ── GET /api/about ────────────────────────────────────────────────────────────

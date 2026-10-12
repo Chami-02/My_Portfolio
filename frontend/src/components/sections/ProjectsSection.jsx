@@ -168,7 +168,7 @@ function ProjectLinks({ project, className }) {
  * Projects — PF-85. Full replacement of the Phase 1 component.
  *
  * Wired to `useProjects()`, like Skills and unlike About. The API
- * already sorts `{ order: 1, createdAt: -1 }` (projectController.js:8),
+ * already sorts `{ order: 1, createdAt: -1 }` (projectController.js `SORT`),
  * so display order is an admin field rather than a code constant.
  *
  * ── Which project gets the big card ──────────────────────────────────

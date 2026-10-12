@@ -53,11 +53,18 @@ const aboutSchema = new mongoose.Schema(
     },
 
     // Bio paragraphs — each element is one paragraph
+    //
+    // ⚠️ PF-118 — the default is the SITE's copy, character-for-character
+    // `BIO_FALLBACK` (AboutSection.jsx), `ABOUT_DATA.bio` (seed.js) and
+    // `SITE_BIO` (migration 008). It used to be the Phase 1 pair, so a document
+    // made by `getAbout`'s `About.create({})` rendered different paragraphs
+    // from the ones a failed fetch shows. Migration 008 keeps its OWN literal
+    // of the old default to recognise untouched documents — do not point it here.
     bio: {
       type:    [String],
-      default: [
-        "I'm a Computer Science undergraduate at the University of Westminster, building production-grade software one real project at a time.",
-        "This portfolio is not a template — it's a live MERN application tracked in Jira, containerized with Docker, and deployed through a CI/CD pipeline.",
+      default: () => [
+        "I'm a Computer Science undergraduate at the University of Westminster, passionate about building scalable web applications and continuously improving my backend and full-stack development skills. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.",
+        "I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk. My experience includes Python, Java, Node.js, FastAPI, JavaScript, React, Next.js, PostgreSQL, MongoDB, Docker, GitHub Actions, and Agile development using Jira.",
       ],
     },
 
@@ -69,6 +76,30 @@ const aboutSchema = new mongoose.Schema(
     availabilityNote: {
       type:    String,
       default: 'Currently open to junior developer roles',
+    },
+
+    // ── PF-118 — profile copy the public site used to hardcode ────────────
+    // One field, every render site (owner rule, 2026-10-12): `timezone` is
+    // printed beside the location in Contact AND the footer's status column.
+    // Defaults are the literals they replace, so an existing document reads
+    // them on its next fetch (getAbout is a non-lean findOne — Mongoose fills
+    // a missing path from its default on hydrate) and nothing visible moves.
+    // An EMPTY value is the owner's choice: timezone blank hides the segment,
+    // the two text fields fall back to the component's literal.
+    timezone: {
+      type:    String,
+      trim:    true,
+      default: 'UTC+5:30',
+    },
+    heroIntro: {
+      type:    String,
+      trim:    true,
+      default: 'I’m a Computer Science undergraduate and Full-Stack Developer passionate about building modern, scalable web applications.',
+    },
+    footerBio: {
+      type:    String,
+      trim:    true,
+      default: 'Computer Science undergraduate at the University of Westminster, building scalable web applications — MERN, FastAPI, Docker, shipped with CI/CD.',
     },
 
     // ── REPLACED IN PF-111: avatarUrl (bare String) → avatar {} ───
@@ -208,12 +239,25 @@ const aboutSchema = new mongoose.Schema(
     ],
 
     // Stats shown in the About section cards
-    stats: [
-      {
-        label: { type: String, required: true },
-        value: { type: String, required: true },
-      },
-    ],
+    //
+    // ⚠️ PF-118 — a default, the seed's four. Without one Mongoose stores `[]`,
+    // and `statCards()` (utils/aboutStats.js) honours an empty ARRAY as "the
+    // owner removed every card" — so a document made by `About.create({})`
+    // rendered NO stat cards at all, while a failed fetch rendered four.
+    stats: {
+      type: [
+        {
+          label: { type: String, required: true },
+          value: { type: String, required: true },
+        },
+      ],
+      default: () => [
+        { label: 'Projects Built', value: '5+' },
+        { label: 'Technologies',   value: '10+' },
+        { label: 'GitHub Repos',   value: '5+' },
+        { label: 'Learning',       value: 'Continuous' },
+      ],
+    },
   },
   { timestamps: true }
 );

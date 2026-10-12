@@ -691,3 +691,27 @@ describe('availability badge', () => {
     expect(decls('.badge').composes).toBe('kf-glowpulse from global');
   });
 });
+
+// ── PF-118 — the intro paragraph is the panel's "Hero intro" ────────────────
+describe('hero intro (PF-118)', () => {
+  const FALLBACK = /^I’m a Computer Science undergraduate and Full-Stack Developer passionate about building modern, scalable web applications\.$/;
+  const introP = () => screen.getByText(/Computer Science|A different intro/, { selector: 'p' });
+
+  it('renders the stored intro', () => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, heroIntro: 'A different intro.' } });
+    render(withMotion(<HeroSection />));
+    expect(introP().textContent).toBe('A different intro.');
+  });
+
+  it('a blank intro falls back to the built-in sentence', () => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, heroIntro: '' } });
+    render(withMotion(<HeroSection />));
+    expect(introP().textContent).toMatch(FALLBACK);
+  });
+
+  it('renders the built-in sentence while loading — one space, no source line-break artefacts', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    render(withMotion(<HeroSection />));
+    expect(introP().textContent).toMatch(FALLBACK);
+  });
+});

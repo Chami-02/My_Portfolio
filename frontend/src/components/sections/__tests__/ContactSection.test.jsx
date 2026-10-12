@@ -824,7 +824,7 @@ describe('Contact — email, location and socials come from the panel (PF-112)',
     expect(link).toHaveAttribute('href', 'mailto:someone@else.dev');
   });
 
-  it('renders the stored location, uppercased, with the UTC literal kept', () => {
+  it('renders the stored location, uppercased, with the default timezone', () => {
     useAbout.mockReturnValue(aboutOk(false, { location: 'Colombo, Sri Lanka' }));
     renderSection();
 
@@ -882,5 +882,59 @@ describe('Contact — email, location and socials come from the panel (PF-112)',
     renderSection();
 
     expect(screen.getByRole('link', { name: 'parindrachameekara@gmail.com' })).toBeInTheDocument();
+  });
+});
+
+// ── PF-118 — the intro and the timezone come from the About document ────────
+describe('ContactSection — PF-118 wiring', () => {
+  const intro = (container) => pick(container, 'intro').textContent;
+  const REST = 'If you have a role, a project, or just want to connect — send me a message. I respond within 24 hours.';
+
+  it("the intro leads with the availability note, as a sentence", () => {
+    useAbout.mockReturnValue(aboutOk(false, {
+      availableForWork: true,
+      availabilityNote: 'Currently seeking Software Engineering Internship opportunities',
+    }));
+    const { container } = renderSection();
+    expect(intro(container)).toBe(
+      `Currently seeking Software Engineering Internship opportunities. ${REST}`,
+    );
+  });
+
+  it('does not double a full stop the note already has', () => {
+    useAbout.mockReturnValue(aboutOk(false, { availableForWork: true, availabilityNote: 'Open to work!' }));
+    const { container } = renderSection();
+    expect(intro(container)).toBe(`Open to work! ${REST}`);
+  });
+
+  it('a blank note falls back to the sentence it replaced', () => {
+    useAbout.mockReturnValue(aboutOk(false, { availableForWork: true, availabilityNote: '' }));
+    const { container } = renderSection();
+    expect(intro(container)).toBe(
+      `I'm actively looking for junior developer and Software Engineering internship opportunities. ${REST}`,
+    );
+  });
+
+  it('while unavailable the availability sentence is gone — only the rest remains', () => {
+    useAbout.mockReturnValue(aboutOk(false, {
+      availableForWork: false,
+      availabilityNote: 'Currently seeking Software Engineering Internship opportunities',
+    }));
+    const { container } = renderSection();
+    expect(intro(container)).toBe(REST);
+    expect(intro(container)).not.toMatch(/seeking|looking/);
+  });
+
+  it('prints the stored timezone, uppercased, beside the location', () => {
+    useAbout.mockReturnValue(aboutOk(false, { location: 'London, UK', timezone: 'utc+0' }));
+    renderSection();
+    expect(screen.getByText('LONDON, UK · UTC+0')).toBeInTheDocument();
+  });
+
+  it('a blank timezone drops the segment and its separator', () => {
+    useAbout.mockReturnValue(aboutOk(false, { location: 'London, UK', timezone: '' }));
+    renderSection();
+    expect(screen.getByText('LONDON, UK')).toBeInTheDocument();
+    expect(screen.queryByText(/UTC/)).toBeNull();
   });
 });

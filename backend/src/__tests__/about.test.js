@@ -352,3 +352,115 @@ describe('PUT /api/about — stats', () => {
     expect(after.stats[0].label).toBe('Kept');
   });
 });
+
+// ── PF-118 — a fresh document renders what the site renders ─────────────────
+// `getAbout` answers an empty collection with `About.create({})`, so these
+// defaults are what a brand-new environment shows. They used to disagree with
+// the frontend fallbacks: no stat cards at all (stats stored as `[]`) and the
+// Phase 1 bio pair.
+describe('PF-118 — fresh About defaults', () => {
+  it('a created document carries the four stat cards', async () => {
+    const res = await request(app).get('/api/about');
+
+    expect(res.body.data.stats.map(({ label, value }) => [label, value])).toEqual([
+      ['Projects Built', '5+'],
+      ['Technologies', '10+'],
+      ['GitHub Repos', '5+'],
+      ['Learning', 'Continuous'],
+    ]);
+  });
+
+  it("a created document carries the site's bio, not the Phase 1 pair", async () => {
+    const res = await request(app).get('/api/about');
+
+    expect(res.body.data.bio).toHaveLength(2);
+    expect(res.body.data.bio[0]).toMatch(/^I'm a Computer Science undergraduate at the University of Westminster, passionate about/);
+    expect(res.body.data.bio[1]).toMatch(/ClearDrive\.lk/);
+    expect(res.body.data.bio.join(' ')).not.toMatch(/production-grade/);
+  });
+
+  it('two documents do not share one default array', async () => {
+    // A literal array default would be ONE array shared by every document.
+    const a = new About();
+    const b = new About();
+    a.stats.push({ label: 'X', value: '1' });
+    expect(b.stats).toHaveLength(4);
+  });
+
+  it('the copy fields default to the literals they replaced', async () => {
+    const res = await request(app).get('/api/about');
+
+    expect(res.body.data.timezone).toBe('UTC+5:30');
+    expect(res.body.data.heroIntro).toMatch(/^I’m a Computer Science undergraduate and Full-Stack Developer/);
+    expect(res.body.data.footerBio).toMatch(/^Computer Science undergraduate at the University of Westminster/);
+  });
+
+  it('an existing document missing the new paths reads their defaults', async () => {
+    // Production's document predates the fields. Written raw, past Mongoose,
+    // so the paths are genuinely absent from the stored document.
+    await About.collection.insertOne({ name: 'Old Doc', bio: ['x'], stats: [] });
+
+    const res = await request(app).get('/api/about');
+
+    expect(res.body.data.name).toBe('Old Doc');
+    expect(res.body.data.timezone).toBe('UTC+5:30');
+    // ⚠️ A STORED empty list is the owner's choice and must not be refilled.
+    expect(res.body.data.stats).toEqual([]);
+  });
+});
+
+// ── PF-118 — the free-text profile fields ───────────────────────────────────
+describe('PUT /api/about — PF-118 text fields', () => {
+  const FIELDS = [
+    ['location', 80],
+    ['availabilityNote', 160],
+    ['timezone', 20],
+    ['heroIntro', 300],
+    ['footerBio', 300],
+  ];
+
+  it.each(FIELDS)('saves %s and returns it', async (field) => {
+    const res = await request(app).put('/api/about').set(await authHeader())
+      .send({ [field]: '  A value  ' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[field]).toBe('A value');
+  });
+
+  it.each(FIELDS)('accepts %s blank — the owner hiding it', async (field) => {
+    const res = await request(app).put('/api/about').set(await authHeader())
+      .send({ [field]: '' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data[field]).toBe('');
+  });
+
+  it.each(FIELDS)('accepts %s at exactly its limit (%i)', async (field, max) => {
+    const res = await request(app).put('/api/about').set(await authHeader())
+      .send({ [field]: 'a'.repeat(max) });
+
+    expect(res.status).toBe(200);
+  });
+
+  it.each(FIELDS)('400s %s one character over its limit', async (field, max) => {
+    const res = await request(app).put('/api/about').set(await authHeader())
+      .send({ [field]: 'a'.repeat(max + 1) });
+
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toMatch(/cannot exceed/);
+  });
+
+  it.each(FIELDS)('400s %s sent as an array, and writes nothing', async (field) => {
+    // The zero case for the type rule: an array slips past a length check
+    // element by element, and Mongoose would cast ["x"] to "x".
+    const headers = await authHeader();
+    await request(app).put('/api/about').set(headers).send({ [field]: 'kept' });
+
+    const res = await request(app).put('/api/about').set(headers).send({ [field]: ['x'] });
+
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toMatch(/must be text/);
+    const after = await About.findOne();
+    expect(after[field]).toBe('kept');
+  });
+});

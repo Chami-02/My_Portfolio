@@ -3,7 +3,7 @@
 // PF-112 — the About panel's form shape.
 import { describe, it, expect } from 'vitest';
 import {
-  BASIC_FIELDS, SOCIAL_FIELDS,
+  BASIC_FIELDS, COPY_FIELDS, SOCIAL_FIELDS, TEXT_LIMITS,
   emptyAboutForm, aboutToForm, formToPayload, isAboutDirty, aboutFormErrors,
 } from '../aboutForm';
 
@@ -26,13 +26,14 @@ const ABOUT = Object.freeze({
 });
 
 describe('the field tables', () => {
-  // ⚠️ THREE basic fields since PF-112, not five. `name` and `title` were
-  // removed because editing them changed nothing: both are hardcoded literals on
-  // the public site (hero heading, footer, splash). The owner's rule is that
-  // location, email and the availability note change with a career and a name
-  // does not.
-  it('offers three basic fields and five social fields', () => {
-    expect(BASIC_FIELDS).toHaveLength(3);
+  // ⚠️ FOUR basic fields since PF-118 (three since PF-112, not five). `name`
+  // and `title` were removed because editing them changed nothing: both are
+  // hardcoded literals on the public site (hero heading, footer, splash). The
+  // owner's rule is that location, email and the availability note change with
+  // a career and a name does not. PF-118 added `timezone` beside the location.
+  it('offers four basic fields, two copy fields and five social fields', () => {
+    expect(BASIC_FIELDS).toHaveLength(4);
+    expect(COPY_FIELDS.map((f) => f.name)).toEqual(['heroIntro', 'footerBio']);
     expect(SOCIAL_FIELDS).toHaveLength(5);
   });
 
@@ -40,7 +41,7 @@ describe('the field tables', () => {
     const names = BASIC_FIELDS.map((f) => f.name);
     expect(names).not.toContain('name');
     expect(names).not.toContain('title');
-    expect(names).toEqual(['location', 'email', 'availabilityNote']);
+    expect(names).toEqual(['location', 'timezone', 'email', 'availabilityNote']);
   });
 
   // ⚠️ The prototype's `socials` array and DESIGN.md §6.3 both list a sixth
@@ -541,5 +542,55 @@ describe('aboutFormErrors — what refuses the save', () => {
   it('ignores whitespace-only input exactly as the payload does', () => {
     const form = { ...clean(), stats: [{ label: '   ', value: '  ' }] };
     expect(fields(form)).toEqual(['stats.0.label']);
+  });
+});
+
+// ── PF-118 — timezone, hero intro, footer blurb ─────────────────────────────
+describe('PF-118 copy fields', () => {
+  const FIELDS = ['timezone', 'heroIntro', 'footerBio'];
+
+  it.each(FIELDS)('%s round-trips document → form → payload, trimmed', (field) => {
+    const form = aboutToForm({ [field]: '  Some text  ' });
+    expect(form[field]).toBe('  Some text  ');
+    expect(formToPayload(form)[field]).toBe('Some text');
+  });
+
+  it.each(FIELDS)('%s is blank in an empty form and SENT blank (the owner hiding it)', (field) => {
+    const form = emptyAboutForm();
+    expect(form[field]).toBe('');
+    // ⚠️ Sent, not omitted: `$set` keeps an omitted key's stored value, so
+    // leaving a blank out would make clearing the field impossible.
+    expect(formToPayload(form)).toHaveProperty(field, '');
+  });
+
+  it.each(FIELDS)('editing %s makes the form dirty', (field) => {
+    const about = { [field]: 'saved' };
+    const form = { ...aboutToForm(about), [field]: 'changed' };
+    expect(isAboutDirty(form, about)).toBe(true);
+    expect(isAboutDirty(aboutToForm(about), about)).toBe(false);
+  });
+
+  it.each(Object.entries(TEXT_LIMITS))('%s: at its limit (%i) is fine, one over is refused', (field, max) => {
+    const at = { ...emptyAboutForm(), [field]: 'a'.repeat(max) };
+    const over = { ...emptyAboutForm(), [field]: 'a'.repeat(max + 1) };
+    expect(aboutFormErrors(at)).toEqual([]);
+    expect(aboutFormErrors(over)).toEqual([
+      { field, message: `Keep this under ${max} characters.` },
+    ]);
+  });
+
+  it('a blank copy field is never an error', () => {
+    // The zero case for the length rule: blank is the owner's "use the default".
+    expect(aboutFormErrors(emptyAboutForm())).toEqual([]);
+  });
+
+  it('reports problems in on-screen order — the guard focuses the first', () => {
+    const form = {
+      ...emptyAboutForm(),
+      footerBio: 'a'.repeat(301),
+      email: 'nope',
+      location: 'a'.repeat(81),
+    };
+    expect(aboutFormErrors(form).map((e) => e.field)).toEqual(['location', 'email', 'footerBio']);
   });
 });

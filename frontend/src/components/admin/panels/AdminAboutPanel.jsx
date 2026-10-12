@@ -12,7 +12,7 @@ import { apiUrl } from '../../../services/api';
 // them drifts. The module's name is about its origin, not a fence.
 import { formatDate } from '../../../utils/blogMeta';
 import {
-  BASIC_FIELDS, SOCIAL_FIELDS,
+  BASIC_FIELDS, COPY_FIELDS, SOCIAL_FIELDS,
   aboutToForm, formToPayload, isAboutDirty, aboutFormErrors,
 } from '../../../utils/aboutForm';
 import { useFormGuard } from '../../../hooks/useFormGuard';
@@ -528,6 +528,35 @@ export function AdminAboutPanel() {
                   ×
                 </button>
               )}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Site copy (PF-118) ────────────────────────────────────────────
+          The hero intro and the footer blurb were literals in their
+          components. A blank one is allowed and falls back to that literal,
+          the same rule as the availability note, so nothing here can leave a
+          hole in the page. */}
+      <section className={a.panel} aria-labelledby="about-copy-title">
+        <h2 className={a.panelTitle} id="about-copy-title">Site copy</h2>
+        <p className={styles.cardNote}>
+          Leave a line empty to use the site&apos;s built-in wording.
+        </p>
+        <div className={a.stack}>
+          {COPY_FIELDS.map(({ name, label, hint }) => (
+            <div key={name}>
+              <label className={a.label} htmlFor={`about-${name}`}>{label}</label>
+              <textarea
+                {...fieldProps(guard.errors, FID, name)}
+                className={styles.copyText}
+                rows={3}
+                name={name}
+                placeholder={hint}
+                value={form[name]}
+                onChange={(e) => edit({ [name]: e.target.value }, name)}
+              />
+              <FieldError field={name} guard={guard} />
             </div>
           ))}
         </div>

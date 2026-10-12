@@ -29,7 +29,17 @@ import styles from './Footer.module.css';
    repeats, and the prototype writes it as a literal `&nbsp;` (lines 546,
    547). A plain space is collapsed by white-space processing and the two
    copies butt together at the wrap. */
-const MARQUEE_TEXT = "OPEN TO OPPORTUNITIES ✦ LET'S BUILD SOMETHING LOUD ✦ ";
+/* ⚠️ PF-118 — TWO strings, following `availableForWork` with the hero badge's
+   own two phrases. The band used to say OPEN TO OPPORTUNITIES while the hero,
+   the footer status row and About all said the owner was not. */
+const MARQUEE_OPEN = "OPEN TO OPPORTUNITIES ✦ LET'S BUILD SOMETHING LOUD ✦ ";
+const MARQUEE_BUILDING = "CURRENTLY BUILDING ✦ LET'S BUILD SOMETHING LOUD ✦ ";
+
+/* PF-118 — what renders when the panel's field is blank or the fetch failed.
+   The same sentence is the schema default (About.js `footerBio`). */
+const FOOTER_BIO_FALLBACK =
+  'Computer Science undergraduate at the University of Westminster, building '
+  + 'scalable web applications — MERN, FastAPI, Docker, shipped with CI/CD.';
 
 /* ⚠️ "Field Notes", not "BLOG". The footer labels the section by its
    name where the header labels it by its id, and the prototype has it
@@ -84,6 +94,10 @@ export function Footer() {
   // different things called some form of "location" is a mis-read waiting to
   // happen.
   const place = about?.location || 'Galle, Sri Lanka';
+  // PF-118 — one field, two render sites (this and ContactSection). `??`, not
+  // `||`: a blank timezone is the owner HIDING it, so only a missing field (an
+  // older cached document, a failed fetch) falls back to the literal.
+  const timezone = about?.timezone ?? 'UTC+5:30';
 
   const { pathname } = useLocation();
 
@@ -135,9 +149,30 @@ export function Footer() {
           prototype runs the footer at 15s and the hero at 26s; the
           footer was matched to 26 on 2026-08-25, both went to 40 the
           same day, then to 50.5/60, and now to 70.7/84. */}
-      <Marquee duration={70.7} copies={18} className={styles.marqueeBand}>
-        <span className={styles.marqueeText}>{MARQUEE_TEXT}</span>
-      </Marquee>
+      {/* ⚠️ PF-118 — TWO call sites, not one with a computed duration. The
+          strings differ in width, and the band's contract is equal SPEED
+          (50 px/s), so each needs its own duration over its own distance:
+
+            open      9 x 392.9 = 3536.4px / 70.7s = 50.02 px/s
+            building  9 x 373.1 = 3357.5px / 67.1s = 50.04 px/s
+
+          Both widths measured 2026-10-12 in Chromium, the same element and
+          font, with the open string re-measured as the control (392.93).
+          18 copies still covers a band to 2 x 3357px wide for the shorter
+          string, past any real viewport.
+
+          Marquee.test.jsx reads both `duration={n}` literals out of this file,
+          which is why they are not an expression. Toggling availability
+          remounts the band — a once-in-months event, never mid-scroll. */}
+      {isAvailable ? (
+        <Marquee duration={70.7} copies={18} className={styles.marqueeBand}>
+          <span className={styles.marqueeText}>{MARQUEE_OPEN}</span>
+        </Marquee>
+      ) : (
+        <Marquee duration={67.1} copies={18} className={styles.marqueeBand}>
+          <span className={styles.marqueeText}>{MARQUEE_BUILDING}</span>
+        </Marquee>
+      )}
 
       <div className={styles.inner}>
         <div className={styles.grid}>
@@ -165,11 +200,9 @@ export function Footer() {
               </span>
             </div>
 
-            <p className={styles.bio}>
-              Computer Science undergraduate at the University of Westminster,
-              building scalable web applications — MERN, FastAPI, Docker,
-              shipped with CI/CD.
-            </p>
+            {/* PF-118 — the panel's "Footer blurb". Blank falls back, never
+                an empty paragraph. */}
+            <p className={styles.bio}>{about?.footerBio || FOOTER_BIO_FALLBACK}</p>
 
             {/* Two states from the admin panel's availability toggle —
                 owner decision 2026-09-16, same shape as the hero badge.
@@ -246,10 +279,10 @@ export function Footer() {
             <span className={styles.columnHeading}>STATUS</span>
             <span className={styles.statusLines}>
               <span data-ok="" className={styles.statusDotOk}>●</span> CI pipeline green<br />
-              {/* ⚠️ The UTC offset stays a literal — it is a timezone, not part of
-                  the location field, so a move abroad would leave it wrong. Called
-                  out in the ticket rather than silently coupled. */}
-              <span className={styles.statusDotAcc}>●</span> {place} · UTC+5:30<br />
+              {/* PF-118 — the timezone is the panel's own field now, shared with
+                  ContactSection's location line. Blank drops the segment AND its
+                  separator, so there is never a dangling "·". */}
+              <span className={styles.statusDotAcc}>●</span> {place}{timezone && ` · ${timezone}`}<br />
               <span className={styles.statusDotMuted}>●</span> Replies within 24h
             </span>
             <a href={sectionHref(pathname, 'contact')} className={styles.statusCta}>
