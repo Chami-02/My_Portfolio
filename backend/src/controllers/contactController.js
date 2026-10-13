@@ -5,19 +5,28 @@ const AppError   = require('../utils/AppError');
 // ── Validation rules array ────────────────────────────────────────────────────
 // These run BEFORE the controller function.
 // The validate middleware (PF-17) checks results and returns 400 on failure.
+//
+// ⚠️ PF-120 — `isString().bail()` FIRST on every field (the aboutController
+// pattern). This route is PUBLIC, and without it an array (`name: ['a','b']`)
+// passed `trim`/`isLength` and reached Mongoose as a CastError: a 500 and an
+// UNEXPECTED ERROR log. An object passed too, and was STORED as
+// "[object Object]". Both measured before the fix.
 const contactRules = [
   body('name')
+    .isString().withMessage('Name must be text').bail()
     .trim()
     .notEmpty().withMessage('Name is required')
     .isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
 
   body('email')
+    .isString().withMessage('Email must be text').bail()
     .trim()
     .notEmpty().withMessage('Email is required')
     .isEmail().withMessage('Please provide a valid email address')
     .normalizeEmail(),
 
   body('message')
+    .isString().withMessage('Message must be text').bail()
     .trim()
     .notEmpty().withMessage('Message is required')
     .isLength({ min: 10 }).withMessage('Message must be at least 10 characters long')

@@ -122,4 +122,31 @@ const googleLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter };
+/**
+ * Limiter for the public contact form, `POST /api/contact` (PF-120).
+ *
+ * Before this the form had only `globalLimiter`: one IP could store about 100
+ * messages every 15 minutes, and PF-123 turns every stored message into an
+ * EMAIL, which a free mail quota would not survive. 5 per hour is more than
+ * any real visitor sends.
+ *
+ * `skipFailedRequests`: only a message that was actually STORED counts. A 400
+ * (empty field, bad address) stores nothing and sends nothing, so it should
+ * not cost a visitor who is fixing a typo one of their five.
+ *
+ * Live under `NODE_ENV=test` like the other per-route limiters. The suites
+ * stay inside it: contact.test.js stores three messages, E2E stores one.
+ */
+const contactLimiter = rateLimit({
+  windowMs:           60 * 60 * 1000,
+  max:                5,
+  skipFailedRequests: true,
+  standardHeaders:    true,
+  legacyHeaders:      false,
+  message: {
+    status:  'fail',
+    message: 'You have sent several messages already. Please try again in an hour.',
+  },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter };

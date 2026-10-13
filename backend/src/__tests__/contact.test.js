@@ -77,6 +77,25 @@ describe('POST /api/contact', () => {
   });
 });
 
+// PF-120 — every field must be a STRING. Measured before the fix: arrays gave
+// a public 500, and an object was stored as "[object Object]". A refused 400
+// does not count against contactLimiter, so these cost no budget.
+describe('POST /api/contact — non-string fields (PF-120)', () => {
+  it.each([
+    ['name as an array',        { name: ['Ann', 'Bob'] }],
+    ['name as a 1-item array',  { name: ['Ann'] }],
+    ['name as an object',       { name: { a: 1 } }],
+    ['email as an array',       { email: ['a@example.com', 'b@example.com'] }],
+    ['message as an array',     { message: ['A long enough message', 'x'] }],
+    ['message as an object',    { message: { text: 'A long enough message' } }],
+  ])('refuses %s with a 400 and stores nothing', async (_label, override) => {
+    const res = await request(app).post('/api/contact').send({ ...VALID_MESSAGE, ...override });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/must be text/);
+    expect(await Contact.countDocuments()).toBe(0);
+  });
+});
+
 describe('GET /api/contact', () => {
   it('returns all messages for an authenticated admin', async () => {
     await Contact.create(VALID_MESSAGE);
