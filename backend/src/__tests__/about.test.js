@@ -217,38 +217,6 @@ describe('PUT /api/about', () => {
   });
 });
 
-describe('PATCH /api/about/availability', () => {
-  it('toggles availability when authenticated', async () => {
-    const about = await About.create({ availableForWork: true });
-    const header = await authHeader();
-
-    const unavailableRes = await request(app)
-      .patch('/api/about/availability')
-      .set(header);
-
-    expect(unavailableRes.status).toBe(200);
-    expect(unavailableRes.body.data.availableForWork).toBe(false);
-    expect(unavailableRes.body.message).toMatch(/not available/i);
-
-    const availableRes = await request(app)
-      .patch('/api/about/availability')
-      .set(header);
-
-    expect(availableRes.status).toBe(200);
-    expect(availableRes.body.data.availableForWork).toBe(true);
-    expect(availableRes.body.data._id).toBe(about.id);
-  });
-
-  it('returns 404 when no profile exists', async () => {
-    const res = await request(app)
-      .patch('/api/about/availability')
-      .set(await authHeader());
-
-    expect(res.status).toBe(404);
-    expect(res.body.message).toMatch(/profile not found/i);
-  });
-});
-
 // ── The About section's stat cards ───────────────────────────────────────────
 //
 // `stats[]` has been in the schema and in `seed.js` since Phase 1, and until

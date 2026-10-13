@@ -7,7 +7,6 @@ const helmet     = require('helmet');
 const multer     = require('multer');
 const { MAX_UPLOAD_BYTES } = require('./middleware/upload');
 const mongoose   = require('mongoose');
-const path       = require('path');
 
 const corsOptions        = require('./config/corsOptions');
 const connectDB          = require('./config/db');
@@ -27,10 +26,6 @@ app.use(
 );                                               // Request logging
 app.use(express.json({ limit: '10kb' }));        // Parse JSON bodies (limit size)
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-
-// ── Serve uploaded files (images) ─────────────────────────────────────────────
-// /uploads/filename.jpg → backend/src/uploads/filename.jpg
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Health check ─────────────────────────────────────────────────────────────
 // This endpoint is used by Docker, Railway, and our CI pipeline
@@ -76,7 +71,6 @@ app.use(async (_req, _res, next) => {
    app.use('/api/auth',     require('./routes/authRoutes'));
    app.use('/api/resume',   require('./routes/resumeRoutes'));   // PF-60 — public CV download
    app.use('/api/vocabulary', require('./routes/vocabularyRoutes')); 
-   app.use('/api/upload', require('./routes/uploadRoutes'));
    app.use('/api/dashboard', require('./routes/dashboardRoutes')); // PF-110 — admin counts, one call
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────

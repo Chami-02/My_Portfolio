@@ -3,6 +3,4 @@ node_modules/
 *.log
 dist/
 coverage/
-src/uploads/*
-!src/uploads/.gitkeep
 .vercel

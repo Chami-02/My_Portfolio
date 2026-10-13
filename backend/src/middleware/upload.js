@@ -31,12 +31,11 @@ const MAX_PDF_BYTES   = 4 * 1024 * 1024;   // 4 MB — résumé PDFs
 // uploadSingle. Kept under the original name — PF-60 imports it.
 const MAX_UPLOAD_BYTES = Math.max(MAX_IMAGE_BYTES, MAX_PDF_BYTES);
 
-const ALLOWED_IMAGE_MIME = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/avif',
-];
+// PF-120 — the image types multer lets through are EXACTLY the ones the
+// handlers accept (utils/fileType.js). This list used to add image/avif for
+// POST /api/upload; that route is deleted, and a wider screen than the gate
+// only buffers 4 MB of a file that is certain to be refused.
+const { MEDIA_IMAGE_MIME } = require('../utils/fileType');
 
 /**
  * First pass, on the CLIENT-DECLARED mime type.
@@ -46,11 +45,11 @@ const ALLOWED_IMAGE_MIME = [
  * Its value is rejecting obvious mistakes before 4 MB is buffered into RAM.
  */
 const fileFilter = (req, file, cb) => {
-  const allowed = [...ALLOWED_IMAGE_MIME, 'application/pdf'];
+  const allowed = [...MEDIA_IMAGE_MIME, 'application/pdf'];
 
   if (!allowed.includes(file.mimetype)) {
     return cb(new AppError(
-      `Unsupported file type "${file.mimetype}". Allowed: PNG, JPEG, WebP, AVIF, PDF.`,
+      `Unsupported file type "${file.mimetype}". Allowed: PNG, JPEG, WebP, PDF.`,
       415
     ));
   }
@@ -101,5 +100,4 @@ module.exports = {
   MAX_UPLOAD_BYTES,
   MAX_IMAGE_BYTES,
   MAX_PDF_BYTES,
-  ALLOWED_IMAGE_MIME,
 };

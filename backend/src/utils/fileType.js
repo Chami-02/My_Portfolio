@@ -3,7 +3,7 @@
 // PF-111 — one home for magic-byte file detection.
 //
 // WHY THIS FILE EXISTS. Before PF-111 there were two independent sniffers:
-// `detectFileType()` in uploadController.js (five formats, plus three
+// `detectFileType()` in uploadController.js (deleted in PF-120; five formats, plus three
 // recognised-but-rejected ones) and `isPdf()` in aboutController.js (the five
 // bytes "%PDF-"). PF-111 adds two more upload handlers — the About portrait and
 // the project background — which brings the number of callers to four. Copying
@@ -37,10 +37,9 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
  * stored-XSS vector, which is exactly why `Project.backgroundImage.src` already
  * rejects `data:` URIs. Owner decision, 2026-09-23: PNG, JPEG, WebP only.
  *
- * ⚠️ Narrower than `middleware/upload.js`'s ALLOWED_IMAGE_MIME, which also
- * lists image/avif because POST /api/upload accepts it. That is not an
- * oversight: multer's list screens the claimed type for every upload route,
- * and THIS list is the gate for the two portrait/background handlers.
+ * PF-120: also the list `middleware/upload.js` screens the CLAIMED type
+ * against. It used to be wider (image/avif, for POST /api/upload); that route
+ * is deleted. AVIF is still DETECTED below, so it gets a precise 415.
  */
 const MEDIA_IMAGE_MIME = ['image/png', 'image/jpeg', 'image/webp'];
 

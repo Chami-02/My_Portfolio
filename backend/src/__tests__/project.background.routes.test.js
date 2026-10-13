@@ -337,6 +337,43 @@ describe('PUT /api/projects/:id — an ordinary save cannot touch the media (PF-
     expect(after.backgroundImage.src).toContain('res.cloudinary.com');
   });
 
+  // PF-120 — the DOTTED spelling of the same write. Measured before the fix:
+  // both keys went straight through `set()`, the publicId included.
+  it('ignores DOTTED src/publicId paths on a normal save (PF-120)', async () => {
+    const p = await makeProject();
+    storage.upload.mockResolvedValue(uploaded('one'));
+    await request(app).put(`/api/projects/${p._id}/background`)
+      .set(await authHeader()).attach('file', PNG, 'one.png');
+
+    const res = await request(app)
+      .put(`/api/projects/${p._id}`)
+      .set(await authHeader())
+      .send({
+        title: 'Renamed',
+        'backgroundImage.src': 'https://evil.example/a.png',
+        'backgroundImage.publicId': 'portfolio/profile/victim',
+      });
+
+    expect(res.status).toBe(200);
+    const after = await Project.findById(p._id);
+    expect(after.title).toBe('Renamed');
+    expect(after.backgroundImage.publicId).toBe('portfolio/projects/one');
+    expect(after.backgroundImage.src).toContain('res.cloudinary.com');
+  });
+
+  it('ignores a DOTTED publicId on CREATE (PF-120)', async () => {
+    const res = await request(app)
+      .post('/api/projects')
+      .set(await authHeader())
+      .send({
+        title: 'New', description: 'd', githubUrl: 'https://github.com/a/b', tech: ['React'],
+        'backgroundImage.publicId': 'portfolio/profile/victim',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.backgroundImage.publicId).toBe('');
+  });
+
   it('ignores a client-supplied publicId on CREATE', async () => {
     const res = await request(app)
       .post('/api/projects')

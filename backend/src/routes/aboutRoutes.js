@@ -6,7 +6,6 @@ const {
   aboutRules,
   getAbout,
   updateAbout,
-  toggleAvailability,
   uploadResume,
   removeResume,
   uploadAvatar,
@@ -22,7 +21,6 @@ router.get('/', getAbout);
 // answered with a description of the schema instead of a 401. Authentication
 // has to be the first gate, or the 400 is an information leak.
 router.put('/', protect, aboutRules, validate, updateAbout);
-router.patch('/availability', protect, toggleAvailability);
 
 // ── NEW IN PF-60 ─────────────────────────────────────────────
 // `protect` runs BEFORE `uploadSingle` deliberately: an anonymous

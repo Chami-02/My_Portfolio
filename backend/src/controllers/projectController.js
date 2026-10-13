@@ -29,7 +29,13 @@ const BACKGROUND_FOLDER = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}
  */
 const sanitiseProjectBody = (body) => {
   const { backgroundImage, ...rest } = body ?? {};
-  const update = { ...rest };
+  // ⚠️ PF-120 — and every DOTTED path into it. `set()` treats
+  // `"backgroundImage.publicId"` as that nested path, so stripping only the
+  // top-level key let a raw request set the publicId (and `src`) anyway —
+  // measured. Opacity, the one client-writable part, is re-added below.
+  const update = Object.fromEntries(
+    Object.entries(rest).filter(([key]) => !key.startsWith('backgroundImage.'))
+  );
 
   if (backgroundImage && typeof backgroundImage === 'object' &&
       !Array.isArray(backgroundImage) &&

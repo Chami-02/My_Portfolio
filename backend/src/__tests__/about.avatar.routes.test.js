@@ -200,16 +200,19 @@ describe('PUT /api/about/avatar', () => {
     expect(storage.upload).not.toHaveBeenCalled();
   });
 
-  it('rejects AVIF, which POST /api/upload accepts but a portrait does not', async () => {
-    // Pins the deliberate narrowing: middleware/upload.js's ALLOWED_IMAGE_MIME
-    // lists image/avif, utils/fileType.js's MEDIA_IMAGE_MIME does not, and the
-    // handler's list is the one that decides.
+  it('rejects AVIF', async () => {
+    // PF-120: multer's claimed-type screen and the handler's magic-byte gate
+    // now share one list (utils/fileType.js MEDIA_IMAGE_MIME), and AVIF is on
+    // neither. Before, multer let it through for the deleted POST /api/upload.
     const res = await request(app)
       .put('/api/about/avatar')
       .set(await authHeader())
       .attach('file', AVIF, { filename: 'shot.avif', contentType: 'image/avif' });
 
     expect(res.status).toBe(415);
+    // Refused by multer's CLAIMED-type screen, before 4 MB is buffered — not
+    // only by the handler's byte check (which would also say 415).
+    expect(res.body.message).toMatch(/^Unsupported file type "image\/avif"/);
     expect(storage.upload).not.toHaveBeenCalled();
   });
 
@@ -333,6 +336,30 @@ describe('PUT /api/about — media fields are not client-writable (PF-111)', () 
     const about = await About.findOne();
     expect(about.avatar.publicId).toBe('portfolio/profile/one');
     expect(about.avatar.url).toContain('res.cloudinary.com');
+  });
+
+  // PF-120 — the DOTTED spelling. `$set` reads `"avatar.publicId"` as the
+  // nested field; measured before the fix, it was written.
+  it.each([
+    ['avatar.publicId', 'avatar', 'publicId'],
+    ['avatar.url',      'avatar', 'url'],
+    ['resume.publicId', 'resume', 'publicId'],
+    ['resume.url',      'resume', 'url'],
+  ])('ignores a DOTTED %s on the profile save (PF-120)', async (key, slot, field) => {
+    const about = await About.create({});
+    about.avatar = { url: 'https://res.cloudinary.com/demo/image/upload/v1/portfolio/profile/one.webp', publicId: 'portfolio/profile/one' };
+    about.resume = { url: 'https://res.cloudinary.com/demo/raw/upload/v1/portfolio/documents/cv.pdf', publicId: 'portfolio/documents/cv' };
+    await about.save();
+    const before = (await About.findOne())[slot][field];
+
+    const res = await request(app)
+      .put('/api/about')
+      .set(await authHeader())
+      .send({ title: 'Engineer', [key]: 'https://res.cloudinary.com/demo/raw/upload/victim' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.title).toBe('Engineer');   // the honest half still saves
+    expect((await About.findOne())[slot][field]).toBe(before);
   });
 
   it('ignores a resume sent through the ordinary profile save', async () => {

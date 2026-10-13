@@ -39,7 +39,7 @@ const aboutRules = [
   // ⚠️ PF-112 — availableForWork now arrives on the profile PUT.
   // The admin About panel stages every edit and commits them together, so the
   // availability flag travels with the rest of the form rather than through
-  // PATCH /about/availability. Without a rule the value reaches `$set`
+  // PATCH /about/availability (deleted in PF-120). Without a rule the value reaches `$set`
   // unvalidated and Mongoose's Boolean cast decides: a stray string becomes a
   // CastError surfacing as an opaque 400 that says nothing about the field.
   //
@@ -134,8 +134,14 @@ const updateAbout = async (req, res, next) => {
     // ONLY by their own routes, which upload first and derive the publicId
     // from Cloudinary's own response — so the client never names a publicId
     // and therefore can never aim a delete at one.
-    const { avatar, resume, ...safe } = req.body ?? {};
+    const { avatar, resume, ...rest } = req.body ?? {};
     void avatar; void resume;   // named to document intent, deliberately unused
+    // ⚠️ PF-120 — dotted paths too. `$set` reads `"resume.publicId"` as the
+    // nested field, so stripping only the top-level keys let a raw request
+    // name a publicId after all — measured, for resume and avatar alike.
+    const safe = Object.fromEntries(
+      Object.entries(rest).filter(([key]) => !/^(avatar|resume)\./.test(key))
+    );
 
     const about = await About.findOneAndUpdate(
       {},                    // No filter — matches the only document
@@ -154,24 +160,6 @@ const updateAbout = async (req, res, next) => {
     }
     next(err);
   }
-};
-
-// ── PATCH /api/about/availability ────────────────────────────────────────────
-// Protected — quick toggle for "available for work" status
-const toggleAvailability = async (req, res, next) => {
-  try {
-    const about = await About.findOne();
-    if (!about) return next(new AppError('Profile not found', 404));
-
-    about.availableForWork = !about.availableForWork;
-    await about.save();
-
-    res.json({
-      status:  'success',
-      message: `Availability set to: ${about.availableForWork ? 'Open to work ✅' : 'Not available ❌'}`,
-      data:    about,
-    });
-  } catch (err) { next(err); }
 };
 
 // ── PUT /api/about/resume ────────────────────────────────────────────────────
@@ -518,7 +506,6 @@ module.exports = {
   aboutRules,
   getAbout,
   updateAbout,
-  toggleAvailability,
   uploadResume,
   removeResume,
   downloadResume,

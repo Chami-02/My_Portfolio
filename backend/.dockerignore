@@ -3,5 +3,3 @@ coverage
 .env
 *.log
 src/__tests__
-src/uploads/*
-!src/uploads/.gitkeep
