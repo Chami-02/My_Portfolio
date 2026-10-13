@@ -4231,7 +4231,7 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
   Google's four colours in both themes. The prototype has NO Google door — this
   is an approved design change, not a transcription.
 - **One admin, two login addresses, one password** (linked identities):
-  `User.email = pcgallege@gmail.com` (shown), `loginEmails =
+  `User.email = pcgallege@gmail.com` (primary), `loginEmails =
   [parindrachameekara@gmail.com]`. Both doors resolve through
   `User.findByLoginEmail`. Rejected: two admin Users (two passwords, two
   PF-124 flows, two identities for one person).
@@ -4250,6 +4250,17 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
   values nothing has overridden.
 - `googleLimiter` 30 / 15 min (three requests per sign-in). Fails CLOSED:
   missing Google config → `#google_error=unavailable`; password always works.
+- **Follow-up 2026-10-13 (owner): the panel shows the address you SIGNED IN
+  WITH**, not the primary — header AND footer. `Session.signedInAs` is set by
+  each login (stored spelling, never the raw input), copied forward by every
+  rotation; `/auth/me` adds `signedInAs` (falls back to `email` when absent or
+  no longer one of the account's addresses), `email` stays the primary.
+  REVERSES "two doors, one label".
+- **Follow-up 2026-10-13 (owner): counts stay live.** `useDashboardStats` polls
+  every 60 s (paused in a hidden tab) and refetches on focus — THIS query only;
+  the app default stays off. 60 s, not faster: `globalLimiter` is 100 / 15 min
+  for the whole panel (60 s = 15 of them). The message LIST follows the stats'
+  `messages` total instead of polling too. No websockets/SSE (Vercel serverless).
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 

@@ -8330,6 +8330,40 @@ admin address and every Google sign-in is refused (the server logs
 
 ---
 
+## PF-119 follow-up fix — signed-in address + live counts (2026-10-13)
+
+Owner, after testing PF-119 locally (all four doors work; dev DB got 009/010
+via `status → dry → migrate`, 009 dated 2026-10-13 08:02 — the cause of the
+first `not_allowed` for the second address was simply 009 not yet applied):
+
+1. **Panel shows the address used.** `Session.signedInAs` (optional, no
+   migration); `issueSession(user, family, signedInAs)`, `rotateSession`
+   copies it; `login` records the STORED spelling that matched; Google stores
+   `identity.email` on the handoff row (`OAuthFlow.signedInAs`) and the
+   exchange passes it on. `getMe` reads the family's live session and returns
+   `signedInAs` only while it is still one of the account's addresses.
+   `AdminLayout`: `shownEmail = me?.signedInAs ?? me?.email` → header + footer.
+2. **Live counts.** Admin mutations already called `refreshDashboard` (PF-110);
+   the gap was changes from OUTSIDE the tab (a visitor's message) — app
+   default `refetchOnWindowFocus: false`, no poll, shell never remounts →
+   stale until reload. `useDashboardStats`: `refetchInterval` 60 s
+   (`STATS_POLL_MS`) + `refetchOnWindowFocus: true`. `useMessages` invalidates
+   the list when the stats' `messages` total changes (first answer = baseline,
+   cached or not).
+
+Tests: backend `auth.signedInAs.test.js` (6) + one Google case; frontend
+`AdminLayout` (header+footer show the used address), `useDashboardStats`
+(poll at 60 s not before, focus, list follows the total, no refetch on a
+cached mount or same total). Gates: backend 42 suites / 735 tests; frontend
+87 files / 2085 tests, lint 0, build OK; E2E `admin.spec.js` 13/13.
+Mutation: backend 4/4 killed (fallback guard, rotation carry, raw typed
+address, Google address not recorded); frontend 10/10 after fixes — a
+`seen !== total` comparison survived (dead: the effect only re-runs when
+`total` changes) and was deleted; its replacement first refetched on a
+CACHED mount (caught by a new test) and was fixed.
+Browser round trip (sign in as each address; a contact message from another
+tab) left to the owner — needs a real sign-in.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

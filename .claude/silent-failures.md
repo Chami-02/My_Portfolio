@@ -3488,6 +3488,22 @@ A busy placeholder for a link is a STATUS (`role="status"`), not a disabled link
 `"PANELCMS" + "owner@example.com"` → one token. Walk text nodes
 (`document.createTreeWalker(…, NodeFilter.SHOW_TEXT)`) when matching per node.
 
+### PF-119 follow-up (2026-10-13)
+
+- **A query nobody mutates never refreshes in the admin shell.** The app sets
+  `refetchOnWindowFocus: false` and the shell never remounts, so data changed
+  OUTSIDE the tab (a visitor's contact message) stayed stale until a reload —
+  while every in-panel mutation looked fine. `staleTime` alone refetches
+  nothing; something must trigger it (interval, focus, remount).
+- **"Did the value change?" inside an effect whose deps ARE that value is dead
+  code** — the effect only re-runs on a change. Mutation-tested: it survived.
+- **"Skip the first answer" must also skip one that was CACHED at mount.**
+  `useRef(total !== undefined)` treated a cached value as already-seen and
+  refetched on every mount; caught by a test that seeds the cache first.
+- **`#google_error=not_allowed` for an address that SHOULD sign in → check the migration
+  first.** The dev DB had `email` = pcgallege but no `loginEmails`: 009 had
+  not run there. The server log line (`has migration 009 run?`) names it.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
