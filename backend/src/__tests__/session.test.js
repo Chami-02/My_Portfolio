@@ -240,3 +240,17 @@ describe('revokeAllForUser — the hook PF-124 will call', () => {
     expect((await me(theirs.accessToken)).status).toBe(200);
   });
 });
+
+// PF-120 — `protect` accepts HS256 only, the algorithm issueSession signs with.
+describe('Access token algorithm', () => {
+  const jwt = require('jsonwebtoken');
+
+  it('refuses a token signed with the right secret but another algorithm', async () => {
+    const session = await login();
+    const { id, fam } = jwt.decode(session.accessToken);
+    const hs512 = jwt.sign({ id, fam }, process.env.JWT_SECRET, { algorithm: 'HS512', expiresIn: '15m' });
+
+    expect((await me(session.accessToken)).status).toBe(200);   // control: the family is live
+    expect((await me(hs512)).status).toBe(401);
+  });
+});

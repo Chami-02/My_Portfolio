@@ -31,7 +31,11 @@ const protect = async (req, _res, next) => {
     const token = authHeader.split(' ')[1];
 
     // 2. Verify the token's signature and expiry
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // PF-120 — the algorithm is pinned to the one issueSession signs with.
+    // jsonwebtoken v9 already refuses `none` and asymmetric algorithms for a
+    // string secret; pinning makes "which algorithms do we accept" a fact
+    // stated here rather than a library default.
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     // jwt.verify throws JsonWebTokenError or TokenExpiredError if invalid/expired
 
     // 3. The session family behind the token must still be live

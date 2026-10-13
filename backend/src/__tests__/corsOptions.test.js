@@ -92,6 +92,25 @@ describe('CORS origin policy (PF-85)', () => {
     });
   });
 
+  // PF-120 — a refusal is the client's fault, so a 403. It used to be a plain
+  // Error, which errorHandler treats as a bug: 500 + an UNEXPECTED ERROR log.
+  describe('what a refusal looks like over HTTP (PF-120)', () => {
+    const request = require('supertest');
+    const app     = require('../app');
+
+    it('answers 403 with the reason, and logs nothing as unexpected', async () => {
+      const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        const res = await request(app).get('/api/health').set('Origin', 'https://evil.example');
+        expect(res.status).toBe(403);
+        expect(res.body.message).toMatch(/is not allowed/);
+        expect(spy).not.toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+      }
+    });
+  });
+
   describe('requests with no origin', () => {
     it('is allowed in both environments (Postman, curl, mobile apps)', () => {
       expect(allowed(undefined, 'production')).toBe(true);
