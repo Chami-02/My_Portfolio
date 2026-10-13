@@ -146,8 +146,12 @@
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--muted2);
-  /* The address can be long and must not push the controls off-screen. */
-  max-width: 26ch;
+  /* The address can be long and must not push the controls off-screen —
+     but a fixed cap (26ch) cut a real one: parindrachameekara@gmail.com is
+     28 (owner, 2026-10-13). So no cap: shown whole, and `min-width: 0` lets
+     it shrink to an ellipsis only when the row truly runs out of room. The
+     spacer (flex: 1, basis 0) gives way first. Hidden below 900px. */
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

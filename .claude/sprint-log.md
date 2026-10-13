@@ -8363,6 +8363,10 @@ address, Google address not recorded); frontend 10/10 after fixes — a
 CACHED mount (caught by a new test) and was fixed.
 Browser round trip (sign in as each address; a contact message from another
 tab) left to the owner — needs a real sign-in.
+Owner's browser check (2026-10-13): both fixes work; the header CUT the
+second address (`parindrachameekara@gmail…`) — `.email` had `max-width: 26ch`
+(our own PF-107 value, not the prototype's) and the address is 28. Replaced by
+`min-width: 0`: whole when it fits, ellipsis only when the row runs out.
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
