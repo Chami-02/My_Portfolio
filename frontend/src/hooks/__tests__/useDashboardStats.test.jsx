@@ -10,16 +10,16 @@
 // A component test cannot see that; the panel looks right and the shell
 // looks stale. So the contract is pinned on the hooks, the way
 // useVocabulary.test.jsx pins the tag cascade.
-import { renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 const projectService = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
 const skillService   = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), reorder: vi.fn(), remove: vi.fn() }));
 const blogService    = vi.hoisted(() => ({
   create: vi.fn(), update: vi.fn(), togglePublish: vi.fn(), remove: vi.fn(), recordView: vi.fn(),
 }));
-const contactService = vi.hoisted(() => ({ markRead: vi.fn(), remove: vi.fn(), star: vi.fn() }));
+const contactService = vi.hoisted(() => ({ markRead: vi.fn(), remove: vi.fn(), star: vi.fn(), getAll: vi.fn() }));
 const dashboardService = vi.hoisted(() => ({ getStats: vi.fn() }));
 const skillCategoryService = vi.hoisted(() => ({ create: vi.fn(), rename: vi.fn(), reorder: vi.fn(), remove: vi.fn() }));
 
@@ -30,12 +30,12 @@ vi.mock('../../services/contactService',   () => ({ contactService }));
 vi.mock('../../services/dashboardService', () => ({ dashboardService }));
 vi.mock('../../services/skillCategoryService', () => ({ skillCategoryService }));
 
-const { DASHBOARD_KEY, useDashboardStats } = await import('../useDashboardStats');
+const { DASHBOARD_KEY, STATS_POLL_MS, useDashboardStats } = await import('../useDashboardStats');
 const { useCreateProject, useUpdateProject, useDeleteProject } = await import('../useProjects');
 const { useCreateSkill, useUpdateSkill, useReorderSkills, useDeleteSkill } = await import('../useSkills');
 const { useCreatePost, useUpdatePost, useTogglePublish, useDeletePost, useRecordView } =
   await import('../useBlog');
-const { useMarkMessageRead, useDeleteMessage, useStarMessage } = await import('../useMessages');
+const { useMessages, useMarkMessageRead, useDeleteMessage, useStarMessage } = await import('../useMessages');
 const {
   useCreateSkillCategory, useRenameSkillCategory, useReorderSkillCategories, useDeleteSkillCategory,
 } = await import('../useSkillCategories');
@@ -72,6 +72,75 @@ describe('useDashboardStats', () => {
     const { result } = renderHook(() => useDashboardStats(), { wrapper });
     await waitFor(() => expect(result.current.data).toEqual(payload));
     expect(client.getQueryData(DASHBOARD_KEY)).toEqual(payload);
+  });
+});
+
+// PF-119 follow-up — counts also change OUTSIDE this tab (a visitor's
+// message), which no mutation here hears about.
+describe('the stats stay live without a reload', () => {
+  const STATS = { projects: 1, skills: 2, posts: 3, published: 2, drafts: 1, messages: 4, unread: 3 };
+
+  afterEach(() => {
+    vi.useRealTimers();
+    focusManager.setFocused(undefined);
+  });
+
+  it(`refetches every ${STATS_POLL_MS / 1000} s, and not before`, async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    dashboardService.getStats.mockResolvedValue(STATS);
+    renderHook(() => useDashboardStats(), { wrapper });
+    await waitFor(() => expect(dashboardService.getStats).toHaveBeenCalledTimes(1));
+
+    await act(() => vi.advanceTimersByTimeAsync(STATS_POLL_MS - 1000));
+    expect(dashboardService.getStats).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    await waitFor(() => expect(dashboardService.getStats).toHaveBeenCalledTimes(2));
+  });
+
+  it('refetches when the window regains focus', async () => {
+    dashboardService.getStats.mockResolvedValue(STATS);
+    renderHook(() => useDashboardStats(), { wrapper });
+    await waitFor(() => expect(dashboardService.getStats).toHaveBeenCalledTimes(1));
+
+    act(() => { focusManager.setFocused(false); focusManager.setFocused(true); });
+    await waitFor(() => expect(dashboardService.getStats).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('the message list follows the stats total', () => {
+  const statsWith = (messages) => ({ projects: 0, skills: 0, posts: 0, published: 0, drafts: 0, messages, unread: 0 });
+
+  it('refetches the list when the total moves — a new message arrived', async () => {
+    dashboardService.getStats.mockResolvedValue(statsWith(3));
+    contactService.getAll.mockResolvedValue([]);
+    renderHook(() => useMessages(), { wrapper });
+    await waitFor(() => expect(contactService.getAll).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(client.getQueryData(DASHBOARD_KEY)).toEqual(statsWith(3)));
+
+    act(() => { client.setQueryData(DASHBOARD_KEY, statsWith(4)); });
+    await waitFor(() => expect(contactService.getAll).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not refetch on mount when the shell already has the stats cached', async () => {
+    client.setQueryData(DASHBOARD_KEY, statsWith(3));
+    dashboardService.getStats.mockResolvedValue(statsWith(3));
+    contactService.getAll.mockResolvedValue([]);
+    renderHook(() => useMessages(), { wrapper });
+    await waitFor(() => expect(contactService.getAll).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(contactService.getAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the list alone when a stats answer brings the SAME total', async () => {
+    dashboardService.getStats.mockResolvedValue(statsWith(3));
+    contactService.getAll.mockResolvedValue([]);
+    renderHook(() => useMessages(), { wrapper });
+    await waitFor(() => expect(contactService.getAll).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(client.getQueryData(DASHBOARD_KEY)).toEqual(statsWith(3)));
+
+    act(() => { client.setQueryData(DASHBOARD_KEY, { ...statsWith(3), unread: 1 }); });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(contactService.getAll).toHaveBeenCalledTimes(1);
   });
 });
 

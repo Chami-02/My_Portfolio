@@ -42,5 +42,24 @@ export const refreshDashboard = (qc) =>
   qc.cancelQueries({ queryKey: DASHBOARD_KEY })
     .then(() => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }));
 
+/**
+ * PF-119 follow-up (owner, 2026-10-13) — the counts also change OUTSIDE this
+ * tab: a visitor's contact message, an edit on another device. No mutation
+ * here hears about those, and the shell never remounts, so without these two
+ * options the unread badge stayed stale until a reload.
+ *
+ *   - `refetchInterval` 60 s — paused while the tab is hidden (TanStack's
+ *     default). 60 s, not faster: `globalLimiter` is 100 requests / 15 min
+ *     per IP for the WHOLE panel; this costs 15 of them, 15 s would cost 60.
+ *   - `refetchOnWindowFocus` — this query only (the app default is off), so
+ *     coming back to the tab shows the truth at once.
+ */
+export const STATS_POLL_MS = 60_000;
+
 export const useDashboardStats = () =>
-  useQuery({ queryKey: DASHBOARD_KEY, queryFn: dashboardService.getStats });
+  useQuery({
+    queryKey:             DASHBOARD_KEY,
+    queryFn:              dashboardService.getStats,
+    refetchInterval:      STATS_POLL_MS,
+    refetchOnWindowFocus: true,
+  });
