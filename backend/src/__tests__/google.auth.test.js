@@ -254,6 +254,19 @@ describe('a complete sign-in', () => {
   });
 });
 
+describe('the panel names the Google address used (PF-119 follow-up)', () => {
+  beforeEach(() => User.create(ADMIN));
+
+  it('/auth/me reports the second address after signing in with it', async () => {
+    const res = await signIn({ sub: 'google-sub-second', email: SECOND });
+    expect(res.status).toBe(200);
+    const me = await request(app).get('/api/auth/me')
+      .set('Authorization', `Bearer ${res.body.accessToken}`);
+    expect(me.body.data.signedInAs).toBe(SECOND);
+    expect(me.body.data.email).toBe(PRIMARY);
+  });
+});
+
 describe('who may sign in — the allowlist', () => {
   beforeEach(() => User.create(ADMIN));
 

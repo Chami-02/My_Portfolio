@@ -46,6 +46,13 @@ const sessionSchema = new mongoose.Schema(
       ref:     'Session',
       default: null,
     },
+    // PF-119 follow-up — the address this login used (one admin, two
+    // addresses). Copied forward by every rotation, so the panel keeps
+    // naming the same door. Absent on sessions from before it existed;
+    // `getMe` then falls back to the account's primary `email`.
+    signedInAs: {
+      type: String,
+    },
   },
   { timestamps: true }
 );

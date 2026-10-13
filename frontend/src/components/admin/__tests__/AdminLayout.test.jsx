@@ -212,6 +212,18 @@ describe('AdminLayout — identity', () => {
     expect(new Set(addresses)).toEqual(new Set(['owner@example.com']));
   });
 
+  it('shows the address this login USED, in the header and the footer, not the primary', () => {
+    useMe.mockReturnValue({ data: { email: 'owner@example.com', signedInAs: 'second@example.com' } });
+    renderShell();
+    const addresses = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      addresses.push(...(walker.currentNode.nodeValue.match(/[^\s@·]+@[^\s@·]+\.[a-z]+/gi) || []));
+    }
+    // Header AND footer — two text nodes, both the address used.
+    expect(addresses).toEqual(['second@example.com', 'second@example.com']);
+  });
+
   it('renders no address at all while /auth/me has not answered', () => {
     useMe.mockReturnValue({ data: undefined });
     renderShell();

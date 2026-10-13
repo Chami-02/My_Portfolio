@@ -30,6 +30,7 @@ const oauthFlowSchema = new mongoose.Schema({
   // Phase 2
   handoffHash:  { type: String, unique: true, sparse: true },
   user:         { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  signedInAs:   { type: String },   // the verified Google address — named on the session
   // Both — where the admin was going when they were sent to sign in.
   returnTo:     { type: String, default: '/admin' },
   expiresAt:    { type: Date, required: true },

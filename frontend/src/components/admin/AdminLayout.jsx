@@ -70,6 +70,9 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
   const { flash, dismissFlash } = useAdminFlash();
 
   const { data: me } = useMe();
+  // PF-119 follow-up — the address THIS login used (one admin, two
+  // addresses). `email` is the account's primary; older backends send only it.
+  const shownEmail = me?.signedInAs ?? me?.email;
 
   // ── Keep the active section in view on the mobile strip (PF-117) ──────────
   // Below 899px the nav is a sideways-scrolling row (see .sidebarInner). A
@@ -217,8 +220,8 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
 
           {/* Absent until /auth/me answers. Rendering a placeholder
               address would be the defect this replaces. */}
-          {me?.email && (
-            <span className={styles.email} title={me.email}>{me.email}</span>
+          {shownEmail && (
+            <span className={styles.email} title={shownEmail}>{shownEmail}</span>
           )}
 
           <Link to="/?nosplash=1" className={styles.homeLink}>↗ HOME</Link>
@@ -326,7 +329,7 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
         </main>
       </div>
 
-      <AdminFooter email={me?.email} counts={counts} onSignOut={signOut} />
+      <AdminFooter email={shownEmail} counts={counts} onSignOut={signOut} />
     </div>
 
       {/* Last. z-index 70 beats page content regardless of DOM order. */}

@@ -1,6 +1,7 @@
 const crypto    = require('crypto');
 const { parse: parseCookies } = require('cookie');
 const User      = require('../models/User');
+const Session   = require('../models/Session');
 const OAuthFlow = require('../models/OAuthFlow');
 const AppError  = require('../utils/AppError');
 const {
@@ -50,7 +51,11 @@ const login = async (req, res, next) => {
 
     // 4. Start a session — PF-108: the ONE place a session is born, shared
     // with Google sign-in (PF-119). No bare `token` in the body any more.
-    const session = await issueSession(user);
+    // It records WHICH address signed in — the stored spelling, never the
+    // raw input (Mongoose's setters normalised the query, not `email`).
+    const typed = email.trim().toLowerCase();
+    const signedInAs = [user.email, ...user.loginEmails].find((a) => a === typed);
+    const session = await issueSession(user, undefined, signedInAs);
     res.json(sessionPayload(session, user));
   } catch (err) {
     next(err);
@@ -85,16 +90,30 @@ const logout = async (req, res, next) => {
 // Returns the currently logged-in user (from the JWT, set on req.user by
 // protect middleware) plus when the access token behind this request dies —
 // the client cannot read that from an opaque header on its own.
-const getMe = (req, res) => {
-  res.json({
-    status: 'success',
-    sessionExpiresAt: new Date(req.auth.exp * 1000).toISOString(),
-    data: {
-      id:    req.user._id,
-      email: req.user.email,
-      role:  req.user.role,
-    },
-  });
+//
+// PF-119 follow-up: `signedInAs` is the address THIS login used — the panel
+// shows it; `email` stays the account's primary. Shown only while it is still
+// one of the account's addresses, else the primary — a label never outlives
+// the address it names.
+const getMe = async (req, res, next) => {
+  try {
+    const session = await Session.findOne({ family: req.auth.family, revokedAt: null })
+      .select('signedInAs');
+    const used = session?.signedInAs;
+    const addresses = [req.user.email, ...req.user.loginEmails];
+    res.json({
+      status: 'success',
+      sessionExpiresAt: new Date(req.auth.exp * 1000).toISOString(),
+      data: {
+        id:         req.user._id,
+        email:      req.user.email,
+        signedInAs: addresses.includes(used) ? used : req.user.email,
+        role:       req.user.role,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 // ══ Google sign-in (PF-119) ══════════════════════════════════════════════════
@@ -257,6 +276,7 @@ const googleCallback = async (req, res, next) => {
     await OAuthFlow.create({
       handoffHash: hashToken(handoff),
       user:        user._id,
+      signedInAs:  identity.email,
       returnTo:    flow.returnTo,
       expiresAt:   new Date(Date.now() + HANDOFF_TTL_MS),
     });
@@ -288,7 +308,7 @@ const googleExchange = async (req, res, next) => {
       return next(new AppError('This sign-in has expired. Please sign in again.', 401));
     }
 
-    const session = await issueSession(user);
+    const session = await issueSession(user, undefined, handoff.signedInAs);
     res.json({ ...sessionPayload(session, user), returnTo: safeReturnTo(handoff.returnTo) });
   } catch (err) {
     next(err);
