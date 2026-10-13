@@ -406,18 +406,25 @@ const { PRIMARY_EMAIL: ADMIN_EMAIL, LOGIN_EMAILS: ADMIN_LOGIN_EMAILS } =
   require('./migrations/009-admin-accounts');
 const DEMO_ADMIN_PASSWORD = 'Admin@1234!';
 
-function resolveAdminCredentials() {
+// PF-120 — the databases the PUBLIC demo password may ever be written to.
+// Anything else needs SEED_ADMIN_PASSWORD. An allowlist, not a denylist: a
+// name nobody anticipated (`portfolio`, `portfolio_prod2`) is refused.
+const THROWAWAY_DB = /(?:^|_)(?:dev|test(?:_\d+)?|e2e|ci)$/;
+
+function resolveAdminCredentials(dbName) {
   const email    = ADMIN_EMAIL;
   const password = process.env.SEED_ADMIN_PASSWORD;
 
   if (password) return { email, password, fromEnv: true };
 
-  // Backstop only. NODE_ENV is 'development' even when seeding a live
-  // Atlas cluster from a laptop, so this catches deliberate production
-  // runs, not the common case — the warning below is what does the work.
-  if (process.env.NODE_ENV === 'production') {
+  // ⚠️ PF-120 — keyed on the DATABASE, not NODE_ENV. This used to refuse only
+  // under NODE_ENV=production, which is 'development' when a laptop seeds a
+  // live Atlas cluster — the common case. The repo is public, and migration
+  // 009 keeps whatever password exists, so a production database seeded
+  // without SEED_ADMIN_PASSWORD would carry admin credentials anyone can read.
+  if (!THROWAWAY_DB.test(dbName || '')) {
     throw new Error(
-      'Refusing to seed with the public demo password while NODE_ENV=production. ' +
+      `Refusing to seed "${dbName}" with the public demo password. ` +
       'Set SEED_ADMIN_PASSWORD first.'
     );
   }
@@ -463,6 +470,10 @@ async function seed() {
     const dbName = assertExplicitDatabase(process.env.MONGO_URI);
     console.log(`→ connecting to database: ${dbName}`);
 
+    // PF-120 — resolved BEFORE connecting. It used to run after the wipe
+    // below, so a refusal left every collection already deleted.
+    const admin = resolveAdminCredentials(dbName);
+
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Connected to MongoDB');
 
@@ -495,7 +506,6 @@ async function seed() {
     console.log('👤 Seeded about/profile data');
 
     // Create admin user — password is hashed by the pre-save hook in User.js
-    const admin = resolveAdminCredentials();
     await User.create({ email: admin.email, loginEmails: [...ADMIN_LOGIN_EMAILS], password: admin.password });
 
     if (admin.fromEnv) {
@@ -521,4 +531,7 @@ async function seed() {
   }
 }
 
-seed();
+// Runs only as a script, so the guard above can be unit-tested (PF-120).
+if (require.main === module) seed();
+
+module.exports = { resolveAdminCredentials };

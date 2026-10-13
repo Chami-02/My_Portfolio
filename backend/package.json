@@ -18,7 +18,8 @@
     "test": "node scripts/run-jest.js --detectOpenHandles --forceExit",
     "test:coverage": "node scripts/run-jest.js --coverage --detectOpenHandles --forceExit",
     "test:watch": "node scripts/run-jest.js --watch",
-    "test:atlas": "node scripts/run-jest.js --runInBand --detectOpenHandles --forceExit --atlas"
+    "test:atlas": "node scripts/run-jest.js --runInBand --detectOpenHandles --forceExit --atlas",
+    "admin:password": "node scripts/set-admin-password.js"
   },
   "jest": {
     "testEnvironment": "node",
