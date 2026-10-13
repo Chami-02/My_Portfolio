@@ -36,6 +36,22 @@ no service, nothing in `backend/src` mentioning a provider. Do not assume a
 mailer exists; PF-123 builds the first one, and PF-125 reuses it rather than
 building a second.
 
+#### The admin can change, reset and recover the password — proved twice
+
+**Owner requirement, 2026-10-13 (raised in PF-120). Built in Sprint 15 by
+REWRITTEN PF-123 / PF-124 / PF-125 — NOT built yet.**
+
+- **Change (signed in):** current password **AND** a one-time code emailed to the
+  address signed in with (`signedInAs`).
+- **Forgot (signed out):** type either login address → the SAME 200 whether it
+  exists or not → a one-time code to that address → a new password.
+- **Every change signs out every other session** (`revokeAllForUser`).
+- **One password for both addresses; the addresses stay fixed** (2026-10-12).
+- **Mail: Gmail SMTP (app password) now**, behind `services/mailer.js`; **Resend
+  once the custom domain exists** (its free tier only reaches the signup address
+  until a domain is verified). One adapter, so the swap is one file + env.
+- **Break-glass stays:** `npm run admin:password` (PF-120) works with no email.
+
 #### Admin panels STAGE — the public site changes only on SAVE
 
 **Owner requirement, 2026-09-25. Built for About by PF-112; binds every panel

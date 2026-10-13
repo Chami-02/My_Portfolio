@@ -4262,6 +4262,32 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
   for the whole panel (60 s = 15 of them). The message LIST follows the stats'
   `messages` total instead of polling too. No websockets/SSE (Vercel serverless).
 
+## PF-120 — security review (owner decisions 2026-10-13)
+
+- **The SPA ships a CSP from `frontend/vercel.json`.** Inline scripts allowed ONLY
+  by sha256 hash (never `'unsafe-inline'` for scripts); `style-src 'unsafe-inline'`
+  stays because React `style` props are inline styles. `frame-ancestors 'none'` +
+  XFO DENY. Any new external origin (image host, API domain) is added here
+  deliberately — the guard test pins the hash and the API origin.
+- **The seed's demo password is allowed only on throwaway DATABASE NAMES**
+  (`…_dev`, `…_test[_N]`, `…_e2e`, `…_ci`) — never keyed on `NODE_ENV`.
+- **`npm run admin:password` is the break-glass reset** and stays after Sprint 15's
+  email flows exist: terminal only, DB name typed back, `save()`, revoke all.
+- **Deleted, owner's call:** `POST /api/upload`, `PATCH /api/about/availability`,
+  the `/uploads` static mount. Do not re-add without a consumer.
+- **`contactLimiter` 5 stored messages / hour / IP**, failures not counted.
+- **Accepted risks (recorded, not fixed):** no route reads `User.role` — single
+  operator, the User collection is the allowlist, Google never creates a User;
+  OAuth `code`/`state` in morgan's access log (single-use, PKCE-bound, needs the
+  secret); login timing difference (both addresses are public); in-memory
+  rate-limit store is per serverless instance (a Mongo store = a write per request
+  on M0; bcrypt cost 12 + password + Google bound brute force); `publicId` in
+  public responses (derivable from the delivery URL); blog raw-body writes
+  (owner-only); `/api/health` shows `env` + DB name (health-check.yml asserts it).
+- **Password change / reset / forgot → Sprint 15** (see product-requirements):
+  password + emailed code; Gmail SMTP now, Resend after the domain; addresses
+  stay fixed; PF-123/124/125 rewritten after PF-121, no new numbers.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

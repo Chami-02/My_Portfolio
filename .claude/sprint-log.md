@@ -524,7 +524,7 @@ record; that file is the sprint's authority.
 | ~~PF-117~~ | Admin responsive + state audit, both themes | Medium | 6 | Done | ✅ **BUILT 2026-10-11** — audit found 8 defects incl. a data-loss path (About's empty form on a failed load); new shared `LoadError`; see entry |
 | ~~PF-118~~ | Admin ↔ public-site parity audit | Highest | 8 | Done | ✅ **BUILT 2026-10-12** — field matrix + owner-approved wiring (timezone, hero intro, footer blurb, band + Contact intro follow availability) + 4 leftovers; see entry |
 | ~~PF-119~~ | Google sign-in for `/admin` + production-standard auth | High | 8 | Done | ✅ **BUILT 2026-10-12** — auth code + PKCE, one-time handoff, two admin login addresses; ⚠️ ABSORBED PF-122 (owner); ~9 pts, see entry |
-| PF-120 | Security review and hardening | High | 5 | To Do | not started |
+| ~~PF-120~~ | Security review and hardening | High | 5 | Done | ✅ **BUILT 2026-10-13** — 8 findings fixed (seed guard + break-glass `admin:password`, SPA CSP/headers, contact limiter, CORS 403, dead routes deleted, JWT alg pin, contact string check, dotted media keys); 9 accepted + recorded; see entry |
 | PF-121 | Sprint gate, PR, close | Highest | 8 | To Do | not started |
 | ~~PF-122~~ | Owner email address consolidation → `pcgallege@gmail.com` | Medium | 3 | — | ✅ **ABSORBED into PF-119 2026-10-12** (owner) — migrations 009 + 010 |
 
@@ -8367,6 +8367,106 @@ Owner's browser check (2026-10-13): both fixes work; the header CUT the
 second address (`parindrachameekara@gmail…`) — `.email` had `max-width: 26ch`
 (our own PF-107 value, not the prototype's) and the address is 28. Replaced by
 `min-width: 0`: whole when it fits, ellipsis only when the row runs out.
+
+## PF-120 — Security review and hardening (2026-10-13)
+
+Review of the admin surface after PF-108 (sessions), PF-111 (media) and PF-119
+(Google). Trace read-only first; every finding MEASURED (production probed with
+`curl`, reproductions in supertest) before a fix. `/security-review` sub-task over
+the whole branch diff: no vulnerability ≥ 8/10; it surfaced F8 below.
+
+**Verified clean (measured, no change).** Every mutating route runs `protect`
+first (PF-112 had fixed `aboutRoutes:16`; all 11 route files grepped). Production:
+`/api/health` → `env: production`, global limiter live (`ratelimit-*` headers),
+dev-port CORS range refused. Spoofed `X-Forwarded-For` / `X-Real-IP` open NO new
+limiter bucket (remaining 97→93 over 5 requests) — `trust proxy 1` is right on
+Vercel. API helmet headers live. Session core + Google flow re-read: hashed refresh
+tokens, atomic rotation claim, family revoke on reuse, PKCE/state/binding
+cookie/hashed nonce/`email_verified === true`/pinned `aud`/first-`sub` binding,
+anchored `returnTo`, single-use fragment handoff. Blog `?q=`/`?tag=` typed +
+escaped. Every URL field anchored `^https?://`. No HTML sinks in `frontend/src`.
+`npm audit --omit=dev`: 0 in both packages; backend dev has 19 moderates, all in
+Jest's tree — npm's "fix" is a downgrade to Jest 25, so no fix; CI's
+`--audit-level=high` passes.
+
+**Fixed.**
+- **F1 (High, unknown prod exposure)** — `seed.js` refused its PUBLIC demo password
+  only under `NODE_ENV=production`, which is `development` when a laptop seeds
+  Atlas; repo is public, migration 009 keeps the password. Now keyed on the
+  DATABASE NAME (`THROWAWAY_DB = /(?:^|_)(?:dev|test(?:_\d+)?|e2e|ci)$/`, an
+  allowlist — `ci` because CI's migration job seeds `portfolio_ci`). ⚠️ Found while
+  editing: the refusal ran AFTER the wipe, so it would have left every collection
+  empty — moved before `mongoose.connect`. `seed()` now runs only under
+  `require.main`. **Break-glass `npm run admin:password`**
+  (`backend/scripts/set-admin-password.js`): TTY only (refuses piped input —
+  measured), type the DB name back, hidden password twice, exactly one User,
+  `user.save()` (hook hashes), then `revokeAllForUser`. Measured on a pre-009 doc:
+  `save()` also writes `loginEmails: []` and bumps `__v` — harmless (009 `$set`s
+  `loginEmails` unconditionally), pinned exactly in the test. **Owner runs it
+  against production** (no record of how prod's password was set).
+- **F2 (Medium)** — the live SPA sent only Vercel's HSTS (`curl -I /admin/login`):
+  no CSP, no frame protection, while the refresh token lives in localStorage.
+  `frontend/vercel.json` `headers`: CSP (`script-src 'self' 'sha256-…'` for the
+  one inline FOUC script; `style-src 'unsafe-inline'` for React style props;
+  fonts.googleapis/gstatic; `img-src data: blob: res.cloudinary.com`;
+  `connect-src` the API; `frame-ancestors 'none'`; `object-src 'none'`;
+  `base-uri`/`form-action 'self'`), XFO DENY, nosniff, Referrer-Policy,
+  Permissions-Policy. Vercel Analytics loads `/_vercel/insights/script.js`
+  same-origin in production (`'self'` covers it; the `va.vercel-scripts.com`
+  URL is dev-mode only). Guard: `styles/__tests__/securityHeaders.test.js`.
+- **F3 (Medium)** — `contactLimiter`: 5 STORED messages / hour / IP
+  (`skipFailedRequests` — a 400 stores and sends nothing), live under test.
+- **F4 (Low)** — refused CORS origin answered **500** + `UNEXPECTED ERROR` log
+  (measured on prod) → `AppError(…, 403)`.
+- **F5 (Low, owner: delete both)** — `POST /api/upload` (route, controller,
+  limiter, tests), `PATCH /api/about/availability` (route, handler, tests, Postman
+  request), `app.use('/uploads', express.static…)` + `src/uploads/` + its
+  ignore lines + the Vite `/uploads` proxy. multer's claimed-type list is now
+  `MEDIA_IMAGE_MIME` (one source; AVIF no longer buffered). New
+  `fileType.test.js` — `upload.test.js` had been the gate's only direct test.
+- **F6 (Low)** — `jwt.verify(…, { algorithms: ['HS256'] })`.
+- **F7 (Low, REPRODUCED)** — public contact POST: an array field → 500 + log; an
+  OBJECT `name` was STORED as `"[object Object]"`. `isString().bail()` first on all
+  three fields (aboutController's pattern).
+- **F8 (Low, from the review sub-task, REPRODUCED)** — dotted keys
+  (`"backgroundImage.publicId"`, `"resume.publicId"`, `"avatar.url"`…) passed the
+  PF-111 media strips (only top-level keys were removed) and were written. Strips
+  now drop every `backgroundImage.` / `avatar.` / `resume.` path. Admin-only, so no
+  privilege boundary crossed — but it defeated the rule the strip exists for.
+
+**Accepted + recorded (locked-decisions).** No route reads `User.role`;
+OAuth `code`/`state` in morgan's access log; login timing (addresses are public);
+in-memory limiter store per serverless instance; `publicId` in public responses
+(derivable from the delivery URL); blog raw-body writes (owner-only); `/api/health`
+`env` + DB name (health-check asserts it).
+
+**Verification.** Backend 45 suites / **775 tests**, coverage 81.83 / 74 / 85.32 /
+82.55. Frontend lint 0, 88 files / **2090 tests**, build OK. **E2E 80/80** (its seed
+of `portfolio_e2e` passes the new guard). Mutation: backend **18/18 killed**
+(scratch copy; incl. "update query instead of save()" — 3 red), frontend CSP guard
+**9/9 killed**, restored byte-identical. One survivor PREDICTED and closed before
+the run: the AVIF test passed on the handler's 415 alone — now asserts multer's
+own message. **CSP browser probe:** dev-API build served with vercel.json's headers
+(probe-only differences: `connect-src` + local API, `report-uri`). ⚠️ The console
+tool does NOT show CSP violations — the first "0 violations" was vacuous, exposed by
+the control (hash removed); switched to `report-uri` → server log, control then
+reported `script-src-elem inline`. Real policy: **0 violations** over home (all
+sections), /blog, a post, /admin/login, all six admin panels, a staged `blob:`
+preview, dark + light. Probe session minted server-side on `portfolio_dev` (token
+never in chat), revoked after. Local curl: foreign Origin 403, deleted routes 404.
+
+**Owner decisions 2026-10-13 → Sprint 15** (`product-requirements.md`): password
+change / reset / forgot with an emailed code; PF-123/124/125 to be REWRITTEN after
+PF-121.
+
+### Outstanding work added by PF-120
+- **Owner: run `npm run admin:password` against production** — settles F1.
+- **After the PF-121 deploy: `curl -I` the live SPA** shows the new headers.
+- **The custom domain moves the API** → update `connect-src` (the guard test
+  fails until it is); same for any new image host (`img-src`).
+- Docker `nginx.conf` has no CSP (local only). Docker-compose's DB is `portfolio`,
+  which the seed guard now refuses without `SEED_ADMIN_PASSWORD` — by design.
+- `GET /api/blog/:slug` still returns deprecated `content` (removal ticket).
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 

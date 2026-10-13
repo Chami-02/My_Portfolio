@@ -3504,6 +3504,43 @@ A busy placeholder for a link is a STATUS (`role="status"`), not a disabled link
   first.** The dev DB had `email` = pcgallege but no `loginEmails`: 009 had
   not run there. The server log line (`has migration 009 run?`) names it.
 
+## PF-120 (2026-10-13)
+
+### The browser tool's console never shows CSP violations
+`read_console_messages` returned nothing on a page whose inline script was
+CERTAINLY blocked (control: hash removed). A "0 CSP violations" read from it is
+vacuous. Use `report-uri` on a probe server and read its log — the control then
+reported `script-src-elem inline`.
+
+### A CSP hash breaks silently, and only in production
+`vercel.json` applies to the deployed site alone — not `npm run dev`, `vite
+preview` or jsdom. Edit the inline FOUC script in `index.html` by one byte and the
+browser refuses it on prod only (theme flash returns); move the API and
+`connect-src` blocks every fetch on prod only. Guarded by
+`styles/__tests__/securityHeaders.test.js` (mutation 9/9).
+
+### A refused CORS origin was a 500
+`corsOptions` called back a plain `Error` → errorHandler treats it as a bug: 500
+and `UNEXPECTED ERROR 💥` per refused request (measured on prod). Now `AppError` 403.
+
+### Stripping a top-level key does not strip its DOTTED paths
+`const { resume, ...safe } = body` then `$set: safe` / `doc.set(safe)` still
+writes `"resume.publicId"` — Mongoose reads a dotted key as the nested path.
+Measured for `backgroundImage.*`, `avatar.*`, `resume.*`. Filter the prefixes.
+
+### A seed refusal AFTER the wipe leaves an empty database
+`resolveAdminCredentials()` ran after `deleteMany` on every collection — a refusal
+would have wiped and then stopped. Check before connecting.
+
+### `save()` on a document from an older schema writes the new schema's defaults
+Loading a pre-009 User and calling `save()` also wrote `loginEmails: []` and bumped
+`__v` (an array path was written). Harmless here; pinned in
+`setAdminPassword.test.js` so anything else leaking into prod fails.
+
+### An object passes express-validator's `trim`/`isLength` and is STORED
+`name: { a: 1 }` on the public contact form was saved as `"[object Object]"`;
+arrays reached Mongoose and 500'd. `isString().bail()` first.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

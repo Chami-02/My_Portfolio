@@ -113,6 +113,7 @@ something surprises you, search the companions *before* deriving an explanation.
   form over missing data (About), no count until loaded (PF-117).
 - **Site address is `pcgallege@gmail.com` ONLY; admin logs in as pcgallege OR parindrachameekara** (Google or password, one User, PF-119 absorbed PF-122). Old demo address gone. Panel shows the address SIGNED IN WITH (`signedInAs`); counts poll 60 s + on focus.
 - **One panel field drives EVERY render site** (PF-118) — e.g. `timezone` → Contact AND footer; grep every literal before wiring. A fixed set of answers is CHOSEN (dropdown), never typed.
+- **Password change / reset / forgot = password + emailed code** (owner 2026-10-13, Sprint 15, NOT built): Gmail SMTP now, Resend after the domain; addresses stay fixed; `admin:password` is break-glass.
 - **Leaving unsaved admin work asks first — every exit** (PF-118 b2; REVERSES "marker, not a blocker"): Keep / Save (never publishes) / Discard; panels register via `useUnsavedChanges`.
 
 ## Project state
@@ -123,7 +124,7 @@ something surprises you, search the companions *before* deriving an explanation.
 | --- | --- | --- |
 | Phase 1 (PF-1 → PF-51) | original site | complete |
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 → PF-119 built (PF-119 on 2026-10-12, absorbed PF-122) |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 → PF-120 built (PF-120 on 2026-10-13) |
 | Sprint 15 (PF-123 → PF-125) | auth + email | planned, not started |
 
 **Branch `sprint-14-admin_page_rebuild`** (NOT `sprint-14-admin`), cut from
@@ -133,13 +134,12 @@ declined — **if it runs long, a CONTENT ticket slips, never PF-120/PF-121.**
 
 | Remaining | Title |
 | --- | --- |
-| PF-120 | Security review and hardening |
 | PF-121 | Sprint gate, PR, close |
 
 Numbering is contiguous PF-107 → PF-121 (+PF-122). PF-116 was last of the styling
 tickets (inverted spine): `global.css` is now Tailwind's entry point only.
 
-**▶ NEXT:** PF-120 (PF-118 + PF-119 handed it findings), then PF-121. ⚠️ Before merge: owner's Google setup + prod `migrate:status` → dry → real `migrate` (009 APPLIED, NEVER baseline).
+**▶ NEXT:** PF-121. ⚠️ Before merge: owner's Google setup + prod `migrate:status` → dry → real `migrate` (009 APPLIED, NEVER baseline) + owner runs `npm run admin:password` on prod (PF-120 F1). After PF-121: REWRITE PF-123/124/125 (password + emailed code).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -179,7 +179,8 @@ No root package.json — run from `frontend/` or `backend/`.
 | `npm run dev:e2e` | port 5055, `portfolio_e2e` |
 | `npm test` / `test:coverage` | Jest via `scripts/run-jest.js`, IN-MEMORY Mongo, ~60 s — **never `npx jest`** |
 | `npm run test:atlas` | real server, ~10 min, rarely needed |
-| `npm run seed` | **wipes** Project/Skill/Blog/About/User and reseeds |
+| `npm run seed` | **wipes** Project/Skill/Blog/About/User and reseeds; demo password only on `_dev/_test/_e2e/_ci` DBs |
+| `npm run admin:password` | break-glass password reset: terminal only, type the DB name back, revokes all sessions (PF-120) |
 | `npm run migrate[:status\|:dry\|:baseline\|:verify]` | migration runner; records applied set in a `migrations` collection |
 
 Single test: `npx vitest run <path>` / `npm test -- <path>` or `-t "name"`.
@@ -346,6 +347,9 @@ Where a mistake would be silent, add a test that would catch it.
 - An opaque ancestor background hides a fixed canvas (guarded on `.shell`).
 - Design images must be copied into `src/assets/` and imported.
 
+- Stripping a top-level body key leaves its DOTTED paths (`"resume.publicId"`) writable — filter prefixes.
+- A CSP hash / `connect-src` breaks on prod only (`vercel.json`) — guarded by `securityHeaders.test.js`.
+
 **Measurement**
 - History API cannot tell first load from Back-to-first-entry.
 - Tool round-trip (~8 s) is slower than the 4.5 s splash — print timings, use observers with a control.
@@ -354,6 +358,7 @@ Where a mistake would be silent, add a test that would catch it.
 - Clipped vs occluded look identical — hit-test with `elementFromPoint`.
 - Name what a probe EXCLUDES (`?nosplash`); the browser tool redacts keys containing "token".
 - Always run the control; `:focus-visible` matches programmatic focus after keyboard.
+- The browser tool's console never shows CSP violations — probe with `report-uri` + a control.
 - The browser tool's hidden tab never fires `requestAnimationFrame` (probe hangs 45s); clicks may need a screenshot first.
 - Chrome won't go below ~1141px → same-origin iframe (one at a time; resize, don't reload — 429); set `scrollBehavior: auto` before any scroll-then-measure.
 - A flex row can overflow while the page does not — compare the container's `scrollWidth`.
@@ -404,6 +409,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-119: auth code + PKCE, backend exchange, 60 s FRAGMENT handoff → `issueSession`; site-styled Google button ABOVE the form; Google binds address→first `sub`, never creates a User; `googleLimiter` 30. Prototype is stale (owner) — its emails aren't targets.
 - PF-118 b2: timezone = IANA place (`Asia/Colombo`) shown as its live offset; App uses a DATA router (`createBrowserRouter`, one catch-all) for `useBlocker` — keep the three `<Routes>` as they are.
 - PF-118: footer band follows availability (two call sites, 70.7s / 67.1s = equal 50 px/s); Contact intro leads with the note; `timezone` / `heroIntro` / `footerBio` fields ("Site copy" card); three-letter months (`SEP`); no `publishedAt` control.
+- PF-120: SPA CSP in `frontend/vercel.json` (scripts by hash only, `frame-ancestors 'none'`); deleted `POST /api/upload`, `PATCH /about/availability`, `/uploads`; `contactLimiter` 5 stored/h; accepted risks (role unread, OAuth code in logs, per-instance limiter…) in locked-decisions.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment
