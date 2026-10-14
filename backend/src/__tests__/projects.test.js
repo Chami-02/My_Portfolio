@@ -286,6 +286,30 @@ describe('Project drafts (PF-113)', () => {
     expect(res.body.data.published).toBe(true);
     expect((await request(app).get('/api/projects')).body.data).toHaveLength(1);
   });
+
+  // The admin row's UNPUBLISH (owner, 2026-10-14) sends ONLY `published`.
+  it('PUT { published: false } alone takes a live project off the site, content kept', async () => {
+    const live = await Project.create(VALID_PROJECT);
+    expect((await request(app).get('/api/projects')).body.data).toHaveLength(1);
+
+    const res = await request(app).put(`/api/projects/${live._id}`)
+      .set(await authHeader()).send({ published: false });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.published).toBe(false);
+    expect(res.body.data.description).toBe(VALID_PROJECT.description);
+    expect((await request(app).get('/api/projects')).body.data).toHaveLength(0);
+  });
+
+  it('PUT { published: true } alone republishes a complete project', async () => {
+    const draft = await Project.create({ ...VALID_PROJECT, published: false });
+
+    const res = await request(app).put(`/api/projects/${draft._id}`)
+      .set(await authHeader()).send({ published: true });
+
+    expect(res.status).toBe(200);
+    expect((await request(app).get('/api/projects')).body.data).toHaveLength(1);
+  });
 });
 
 // ── PF-113: both links render as public hrefs ───────────────────────────────

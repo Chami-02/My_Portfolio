@@ -661,3 +661,61 @@ describe('leaving unsaved work asks first (PF-118 batch 2)', () => {
     expect(field('Title')).toHaveValue('Half-written');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The row's PUBLISH / UNPUBLISH (owner, 2026-10-14) — Blog's row toggle.
+describe('the row PUBLISH / UNPUBLISH', () => {
+  const COMPLETE_DRAFT = Object.freeze({ ...LIVE, _id: 'p3', title: 'Ready draft', featured: false, published: false });
+  const rowBtn = (name) => screen.getByRole('button', { name });
+
+  it('labels each row by its state', () => {
+    render(<AdminProjectsPanel />);
+    expect(rowBtn('Unpublish ClearDrive')).toHaveTextContent('UNPUBLISH');
+    expect(rowBtn('Publish Half-written')).toHaveTextContent(/^PUBLISH$/);
+  });
+
+  it('UNPUBLISH sends only published:false, at once', async () => {
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+
+    await user.click(rowBtn('Unpublish ClearDrive'));
+
+    expect(hooks.update.mutateAsync).toHaveBeenCalledWith({ id: 'p1', data: { published: false } });
+    expect(hooks.showFlash).toHaveBeenCalledWith('Project unpublished');
+  });
+
+  it('a COMPLETE draft publishes straight from the row', async () => {
+    hooks.useAdminProjects.mockReturnValue({ data: [LIVE, COMPLETE_DRAFT], isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+
+    await user.click(rowBtn('Publish Ready draft'));
+
+    expect(hooks.update.mutateAsync).toHaveBeenCalledWith({ id: 'p3', data: { published: true } });
+    expect(hooks.showFlash).toHaveBeenCalledWith('Project published');
+  });
+
+  it('an INCOMPLETE draft sends nothing — it opens with the missing fields marked', async () => {
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+
+    await user.click(rowBtn('Publish Half-written'));
+
+    expect(hooks.update.mutateAsync).not.toHaveBeenCalled();
+    expect(field('Title')).toHaveValue('Half-written');
+    expect(field('GitHub URL')).toHaveAttribute('aria-invalid', 'true');
+    expect(field('Description')).toHaveAttribute('aria-invalid', 'true');
+    expect(field('Title')).not.toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('a refused toggle is said, not swallowed', async () => {
+    hooks.update.mutateAsync = vi.fn().mockRejectedValue(httpError(400, 'GitHub URL is required'));
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+
+    await user.click(rowBtn('Unpublish ClearDrive'));
+
+    expect(await screen.findByText(/Unpublish: GitHub URL is required/)).toBeInTheDocument();
+    expect(hooks.showFlash).not.toHaveBeenCalled();
+  });
+});

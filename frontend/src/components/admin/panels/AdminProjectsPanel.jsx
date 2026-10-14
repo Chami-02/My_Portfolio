@@ -320,6 +320,39 @@ export function AdminProjectsPanel() {
     what: saved ? `“${saved.title}”` : 'your new project',
   });
 
+  // ── The list row's PUBLISH / UNPUBLISH (owner, 2026-10-14) ────────────────
+  /**
+   * Blog's row toggle (AdminBlogPanel `publishFromRow`), for projects:
+   *   • a live project → UNPUBLISH: it becomes a draft, hidden from the site.
+   *   • a COMPLETE draft → PUBLISH, straight from the row.
+   *   • an INCOMPLETE draft sends nothing — it opens the editor with the
+   *     missing fields marked, the same refusal the editor's PUBLISH gives.
+   * Only `published` is sent. ⚠️ The server's document-level draft rule is the
+   * gate (projectController.updateProject); this check is the courtesy.
+   * Admin-only and instant, like Blog's — the row is the whole action.
+   */
+  const publishFromRow = async (project) => {
+    const publish = project.published === false;
+    if (publish) {
+      const intent = { ...projectToForm(project), published: true };
+      if (projectFormErrors(intent).length > 0) {
+        requestLeave(() => {
+          open(project._id);
+          setPressed('publish');
+          guard.check(intent);
+          window.scrollTo({ top: 0 });
+        });
+        return;
+      }
+    }
+    try {
+      await updateProject.mutateAsync({ id: project._id, data: { published: publish } });
+      showFlash(publish ? 'Project published' : 'Project unpublished');
+    } catch (err) {
+      setSaveErrors([`${publish ? 'Publish' : 'Unpublish'}: ${messageFor(err)}`]);
+    }
+  };
+
   const handleDelete = async () => {
     const id = confirmId;
     try {
@@ -543,6 +576,10 @@ export function AdminProjectsPanel() {
                   <span className={a.rowMeta}>{(p.tech || []).join(' · ') || 'No tech yet'}</span>
                 </span>
                 <span className={a.rowActions}>
+                  <button type="button" className={a.btnRow} onClick={() => publishFromRow(p)}
+                    aria-label={`${p.published === false ? 'Publish' : 'Unpublish'} ${p.title}`}>
+                    {p.published === false ? 'PUBLISH' : 'UNPUBLISH'}
+                  </button>
                   <button type="button" className={a.btnRow} onClick={() => requestLeave(() => startEdit(p))}
                     aria-label={`Edit ${p.title}`}>
                     EDIT
