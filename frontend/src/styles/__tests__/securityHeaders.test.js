@@ -70,3 +70,36 @@ describe('vercel.json security headers (PF-120)', () => {
     expect(headers['Referrer-Policy']).toBe('strict-origin-when-cross-origin');
   });
 });
+
+// The Docker image (frontend/nginx.conf) serves the same site, so it sends the
+// same policy. Only connect-src differs: Docker's API is localhost:5050.
+describe('nginx.conf mirrors the vercel.json headers (Docker)', () => {
+  const nginx = read('nginx.conf');
+  const nginxHeaders = Object.fromEntries(
+    [...nginx.matchAll(/^\s*add_header\s+(\S+)\s+"([^"]*)"\s+always;/gm)].map((m) => [m[1], m[2]])
+  );
+  const withoutConnect = (csp) => csp.split(';').map((d) => d.trim())
+    .filter((d) => !d.startsWith('connect-src')).join('; ');
+
+  it.each(['X-Frame-Options', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy'])(
+    '%s is identical', (key) => {
+      expect(nginxHeaders[key]).toBe(headers[key]);
+    },
+  );
+
+  it('the CSP is identical apart from connect-src', () => {
+    const csp = nginxHeaders['Content-Security-Policy'];
+    expect(csp).toBeTruthy();
+    expect(withoutConnect(csp)).toBe(withoutConnect(headers['Content-Security-Policy']));
+    expect(csp).toMatch(/connect-src 'self' http:\/\/localhost:5050(;|$)/);
+  });
+
+  // ⚠️ nginx drops every inherited add_header from a location that declares
+  // its own — the old asset block's Cache-Control stripped all of the above
+  // from every JS/CSS/image response.
+  it('no location block declares its own add_header', () => {
+    const locations = [...nginx.matchAll(/location[^{]*\{([^}]*)\}/g)].map((m) => m[1]);
+    expect(locations.length).toBeGreaterThan(0);
+    locations.forEach((body) => expect(body).not.toMatch(/^\s*add_header/m));
+  });
+});
