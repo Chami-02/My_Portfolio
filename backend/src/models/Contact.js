@@ -26,6 +26,14 @@ const contactSchema = new mongoose.Schema(
       type:    Boolean,
       default: false,     // Shows as unread in admin panel
     },
+    // PF-115 (owner, 2026-10-07): a message the owner has marked to come back
+    // to. Admin-only — `submitContact` copies name/email/message by name, so a
+    // visitor cannot star their own message. No migration: a row without the
+    // field reads as unstarred (`!m.starred`), as `read` does for unread.
+    starred: {
+      type:    Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

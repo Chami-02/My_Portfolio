@@ -5,8 +5,8 @@ const cors       = require('cors');
 const morgan     = require('morgan');
 const helmet     = require('helmet');
 const multer     = require('multer');
+const { MAX_UPLOAD_BYTES } = require('./middleware/upload');
 const mongoose   = require('mongoose');
-const path       = require('path');
 
 const corsOptions        = require('./config/corsOptions');
 const connectDB          = require('./config/db');
@@ -26,10 +26,6 @@ app.use(
 );                                               // Request logging
 app.use(express.json({ limit: '10kb' }));        // Parse JSON bodies (limit size)
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-
-// ── Serve uploaded files (images) ─────────────────────────────────────────────
-// /uploads/filename.jpg → backend/src/uploads/filename.jpg
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Health check ─────────────────────────────────────────────────────────────
 // This endpoint is used by Docker, Railway, and our CI pipeline
@@ -56,6 +52,13 @@ app.get('/api/health', async (_req, res) => {
     database,
   });
 });
+// The bare host answers too, so opening the API's address in a browser shows
+// what it is instead of a 404. No database call: like /api/health it must
+// answer during an outage, and it sits before the connectDB() middleware.
+app.get('/', (_req, res) => {
+  res.json({ status: 'ok', service: 'portfolio-api', health: '/api/health' });
+});
+
 app.use(async (_req, _res, next) => {
   try {
     await connectDB();
@@ -68,13 +71,14 @@ app.use(async (_req, _res, next) => {
 // ── API Routes ────────────────────────────────────────────────────────────────
    app.use('/api/projects', require('./routes/projectRoutes'));   
    app.use('/api/skills',   require('./routes/skillRoutes'));     
+   app.use('/api/skill-categories', require('./routes/skillCategoryRoutes')); // PF-114 — owner-managed sections
    app.use('/api/contact',  require('./routes/contactRoutes'));   
    app.use('/api/blog',     require('./routes/blogRoutes'));      
    app.use('/api/about',    require('./routes/aboutRoutes'));
    app.use('/api/auth',     require('./routes/authRoutes'));
    app.use('/api/resume',   require('./routes/resumeRoutes'));   // PF-60 — public CV download
    app.use('/api/vocabulary', require('./routes/vocabularyRoutes')); 
-   app.use('/api/upload', require('./routes/uploadRoutes'));
+   app.use('/api/dashboard', require('./routes/dashboardRoutes')); // PF-110 — admin counts, one call
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────
 app.use(notFound);      // Catch any unmatched routes and create a 404 AppError
@@ -88,7 +92,8 @@ app.use((err, _req, res, next) => {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(413).json({
         status:  'fail',
-        message: 'File is too large — maximum 5 MB',
+        // Derived, not typed: this said "5 MB" after the limit had moved.
+        message: `File is too large — maximum ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`,
       });
     }
     if (err.code === 'LIMIT_FILE_COUNT') {

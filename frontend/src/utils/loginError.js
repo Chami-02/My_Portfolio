@@ -47,3 +47,36 @@ export function loginErrorMessage(err) {
   return err.response.data?.message
       || `Sign-in failed (HTTP ${err.response.status}). Please try again.`;
 }
+
+/**
+ * PF-119 — what to say when Google sign-in comes back with a failure.
+ *
+ * The API redirects to `/admin/login#google_error=<reason>`. The reasons are
+ * deliberately coarse (the API never says WHICH check refused an account),
+ * but each one has a different next step for the reader, so each gets its
+ * own sentence. An unknown reason — a tampered URL, a newer API — falls back
+ * to the generic one rather than to nothing.
+ */
+const GOOGLE_ERRORS = {
+  cancelled:   'Google sign-in was cancelled. Choose an account to continue, or sign in with your password.',
+  not_allowed: "That Google account isn't an admin account for this site.",
+  expired:     'That sign-in took too long or was already used. Please try again.',
+  unavailable: "Google sign-in isn't available right now. Sign in with your email and password instead.",
+  failed:      "Google sign-in couldn't be completed. Please try again.",
+};
+
+export function googleErrorMessage(reason) {
+  return Object.hasOwn(GOOGLE_ERRORS, reason) ? GOOGLE_ERRORS[reason] : GOOGLE_ERRORS.failed;
+}
+
+/**
+ * PF-119 — the last leg (trading the handoff for a session) is an ordinary
+ * API call, so an unreachable server is reported the way the password form
+ * reports it. But a 401 here is an expired or spent handoff, NOT a wrong
+ * password — routing it through `loginErrorMessage` would blame credentials
+ * the reader never typed.
+ */
+export function googleExchangeErrorMessage(err) {
+  if (!err?.response) return loginErrorMessage(err);
+  return googleErrorMessage(err.response.status === 401 ? 'expired' : 'failed');
+}

@@ -1,5 +1,5 @@
 const request = require('supertest');
-const jwt     = require('jsonwebtoken');
+const { issueSession } = require('../services/sessionService');
 const app     = require('../app');
 const Contact = require('../models/Contact');
 const User    = require('../models/User');
@@ -20,7 +20,8 @@ const ADMIN = { email: 'admin@test.com', password: 'TestPass@1234!' };
 const authHeader = async () => {
   let user = await User.findOne({ email: ADMIN.email });
   if (!user) user = await User.create(ADMIN);
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  // PF-108: through the real session path, so the token names a live family.
+  const { accessToken: token } = await issueSession(user);
   return { Authorization: `Bearer ${token}` };
 };
 
@@ -76,6 +77,25 @@ describe('POST /api/contact', () => {
   });
 });
 
+// PF-120 — every field must be a STRING. Measured before the fix: arrays gave
+// a public 500, and an object was stored as "[object Object]". A refused 400
+// does not count against contactLimiter, so these cost no budget.
+describe('POST /api/contact — non-string fields (PF-120)', () => {
+  it.each([
+    ['name as an array',        { name: ['Ann', 'Bob'] }],
+    ['name as a 1-item array',  { name: ['Ann'] }],
+    ['name as an object',       { name: { a: 1 } }],
+    ['email as an array',       { email: ['a@example.com', 'b@example.com'] }],
+    ['message as an array',     { message: ['A long enough message', 'x'] }],
+    ['message as an object',    { message: { text: 'A long enough message' } }],
+  ])('refuses %s with a 400 and stores nothing', async (_label, override) => {
+    const res = await request(app).post('/api/contact').send({ ...VALID_MESSAGE, ...override });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/must be text/);
+    expect(await Contact.countDocuments()).toBe(0);
+  });
+});
+
 describe('GET /api/contact', () => {
   it('returns all messages for an authenticated admin', async () => {
     await Contact.create(VALID_MESSAGE);
@@ -114,6 +134,58 @@ describe('PATCH /api/contact/:id/read', () => {
 
     expect(res.status).toBe(404);
   });
+
+  // Mark unread: an explicit value, never a flip.
+  it('{ read: false } marks a read message unread', async () => {
+    const message = await Contact.create({ ...VALID_MESSAGE, read: true });
+
+    const res = await request(app)
+      .patch(`/api/contact/${message._id}/read`)
+      .set(await authHeader())
+      .send({ read: false });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.read).toBe(false);
+    expect((await Contact.findById(message._id)).read).toBe(false);
+  });
+
+  it('{ read: false } twice stays unread (not a toggle)', async () => {
+    const message = await Contact.create({ ...VALID_MESSAGE, read: true });
+    const headers = await authHeader();
+    await request(app).patch(`/api/contact/${message._id}/read`).set(headers).send({ read: false });
+    const res = await request(app).patch(`/api/contact/${message._id}/read`).set(headers).send({ read: false });
+    expect(res.body.data.read).toBe(false);
+  });
+
+  it('{ read: true } marks it read', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    const res = await request(app)
+      .patch(`/api/contact/${message._id}/read`)
+      .set(await authHeader())
+      .send({ read: true });
+    expect(res.body.data.read).toBe(true);
+  });
+
+  it.each([['a string', 'false'], ['a number', 0], ['null', null]])(
+    'refuses %s with a 400 and changes nothing',
+    async (_label, value) => {
+      const message = await Contact.create({ ...VALID_MESSAGE, read: true });
+      const res = await request(app)
+        .patch(`/api/contact/${message._id}/read`)
+        .set(await authHeader())
+        .send({ read: value });
+      expect(res.status).toBe(400);
+      expect((await Contact.findById(message._id)).read).toBe(true);
+    },
+  );
+
+  it('answers 401 before reading the body', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    const res = await request(app)
+      .patch(`/api/contact/${message._id}/read`)
+      .send({ read: 'nonsense' });
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('DELETE /api/contact/:id', () => {
@@ -134,5 +206,67 @@ describe('DELETE /api/contact/:id', () => {
       .set(await authHeader());
 
     expect(res.status).toBe(404);
+  });
+});
+
+// ── PF-115 — the owner's STAR (owner, 2026-10-07) ──────────────────────────
+describe('PATCH /api/contact/:id/star', () => {
+  it('stars and unstars a message — an explicit value, not a flip', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    expect(message.starred).toBe(false);
+
+    const on = await request(app).patch(`/api/contact/${message._id}/star`)
+      .set(await authHeader()).send({ starred: true });
+    expect(on.status).toBe(200);
+    expect(on.body.data.starred).toBe(true);
+
+    // The same request twice must leave it starred — a toggle would unstar.
+    const again = await request(app).patch(`/api/contact/${message._id}/star`)
+      .set(await authHeader()).send({ starred: true });
+    expect(again.body.data.starred).toBe(true);
+
+    const off = await request(app).patch(`/api/contact/${message._id}/star`)
+      .set(await authHeader()).send({ starred: false });
+    expect(off.body.data.starred).toBe(false);
+  });
+
+  it('does not touch the read flag', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    const res = await request(app).patch(`/api/contact/${message._id}/star`)
+      .set(await authHeader()).send({ starred: true });
+    expect(res.body.data.read).toBe(false);
+  });
+
+  it.each([[{}], [{ starred: 'yes' }], [{ starred: 1 }]])(
+    'refuses a body that is not a boolean: %j',
+    async (body) => {
+      const message = await Contact.create(VALID_MESSAGE);
+      const res = await request(app).patch(`/api/contact/${message._id}/star`)
+        .set(await authHeader()).send(body);
+      expect(res.status).toBe(400);
+      expect((await Contact.findById(message._id)).starred).toBe(false);
+    },
+  );
+
+  it('returns 404 for a missing message and 400 for a malformed id', async () => {
+    const missing = await request(app).patch('/api/contact/000000000000000000000000/star')
+      .set(await authHeader()).send({ starred: true });
+    expect(missing.status).toBe(404);
+
+    const bad = await request(app).patch('/api/contact/not-an-id/star')
+      .set(await authHeader()).send({ starred: true });
+    expect(bad.status).toBe(400);
+  });
+
+  it('answers 401 without a token — even with a bad body', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    const res = await request(app).patch(`/api/contact/${message._id}/star`).send({ starred: 'x' });
+    expect(res.status).toBe(401);
+  });
+
+  it('a visitor cannot star their own message through the public form', async () => {
+    await request(app).post('/api/contact').send({ ...VALID_MESSAGE, starred: true });
+    const [saved] = await Contact.find();
+    expect(saved.starred).toBe(false);
   });
 });

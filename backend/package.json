@@ -1,24 +1,36 @@
 {
   "name": "portfolio-backend",
   "version": "1.0.0",
-  "description": "Portfolio REST API \u2014 Express + MongoDB",
+  "description": "Portfolio REST API — Express + MongoDB",
   "main": "src/app.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "nodemon src/server.js",
+    "dev": "node --watch src/server.js",
     "dev:e2e": "dotenv -e .env.e2e -- node src/server.js",
     "start": "node src/server.js",
     "seed": "node src/seed.js",
     "seed:e2e": "dotenv -e .env.e2e -- node src/seed.js",
-    "test": "node scripts/run-jest.js --runInBand --detectOpenHandles --forceExit",
-    "test:coverage": "node scripts/run-jest.js --coverage --runInBand --detectOpenHandles --forceExit",
-    "test:watch": "node scripts/run-jest.js --watch"
+    "migrate": "node src/migrations/run.js",
+    "migrate:status": "node src/migrations/run.js --status",
+    "migrate:dry": "node src/migrations/run.js --dry-run",
+    "migrate:baseline": "node src/migrations/run.js --baseline",
+    "migrate:verify": "node scripts/verify-migrations-idempotent.js",
+    "test": "node scripts/run-jest.js --detectOpenHandles --forceExit",
+    "test:coverage": "node scripts/run-jest.js --coverage --detectOpenHandles --forceExit",
+    "test:watch": "node scripts/run-jest.js --watch",
+    "test:atlas": "node scripts/run-jest.js --runInBand --detectOpenHandles --forceExit --atlas",
+    "admin:password": "node scripts/set-admin-password.js"
   },
   "jest": {
     "testEnvironment": "node",
     "testTimeout": 30000,
     "testMatch": [
       "**/__tests__/**/*.test.js"
+    ],
+    "globalSetup": "<rootDir>/src/__tests__/setup/globalSetup.js",
+    "globalTeardown": "<rootDir>/src/__tests__/setup/globalTeardown.js",
+    "setupFiles": [
+      "<rootDir>/src/__tests__/setup/perWorkerDatabase.js"
     ],
     "coverageThreshold": {
       "global": {
@@ -39,11 +51,13 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
+    "cookie": "^1.1.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "express-validator": "^7.3.2",
+    "google-auth-library": "^10.9.1",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.5.0",
@@ -55,7 +69,12 @@
   "devDependencies": {
     "dotenv-cli": "^11.0.0",
     "jest": "^30.5.2",
-    "nodemon": "^3.1.14",
+    "mongodb-memory-server": "^10.4.3",
     "supertest": "^7.3.1"
+  },
+  "config": {
+    "mongodbMemoryServer": {
+      "version": "7.0.14"
+    }
   }
 }

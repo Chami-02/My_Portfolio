@@ -168,7 +168,7 @@ function ProjectLinks({ project, className }) {
  * Projects — PF-85. Full replacement of the Phase 1 component.
  *
  * Wired to `useProjects()`, like Skills and unlike About. The API
- * already sorts `{ order: 1, createdAt: -1 }` (projectController.js:8),
+ * already sorts `{ order: 1, createdAt: -1 }` (projectController.js `SORT`),
  * so display order is an admin field rather than a code constant.
  *
  * ── Which project gets the big card ──────────────────────────────────
@@ -179,6 +179,13 @@ function ProjectLinks({ project, className }) {
  * instead. So `featured` controls the BADGE and `order` controls the
  * SLOT, which keeps reordering an admin action rather than a code
  * change.
+ *
+ * ⚠️ Second half, owner decision 2026-09-16: EVERY featured project
+ * carries the badge, not only the one in the big slot. Until then a
+ * featured project outside the slot rendered no badge anywhere, so
+ * "featured" in the admin panel looked like it did nothing for it. The
+ * small card keeps its numeral (positional, the prototype's series) and
+ * gains the badge beside it; the slot rule above is unchanged.
  *
  * When `projects[0].featured` is false, that slot renders NOTHING — not
  * a "01". The prototype has no 01 anywhere, and inventing one means
@@ -232,7 +239,7 @@ export function ProjectsSection() {
                 <div className={styles.bigCard} data-projectcard="">
                   <CardLayers project={featured} />
                   {featured.featured && (
-                    <span className={styles.featuredBadge}>FEATURED</span>
+                    <span className={styles.featuredBadge}>★ FEATURED</span>
                   )}
                   <h3 className={styles.bigTitle}>{featured.title}</h3>
                   <p className={styles.bigDesc}>{featured.description}</p>
@@ -279,9 +286,20 @@ export function ProjectsSection() {
                           as "02" before every project title, which is
                           noise, and they measure 1.75:1 dark / 1.19:1
                           light so they are not reliably visible either. */}
-                      <p className={styles.numeral} aria-hidden="true">
-                        {String(i + 2).padStart(2, '0')}
-                      </p>
+                      {/* Numeral and (when featured) the badge share one
+                          head row. NOT an absolutely positioned badge: the
+                          `.card > *` layering rule below pins every direct
+                          child `position: relative` at (0,3,0) to lift it
+                          above the background layers, and would silently
+                          drop an absolute badge into flow at the left. */}
+                      <div className={styles.cardHead}>
+                        <p className={styles.numeral} aria-hidden="true">
+                          {String(i + 2).padStart(2, '0')}
+                        </p>
+                        {project.featured && (
+                          <span className={styles.featuredBadgeSm}>★ FEATURED</span>
+                        )}
+                      </div>
                       <h3 className={styles.cardTitle}>{project.title}</h3>
                       <p className={styles.cardDesc}>{project.description}</p>
                       <div className={styles.pillRow}>

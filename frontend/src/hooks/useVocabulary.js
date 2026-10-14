@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { vocabularyService } from '../services/vocabularyService';
 import { BLOG_KEY, BLOG_ADMIN_KEY } from './useBlog';
+import { PROJECTS_KEY }           from './useProjects';
 
 export const VOCAB_KEY = ['vocabulary'];
 
@@ -65,10 +66,10 @@ export const useCreateVocabulary = (type) => {
  * database, and the staleness would survive until an unrelated refetch —
  * the kind of bug that looks like "the delete didn't work" hours later.
  *
- * The blog keys are invalidated for `tag`; `tech` would need the project
- * keys, and deliberately does not get them here because nothing calls this
- * with 'tech' yet. Wiring a cache invalidation for a caller that does not
- * exist is how an untested branch ships.
+ * `tag` cascades onto blog posts, `tech` onto projects (PF-113 — the first
+ * 'tech' caller, the Projects panel's picker). Each invalidates only its own
+ * content: a tech deletion changed no blog post, and refetching the blog
+ * would be pure waste. PROJECTS_KEY is a prefix, so it covers the admin list.
  */
 export const useDeleteVocabulary = (type) => {
   const qc = useQueryClient();
@@ -79,6 +80,9 @@ export const useDeleteVocabulary = (type) => {
       if (type === 'tag') {
         qc.invalidateQueries({ queryKey: BLOG_KEY });
         qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      }
+      if (type === 'tech') {
+        qc.invalidateQueries({ queryKey: PROJECTS_KEY });
       }
     },
   });

@@ -5,19 +5,28 @@ const AppError   = require('../utils/AppError');
 // ── Validation rules array ────────────────────────────────────────────────────
 // These run BEFORE the controller function.
 // The validate middleware (PF-17) checks results and returns 400 on failure.
+//
+// ⚠️ PF-120 — `isString().bail()` FIRST on every field (the aboutController
+// pattern). This route is PUBLIC, and without it an array (`name: ['a','b']`)
+// passed `trim`/`isLength` and reached Mongoose as a CastError: a 500 and an
+// UNEXPECTED ERROR log. An object passed too, and was STORED as
+// "[object Object]". Both measured before the fix.
 const contactRules = [
   body('name')
+    .isString().withMessage('Name must be text').bail()
     .trim()
     .notEmpty().withMessage('Name is required')
     .isLength({ max: 100 }).withMessage('Name cannot exceed 100 characters'),
 
   body('email')
+    .isString().withMessage('Email must be text').bail()
     .trim()
     .notEmpty().withMessage('Email is required')
     .isEmail().withMessage('Please provide a valid email address')
     .normalizeEmail(),
 
   body('message')
+    .isString().withMessage('Message must be text').bail()
     .trim()
     .notEmpty().withMessage('Message is required')
     .isLength({ min: 10 }).withMessage('Message must be at least 10 characters long')
@@ -57,17 +66,51 @@ const getAllMessages = async (req, res, next) => {
 };
 
 // ── PATCH /api/contact/:id/read ──────────────────────────────────────────────
-// Protected — mark a message as read in admin panel
+// Protected — mark a message read, or unread with `{ read: false }`. An
+// EXPLICIT value like the star (never a flip); no body still means read, so a
+// client sending nothing keeps its old meaning.
+const readRules = [
+  body('read').optional().isBoolean({ strict: true }).withMessage('read must be true or false'),
+];
+
 const markAsRead = async (req, res, next) => {
   try {
     const message = await Contact.findByIdAndUpdate(
       req.params.id,
-      { read: true },
+      // A real boolean in the CODE, not only in readRules: `!== false` is
+      // true for `true` and for an absent field (the old client's meaning).
+      { read: req.body?.read !== false },
       { returnDocument: 'after' }
     );
     if (!message) return next(new AppError('Message not found', 404));
     res.json({ status: 'success', data: message });
   } catch (err) {
+    next(err);
+  }
+};
+
+// ── PATCH /api/contact/:id/star ──────────────────────────────────────────────
+// Protected — PF-115. Sets the star to an EXPLICIT value rather than flipping
+// it, so a double-click or a retried request can never land on the opposite of
+// what the owner pressed. A toggle is only correct if every request arrives
+// exactly once.
+const starRules = [
+  body('starred').isBoolean({ strict: true }).withMessage('starred must be true or false'),
+];
+
+const setStarred = async (req, res, next) => {
+  try {
+    const message = await Contact.findByIdAndUpdate(
+      req.params.id,
+      // starRules already demands a strict boolean; `=== true` makes the
+      // value a boolean here too, so nothing else can reach the update.
+      { starred: req.body.starred === true },
+      { returnDocument: 'after' }
+    );
+    if (!message) return next(new AppError('Message not found', 404));
+    res.json({ status: 'success', data: message });
+  } catch (err) {
+    if (err.name === 'CastError') return next(new AppError('Invalid message ID', 400));
     next(err);
   }
 };
@@ -84,4 +127,8 @@ const deleteMessage = async (req, res, next) => {
   }
 };
 
-module.exports = { contactRules, submitContact, getAllMessages, markAsRead, deleteMessage };
+module.exports = {
+  contactRules, submitContact, getAllMessages, markAsRead, deleteMessage,
+  starRules, setStarred,
+  readRules,
+};

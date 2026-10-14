@@ -1,7 +1,12 @@
 // frontend/src/components/sections/HeroSection.jsx
 import { useEffect, useRef } from 'react';
 import { Reveal, Marquee } from '../motion';
-import heroImg from '../../assets/hero-ai.png';
+import { useAbout } from '../../hooks/useAbout';
+import { cvAnchorProps } from '../../utils/resume';
+// WebP since 2026-10-14: the same 820×1028 cut-out, alpha intact, 1.48 MB →
+// 124 KB (cwebp -q 90 -alpha_q 100; 42.4 dB PSNR premultiplied, alpha
+// identical). The design source stays docs/design/assets/hero-ai.png.
+import heroImg from '../../assets/hero-ai.webp';
 import styles from './HeroSection.module.css';
 
 /**
@@ -35,6 +40,13 @@ const CHIPS = [
 ];
 
 /** Lines 100-108. Each pill's lead dot pulses at its own rate. */
+/* PF-118 — the intro paragraph is the panel's "Hero intro". This is what a
+   blank field or a failed fetch shows, and the schema default (About.js
+   `heroIntro`) is the same sentence. */
+const HERO_INTRO_FALLBACK =
+  'I’m a Computer Science undergraduate and Full-Stack Developer passionate about '
+  + 'building modern, scalable web applications.';
+
 const ROLE_PILLS = [
   { text: 'Full-Stack Web Developer',  delay: 200, cls: 'rolePillDotA' },
   { text: 'Cloud & DevOps Enthusiast', delay: 280, cls: 'rolePillDotB' },
@@ -68,6 +80,12 @@ const MARQUEE_TEXT =
  * pills are the real on-screen content. Not building a typewriter.
  */
 export function HeroSection() {
+  // Shared cache entry with ContactSection's useAbout() — no extra request.
+  const { data: about } = useAbout();
+  const isAvailable = about?.availableForWork ?? true;
+  // `hasResume` is a schema virtual — true only when a url is actually stored.
+  const hasResume  = Boolean(about?.hasResume);
+
   return (
     <>
       <section id="hero" className={styles.hero}>
@@ -84,9 +102,20 @@ export function HeroSection() {
             AboutSection's portrait still uses it at 0.05. */}
         <div className={styles.inner}>
           <div>
-            <Reveal type="up" className={styles.badge}>
-              <span aria-hidden="true" className={styles.badgeDot} />
-              <span className={styles.badgeText}>OPEN TO OPPORTUNITIES</span>
+            {/* Two states, driven by the admin panel's availability toggle
+                (About.availableForWork) — owner decision 2026-09-16. The
+                ON state is the prototype's badge, untouched. OFF swaps the
+                CLASS, not a property: .badge composes the glowpulse carrier
+                and .badgeDot the dot carrier, so the off variants, which
+                compose nothing, stop both animations outright rather than
+                pausing them. `?? true` while the query is in flight — the
+                splash holds every reveal ~4.5s on a first load, so the
+                answer is in before this paints. */}
+            <Reveal type="up" className={isAvailable ? styles.badge : styles.badgeOff}>
+              <span aria-hidden="true" className={isAvailable ? styles.badgeDot : styles.badgeDotOff} />
+              <span className={isAvailable ? styles.badgeText : styles.badgeTextOff}>
+                {isAvailable ? 'OPEN TO OPPORTUNITIES' : 'CURRENTLY BUILDING'}
+              </span>
             </Reveal>
 
             <Reveal as="p" type="up" delay={60} className={styles.eyebrow}>
@@ -145,26 +174,30 @@ export function HeroSection() {
                 paragraph is meant to arrive while the pills are still
                 landing, not after them. Not a typo to "fix". */}
             <Reveal as="p" type="up" delay={260} className={styles.body}>
-              I’m a Computer Science undergraduate and Full-Stack Developer passionate about building modern, 
-              scalable web applications.
+              {about?.heroIntro || HERO_INTRO_FALLBACK}
             </Reveal>
 
             <Reveal type="up" delay={320} className={styles.ctaRow}>
               <a href="#projects" className={styles.ctaPrimary}>
                 VIEW MY WORK →
               </a>
-              {/* The prototype's data-cv hook rewrites this href to a
-                  localStorage résumé data-URL when one exists, falling back
-                  to #contact. That bridge is an admin-panel concern and
-                  belongs with the résumé ticket, not here — the fallback
-                  href is the transcribed default either way. */}
-              <a href="#contact" className={styles.ctaSecondary}>
+              {/* ⚠️ WIRED IN PF-112, and it was a live defect before that.
+                  `applyResume()` (Portfolio Revolution.dc.html:675) sweeps
+                  `[data-cv]` and the prototype has TWO — this CTA (line 119)
+                  and Contact's (line 505). PF-87 wired only Contact's and left
+                  this one a hardcoded `#contact`, which was invisible while no
+                  résumé existed because both hrefs agreed. The moment one is
+                  uploaded they diverge: Contact's becomes a real download and
+                  this stays an anchor pointing at the section below it. */}
+              <a {...cvAnchorProps(hasResume)} className={styles.ctaSecondary}>
                 DOWNLOAD CV
               </a>
             </Reveal>
           </div>
 
-          <HeroPortrait />
+          {/* An uploaded cut-out replaces the bundled one (owner, 2026-10-14);
+              empty = the bundled image, as the About portrait does. */}
+          <HeroPortrait src={about?.heroImage?.url || heroImg} />
         </div>
 
         <div aria-hidden="true" className={styles.scrollIndicator}>
@@ -208,7 +241,7 @@ export function HeroSection() {
  * smoothing on each update is a plain CSS transition, which motion.css
  * already collapses globally.
  */
-function HeroPortrait() {
+function HeroPortrait({ src }) {
   const hostRef = useRef(null);
   const innerRef = useRef(null);
 
@@ -264,7 +297,7 @@ function HeroPortrait() {
               with a real screen reader at some point; it is a judgment
               call, not a settled fact. */}
           <img
-            src={heroImg}
+            src={src}
             alt="Portrait of Parindra Gallage"
             className={styles.portraitImg}
           />

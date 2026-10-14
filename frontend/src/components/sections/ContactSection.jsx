@@ -3,50 +3,57 @@ import { useEffect, useState } from 'react';
 import { Reveal } from '../motion';
 import { MailIcon, GitHubIcon, LinkedInIcon } from '../icons';
 import { useAbout } from '../../hooks/useAbout';
+import { timezoneLabel } from '../../utils/timezone';
 import { contactService } from '../../services/contactService';
-import { apiUrl } from '../../services/api';
+import { cvAnchorProps } from '../../utils/resume';
 import styles from './ContactSection.module.css';
 
-/**
- * Where `↓ DOWNLOAD CV` points when there is no résumé to download.
+/*
+ * ── The DOWNLOAD CV constants MOVED to utils/resume.js in PF-112 ────────────
  *
- * ⚠️ This is the PROTOTYPE'S OWN empty state, not a fallback invented
- * here. The markup's `href="#contact" download` (line 505) looks like the
- * same dead-anchor artefact as PF-86's `href="#blog"`, and it is not —
- * `applyResume()` (line 676) rewrites it at runtime:
+ * They lived here from PF-87, when this was the only wired `[data-cv]` element
+ * of the prototype's two. PF-112 wires the hero's as well, so there is a second
+ * consumer and the same bar applies that moved formatMonth into blogMeta.js:
+ * one consumer is a local constant, two is a module.
  *
- *   résumé present → href = the file, download = its name, title removed
- *   résumé absent  → href = '#contact', download removed,
- *                    title = 'Upload a résumé in the admin panel to enable this'
- *
- * So the design does answer the empty-state question: always show the
- * button, leave it inert, and explain why on hover. The localStorage hop
- * is a design-tool affordance — the same shape as `applyProjectBgs()`,
- * which PF-85 mapped one-to-one onto `Project.backgroundImage` — and the
- * visual contract maps just as cleanly onto `About.hasResume` here.
+ * The reasoning that used to sit here — that `href="#contact" download` is the
+ * PROTOTYPE'S OWN empty state rather than a dead anchor, because
+ * `applyResume()` rewrites both branches at runtime — moved with them, because
+ * that is the note whoever next reads `cvAnchorProps` needs.
  */
-const CV_EMPTY_HREF = '#contact';
-const CV_EMPTY_TITLE = 'Upload a résumé in the admin panel to enable this';
 
-/**
- * The public download endpoint — `GET /api/resume`, a 302 to the forced-
- * download URL. Its own mount rather than `/api/about/resume` so the URL
- * is short and survives every replacement (resumeRoutes.js).
+/*
+ * ── PF-112: EMAIL, GITHUB_URL and LINKEDIN_URL are gone ─────────────────────
  *
- * Built with `apiUrl()` rather than a literal `/api/resume`, because the
- * backend is on a different origin in production: a hardcoded path in an
- * href would 404 on the live site while working fine behind the dev
- * proxy. `apiUrl` has been an orphan since PF-81 removed its last
- * consumer, and its own doc comment names this exact case — this section
- * is the first caller the résumé subsystem has ever had.
+ * All three were module consts, so editing them in the admin panel changed
+ * nothing here. They come from the About document now. The fallback below covers
+ * only the first paint before the query resolves — it is not a second source of
+ * truth, and it is deliberately the SAME string the const held, so a failed
+ * fetch degrades to what the page has always shown rather than to a blank.
+ *
+ * ⚠️ Named OWNER_EMAIL_FALLBACK, not EMAIL. `validate({ email })` below means the
+ * VISITOR's address, and two things called `email` a few lines apart is exactly
+ * the sort of collision that gets one of them wired to the wrong place.
  */
-const CV_HREF = apiUrl('/resume');
-
-const EMAIL = 'parindrachameekara@gmail.com';
-const GITHUB_URL = 'https://github.com/Chami-02';
-const LINKEDIN_URL = 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/';
+const OWNER_EMAIL_FALLBACK = 'pcgallege@gmail.com';
 
 const EMPTY_FORM = { name: '', email: '', message: '' };
+
+/* PF-118 — the intro paragraph, split where the owner's data takes over.
+ *
+ * Its first sentence said the same thing as the panel's "Availability note" in
+ * different words, so it now IS the note — shown while available, gone while
+ * not, the rule About's line has followed since PF-112. The fallback is the
+ * sentence it replaces, so a blank note or a failed fetch reads as before. The
+ * rest is not availability copy and stays a literal.
+ */
+const INTRO_LEAD_FALLBACK =
+  "I'm actively looking for junior developer and Software Engineering internship opportunities.";
+const INTRO_REST =
+  'If you have a role, a project, or just want to connect — send me a message. I respond within 24 hours.';
+
+/** The note as a sentence: the panel stores "Currently seeking …" with no stop. */
+const asSentence = (text) => (/[.!?…✔]$/.test(text) ? text : `${text}.`);
 
 /**
  * The prototype's own validation, transcribed rather than rewritten —
@@ -116,6 +123,19 @@ export function ContactSection() {
   // the prototype's own error path — its try/catch around the
   // localStorage read falls through to `r = null`, i.e. the empty state.
   const hasResume = Boolean(about?.hasResume);
+  // PF-112 — the owner's data, with the long-standing literal as a first-paint
+  // fallback. ⚠️ An empty social URL renders NOTHING rather than a dead link —
+  // the rule About.js has stated since PF-60.
+  const contactEmail = about?.email || OWNER_EMAIL_FALLBACK;
+  const location     = about?.location || 'Galle, Sri Lanka';
+  // PF-118 — shared with the footer status line. `??`: blank = hidden.
+  // PF-118 batch 2: an IANA place, printed as its offset NOW (DST-correct).
+  const timezone     = timezoneLabel(about?.timezone ?? 'Asia/Colombo');
+  const isAvailable  = about?.availableForWork ?? true;
+  const note         = about?.availabilityNote?.trim();
+  const introLead    = isAvailable ? asSentence(note || INTRO_LEAD_FALLBACK) : '';
+  const github       = about?.social?.github?.trim() || '';
+  const linkedin     = about?.social?.linkedin?.trim() || '';
 
   // Logged from an effect keyed on the error, not from the render body: a
   // render-phase console.error fires again on every unrelated re-render.
@@ -197,9 +217,7 @@ export function ContactSection() {
         <div className={styles.grid}>
           <div>
             <Reveal as="p" type="up" delay={120} className={styles.intro}>
-              I&apos;m actively looking for junior developer and Software Engineering
-              internship opportunities. If you have a role, a project, or just want to
-              connect — send me a message. I respond within 24 hours.
+              {introLead ? `${introLead} ${INTRO_REST}` : INTRO_REST}
             </Reveal>
 
             <Reveal type="up" delay={180} className={styles.ctaRow}>
@@ -208,9 +226,9 @@ export function ContactSection() {
                   text. `.emailLink` and `.cvLink` were already
                   inline-flex rows with a 10px gap, so only `.socialLink`
                   needed a CSS change. */}
-              <a href={`mailto:${EMAIL}`} className={styles.emailLink}>
+              <a href={`mailto:${contactEmail}`} className={styles.emailLink}>
                 <MailIcon />
-                {EMAIL}
+                {contactEmail}
               </a>
             </Reveal>
 
@@ -221,42 +239,49 @@ export function ContactSection() {
                   entirely when false — which is what the empty branch
                   needs, since a `download` on an inert `#contact` href
                   would try to download the page itself. */}
-              <a
-                href={hasResume ? CV_HREF : CV_EMPTY_HREF}
-                download={hasResume}
-                title={hasResume ? undefined : CV_EMPTY_TITLE}
-                className={styles.cvLink}
-              >
+              <a {...cvAnchorProps(hasResume)} className={styles.cvLink}>
                 ↓ DOWNLOAD CV
               </a>
             </Reveal>
 
             <Reveal type="up" delay={220} className={styles.socialRow}>
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={styles.socialLink}
-              >
-                <GitHubIcon />
-                GITHUB
-              </a>
-              <a
-                href={LINKEDIN_URL}
-                target="_blank"
-                rel="noreferrer"
-                className={styles.socialLink}
-              >
-                <LinkedInIcon />
-                LINKEDIN
-              </a>
+              {/* ⚠️ Contact stays GITHUB + LINKEDIN only — owner decision
+                  2026-09-25, and the prototype's own choice (lines 508-512). The
+                  FOOTER is the complete list; this row is deliberately the short
+                  one. Each link disappears entirely when its URL is blank. */}
+              {github && (
+                <a
+                  href={github}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.socialLink}
+                >
+                  <GitHubIcon />
+                  GITHUB
+                </a>
+              )}
+              {linkedin && (
+                <a
+                  href={linkedin}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.socialLink}
+                >
+                  <LinkedInIcon />
+                  LINKEDIN
+                </a>
+              )}
             </Reveal>
 
             {/* Same delay as the social row above — 220 twice, the
                 prototype's own choice (lines 508 and 512), so the two
                 arrive together rather than in sequence. Not a slip. */}
             <Reveal as="p" type="up" delay={220} className={styles.location}>
-              GALLE, SRI LANKA · UTC+5:30
+              {/* Uppercased HERE rather than stored uppercase, so the admin panel
+                  shows the location the way it reads and the footer can print the
+                  same value in title case. PF-118: the timezone is its own panel
+                  field, shared with the footer; blank drops it and the "·". */}
+              {location.toUpperCase()}{timezone && ` · ${timezone.toUpperCase()}`}
             </Reveal>
           </div>
 

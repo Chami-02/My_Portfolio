@@ -8,7 +8,7 @@ values:
   # SEED_ADMIN_PASSWORD is unset. For any deployed environment create a
   # separate Postman environment and mark adminPassword as `secret`.
   - key: adminEmail
-    value: 'admin@portfolio.dev'
+    value: 'pcgallege@gmail.com'
     type: default
     enabled: true
   - key: adminPassword

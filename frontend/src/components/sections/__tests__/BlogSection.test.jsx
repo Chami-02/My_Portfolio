@@ -723,9 +723,11 @@ describe("the featured card's backdrop image (2026-09-07)", () => {
    * has the gradient and `.sweep` and no image. Owner-requested; a
    * sanctioned deviation, recorded in locked-decisions.md.
    *
-   * ⚠️ FIXED backdrops, deliberately not per-post. `Blog.coverImage` exists
-   * in the schema with no consumer; the owner chose constant images so
-   * title/excerpt/date/tags keep coming from the API.
+   * ⚠️ FIXED backdrops, deliberately not per-post: the owner chose constant
+   * images so title/excerpt/date/tags keep coming from the API. The dead
+   * `Blog.coverImage` column this note used to point at was deleted by
+   * PF-111, so a per-post image now needs a new field AND a reversal of
+   * this decision — not merely a wire to an unused one.
    */
   /**
    * ⚠️ `position: absolute` IS LOAD-BEARING BEYOND PLACEMENT, and this is

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { isTimeZone } = require('../utils/timeZone');
 
 // ── NEW IN PF-60 ──────────────────────────────────────────────
 // Shared validator for social profile URLs.
@@ -12,6 +13,28 @@ const urlValidator = {
   message: props => `${props.value} is not a valid URL`,
 };
 // ──────────────────────────────────────────────────────────────
+
+// One uploaded image: Cloudinary can only delete a file by its public_id, so
+// the id is stored beside the url — a bare URL would orphan every replaced
+// file. Plain nested paths (not a sub-schema), so `about.avatar = {...}` and
+// `$set` behave exactly as they did when this shape was written inline.
+const imageSlot = (label) => ({
+  url: {
+    type:    String,
+    default: '',
+    validate: {
+      validator: v => !v || /^https?:\/\//i.test(v),   // no data: URIs
+      message:   `${label} URL must be an http(s) URL`,
+    },
+  },
+  publicId:   { type: String, default: '' },
+  fileName:   { type: String, default: '' },
+  format:     { type: String, default: '' },
+  bytes:      { type: Number, default: 0 },
+  width:      { type: Number, default: 0 },
+  height:     { type: Number, default: 0 },
+  uploadedAt: { type: Date,   default: null },
+});
 
 const aboutSchema = new mongoose.Schema(
   {
@@ -30,7 +53,13 @@ const aboutSchema = new mongoose.Schema(
     location: {
       type:    String,
       trim:    true,
-      default: 'Galle,Sri Lanka',
+      // ⚠️ PF-112 — the space after the comma is load-bearing and was MISSING.
+      // Both public render sites print this value verbatim, so a document
+      // created from this default read "Galle,Sri Lanka" while a seeded one
+      // (seed.js already had the space) read "Galle, Sri Lanka". Two
+      // environments disagreeing on a rendered string, and it looks like a CSS
+      // problem rather than a data one.
+      default: 'Galle, Sri Lanka',
     },
     // ── The single source of truth for contact email, site-wide (PF-60) ──
     // Used by the contact section, the footer's email icon, and anywhere
@@ -39,7 +68,7 @@ const aboutSchema = new mongoose.Schema(
     email: {
       type:    String,
       trim:    true,
-      default: 'parindrachameekara@gmail.com',
+      default: 'pcgallege@gmail.com',
       validate: {
         validator: v => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
         message:   props => `${props.value} is not a valid email address`,
@@ -47,11 +76,18 @@ const aboutSchema = new mongoose.Schema(
     },
 
     // Bio paragraphs — each element is one paragraph
+    //
+    // ⚠️ PF-118 — the default is the SITE's copy, character-for-character
+    // `BIO_FALLBACK` (AboutSection.jsx), `ABOUT_DATA.bio` (seed.js) and
+    // `SITE_BIO` (migration 008). It used to be the Phase 1 pair, so a document
+    // made by `getAbout`'s `About.create({})` rendered different paragraphs
+    // from the ones a failed fetch shows. Migration 008 keeps its OWN literal
+    // of the old default to recognise untouched documents — do not point it here.
     bio: {
       type:    [String],
-      default: [
-        "I'm a Computer Science undergraduate at the University of Westminster, building production-grade software one real project at a time.",
-        "This portfolio is not a template — it's a live MERN application tracked in Jira, containerized with Docker, and deployed through a CI/CD pipeline.",
+      default: () => [
+        "I'm a Computer Science undergraduate at the University of Westminster, passionate about building scalable web applications and continuously improving my backend and full-stack development skills. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.",
+        "I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk. My experience includes Python, Java, Node.js, FastAPI, JavaScript, React, Next.js, PostgreSQL, MongoDB, Docker, GitHub Actions, and Agile development using Jira.",
       ],
     },
 
@@ -65,11 +101,67 @@ const aboutSchema = new mongoose.Schema(
       default: 'Currently open to junior developer roles',
     },
 
-    // Profile image
-    avatarUrl: {
+    // ── PF-118 — profile copy the public site used to hardcode ────────────
+    // One field, every render site (owner rule, 2026-10-12): `timezone` is
+    // printed beside the location in Contact AND the footer's status column.
+    // Defaults are the literals they replace, so an existing document reads
+    // them on its next fetch (getAbout is a non-lean findOne — Mongoose fills
+    // a missing path from its default on hydrate) and nothing visible moves.
+    // An EMPTY value is the owner's choice: timezone blank hides the segment,
+    // the two text fields fall back to the component's literal.
+    // ⚠️ PF-118 batch 2 — an IANA PLACE ("Asia/Colombo"), not an offset. The
+    // site works the offset out at render time (UTC+5:30), so a zone with
+    // daylight saving reads correctly in both halves of the year — a stored
+    // "UTC+1" would be wrong every winter. Empty = the owner hiding it.
+    timezone: {
       type:    String,
-      default: null,
+      trim:    true,
+      default: 'Asia/Colombo',
+      validate: {
+        validator: (v) => !v || isTimeZone(v),
+        message:   (props) => `${props.value} is not a time zone`,
+      },
     },
+    heroIntro: {
+      type:    String,
+      trim:    true,
+      default: 'I’m a Computer Science undergraduate and Full-Stack Developer passionate about building modern, scalable web applications.',
+    },
+    footerBio: {
+      type:    String,
+      trim:    true,
+      default: 'Computer Science undergraduate at the University of Westminster, building scalable web applications — MERN, FastAPI, Docker, shipped with CI/CD.',
+    },
+
+    // ── REPLACED IN PF-111: avatarUrl (bare String) → avatar {} ───
+    // The About portrait. Same shape and same reasoning as `resume`
+    // below, and for the same reason: Cloudinary can only delete a
+    // file by its public_id, so a bare URL means every replacement
+    // orphans the previous file in the bucket FOREVER, with nothing
+    // anywhere that could later identify it.
+    //
+    // ⚠️ `avatarUrl` was never read by anything — no seed entry, no
+    // controller, no frontend component (AboutSection renders a
+    // bundled asset). It is renamed rather than extended because the
+    // old name would otherwise survive as a second, writable place a
+    // portrait could live. Migration 007 unsets it.
+    //
+    // Field → where it appears in the admin About panel (PF-112):
+    //   url        → the <img> preview, and the public portrait
+    //   publicId   → not rendered; required to DELETE the old file
+    //   fileName   → the filename under the preview
+    //   format     → 'png' | 'jpg' | 'webp', from Cloudinary
+    //   bytes      → rendered as "248 KB"
+    //   width/height → rendered as "1200 × 1600"
+    //   uploadedAt → rendered as "replaced Sep 23, 2026"
+    avatar: imageSlot('Avatar'),
+
+    // The hero cut-out (owner, 2026-10-14). Same shape, same dedicated routes
+    // and the same delete-on-replace rule as the portrait; empty = the public
+    // hero shows its bundled image. Pre-existing documents read the defaults —
+    // no migration (a nested path absent on disk hydrates its defaults).
+    heroImage: imageSlot('Hero image'),
+    // ──────────────────────────────────────────────────────────────
 
     // ── REPLACED IN PF-60: cvUrl → resumeUrl → resume {} ─────────
     // Single résumé slot. A new upload REPLACES this entirely and
@@ -127,13 +219,66 @@ const aboutSchema = new mongoose.Schema(
       // drift apart the moment one of them is edited.
     },
 
-    // Stats shown in the About section cards
-    stats: [
+    // ── NEW IN PF-112 — social networks beyond the five fixed ones ───────────
+    //
+    // The five keys above are a fixed set with brand icons and stable names, so
+    // they stay an object. Anything else the owner joins later — YouTube, a
+    // Mastodon instance, Dribbble — arrives here as a named row, rendered with a
+    // generic link icon.
+    //
+    // ⚠️ WHY AN ARRAY BESIDE THE OBJECT rather than replacing `social` with one
+    // array of {key,label,url}. Replacing it would need a migration, and every
+    // existing reader and test keyed on `social.github` would change with it —
+    // for no gain, because the five are genuinely a different thing: they have
+    // icons, a fixed order and names nobody edits. Additive is the cheaper and
+    // less breakable half.
+    //
+    // ⚠️ `url` is REQUIRED here, unlike `social.*` where empty means "hide this
+    // icon". A fixed key with no URL still has a meaning — the platform exists,
+    // the account does not. A custom row with no URL means nothing at all, so
+    // blanking one is a delete, which is exactly what the panel's × does.
+    socialExtra: [
       {
-        label: { type: String, required: true },
-        value: { type: String, required: true },
+        label: {
+          type:     String,
+          required: [true, 'A custom link needs a name'],
+          trim:     true,
+          maxlength: [40, 'A link name cannot exceed 40 characters'],
+        },
+        url: {
+          type:     String,
+          required: [true, 'A custom link needs a URL'],
+          trim:     true,
+          validate: {
+            // NOT the shared urlValidator: that one allows empty, which is
+            // right for the fixed five and wrong here.
+            validator: (v) => /^https?:\/\/.+\..+/i.test(v || ''),
+            message:   (props) => `${props.value} is not a valid URL`,
+          },
+        },
       },
     ],
+
+    // Stats shown in the About section cards
+    //
+    // ⚠️ PF-118 — a default, the seed's four. Without one Mongoose stores `[]`,
+    // and `statCards()` (utils/aboutStats.js) honours an empty ARRAY as "the
+    // owner removed every card" — so a document made by `About.create({})`
+    // rendered NO stat cards at all, while a failed fetch rendered four.
+    stats: {
+      type: [
+        {
+          label: { type: String, required: true },
+          value: { type: String, required: true },
+        },
+      ],
+      default: () => [
+        { label: 'Projects Built', value: '5+' },
+        { label: 'Technologies',   value: '10+' },
+        { label: 'GitHub Repos',   value: '5+' },
+        { label: 'Learning',       value: 'Continuous' },
+      ],
+    },
   },
   { timestamps: true }
 );
@@ -147,6 +292,19 @@ const aboutSchema = new mongoose.Schema(
 // a résumé exists if, and only if, it has a url.
 aboutSchema.virtual('hasResume').get(function () {
   return Boolean(this.resume && this.resume.url);
+});
+
+// ── NEW IN PF-111 ─────────────────────────────────────────────
+// The same rule, one field over: a portrait exists if, and only if,
+// it has a url. Drives the admin card's preview-vs-empty state and
+// lets the public About section decide between the uploaded portrait
+// and its bundled fallback without reaching into the sub-document.
+//
+// ⚠️ A publicId with no url is FALSE here, deliberately — that is the
+// state a half-failed replacement leaves behind, and it must not read
+// as "there is a portrait".
+aboutSchema.virtual('hasAvatar').get(function () {
+  return Boolean(this.avatar && this.avatar.url);
 });
 
 // Virtuals are excluded from JSON by default — turn them on, or

@@ -97,8 +97,24 @@ const has = (el, name) => [...el.classList].some((c) => localName(c) === name);
 const pickAll = (r, name) => [...r.querySelectorAll('[class]')].filter((el) => has(el, name));
 const pick = (r, name) => pickAll(r, name)[0] ?? null;
 
-const aboutOk = (hasResume) => ({
-  data: { hasResume }, isLoading: false, isError: false, error: null,
+/*
+ * ⚠️ PF-112 — this fixture now supplies the email, the location and the social
+ * URLs, because the component stopped hardcoding them. The values are the ones
+ * the consts used to hold, so the assertions below still read as the page's real
+ * copy rather than as invented test data.
+ */
+const ABOUT_DATA = {
+  email:    'pcgallege@gmail.com',
+  location: 'Galle, Sri Lanka',
+  social: {
+    github:   'https://github.com/Chami-02',
+    linkedin: 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/',
+  },
+};
+
+const aboutOk = (hasResume, overrides = {}) => ({
+  data: { ...ABOUT_DATA, hasResume, ...overrides },
+  isLoading: false, isError: false, error: null,
 });
 
 function mockMatchMedia(matches) {
@@ -627,8 +643,8 @@ describe('transcribed copy (Step 9 #15)', () => {
 
   it('renders the email, GitHub and LinkedIn links', () => {
     renderSection();
-    expect(screen.getByRole('link', { name: 'parindrachameekara@gmail.com' }))
-      .toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
+    expect(screen.getByRole('link', { name: 'pcgallege@gmail.com' }))
+      .toHaveAttribute('href', 'mailto:pcgallege@gmail.com');
 
     const github = screen.getByRole('link', { name: 'GITHUB' });
     expect(github).toHaveAttribute('href', 'https://github.com/Chami-02');
@@ -650,7 +666,7 @@ describe('transcribed copy (Step 9 #15)', () => {
   it('fronts all three links with a mark, and none of them is announced', () => {
     renderSection();
     const links = [
-      screen.getByRole('link', { name: 'parindrachameekara@gmail.com' }),
+      screen.getByRole('link', { name: 'pcgallege@gmail.com' }),
       screen.getByRole('link', { name: 'GITHUB' }),
       screen.getByRole('link', { name: 'LINKEDIN' }),
     ];
@@ -789,4 +805,136 @@ describe('reveal targets', () => {
     });
   });
 
+});
+
+/*
+ * ── PF-112: Contact reads the About document ────────────────────────────────
+ *
+ * ⚠️ Contact deliberately stays GITHUB + LINKEDIN only — the prototype's own
+ * choice (lines 508-512), reaffirmed by the owner 2026-09-25. The FOOTER is the
+ * complete list. So these assert that the two links FOLLOW the data, not that
+ * the row grew.
+ */
+describe('Contact — email, location and socials come from the panel (PF-112)', () => {
+  it('renders the stored email as both text and mailto', () => {
+    useAbout.mockReturnValue(aboutOk(false, { email: 'someone@else.dev' }));
+    renderSection();
+
+    const link = screen.getByRole('link', { name: 'someone@else.dev' });
+    expect(link).toHaveAttribute('href', 'mailto:someone@else.dev');
+  });
+
+  it('renders the stored location, uppercased, with the default timezone', () => {
+    useAbout.mockReturnValue(aboutOk(false, { location: 'Colombo, Sri Lanka' }));
+    renderSection();
+
+    expect(screen.getByText('COLOMBO, SRI LANKA · UTC+5:30')).toBeInTheDocument();
+  });
+
+  it('follows the stored GitHub and LinkedIn URLs', () => {
+    useAbout.mockReturnValue(aboutOk(false, {
+      social: { github: 'https://github.com/new', linkedin: 'https://linkedin.com/in/new' },
+    }));
+    renderSection();
+
+    expect(screen.getByRole('link', { name: 'GITHUB' }))
+      .toHaveAttribute('href', 'https://github.com/new');
+    expect(screen.getByRole('link', { name: 'LINKEDIN' }))
+      .toHaveAttribute('href', 'https://linkedin.com/in/new');
+  });
+
+  // ⚠️ One blank and one filled — a fixture with both populated would pass
+  // whether or not the conditional exists.
+  it('hides a social link whose URL is blank rather than rendering a dead one', () => {
+    useAbout.mockReturnValue(aboutOk(false, {
+      social: { github: '', linkedin: 'https://linkedin.com/in/x' },
+    }));
+    renderSection();
+
+    expect(screen.queryByRole('link', { name: 'GITHUB' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'LINKEDIN' })).toBeInTheDocument();
+  });
+
+  it('shows neither when both are blank', () => {
+    useAbout.mockReturnValue(aboutOk(false, { social: { github: '', linkedin: '' } }));
+    renderSection();
+
+    expect(screen.queryByRole('link', { name: 'GITHUB' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'LINKEDIN' })).not.toBeInTheDocument();
+  });
+
+  // ⚠️ Contact is NOT the full list. A custom link belongs in the footer only,
+  // and this is the guard against someone "unifying" the two rows later.
+  it('does not render custom links', () => {
+    useAbout.mockReturnValue(aboutOk(false, {
+      socialExtra: [{ label: 'YouTube', url: 'https://youtube.com/@x' }],
+    }));
+    renderSection();
+
+    expect(screen.queryByRole('link', { name: /YouTube/i })).not.toBeInTheDocument();
+  });
+
+  // The fallback exists for the first paint only, and is deliberately the string
+  // the deleted const held — so a failed fetch degrades to the old page, not to a
+  // blank mailto:.
+  it('falls back to the long-standing address before the query resolves', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
+    renderSection();
+
+    expect(screen.getByRole('link', { name: 'pcgallege@gmail.com' })).toBeInTheDocument();
+  });
+});
+
+// ── PF-118 — the intro and the timezone come from the About document ────────
+describe('ContactSection — PF-118 wiring', () => {
+  const intro = (container) => pick(container, 'intro').textContent;
+  const REST = 'If you have a role, a project, or just want to connect — send me a message. I respond within 24 hours.';
+
+  it("the intro leads with the availability note, as a sentence", () => {
+    useAbout.mockReturnValue(aboutOk(false, {
+      availableForWork: true,
+      availabilityNote: 'Currently seeking Software Engineering Internship opportunities',
+    }));
+    const { container } = renderSection();
+    expect(intro(container)).toBe(
+      `Currently seeking Software Engineering Internship opportunities. ${REST}`,
+    );
+  });
+
+  it('does not double a full stop the note already has', () => {
+    useAbout.mockReturnValue(aboutOk(false, { availableForWork: true, availabilityNote: 'Open to work!' }));
+    const { container } = renderSection();
+    expect(intro(container)).toBe(`Open to work! ${REST}`);
+  });
+
+  it('a blank note falls back to the sentence it replaced', () => {
+    useAbout.mockReturnValue(aboutOk(false, { availableForWork: true, availabilityNote: '' }));
+    const { container } = renderSection();
+    expect(intro(container)).toBe(
+      `I'm actively looking for junior developer and Software Engineering internship opportunities. ${REST}`,
+    );
+  });
+
+  it('while unavailable the availability sentence is gone — only the rest remains', () => {
+    useAbout.mockReturnValue(aboutOk(false, {
+      availableForWork: false,
+      availabilityNote: 'Currently seeking Software Engineering Internship opportunities',
+    }));
+    const { container } = renderSection();
+    expect(intro(container)).toBe(REST);
+    expect(intro(container)).not.toMatch(/seeking|looking/);
+  });
+
+  it('prints the stored place as its UTC offset beside the location', () => {
+    useAbout.mockReturnValue(aboutOk(false, { location: 'Dubai, UAE', timezone: 'Asia/Dubai' }));
+    renderSection();
+    expect(screen.getByText('DUBAI, UAE · UTC+4')).toBeInTheDocument();
+  });
+
+  it('a blank timezone drops the segment and its separator', () => {
+    useAbout.mockReturnValue(aboutOk(false, { location: 'London, UK', timezone: '' }));
+    renderSection();
+    expect(screen.getByText('LONDON, UK')).toBeInTheDocument();
+    expect(screen.queryByText(/UTC/)).toBeNull();
+  });
 });

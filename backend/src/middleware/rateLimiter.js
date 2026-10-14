@@ -74,4 +74,79 @@ const authLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter };
+/**
+ * Limiter for `POST /api/auth/refresh` (PF-108).
+ *
+ * ⚠️ Deliberately NOT `authLimiter`. A refresh is not a guess at a password;
+ * it happens silently every time a 15-minute access token dies during
+ * normal use, and a working session would lock itself out against a cap of
+ * 10. A refresh token cannot be brute-forced at any rate this server could
+ * serve (32 random bytes), so the cap here is about abuse of the endpoint,
+ * not credential stuffing. 60 per 15 minutes is four times what one tab
+ * refreshing on schedule could ever need.
+ *
+ * Live under `NODE_ENV=test` like `authLimiter` and for the same reason: the
+ * behaviour is asserted directly in the backend suite.
+ */
+const refreshLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             60,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many session refreshes. Please wait 15 minutes before trying again.',
+  },
+});
+
+/**
+ * Limiter for the three Google sign-in routes (PF-119), shared between them.
+ *
+ * Its own policy, not `authLimiter`: a Google sign-in is not a password
+ * guess — the proof happens at Google — and one attempt costs THREE requests
+ * here (start, callback, exchange), so 10 would allow barely three tries.
+ * 30 per 15 minutes is ten sign-ins. What it bounds is abuse: every `start`
+ * writes a row, and every `callback` makes an outbound call to Google.
+ *
+ * Live under `NODE_ENV=test` like `authLimiter` and `refreshLimiter`, and
+ * asserted directly in the backend suite.
+ */
+const googleLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             30,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many Google sign-in attempts. Please wait 15 minutes before trying again.',
+  },
+});
+
+/**
+ * Limiter for the public contact form, `POST /api/contact` (PF-120).
+ *
+ * Before this the form had only `globalLimiter`: one IP could store about 100
+ * messages every 15 minutes, and PF-123 turns every stored message into an
+ * EMAIL, which a free mail quota would not survive. 5 per hour is more than
+ * any real visitor sends.
+ *
+ * `skipFailedRequests`: only a message that was actually STORED counts. A 400
+ * (empty field, bad address) stores nothing and sends nothing, so it should
+ * not cost a visitor who is fixing a typo one of their five.
+ *
+ * Live under `NODE_ENV=test` like the other per-route limiters. The suites
+ * stay inside it: contact.test.js stores three messages, E2E stores one.
+ */
+const contactLimiter = rateLimit({
+  windowMs:           60 * 60 * 1000,
+  max:                5,
+  skipFailedRequests: true,
+  standardHeaders:    true,
+  legacyHeaders:      false,
+  message: {
+    status:  'fail',
+    message: 'You have sent several messages already. Please try again in an hour.',
+  },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter };

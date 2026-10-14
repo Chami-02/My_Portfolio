@@ -121,14 +121,20 @@ section.projects {
   border-color: var(--acc, #FCA311);
 }
 
+/* ⚠️ OWNER OVERRIDE (2026-10-03, PF-113 batch 2): the admin list's
+   `★ FEATURED` pill (admin.module.css `.badge`, Admin.dc.html:290), NOT the
+   prototype's solid orange box. Same values restated here, not composed —
+   a CSS module cannot compose from another feature's stylesheet without
+   coupling the public site to the admin layer. Big AND small cards. */
 .featuredBadge {
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: .18em;
-  color: var(--accInk);
-  background: var(--acc, #FCA311);
-  padding: 5px 10px;
-  border-radius: 6px;
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .1);
+  color: var(--acc, #FCA311);
   align-self: flex-start;
 }
 
@@ -411,6 +417,36 @@ section.projects {
   line-height: 1;
 }
 
+/* Owner decision 2026-09-16: a featured project outside the big slot
+   carries the badge too. The numeral and the badge share one head row —
+   numeral left, badge right, both top-aligned — so the badge sits in
+   the card's top-right corner WITHOUT `position: absolute`. The
+   `.card > *` layering rule further down pins every direct child
+   `position: relative` at (0,3,0) and would outrank an absolute badge
+   (measured: it landed in flow at the card's left edge). No
+   `transition`: the card is Reveal-wrapped. */
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Same pill as .featuredBadge — restated rather than composed because
+   that one is `align-self: flex-start` in the big card's flex column and
+   this one is a flex-row end item. */
+.featuredBadgeSm {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .1);
+  color: var(--acc, #FCA311);
+}
+
 /* Space Grotesk 700 sentence-case here against the big card's Anton
    uppercase. The two headings differ by design (prototype lines 322 and
    361) — not an inconsistency to smooth over. */
@@ -542,4 +578,17 @@ section.projects {
   border: 1px solid rgba(var(--ln), .09);
   background: rgba(var(--srf), .5);
   min-height: 479px;
+}
+
+/* ── The FEATURED pill on a PHOTO, dark theme (owner, 2026-10-03) ─────────
+   The admin `.badge` tint is 90% see-through. In the admin it sits on a solid
+   dark row; here a card background photo shows through it, and MEASURED over
+   the live photo (photo × 0.65 + scrim + tint, per pixel under the pill) the
+   orange 9.5px text read 2.35:1 worst / 2.61 mean — under AA's 4.5. The owner
+   chose a SOLID fill: the raised-surface navy, ≈ 7.9:1 on any photo.
+   ⚠️ Dark only — light measured 4.71 worst / 5.74 mean and is untouched.
+   (0,2,1) beats the base rule on specificity, never emission order. */
+:global(html[data-theme='dark']) .featuredBadge,
+:global(html[data-theme='dark']) .featuredBadgeSm {
+  background: rgb(var(--srf));
 }

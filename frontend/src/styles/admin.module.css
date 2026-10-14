@@ -1,0 +1,838 @@
+/* frontend/src/styles/admin.module.css
+ *
+ * PF-107. The shared admin pattern layer — the classes every panel
+ * ticket (PF-110 → PF-115) composes from, so the restyle is one job
+ * and not seven.
+ *
+ * Transcribed from docs/design/Admin.dc.html's panel screens. Every
+ * value here is the prototype's own: 11px/14px field padding, 10px
+ * field radius, 18px card radius, 999px pills, and the
+ * rgba(var(--gnd), .4) / rgba(var(--srf), .5) surface pair.
+ *
+ * ── Three rules this file inherits, all load-bearing ──────────────
+ *
+ * 1. ZERO Phase 1 token names. Not --text-primary, --border, --accent,
+ *    --bg-surface, --bg-elevated, --font-sans or --accent-glow. This is
+ *    the whole point of the ticket: global.css's :root can only be
+ *    deleted in PF-116 once nothing reads it, and admin is the last
+ *    thing that does. `styles/__tests__/adminFoundation.test.js`
+ *    enforces it — if you add one, that test goes red and PF-116 is
+ *    blocked again.
+ *
+ * 2. Font stacks go through var(--font-mono), never the prototype's
+ *    literal `'JetBrains Mono', monospace`. Same rule as
+ *    BlogPage.module.css: the token carries the metric-matched fallback
+ *    face declared in tokens.css, and the literal stack drops it.
+ *
+ * 3. Never generalise a value used once. patterns.module.css's header
+ *    says it and it applies here too — every class below was confirmed
+ *    repeated across the admin tree before it was written, not guessed
+ *    at from the prototype.
+ *
+ * ⚠️ Nothing in admin is <Reveal>-wrapped, so PF-93's "no transition on
+ * a Reveal-wrapped element" rule is vacuous here and these classes
+ * declare their own transitions, which is correct. Do not copy that
+ * freedom into a module whose elements ARE Reveal-wrapped.
+ */
+
+/* ═══ Surfaces ═══════════════════════════════════════════════════ */
+
+/* The panel card. Admin.dc.html:201, 340 — byte-identical at both, and
+   repeated 13 times across today's JSX as `.glass` plus an inline
+   {borderRadius, padding} pair that had drifted into three shapes. */
+.panel {
+  padding: clamp(18px, 2.6vw, 26px);
+  border-radius: 18px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .1);
+}
+
+/* Recessed sub-card — a section editor inside a panel. Admin.dc.html
+   uses rgba(var(--gnd), .32) for these. */
+.panelInset {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(var(--gnd), .32);
+  border: 1px solid rgba(var(--ln), .18);
+}
+
+/* Same box, dashed — the tag/tech picker's own container.
+   Admin.dc.html:236. */
+.panelDashed {
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(var(--gnd), .32);
+  border: 1px dashed rgba(var(--ln), .18);
+}
+
+.panelTitle {
+  margin: 0 0 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--strong);
+}
+
+/* ═══ Form fields ════════════════════════════════════════════════ */
+
+/* ⚠️ NO `outline: none`. All five of the INPUT constants this class
+   replaces carried it with nothing put back, which is a real
+   accessibility hole: a keyboard user tabbing through the admin forms
+   had no focus indicator at all.
+ *
+ * The house answer, from ContactSection (PF-87) and BlogPage (PF-104):
+ * the design's own indicator is the accent border below, and the
+ * outline is TRANSPARENT rather than suppressed. A transparent outline
+ * renders as nothing in every normal mode, but in forced-colors mode
+ * the browser overrides author `border-color` — and it restores a
+ * transparent outline to a system colour. So keeping one costs nothing
+ * visible and closes the hole. `main[tabindex="-1"]:focus` stays the
+ * repo's only real `outline: none`.
+ *
+ * ⚠️ No `border-radius` in the :focus-visible rule. A radius declared
+ * there reshapes the ELEMENT while focused rather than the ring — it
+ * squares off a pill for exactly as long as focus is on it. The outline
+ * follows the element's own curve for free. Documented trap, repo-wide.
+ */
+.input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: rgba(var(--gnd), .4);
+  border: 1px solid rgba(var(--ln), .16);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  transition: border-color .2s;
+}
+
+.input::placeholder {
+  color: var(--faint);
+}
+
+.input:focus-visible {
+  border-color: var(--acc, #FCA311);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+/* Not :focus-visible. A text field should show its border on ANY focus,
+   including a mouse click — :focus-visible alone would leave a clicked
+   field looking inert. The transparent outline above is what stays
+   keyboard-scoped. */
+.input:focus {
+  border-color: var(--acc, #FCA311);
+}
+
+/* ── The invalid state ────────────────────────────────────────────────────
+   Owner requirement, 2026-09-25: a refused save marks the field it was
+   refused for.
+
+   ⚠️ KEYED ON `aria-invalid`, NOT on a class, and that is the whole design.
+   With an `.inputInvalid` class the red border and the screen-reader state
+   are two separate things to remember, and the one that gets forgotten is
+   always the ARIA half — a field that looks wrong and announces fine. Here
+   there is nothing to forget: whatever is marked visually IS marked
+   semantically, because they are the same attribute.
+
+   ⚠️ Declared AFTER `.input:focus` on purpose. Both are (0,2,0) so this
+   resolves on source order, and the error has to survive focusing the field
+   — the guard focuses the first invalid input, so the focus ring would
+   otherwise paint over the very thing it just pointed at. That tie is the
+   trap this repo has been bitten by five times; it is settled here by
+   emission order deliberately, not by accident, because raising the
+   specificity would also beat `:disabled`.
+
+   `--danger` is the repo's one sanctioned red (7.32 dark / 5.38 light) —
+   never the Phase 1 `#f87171` / `rgba(239,68,68,…)` literals, which do not
+   flip with the theme. */
+.input[aria-invalid='true'],
+.inputMono[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+/* The inline message, directly under the field it belongs to. */
+.fieldError {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+/* ── The SAVE button's refusal ────────────────────────────────────────────
+   ⚠️ `composes` MUST be the first declaration, and the timing MUST be
+   longhands. The `animation` shorthand resets `animation-name` to `none`,
+   which silently undoes the composed carrier — the documented failure that
+   shipped 16 live declarations once.
+
+   ⚠️ The keyframe name cannot be written here at all. A CSS Module scopes
+   `@keyframes` names and rewrites them in the declaration, so `animation-
+   name: shake` inside this file resolves to a scoped name matching nothing.
+   `getComputedStyle` still reports it as running; the only reliable tell is
+   `el.getAnimations().length === 0`. */
+.shake {
+  composes: kf-shake from global;
+  animation-duration: .4s;
+  animation-timing-function: cubic-bezier(.36, .07, .19, .97);
+  animation-iteration-count: 1;
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  /* ⚠️ Not a low opacity. Measured elsewhere in this repo: `opacity` on
+     a disabled control at .38 composites to 1.86:1 and is unreadable,
+     and WCAG EXEMPTS inactive controls so nothing flags it. The
+     disabled look comes from losing the surface, not from dimming the
+     ink. */
+  background: none;
+  color: var(--muted2);
+}
+
+.textarea {
+  composes: input;
+  padding: 12px 14px;
+  line-height: 1.65;
+  resize: vertical;
+}
+
+.select {
+  composes: input;
+  cursor: pointer;
+}
+
+/* Monospace variant — the tech/tag field, Admin.dc.html:234. */
+.inputMono {
+  composes: input;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* Pill variant — the "new tag" field, Admin.dc.html:247. */
+.inputPill {
+  composes: inputMono;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: rgba(var(--gnd), .45);
+  font-size: 12px;
+}
+
+/* Admin.dc.html:211. Replaces one LABEL constant plus ten inline copies
+   that had drifted into three different sizes for one semantic role.
+ *
+ * `display: block` + a 7px margin, rather than the prototype's
+ * `<label style="display:grid;gap:7px">` wrapper. The panels already
+ * associate their labels correctly with `htmlFor`/`id` and a sibling
+ * input, and 14 assertions in AdminBlogPanel.test.jsx query by label
+ * text — restructuring the markup to add a grid wrapper would be a
+ * behavioural change dressed as a restyle. The 7px is the prototype's
+ * own gap either way. */
+.label {
+  display: block;
+  margin-bottom: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+
+/* The same treatment used as a small section heading rather than a
+   field label — the role the old constant expressed as
+   `{ ...LABEL, marginBottom: 0 }`. Named separately so the two can
+   diverge later without one silently moving the other. */
+.labelLead {
+  composes: label;
+  margin-bottom: 0;
+}
+
+/* ⚠️ PF-91's contrast substitution, APPLIED not re-decided (PF-114, measured
+   2026-10-05): `--muted2` at 10px on a panel card measured 4.15 in DARK —
+   under AA — on every admin form (Skills, Projects, About). The same 4.15 the
+   public Contact labels had before PF-91. `--muted` in dark only, at (0,2,1)
+   so it wins on specificity, never emission order; light (5.95) untouched.
+   `.labelLead` composes `.label`, so it is covered too. */
+:global(html[data-theme='dark']) .label { color: var(--muted); }
+
+/* PF-117, the same substitution for every other admin text set in --muted2
+   on a tinted card — measured in DARK at 4.15 (× buttons, empty lines),
+   4.33 (row meta, MISSING / DRAFT badges), 4.41 (NONE). Light passes and is
+   untouched. `.btnIcon` excludes :hover, or this (0,3,1) rule would beat
+   `.btnIcon:hover` and the × would never turn red in dark. */
+:global(html[data-theme='dark']) .btnIcon:not(:hover),
+:global(html[data-theme='dark']) .badgeMuted,
+:global(html[data-theme='dark']) .emptyState,
+:global(html[data-theme='dark']) .rowMeta { color: var(--muted); }
+
+.checkRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--acc, #FCA311);
+  cursor: pointer;
+}
+
+/* ═══ Buttons ════════════════════════════════════════════════════ */
+
+/* Seven variants were in play across the admin tree, six of them with
+   no class at all — the "row action" shape alone was re-typed six
+   times, twice with drifted border alpha. */
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 22px;
+  border: none;
+  border-radius: 999px;
+  background: var(--acc, #FCA311);
+  color: var(--accInk);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(252, 163, 17, .26);
+  transition: transform .25s, box-shadow .25s;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 42px rgba(252, 163, 17, .4);
+}
+
+/* ⚠️ `:hover` still matches a disabled button, so the lift has to be
+   cancelled explicitly or a disabled submit still rises under the
+   cursor. Same trap as /blog's disabled chips.
+   PF-117 (owner-approved 2026-10-11): the glow goes too. A dim button that
+   still glowed read as LIT — "press me" — on every panel's clean SAVE. */
+.btnPrimary:disabled {
+  cursor: not-allowed;
+  opacity: .72;
+  transform: none;
+  box-shadow: none;
+}
+
+.btnOutline {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 13px 20px;
+  border-radius: 999px;
+  background: none;
+  border: 1px solid rgba(var(--ln), .18);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+
+.btnOutline:hover:not(:disabled) {
+  color: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+.btnOutline:disabled {
+  cursor: not-allowed;
+  opacity: .72;
+}
+
+/* Row action — the EDIT button beside a list item. Admin.dc.html:297. */
+.btnRow {
+  composes: btnOutline;
+  padding: 8px 14px;
+  font-size: 11px;
+  letter-spacing: .08em;
+}
+
+/* Row action, destructive. Admin.dc.html:298.
+   ⚠️ rgba(180,35,31,…) is the prototype's own literal, used in BOTH
+   themes — it is the LIGHT --danger unpacked. That is the prototype's
+   choice, not a slip, and it is deliberately not var(--danger) for the
+   border/fill. The INK is var(--danger) and does flip. */
+.btnRowDanger {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: none;
+  border: 1px solid rgba(180, 35, 31, .35);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  cursor: pointer;
+  transition: background .2s;
+}
+
+.btnRowDanger:hover:not(:disabled) {
+  background: rgba(180, 35, 31, .1);
+}
+
+/* Solid destructive — the confirm dialog's "YES, DELETE".
+   Admin.dc.html:612. #fff is the prototype's literal here and is
+   correct in both themes: it sits on a saturated red fill. */
+.btnDanger {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  cursor: pointer;
+}
+
+/* Small ghost — the "CANCEL EDIT" affordance. Admin.dc.html:206. */
+.btnGhost {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: none;
+  border: 1px solid rgba(var(--ln), .18);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+
+.btnGhost:hover {
+  color: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+/* Icon-only remove. Admin.dc.html:347. */
+.btnIcon {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--muted2);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 0 0 3px;
+  transition: color .2s;
+}
+
+/* PF-117: the glyph's box is 12×15, under WCAG AA's 24×24 target minimum
+   (2.5.8) — a near-miss on a phone. The TAP area grows, the × does not:
+   an invisible pseudo-element hit-tests as the button itself. Owner chose
+   this over visibly larger controls, 2026-10-11. */
+.btnIcon::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.btnIcon:hover {
+  color: var(--danger);
+}
+
+/* ═══ Chips and badges ═══════════════════════════════════════════ */
+
+/* The skill/tag chip. Admin.dc.html:346. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(var(--gnd), .4);
+  border: 1px solid rgba(var(--ln), .16);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text);
+  transition: border-color .25s, transform .25s;
+}
+
+.chip:hover {
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-2px);
+}
+
+.chipMeta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+
+/* Status badge — ★ FEATURED. Admin.dc.html:291. */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .1);
+  color: var(--acc, #FCA311);
+}
+
+/* ● PUBLISHED */
+.badgeOk {
+  composes: badge;
+  border-color: rgba(52, 211, 153, .35);
+  background: rgba(52, 211, 153, .08);
+  color: var(--ok);
+}
+
+/* ○ DRAFT */
+.badgeMuted {
+  composes: badge;
+  border-color: rgba(var(--ln), .18);
+  background: rgba(var(--gnd), .4);
+  color: var(--muted2);
+}
+
+/* The sidebar's per-section count, and the same treatment wherever a
+   running total sits beside a label. Admin.dc.html:130. */
+.countBadge {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+}
+
+/* ═══ List rows ══════════════════════════════════════════════════ */
+
+/* Admin.dc.html:286. Three list surfaces in today's JSX share this
+   shape and had drifted on padding (0.875rem 1rem / 1rem / 1.25rem). */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 17px;
+  border-radius: 14px;
+  background: rgba(var(--gnd), .4);
+  border: 1px solid rgba(var(--ln), .1);
+  transition: border-color .25s, transform .25s;
+}
+
+.row:hover {
+  transform: translateX(4px);
+}
+
+/* The row currently being edited, or an unread message. */
+.rowActive {
+  border-color: var(--acc, #FCA311);
+}
+
+/* ⚠️ PF-117: `flex: 1` alone has a basis of 0, so the row NEVER wrapped —
+   the actions kept their full width and the title column was crushed (5px
+   at 375, with UNPUBLISH/EDIT/DELETE painted over the title and badge). A
+   200px basis is the width below which the actions move to their own line;
+   on a wide row it grows exactly as before. */
+.rowBody {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+
+.rowTitle {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--strong);
+}
+
+.rowMeta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted2);
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+  flex-wrap: wrap;
+  /* `flex: none` sizes it to max-content, so its own `wrap` never fired on
+     a line narrower than all three buttons (PF-117, 320px). */
+  max-width: 100%;
+}
+
+/* ═══ States ═════════════════════════════════════════════════════ */
+
+/* Admin.dc.html:966. Five near-identical blocks in today's JSX, two of
+   them at a drifted font size. */
+.emptyState {
+  margin: 0;
+  padding: 34px 20px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted2);
+}
+
+/* Skeleton geometry. `.skeleton` in global.css is a Phase 1 class whose
+   shimmer reads Phase 1 tokens, and it was used six times with six
+   different inline geometries. These two carry the shape; the shimmer
+   is composed from the global carrier so the keyframe resolves.
+   ⚠️ `animation-name` must come from the carrier — a keyframe named
+   inside a *.module.css is scoped and silently resolves to nothing. */
+.skelBase {
+  composes: kf-shimmer from global;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--srf), .5) 25%,
+    rgba(var(--ln), .09) 50%,
+    rgba(var(--srf), .5) 75%
+  );
+  background-size: 200% 100%;
+  animation-duration: 1.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.skelRow {
+  composes: skelBase;
+  height: 56px;
+  border-radius: 14px;
+}
+
+.skelPill {
+  composes: skelBase;
+  height: 32px;
+  width: 96px;
+  border-radius: 999px;
+}
+
+/* PF-108: what ProtectedRoute paints while /auth/me answers — three
+   skeleton rows in a panel-width column, on the page ground, so the
+   session check reads as "loading" rather than a blank flash before
+   either the shell or the login page. Full-height because it is the
+   only thing on the route. */
+.gate {
+  min-height: 100vh;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 120px 24px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+/* ═══ Banners ════════════════════════════════════════════════════ */
+
+/* Three error banners existed, all on hardcoded rgba(239,68,68,…) reds
+   that do not flip with the theme. The fill and border keep the
+   prototype's literal red pair; the ink is var(--danger) and flips. */
+.bannerError {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(180, 35, 31, .1);
+  border: 1px solid rgba(180, 35, 31, .35);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .06em;
+  color: var(--danger);
+}
+
+/* The saved-flash banner. Admin.dc.html:172. */
+.bannerOk {
+  composes: kf-fadeIn from global;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(52, 211, 153, .08);
+  border: 1px solid rgba(52, 211, 153, .35);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .06em;
+  color: var(--ok);
+  animation-duration: .3s;
+  animation-fill-mode: both;
+}
+
+.bannerDot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* PF-108: a control at the trailing end of a banner — the session gate's
+   RETRY and the expiry warning's STAY SIGNED IN. Pushes itself right so
+   the banner's text keeps its natural width. */
+.bannerAction {
+  composes: btnGhost;
+  margin-left: auto;
+  flex: none;
+}
+
+/* PF-117: a panel whose data could not be loaded (LoadError.jsx). The error
+   banner, with its RETRY at the trailing end on a wide screen. */
+.loadError {
+  composes: bannerError;
+  flex-wrap: wrap;
+}
+
+.loadErrorText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.loadErrorAction {
+  composes: btnGhost;
+  flex: none;
+}
+
+.loadErrorAction:disabled {
+  cursor: default;
+}
+
+/* Owner, 2026-10-11: on a phone RETRY goes on its OWN line. Left to wrap
+   naturally it sat beside a message already broken over two lines. The text
+   takes the whole first row; the button starts under the text, past the
+   dot (7px dot + 10px gap). */
+@media (max-width: 560px) {
+  .loadErrorText {
+    flex-basis: calc(100% - 17px);
+  }
+
+  .loadErrorAction {
+    margin-left: 17px;
+  }
+}
+
+/* ═══ Layout helpers ═════════════════════════════════════════════ */
+
+/* The auto-fit field grid the prototype uses on every multi-field form.
+   Admin.dc.html:210. */
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 14px;
+}
+
+.stack {
+  display: grid;
+  gap: 18px;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ── The upload control — moved here from AdminAboutPanel.module.css (PF-113) ── */
+
+/* A <label> wrapping a real <input type="file">. `position: relative` is
+ * load-bearing — it is what `.fileInput`'s absolute clip is positioned against,
+ * so the clipped input cannot add a scroll region to the page. */
+.uploadPill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(252, 163, 17, .4);
+  background: rgba(252, 163, 17, .08);
+  color: var(--acc, #FCA311);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: .1em;
+  cursor: pointer;
+  transition: color .2s, background .2s, transform .2s;
+}
+
+.uploadPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  transform: translateY(-2px);
+}
+
+/* The focus ring has to be drawn by the LABEL, because the input it belongs to
+ * is clipped to a single pixel and its own ring would be invisible. No
+ * `border-radius` in here: a radius inside a focus rule reshapes the element
+ * rather than the ring, squaring off this 999px pill while focused. */
+.uploadPill:focus-within {
+  outline: 2px solid var(--acc, #FCA311);
+  outline-offset: 3px;
+}
+
+/* ⚠️ Clipped, NOT `display: none` and NOT the `hidden` attribute. Either of
+ * those removes the input from the focus order, which is how the prototype's
+ * version of this pill ends up unreachable by keyboard. Clipping keeps it
+ * focusable and in the accessibility tree while the label carries the look. */
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Drag-and-drop on an upload card (PF-113 batch 2) ──────────────────────
+ * `position: relative` anchors `.dropHint`. The outline — not a border — so
+ * the highlight never moves the card's contents by a pixel. */
+.dropZone {
+  position: relative;
+  border-radius: 14px;
+}
+
+.dropZone[data-dragging='true'] {
+  outline: 2px dashed var(--acc, #FCA311);
+  outline-offset: 4px;
+}
+
+.dropHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgba(var(--srf), .86);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11.5px;
+  letter-spacing: .14em;
+  color: var(--acc, #FCA311);
+  pointer-events: none;
+}

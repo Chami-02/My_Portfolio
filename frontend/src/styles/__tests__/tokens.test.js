@@ -9,7 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const css  = readFileSync(resolve(here, '../tokens.css'), 'utf8');
 
 const FLAT = [
-  '--acc', '--acc2', '--acc2rgb', '--accInk',
+  '--acc', '--accInk',
   '--bg', '--text', '--strong', '--muted', '--muted2', '--faint', '--thumb',
   '--navy', '--ink', '--grey',
   '--ok', '--danger',
@@ -19,7 +19,7 @@ const TRIPLETS = ['--gnd', '--srf', '--ln', '--ftr', '--shd'];
 
 // Everything that must be redefined for the light theme
 const LIGHT_OVERRIDES = [
-  '--acc', '--acc2', '--acc2rgb', '--accInk',
+  '--acc', '--accInk',
   '--bg', '--text', '--strong', '--muted', '--muted2', '--faint', '--thumb',
   '--gnd', '--srf', '--ln', '--ftr', '--shd',
   '--ok', '--danger',
@@ -59,6 +59,16 @@ describe('Design tokens (PF-67)', () => {
     expect(lightBlock).toMatch(/--srf:\s*254,\s*252,\s*248/);
   });
 
+  it('declares no --acc2 / --acc2rgb in either theme (PF-116)', () => {
+    // Deleted by owner decision: the prototype's second accent fed only
+    // its theme-toggle pill, which no screen of this site uses. postcss,
+    // so the epitaph comment above :root cannot satisfy or fail it.
+    const props = [];
+    postcss.parse(css).walkDecls((d) => props.push(d.prop));
+    expect(props.length).toBeGreaterThan(40);
+    expect(props.filter((p) => p.startsWith('--acc2'))).toEqual([]);
+  });
+
   it('deepens the light accent and flips the ink', () => {
     expect(lightBlock).toMatch(/--acc:\s*#7E4800/i);
     expect(lightBlock).toMatch(/--accInk:\s*#ffffff/i);
@@ -79,22 +89,19 @@ describe('Design tokens (PF-67)', () => {
    * all three sections, and that it mapped onto Phase 2 tokens. All
    * three asserted the shape of a rule that no longer exists.
    *
-   * ⚠️ THE FOURTH ONE STAYS, and the PF-89 ticket was wrong to bundle it
-   * with the other three. It never asserted anything ABOUT the bridge —
+   * ⚠️ THE FOURTH ONE STAYS. It never asserted anything ABOUT the bridge —
    * it asserts that tokens.css's `html[data-theme="light"]` block does
-   * NOT redefine Phase 1's property names. That hazard is untouched by
-   * the bridge's removal, because /admin still reads global.css's `:root`
-   * for every one of them. Anyone "simplifying" the removed bridge by
-   * hoisting its declarations into the unscoped light block would put
-   * near-paper text on the admin panels' un-flipped dark surfaces — the
-   * identical bug, moved to a page with no test coverage.
+   * NOT redefine Phase 1's property names. Until PF-116 that protected
+   * /admin, which read global.css's `:root` for every one of them.
    *
-   * If anything, it is worth MORE now: PF-89 measured /admin and
-   * /admin/login rendering at 1.11:1 in light theme already, because
-   * `--bg` is the one Phase 1 name tokens.css also declares, so the
-   * ground under those pages flips while the ink on it does not.
+   * PF-116 (2026-10-08) deleted that `:root`, so nothing reads these
+   * names any more and cutover.test.js fails if anything starts to. This
+   * pair stays as the tokens.css half of the same rule: a Phase 1 name
+   * re-declared HERE would give a returning Phase 1 consumer something
+   * to resolve against, and the cutover guard is what should catch that
+   * consumer — not a token quietly waiting for it.
    */
-  describe('Phase 1 tokens are never redefined unscoped (protects /admin)', () => {
+  describe('Phase 1 tokens are never redefined unscoped', () => {
     // Comments stripped. tokens.css now documents the REMOVED bridge in
     // prose, naming every one of these properties, so a raw-text search
     // matches the epitaph instead of a declaration and reports PASS.

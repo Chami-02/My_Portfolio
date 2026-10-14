@@ -6,15 +6,23 @@ const {
   aboutRules,
   getAbout,
   updateAbout,
-  toggleAvailability,
   uploadResume,
   removeResume,
+  uploadAvatar,
+  removeAvatar,
+  uploadHeroImage,
+  removeHeroImage,
 } = require('../controllers/aboutController');
 
 
 router.get('/', getAbout);
-router.put('/', aboutRules, validate, protect, updateAbout);
-router.patch('/availability', protect, toggleAvailability);
+// ⚠️ PF-112 — `protect` FIRST, then the rule array.
+// This used to read `aboutRules, validate, protect`, which is the exact
+// ordering PF-97 fixed in blogRoutes.js: `validate` 400s on a malformed body
+// before `protect` ever runs, so an anonymous PUT with a bad payload was
+// answered with a description of the schema instead of a 401. Authentication
+// has to be the first gate, or the 400 is an information leak.
+router.put('/', protect, aboutRules, validate, updateAbout);
 
 // ── NEW IN PF-60 ─────────────────────────────────────────────
 // `protect` runs BEFORE `uploadSingle` deliberately: an anonymous
@@ -23,6 +31,14 @@ router.patch('/availability', protect, toggleAvailability);
 // token. Reversing these two is a free denial-of-service.
 router.put('/resume',    protect, uploadSingle, uploadResume);
 router.delete('/resume', protect, removeResume);
+
+// PF-111 — the portrait, same ordering and the same reasoning.
+router.put('/avatar',    protect, uploadSingle, uploadAvatar);
+router.delete('/avatar', protect, removeAvatar);
+
+// The hero cut-out — same ordering, same reasoning.
+router.put('/hero-image',    protect, uploadSingle, uploadHeroImage);
+router.delete('/hero-image', protect, removeHeroImage);
 // ─────────────────────────────────────────────────────────────
 
 module.exports = router;

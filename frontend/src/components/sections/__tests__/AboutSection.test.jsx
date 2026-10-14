@@ -5,6 +5,11 @@ import { fileURLToPath } from 'url';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
+// The "seeking" line reads useAbout() since 2026-09-16 (owner decision:
+// the admin toggle and its availability note drive it). vi.mock, not
+// vi.spyOn — Vite's SSR transform makes each export getter-only.
+const useAbout = vi.hoisted(() => vi.fn());
+vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
 import { AboutSection } from '../AboutSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { leadsWithIcon } from '../../../test/leadsWithIcon';
@@ -71,6 +76,7 @@ const portrait = (container) => container.querySelector('img[class*="portraitImg
 
 describe('AboutSection (PF-81)', () => {
   beforeEach(() => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, availabilityNote: '' } });
     window.innerWidth = 1440;
     window.innerHeight = 900;
     queueRaf();
@@ -144,7 +150,7 @@ describe('AboutSection (PF-81)', () => {
     expect(screen.getByText('SEE MY WORK →').closest('a'))
       .toHaveAttribute('href', '#projects');
     expect(screen.getByText('EMAIL ME').closest('a'))
-      .toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
+      .toHaveAttribute('href', 'mailto:pcgallege@gmail.com');
   });
 
   /*
@@ -167,6 +173,70 @@ describe('AboutSection (PF-81)', () => {
     expect(screen.getByRole('link', { name: 'EMAIL ME' })).toBe(link);
     // currentColor, so it tracks theme and hover with no extra rule.
     expect(svg.getAttribute('fill')).toBe('currentColor');
+  });
+
+  // ── PF-112: the portrait is now the ADMIN-MANAGED one, with a fallback ────
+  // `About.avatar` had zero consumers before this — PF-111 built the routes and
+  // the schema for exactly this reading.
+  describe('the portrait source (PF-112)', () => {
+    const AVATAR = {
+      url: 'https://cdn.test/uploaded.webp', publicId: 'profile/me', fileName: 'uploaded.webp',
+    };
+
+    it('prefers the uploaded portrait', () => {
+      useAbout.mockReturnValue({
+        data: { availableForWork: true, availabilityNote: '', avatar: AVATAR },
+      });
+      const { container } = render(withMotion(<AboutSection />));
+
+      expect(portrait(container)).toHaveAttribute('src', 'https://cdn.test/uploaded.webp');
+    });
+
+    // ⚠️ The fallback is not a nicety. `avatar.url` is empty in every
+    // environment today and is cleared by REMOVE, so this is the ordinary case —
+    // and a bundled asset is what stops the section rendering a broken image.
+    it('falls back to the bundled asset when nothing is uploaded', () => {
+      useAbout.mockReturnValue({
+        data: { availableForWork: true, availabilityNote: '', avatar: { url: '' } },
+      });
+      const { container } = render(withMotion(<AboutSection />));
+
+      expect(portrait(container).getAttribute('src')).not.toMatch(/^https?:/);
+      expect(portrait(container).getAttribute('src')).toMatch(/about-portrait/);
+    });
+
+    it('falls back when the document has no avatar field at all', () => {
+      useAbout.mockReturnValue({ data: { availableForWork: true, availabilityNote: '' } });
+      const { container } = render(withMotion(<AboutSection />));
+
+      expect(portrait(container).getAttribute('src')).toMatch(/about-portrait/);
+    });
+
+    // ⚠️ THE ALT TEXT HAS TO FOLLOW THE SOURCE. The bundled photograph's
+    // description names the green Mini in it; reusing that sentence for an
+    // arbitrary upload describes a picture that is not there — worse than a
+    // generic alt, because a screen-reader user cannot tell it is wrong.
+    it('drops the green-Mini description once the photo is a different one', () => {
+      useAbout.mockReturnValue({
+        data: { availableForWork: true, availabilityNote: '', avatar: AVATAR },
+      });
+      const { container } = render(withMotion(<AboutSection />));
+
+      expect(portrait(container)).toHaveAttribute('alt', 'Portrait of Parindra Gallage');
+      expect(screen.queryByAltText(/green Mini/)).toBeNull();
+    });
+
+    // The crop is the stylesheet's job and this ticket adds no CSS: any aspect
+    // ratio is handled by `.portraitImg`'s own aspect-ratio + object-fit.
+    it('adds no inline sizing for the uploaded image', () => {
+      useAbout.mockReturnValue({
+        data: { availableForWork: true, availabilityNote: '', avatar: AVATAR },
+      });
+      const { container } = render(withMotion(<AboutSection />));
+      const style = portrait(container).getAttribute('style') || '';
+
+      expect(style).not.toMatch(/width|height|object-fit|aspect-ratio/);
+    });
   });
 
   it('renders the portrait with its alt text', () => {
@@ -506,5 +576,254 @@ describe('AboutSection (PF-81)', () => {
     unmount();
 
     expect(removeSpy).toHaveBeenCalledWith('scroll', expect.any(Function));
+  });
+});
+
+// ── the seeking line, two states — owner decision 2026-09-16 ──────────
+describe('availability line', () => {
+  it('ON with no note: the transcribed sentence', () => {
+    render(withMotion(<AboutSection />));
+    expect(screen.getByText(/Open to Work/)).toBeInTheDocument();
+  });
+
+  it('ON with a note: the panel\'s availability note replaces the sentence', () => {
+    useAbout.mockReturnValue({
+      data: { availableForWork: true, availabilityNote: 'Seeking a 2027 graduate role' },
+    });
+    const { container } = render(withMotion(<AboutSection />));
+    expect(pick(container, 'seeking').textContent).toBe('Seeking a 2027 graduate role');
+    expect(screen.queryByText(/Open to Work/)).toBeNull();
+  });
+
+  it('OFF: the line is not rendered at all', () => {
+    useAbout.mockReturnValue({
+      data: { availableForWork: false, availabilityNote: 'Seeking a 2027 graduate role' },
+    });
+    const { container } = render(withMotion(<AboutSection />));
+    expect(pick(container, 'seeking')).toBeNull();
+    expect(screen.queryByText(/Open to Work|Seeking a 2027/)).toBeNull();
+  });
+
+  it('defaults to ON while the About document is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    render(withMotion(<AboutSection />));
+    expect(screen.getByText(/Open to Work/)).toBeInTheDocument();
+  });
+});
+
+// ── PF-112: the EMAIL ME button follows the panel ──────────────────────────
+describe('the EMAIL ME address (PF-112)', () => {
+  it('uses the stored address', () => {
+    useAbout.mockReturnValue({
+      data: { availableForWork: true, availabilityNote: '', email: 'someone@else.dev' },
+    });
+    render(withMotion(<AboutSection />));
+
+    expect(screen.getByRole('link', { name: /EMAIL ME/i }))
+      .toHaveAttribute('href', 'mailto:someone@else.dev');
+  });
+
+  // Kept equal to what the page has always shown, so a failed fetch degrades to
+  // the old behaviour rather than to a blank mailto:.
+  it('falls back to the long-standing address when there is none', () => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, availabilityNote: '' } });
+    render(withMotion(<AboutSection />));
+
+    expect(screen.getByRole('link', { name: /EMAIL ME/i }))
+      .toHaveAttribute('href', 'mailto:pcgallege@gmail.com');
+  });
+});
+
+/*
+ * ── The bio paragraphs and the stat cards ───────────────────────────────────
+ *
+ * Both were HARDCODED until this ticket, which is the whole defect the owner
+ * reported: editing either in the admin panel saved correctly and changed
+ * nothing on the page.
+ *
+ * ⚠️ Every test below has to supply its own `useAbout` return value. The file's
+ * top-level `beforeEach` mocks a document with neither field, which is exactly
+ * the FALLBACK case — so a test that forgets passes against the literals and
+ * proves nothing about the wiring.
+ */
+describe('the bio paragraphs (wired to the About panel)', () => {
+  const paragraphs = (container) =>
+    Array.from(pickAll(container, 'body')).map((el) => el.textContent.trim());
+
+  it('renders the stored paragraphs, not a hardcoded pair', () => {
+    useAbout.mockReturnValue({
+      data: {
+        availableForWork: true,
+        availabilityNote: '',
+        bio: ['First stored paragraph.', 'Second stored paragraph.'],
+      },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    expect(paragraphs(container))
+      .toEqual(['First stored paragraph.', 'Second stored paragraph.']);
+  });
+
+  it('renders a third paragraph when the owner adds one', () => {
+    useAbout.mockReturnValue({
+      data: { availableForWork: true, availabilityNote: '', bio: ['One.', 'Two.', 'Three.'] },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    expect(paragraphs(container)).toEqual(['One.', 'Two.', 'Three.']);
+  });
+
+  it('gives every paragraph after the first the .bodySecond class', () => {
+    // ⚠️ Asserts the CLASS, not the margin — the margin is the stylesheet's
+    // business and is already pinned by "keeps the second paragraph's 20px
+    // bottom margin distinct from the first's 18px" above. What is being
+    // checked here is that a THIRD paragraph matches the second rather than
+    // reverting to the first's 18px.
+    useAbout.mockReturnValue({
+      data: { availableForWork: true, availabilityNote: '', bio: ['One.', 'Two.', 'Three.'] },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    const classes = Array.from(pickAll(container, 'body')).map((el) => el.className);
+
+    expect(classes[0]).not.toMatch(/bodySecond/);
+    expect(classes[1]).toMatch(/bodySecond/);
+    expect(classes[2]).toMatch(/bodySecond/);
+  });
+
+  it('staggers the entrances at the prototype\'s 80 and 140', () => {
+    useAbout.mockReturnValue({
+      data: { availableForWork: true, availabilityNote: '', bio: ['One.', 'Two.', 'Three.'] },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    const delays = Array.from(pickAll(container, 'body'))
+      .map((el) => el.style.transitionDelay);
+
+    expect(delays.slice(0, 2)).toEqual(['80ms', '140ms']);
+    expect(delays[2]).toBe('200ms');   // the same +60 step continued
+  });
+
+  it('falls back to the site copy while the document is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+
+    const { container } = render(withMotion(<AboutSection />));
+    const text = paragraphs(container);
+
+    expect(text).toHaveLength(2);
+    expect(text[0]).toMatch(/University of Westminster/);
+  });
+
+  it('renders NO paragraphs when the owner has emptied the bio', () => {
+    // ⚠️ `[]` is not the same case as `undefined`. Handing the fallback back
+    // here would reprint two paragraphs the owner just deleted, which is
+    // indistinguishable from the panel refusing to save.
+    useAbout.mockReturnValue({
+      data: { availableForWork: true, availabilityNote: '', bio: [] },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    expect(paragraphs(container)).toEqual([]);
+  });
+});
+
+describe('the stat cards (wired to the About panel)', () => {
+  const labels = (container) =>
+    Array.from(pickAll(container, 'statLabel')).map((el) => el.textContent.trim());
+
+  it('renders the stored stats, not the hardcoded four', () => {
+    useAbout.mockReturnValue({
+      data: {
+        availableForWork: true,
+        availabilityNote: '',
+        stats: [
+          { label: 'Commits', value: '900+' },
+          { label: 'Coffee',  value: 'Endless' },
+        ],
+      },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    expect(labels(container)).toEqual(['Commits', 'Coffee']);
+  });
+
+  it('counts a numeric value and prints a word as static text', () => {
+    // The two treatments are DIFFERENT CLASSES (38px/1 against 26px/1.42 and
+    // uppercase), so this asserts which element each row produced rather than
+    // its text — CountUp starts at 0 and animates, so its text is not stable.
+    useAbout.mockReturnValue({
+      data: {
+        availableForWork: true,
+        availabilityNote: '',
+        stats: [
+          { label: 'Commits', value: '900+' },
+          { label: 'Coffee',  value: 'Endless' },
+        ],
+      },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    const cards = Array.from(pickAll(container, 'statCard'));
+
+    expect(cards[0].querySelector('[class*="statNumberStatic"]')).toBeNull();
+    expect(cards[1].querySelector('[class*="statNumberStatic"]')).not.toBeNull();
+    expect(cards[1].textContent).toMatch(/Endless/);
+  });
+
+  it('uses the prototype\'s 200/250/300/350 stagger, not 50/50/50/350', () => {
+    // ⚠️ The correction. `data-delay` on Portfolio Revolution.dc.html lines
+    // 215, 219, 223 and 227 reads 200 / 250 / 300 / 350. The deleted STATS
+    // const said 50 / 50 / 50 / 350, so the first three cards arrived at once.
+    useAbout.mockReturnValue({
+      data: {
+        availableForWork: true,
+        availabilityNote: '',
+        stats: [
+          { label: 'A', value: '1' }, { label: 'B', value: '2' },
+          { label: 'C', value: '3' }, { label: 'D', value: 'Four' },
+        ],
+      },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    const delays = Array.from(pickAll(container, 'statCard'))
+      .map((el) => el.style.transitionDelay);
+
+    expect(delays).toEqual(['200ms', '250ms', '300ms', '350ms']);
+  });
+
+  it('falls back to the built-in four while the document is loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+
+    const { container } = render(withMotion(<AboutSection />));
+    expect(labels(container))
+      .toEqual(['PROJECTS BUILT', 'TECHNOLOGIES', 'GITHUB REPOS', 'LEARNING']);
+  });
+
+  it('renders NO cards when the owner has emptied the list', () => {
+    useAbout.mockReturnValue({
+      data: { availableForWork: true, availabilityNote: '', stats: [] },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    expect(pickAll(container, 'statCard')).toHaveLength(0);
+  });
+
+  it('uppercases the label in CSS so a stored "Projects Built" still reads right', () => {
+    // ⚠️ The seeded labels are TITLE CASE ('Projects Built'); the page has
+    // always shown capitals. Doing it in CSS rather than with .toUpperCase()
+    // keeps the accessible name the owner actually typed — the same call
+    // .statNumberStatic already makes.
+    expect(ruleBody('.statLabel')).toMatch(/text-transform:\s*uppercase/);
+
+    useAbout.mockReturnValue({
+      data: {
+        availableForWork: true, availabilityNote: '',
+        stats: [{ label: 'Projects Built', value: '5+' }],
+      },
+    });
+
+    const { container } = render(withMotion(<AboutSection />));
+    expect(labels(container)).toEqual(['Projects Built']);
   });
 });

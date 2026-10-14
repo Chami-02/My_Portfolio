@@ -14,6 +14,24 @@ import { MotionProvider } from '../../../providers/MotionProvider';
 // Vitest, so the component picks up the mock.
 const useSkills = vi.hoisted(() => vi.fn());
 vi.mock('../../../hooks/useSkills', () => ({ useSkills }));
+// PF-114 — the boxes come from the owner's sections.
+const useSkillCategories = vi.hoisted(() => vi.fn());
+vi.mock('../../../hooks/useSkillCategories', () => ({ useSkillCategories }));
+
+/** The six sections a fresh database gets — SHUFFLED against `order`. */
+const CATEGORIES = Object.freeze([
+  { _id: 'c6', key: 'other',    label: 'Other',     order: 6 },
+  { _id: 'c3', key: 'backend',  label: 'Backend',   order: 3 },
+  { _id: 'c1', key: 'language', label: 'Languages', order: 1 },
+  { _id: 'c5', key: 'devops',   label: 'DevOps',    order: 5 },
+  { _id: 'c2', key: 'frontend', label: 'Frontend',  order: 2 },
+  { _id: 'c4', key: 'database', label: 'Database',  order: 4 },
+].map(Object.freeze));
+const categoriesLoaded = (data = CATEGORIES) => ({ data, isLoading: false, isError: false, error: null });
+
+// File-wide, so every describe — including the PF-114 block at the end —
+// renders against the six sections unless a test says otherwise.
+beforeEach(() => useSkillCategories.mockReturnValue(categoriesLoaded()));
 
 const { SkillsSection } = await import('../SkillsSection');
 
@@ -132,10 +150,17 @@ const SKILLS = (() => {
 
 const loaded = (data = SKILLS) => ({ data, isLoading: false, isError: false, error: null });
 
-/** Pill text in DOM order, for the card carrying `label`. */
+/**
+ * Pill NAMES in DOM order, for the card carrying `label`.
+ *
+ * PF-114: a pill now also carries its level as visually hidden text
+ * (", intermediate"), so `textContent` is no longer the name. The name is the
+ * pill's first TEXT node — read as a node, because every `*Element*` accessor
+ * skips text by definition (the leadsWithIcon trap).
+ */
 function pillsUnder(label) {
   const card = closestLocal(screen.getByText(label), 'card');
-  return pickAll(card, 'pill').map((p) => p.textContent);
+  return pickAll(card, 'pill').map((p) => p.childNodes[0].nodeValue);
 }
 
 describe('SkillsSection (PF-82)', () => {
@@ -172,10 +197,10 @@ describe('SkillsSection (PF-82)', () => {
       expect(pickAll(container, 'pill')).toHaveLength(26);
     });
 
-    // `other` is the Skill enum's 6th value and the prototype has no card
-    // for it. A skill filed there must render nowhere rather than
-    // appearing in an invented card or being appended to another.
-    it('never renders the "other" category', () => {
+    // PF-114 — REVERSED. `other` used to render nowhere (the prototype had
+    // no card for it). It is now an ordinary owner-managed section: its box
+    // appears, in section order, as soon as it holds a skill.
+    it('renders the "other" section once it holds a skill, last in order', () => {
       useSkills.mockReturnValue(
         loaded([
           ...SKILLS,
@@ -183,20 +208,51 @@ describe('SkillsSection (PF-82)', () => {
         ]),
       );
       const { container } = render(withMotion(<SkillsSection />));
-      expect(screen.queryByText('Fortran')).toBeNull();
-      expect(screen.queryByText('OTHER')).toBeNull();
-      expect(pickAll(container, 'pill')).toHaveLength(26);
+      expect(pillsUnder('OTHER')).toEqual(['Fortran']);
+      expect(pickAll(container, 'categoryLabel').map((el) => el.textContent))
+        .toEqual(['LANGUAGES', 'FRONTEND', 'BACKEND', 'DATABASE', 'DEVOPS', 'OTHER']);
     });
 
-    // A category the API returns nothing for still gets its card, so the
-    // grid keeps five columns. Dropping it would let a data edit change
-    // the layout.
-    it('keeps a card for a category with no skills', () => {
+    // PF-114 — REVERSED (owner, 2026-10-05). PF-82 kept an empty card so the
+    // grid could not reflow; with owner-created sections an empty one is a
+    // section still being set up, and visitors must not see an empty box.
+    it('hides a section with no skills', () => {
       useSkills.mockReturnValue(loaded(SKILLS.filter((s) => s.category !== 'devops')));
       const { container } = render(withMotion(<SkillsSection />));
-      expect(pickAll(container, 'categoryLabel')).toHaveLength(5);
-      expect(screen.getByText('DEVOPS')).toBeInTheDocument();
-      expect(pillsUnder('DEVOPS')).toEqual([]);
+      expect(pickAll(container, 'categoryLabel')).toHaveLength(4);
+      expect(screen.queryByText('DEVOPS')).toBeNull();
+    });
+
+    it('renders an OWNER-CREATED section by its label, in its place', () => {
+      useSkillCategories.mockReturnValue(categoriesLoaded([
+        ...CATEGORIES,
+        { _id: 'c0', key: 'soft-skills', label: 'Soft Skills', order: 0 },
+      ]));
+      useSkills.mockReturnValue(loaded([
+        ...SKILLS,
+        { _id: 'y', name: 'Teamwork', category: 'soft-skills', level: 'advanced', order: 50 },
+      ]));
+      const { container } = render(withMotion(<SkillsSection />));
+      expect(pickAll(container, 'categoryLabel')[0].textContent).toBe('SOFT SKILLS');
+      expect(pillsUnder('SOFT SKILLS')).toEqual(['Teamwork']);
+    });
+
+    // A skill whose section no longer exists has no box to sit in.
+    it('renders nothing for a skill in an unknown section', () => {
+      useSkills.mockReturnValue(loaded([
+        ...SKILLS,
+        { _id: 'z', name: 'Ghost', category: 'gone', level: 'beginner', order: 1 },
+      ]));
+      render(withMotion(<SkillsSection />));
+      expect(screen.queryByText('Ghost')).toBeNull();
+    });
+
+    it('does not mutate the section array useSkillCategories() returned', () => {
+      const data = CATEGORIES.map((c) => ({ ...c }));
+      const snapshot = data.map((c) => c.key);
+      useSkillCategories.mockReturnValue(categoriesLoaded(data));
+      render(withMotion(<SkillsSection />));
+      expect(data.map((c) => c.key)).toEqual(snapshot);
     });
 
     // Sorting a fresh array is safe; sorting the query's own array is
@@ -257,6 +313,20 @@ describe('SkillsSection (PF-82)', () => {
   });
 
   describe('async states', () => {
+    it('waits for the SECTIONS too — placeholders until both have loaded', () => {
+      useSkillCategories.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
+      const { container } = render(withMotion(<SkillsSection />));
+      expect(pickAll(container, 'cardPlaceholder')).toHaveLength(5);
+      expect(pickAll(container, 'pill')).toHaveLength(0);
+    });
+
+    it('drops the grid when the SECTIONS fail to load', () => {
+      useSkillCategories.mockReturnValue({ data: undefined, isLoading: false, isError: true, error: new Error('x') });
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const { container } = render(withMotion(<SkillsSection />));
+      expect(pick(container, 'grid')).toBeNull();
+    });
+
     it('renders five empty placeholders while loading, and no pills', () => {
       useSkills.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
       const { container } = render(withMotion(<SkillsSection />));
@@ -299,7 +369,7 @@ describe('SkillsSection (PF-82)', () => {
 
       render(withMotion(<SkillsSection />));
 
-      expect(spy).toHaveBeenCalledWith(expect.stringContaining('useSkills'), err);
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('loading skills failed'), err);
     });
 
     // Logged from an effect keyed on the error, not from the render body.
@@ -432,5 +502,78 @@ describe('SkillsSection (PF-82)', () => {
       expect(cssRules).not.toContain('composes: kf-');
       expect(cssRules).not.toMatch(/animation(-name)?:/);
     });
+  });
+});
+
+// ── PF-114 — skill level on the home page ────────────────────────────────────
+// Owner-requested 2026-10-05, no prototype source: three dots per pill, filled
+// to the level, a key above the grid, and the level SPOKEN for screen readers.
+describe('PF-114 — level dots', () => {
+  const one = (level) => Object.freeze([
+    Object.freeze({ _id: 'a', name: 'React', category: 'frontend', level, order: 1 }),
+  ]);
+
+  const reactPill = () => pickAll(closestLocal(screen.getByText('FRONTEND'), 'card'), 'pill')[0];
+  const filled = (el) => pickAll(el, 'dotOn').length;
+  const empty  = (el) => pickAll(el, 'dotOff').length;
+
+  it.each([
+    ['beginner', 1],
+    ['intermediate', 2],
+    ['advanced', 3],
+  ])('%s fills %i of three dots', (level, on) => {
+    useSkills.mockReturnValue(loaded(one(level)));
+    render(withMotion(<SkillsSection />));
+    expect(filled(reactPill())).toBe(on);
+    expect(empty(reactPill())).toBe(3 - on);
+  });
+
+  it('speaks the level once, and hides the dots from assistive tech', () => {
+    useSkills.mockReturnValue(loaded(one('advanced')));
+    render(withMotion(<SkillsSection />));
+    const pill = reactPill();
+    expect(pick(pill, 'srOnly').textContent).toBe(', advanced');
+    expect(pick(pill, 'dots').getAttribute('aria-hidden')).toBe('true');
+  });
+
+  // ⚠️ The zero case: three EMPTY dots would assert a level the data never
+  // said, and a spoken ", undefined" is worse.
+  it('renders no dots and no spoken level for an unknown level', () => {
+    useSkills.mockReturnValue(loaded(one('expert')));
+    render(withMotion(<SkillsSection />));
+    const pill = reactPill();
+    expect(pick(pill, 'dots')).toBeNull();
+    expect(pick(pill, 'srOnly')).toBeNull();
+    expect(pill.textContent).toBe('React');
+  });
+
+  it('shows a key with all three levels, in rank order, hidden from AT', () => {
+    useSkills.mockReturnValue(loaded(one('beginner')));
+    const { container } = render(withMotion(<SkillsSection />));
+    const legend = pick(container, 'legend');
+    expect(legend.getAttribute('aria-hidden')).toBe('true');
+    const items = pickAll(legend, 'legendItem');
+    expect(items.map((i) => i.textContent)).toEqual(['beginner', 'intermediate', 'advanced']);
+    expect(items.map((i) => filled(i))).toEqual([1, 2, 3]);
+  });
+
+  it('drops the key along with the grid when the fetch fails', () => {
+    useSkills.mockReturnValue({ data: undefined, isLoading: false, isError: true, error: new Error('x') });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { container } = render(withMotion(<SkillsSection />));
+    expect(pick(container, 'legend')).toBeNull();
+  });
+
+  // Parsed, comments stripped. Owner 2026-10-05: dots are the ACCENT — and
+  // on hover they must leave it, or they vanish into the accent-filled pill.
+  it('paints dots in the accent, switching to the pill ink on hover', () => {
+    const decls = {};
+    postcss.parse(cssRules).walkRules((r) => {
+      r.walkDecls((d) => { decls[`${r.selector} ${d.prop}`] = d.value; });
+    });
+    expect(decls['.dotOn background']).toBe('var(--acc, #FCA311)');
+    expect(decls['.dotOff box-shadow']).toContain('var(--acc');
+    expect(decls['.pill:hover .dotOn background']).toBe('currentColor');
+    expect(decls['.pill:hover .dotOff box-shadow']).toContain('currentColor');
   });
 });

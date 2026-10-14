@@ -1,6 +1,6 @@
 const request    = require('supertest');
 const mongoose   = require('mongoose');
-const jwt        = require('jsonwebtoken');
+const { issueSession } = require('../services/sessionService');
 const app        = require('../app');
 const Vocabulary = require('../models/Vocabulary');
 const Project    = require('../models/Project');
@@ -71,7 +71,8 @@ const ADMIN = { email: 'admin@test.com', password: 'TestPass@1234!' };
 const authHeader = async () => {
   let user = await User.findOne({ email: ADMIN.email });
   if (!user) user = await User.create(ADMIN);
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  // PF-108: through the real session path, so the token names a live family.
+  const { accessToken: token } = await issueSession(user);
   return { Authorization: `Bearer ${token}` };
 };
 
@@ -294,6 +295,30 @@ describe('GET /api/vocabulary/:type?inUse=true (PF-97)', () => {
 
     expect(values(await request(app).get('/api/vocabulary/tag?inUse=true')))
       .toContain('ZZDraftOnly');
+  });
+
+  // ── PF-113: projects gained drafts, so `tech` gained the same rule ──────
+  // A tech carried only by a DRAFT project is not on the public site.
+  it('excludes a tech carried ONLY by a draft project (PF-113)', async () => {
+    await Vocabulary.create({ type: 'tech', value: 'ZZDraftTech' });
+    await Project.create({ title: 'ZZ Draft', tech: ['ZZDraftTech'], published: false });
+
+    const res = await request(app).get('/api/vocabulary/tech?inUse=true');
+
+    expect(res.status).toBe(200);
+    expect(values(res)).not.toContain('ZZDraftTech');
+  });
+
+  // ⚠️ The legacy case is the one `published: true` would have got wrong: a
+  // project written before PF-113 has NO `published` field and is public.
+  // Inserted through the raw driver so Mongoose cannot add the default.
+  it('includes a tech carried by a pre-PF-113 project with no published field', async () => {
+    await Vocabulary.create({ type: 'tech', value: 'ZZLegacyTech' });
+    await Project.collection.insertOne({ ...VALID_PROJECT, tech: ['ZZLegacyTech'] });
+
+    const res = await request(app).get('/api/vocabulary/tech?inUse=true');
+
+    expect(values(res)).toContain('ZZLegacyTech');
   });
 
   // The admin form keeps a free-text tags input beside the picker, so a

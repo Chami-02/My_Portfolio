@@ -31,17 +31,26 @@ describe('formatDate', () => {
   });
 
   /**
-   * ⚠️ en-GB abbreviates September to FOUR letters, and this is the real
-   * shipped output — the live page reads `SEPT 2026 · 1 MIN READ`.
+   * ⚠️ en-GB abbreviates September to FOUR letters (`Sept`). Until PF-118 that
+   * shipped — the live page read `SEPT 2026 · 1 MIN READ`, one character wider
+   * than every other month in a column the 2-digit day exists to keep straight.
+   * Owner, 2026-10-12: three letters, every month.
    *
-   * Worth pinning rather than leaving implicit: the design's meta label is
-   * mono at .12em tracking and every month in its own fixture data is three
-   * letters, so `SEPT` is the one value that is wider than the design ever
-   * shows. It is the pinned locale's correct output, not a defect, and it
-   * predates PF-98 (the formatter is PF-86's, moved here unchanged).
+   * All twelve, so a rule that special-cased the word `SEPT` and a rule that
+   * trims the token are told apart only by the other eleven staying intact.
    */
-  it('renders September as SEPT — en-GB uses four letters, and that ships', () => {
-    expect(formatDate('2026-09-01T12:00:00.000Z')).toBe('01 SEPT 2026');
+  it.each([
+    ['01', 'JAN'], ['02', 'FEB'], ['03', 'MAR'], ['04', 'APR'],
+    ['05', 'MAY'], ['06', 'JUN'], ['07', 'JUL'], ['08', 'AUG'],
+    ['09', 'SEP'], ['10', 'OCT'], ['11', 'NOV'], ['12', 'DEC'],
+  ])('month %s renders as three letters: %s', (mm, expected) => {
+    expect(formatDate(`2026-${mm}-15T12:00:00.000Z`)).toBe(`15 ${expected} 2026`);
+  });
+
+  it('never renders SEPT', () => {
+    // The zero case for the rule above, and the one value it exists for.
+    expect(formatDate('2026-09-01T12:00:00.000Z')).toBe('01 SEP 2026');
+    expect(formatDate('2026-09-01T12:00:00.000Z')).not.toMatch(/SEPT/);
   });
 
   /**

@@ -6,8 +6,9 @@ export const blogService = {
   // ⚠️ `params` reaches a backend that has supported `?q=` and `?tag=` since
   // PF-96 and had ZERO callers until PF-98. Semantics are the server's, in
   // backend/src/utils/blogQuery.js `buildMatch`, and are not re-implemented
-  // here: `q` is a case-insensitive substring over title, excerpt and tags
-  // ONLY (never section bodies), `tag` is an anchored case-insensitive exact
+  // here: `q` is a case-insensitive substring over the post's WHOLE text —
+  // title, excerpt, tags and every section (owner, reversing PF-96's
+  // title/excerpt/tags-only rule; see blogQuery.js), `tag` is an anchored case-insensitive exact
   // match, the two combine with AND, and `'All'` in any casing means no
   // filter at all.
   //

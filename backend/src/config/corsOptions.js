@@ -1,3 +1,5 @@
+const AppError = require('../utils/AppError');
+
 // The complete list of frontend URLs that are allowed to call this API.
 // Add your production Vercel URL here before deploying (Sprint 8).
 const ALLOWED_ORIGINS = [
@@ -35,7 +37,10 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    return callback(new Error(`CORS: Origin "${incomingOrigin}" is not allowed`));
+    // PF-120 — an AppError, so errorHandler answers 403. A plain Error was
+    // "unexpected": every refused origin became a 500 and an `UNEXPECTED
+    // ERROR` server log (measured on production with a foreign Origin).
+    return callback(new AppError(`CORS: Origin "${incomingOrigin}" is not allowed`, 403));
   },
   credentials: true,          // Allow cookies/auth headers to be sent
   optionsSuccessStatus: 200,  // Some legacy browsers choke on 204

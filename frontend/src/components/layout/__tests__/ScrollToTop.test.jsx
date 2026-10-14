@@ -120,7 +120,7 @@ describe('ScrollToTop', () => {
     // does not animate.
     const composed = [];
     postcss.parse(css).walkDecls('composes', (d) => composed.push(d.value));
-    expect(composed).toContain('kf-riseIn from global');
+    expect(composed).toContain('kf-riseIn-portfolio from global');
 
     for (const { prop, value } of allDecls()) {
       expect(prop, `animation shorthand resets the composed name: ${value}`)

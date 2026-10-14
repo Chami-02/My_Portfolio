@@ -5,6 +5,7 @@ import {
   keepPreviousData,
 } from '@tanstack/react-query';
 import { blogService } from '../services/blogService';
+import { refreshDashboard } from './useDashboardStats';
 
 export const BLOG_KEY       = ['blog'];
 export const BLOG_ADMIN_KEY = ['blog', 'admin'];
@@ -64,11 +65,10 @@ export const blogListParams = ({ q, tag } = {}) => {
  * `BLOG_KEY` (`['blog']`) still prefix-matches it, so every existing mutation
  * invalidates the list exactly as it did before.
  *
- * ⚠️ Found while tracing that, NOT fixed here and reported to Outstanding
- * work: `BLOG_ADMIN_KEY` is `['blog', 'admin']`, which is byte-identical to
- * the key `useBlogPost('admin')` produces. A post slugged `admin` would share
- * a cache entry with the admin list. Pre-existing, out of PF-98's scope, and
- * a genuine latent bug.
+ * The post detail has its own segment too since 2026-10-14 — `['blog',
+ * 'post', <slug>]`. It used to be `['blog', <slug>]`, which a post slugged
+ * `admin` made byte-identical to `BLOG_ADMIN_KEY` (one cache entry for a post
+ * and the admin list), and a post slugged `list` a prefix of every list key.
  *
  * `keepPreviousData` is what stops the grid blanking between keystrokes while
  * a new search resolves — the previous list stays on screen and `isLoading`
@@ -88,7 +88,9 @@ export const useBlogPostAdmin = () =>
 
 export const useBlogPost = (slug) =>
   useQuery({
-    queryKey: [...BLOG_KEY, slug],
+    // ⚠️ The 'post' segment keeps any slug out of the list / admin keys; the
+    // BLOG_KEY prefix still reaches it, so every mutation invalidates it.
+    queryKey: [...BLOG_KEY, 'post', slug],
     queryFn:  () => blogService.getBySlug(slug),
     enabled:  !!slug,
   });
@@ -112,6 +114,11 @@ export const useBlogPost = (slug) =>
 export const useRecordView = () =>
   useMutation({ mutationFn: blogService.recordView });
 
+// PF-110: create, update, togglePublish and delete all invalidate
+// DASHBOARD_KEY too. Update is included on purpose — the editor's
+// published checkbox goes through updatePost, which moves a post between
+// the published and draft counts. useRecordView above stays out: it
+// invalidates nothing, by decision, and a view changes no count.
 export const useCreatePost = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -119,6 +126,7 @@ export const useCreatePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -130,6 +138,7 @@ export const useUpdatePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -141,6 +150,7 @@ export const useTogglePublish = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      refreshDashboard(qc);
     },
   });
 };
@@ -152,6 +162,7 @@ export const useDeletePost = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: BLOG_KEY });
       qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
+      refreshDashboard(qc);
     },
   });
 };

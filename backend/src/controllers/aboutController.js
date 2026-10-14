@@ -1,28 +1,24 @@
 const { body } = require('express-validator');
+const { isTimeZone } = require('../utils/timeZone');
 const About    = require('../models/About');
 const AppError = require('../utils/AppError');
 const storage  = require('../services/storage');
 
-// ── Résumé constants (PF-60) ─────────────────────────────────────────────────
-const MAX_RESUME_BYTES = 5 * 1024 * 1024;   // 5 MB
+// PF-111 — magic-byte checks live in one module now. `isPdf` used to be
+// defined here; it moved when the portrait handler below needed the same
+// treatment for images and a second copy would have been a second source of
+// truth for a security check. See utils/fileType.js for why `file-type` is
+// deliberately not a dependency.
+const { isPdf, isAllowedImage, MEDIA_IMAGE_MIME } = require('../utils/fileType');
 
-/**
- * True if the buffer really is a PDF.
- *
- * Checks magic bytes, not the extension or the Content-Type header — both of
- * those are supplied by the client and trivially spoofed. Every PDF begins
- * with the five bytes "%PDF-" (25 50 44 46 2D).
- *
- * The ticket suggested the `file-type` package. Deliberately not used: v17+ is
- * pure ESM and `require()`ing it from this CommonJS backend throws
- * ERR_REQUIRE_ESM, so it would mean either pinning an EOL v16 or reworking the
- * import. For a PDF-only check the signature is five bytes — a dependency buys
- * nothing here.
- */
-const isPdf = (buffer) =>
-  Buffer.isBuffer(buffer) &&
-  buffer.length >= 5 &&
-  buffer.subarray(0, 5).toString('latin1') === '%PDF-';
+// ── Size limits — IMPORTED, never re-typed (PF-113 batch 2) ──────────────────
+// Both are 4 MB and live in middleware/upload.js beside the reason they cannot
+// go higher (Vercel's 4.5 MB request cap). This file used to carry its own
+// `5 * 1024 * 1024` for the résumé, which is how a second number drifts.
+const { MAX_IMAGE_BYTES, MAX_PDF_BYTES: MAX_RESUME_BYTES } = require('../middleware/upload');
+
+const AVATAR_FOLDER = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/profile`;
+const HERO_FOLDER   = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/hero`;
 
 // ── Validation rules ─────────────────────────────────────────────────────────
 const aboutRules = [
@@ -41,6 +37,70 @@ const aboutRules = [
   body('email')
     .optional()
     .isEmail().withMessage('Must be a valid email'),
+  // ⚠️ PF-112 — availableForWork now arrives on the profile PUT.
+  // The admin About panel stages every edit and commits them together, so the
+  // availability flag travels with the rest of the form rather than through
+  // PATCH /about/availability (deleted in PF-120). Without a rule the value reaches `$set`
+  // unvalidated and Mongoose's Boolean cast decides: a stray string becomes a
+  // CastError surfacing as an opaque 400 that says nothing about the field.
+  //
+  // ⚠️ `.optional()` skips only `undefined`, so `false` IS validated — which is
+  // the case that matters. A rule (or a payload builder) treating "absent" and
+  // "false" alike would silently refuse to ever mark the owner unavailable.
+  body('availableForWork')
+    .optional()
+    .isBoolean().withMessage('Availability must be true or false'),
+
+  // ── PF-112 — custom social links ─────────────────────────────────────────
+  // The Mongoose sub-schema validates each row, so these rules exist for the
+  // two things it cannot answer well: that the field is an ARRAY at all (a
+  // string or object would be cast into something surprising), and that the
+  // wrong TYPE gets a 400 naming the field rather than an opaque CastError.
+  //
+  // ⚠️ Kept deliberately thin. Duplicating the label and URL rules here would
+  // give two places to change when the limit moves, and the model is the one
+  // that runs on every write path including a seed.
+  body('socialExtra')
+    .optional()
+    .isArray().withMessage('Custom links must be a list'),
+
+  // ── The About section's stat cards ───────────────────────────────────────
+  // Same thin rule as socialExtra above, and for the same two reasons: the
+  // sub-schema already validates each row on every write path including the
+  // seed, and what it cannot answer well is "is this an ARRAY at all" — a
+  // string or a bare object would be cast into something surprising instead of
+  // 400ing with the field's name on it.
+  body('stats')
+    .optional()
+    .isArray().withMessage('Stats must be a list'),
+
+  // ── PF-118 — the free-text profile fields ────────────────────────────────
+  // `location` and `availabilityNote` had no rule at all; the three new fields
+  // join them. ⚠️ `isString()` FIRST: express-validator's `isLength` measures an
+  // array's elements one by one, so `["x"]` would pass a length rule and reach
+  // `$set`, where Mongoose casts it to the string "x" — an accepted write of a
+  // value nobody sent. Empty is allowed for every one (the owner's "hide it").
+  ...[
+    ['location',         80,  'Location'],
+    ['availabilityNote', 160, 'Availability note'],
+    ['heroIntro',        300, 'Hero intro'],
+    ['footerBio',        300, 'Footer blurb'],
+  ].map(([field, max, name]) =>
+    body(field)
+      .optional()
+      .isString().withMessage(`${name} must be text`)
+      .bail()
+      .trim()
+      .isLength({ max }).withMessage(`${name} cannot exceed ${max} characters`)),
+
+  // PF-118 batch 2 — a real IANA place or blank, never free text. The panel is
+  // a dropdown, so this only ever refuses a raw API call (or a legacy value).
+  body('timezone')
+    .optional()
+    .isString().withMessage('Timezone must be text')
+    .bail()
+    .trim()
+    .custom((v) => v === '' || isTimeZone(v)).withMessage('Timezone must be a place from the list, like Asia/Colombo'),
 ];
 
 // ── GET /api/about ────────────────────────────────────────────────────────────
@@ -64,9 +124,29 @@ const getAbout = async (req, res, next) => {
 // Updates the SINGLE about document (upserts if missing)
 const updateAbout = async (req, res, next) => {
   try {
+    // ── PF-111: media fields are NOT client-writable ────────────
+    // `$set: req.body` sets whatever arrives. Before PF-111 that meant a
+    // profile save carrying `resume: {}` silently wiped the slot — including
+    // the publicId — leaving the real file in Cloudinary with nothing left
+    // anywhere that could identify it. The exact orphan this ticket exists
+    // to prevent, reachable from the ordinary save button.
+    //
+    // ⚠️ The strip is the FIX, not the validation. The media fields are written
+    // ONLY by their own routes, which upload first and derive the publicId
+    // from Cloudinary's own response — so the client never names a publicId
+    // and therefore can never aim a delete at one.
+    const { avatar, heroImage, resume, ...rest } = req.body ?? {};
+    void avatar; void heroImage; void resume;   // named to document intent, deliberately unused
+    // ⚠️ PF-120 — dotted paths too. `$set` reads `"resume.publicId"` as the
+    // nested field, so stripping only the top-level keys let a raw request
+    // name a publicId after all — measured, for resume and avatar alike.
+    const safe = Object.fromEntries(
+      Object.entries(rest).filter(([key]) => !/^(avatar|heroImage|resume)\./.test(key))
+    );
+
     const about = await About.findOneAndUpdate(
       {},                    // No filter — matches the only document
-      { $set: req.body },    // $set = only update the provided fields
+      { $set: safe },        // $set = only update the provided fields
       {
         returnDocument: 'after',
         runValidators:  true,
@@ -81,24 +161,6 @@ const updateAbout = async (req, res, next) => {
     }
     next(err);
   }
-};
-
-// ── PATCH /api/about/availability ────────────────────────────────────────────
-// Protected — quick toggle for "available for work" status
-const toggleAvailability = async (req, res, next) => {
-  try {
-    const about = await About.findOne();
-    if (!about) return next(new AppError('Profile not found', 404));
-
-    about.availableForWork = !about.availableForWork;
-    await about.save();
-
-    res.json({
-      status:  'success',
-      message: `Availability set to: ${about.availableForWork ? 'Open to work ✅' : 'Not available ❌'}`,
-      data:    about,
-    });
-  } catch (err) { next(err); }
 };
 
 // ── PUT /api/about/resume ────────────────────────────────────────────────────
@@ -123,7 +185,8 @@ const uploadResume = async (req, res, next) => {
     // that reaches the controller without going through uploadSingle.
     if (buffer.length > MAX_RESUME_BYTES) {
       return next(new AppError(
-        `Résumé is ${(buffer.length / 1024 / 1024).toFixed(1)} MB — the limit is 5 MB.`,
+        `Résumé is ${(buffer.length / 1024 / 1024).toFixed(1)} MB — the limit is ` +
+        `${MAX_RESUME_BYTES / 1024 / 1024} MB.`,
         413
       ));
     }
@@ -184,7 +247,6 @@ const uploadResume = async (req, res, next) => {
         hasResume:   true,
         replaced:    Boolean(oldPublicId),
         oldDeleted,
-        downloadUrl: storage.attachmentUrl(about.resume.url, about.resume.fileName),
       },
     });
 
@@ -227,11 +289,192 @@ const removeResume = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// ── Uploaded images: PUT/DELETE /api/about/avatar and /api/about/hero-image ──
+// Protected. Upload a new image and DELETE the previous one; or remove it, and
+// the public site falls back to its bundled picture.
+//
+// One handler pair per SLOT, built here — the portrait and the hero cut-out
+// share every step, so a second copy would be a second place the
+// delete-on-replace rule could drift. The résumé stays separate on purpose:
+// it differs in resource type, size limit, formats and metadata.
+//
+// Order, both slots: judge the REQUEST (file present, magic bytes, size)
+// before server state (storage configured) — an SVG is wrong whether or not
+// storage is set up, and the operator can act on a 415 but not on a 503. Then
+// upload → save → only NOW destroy the old file, non-fatally: a working image
+// exists either way.
+//
+// ⚠️ destroy with 'image', NOT 'raw'. A wrong resourceType makes Cloudinary
+// answer { result: 'not found' } — a successful call that deletes nothing —
+// and the orphan PF-111 exists to prevent is created silently.
+const imageSlotHandlers = ({ field, label, folder, defaultName, presenceKey }) => {
+  const noun = label.toLowerCase();
+  const presence = (has) => (presenceKey ? { [presenceKey]: has } : {});
+
+  const upload = async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return next(new AppError('No file uploaded — send a "file" field', 400));
+      }
+
+      const buffer = req.file.buffer;
+
+      if (!isAllowedImage(buffer)) {
+        return next(new AppError(
+          `${label} must be a ${MEDIA_IMAGE_MIME.map(m => m.replace('image/', '').toUpperCase()).join(', ')} image.`,
+          415
+        ));
+      }
+
+      if (buffer.length > MAX_IMAGE_BYTES) {
+        return next(new AppError(
+          `${label} is ${(buffer.length / 1024 / 1024).toFixed(1)} MB — the limit is ` +
+          `${MAX_IMAGE_BYTES / 1024 / 1024} MB.`,
+          413
+        ));
+      }
+
+      if (!storage.isConfigured()) {
+        return next(new AppError('File storage is not configured on this server', 503));
+      }
+
+      let about = await About.findOne();
+      if (!about) about = await About.create({});
+
+      // Remember the old file so it can be deleted AFTER the new one lands
+      const oldPublicId = about[field] && about[field].publicId;
+
+      // 1. Upload first. resource_type 'image' (unlike the résumé's 'raw'):
+      // storage.upload only applies Cloudinary's f_auto/q_auto delivery on
+      // the image path.
+      const result = await storage.upload(buffer, { resourceType: 'image', folder: folder() });
+
+      // 2. Save the new metadata
+      about[field] = {
+        url:        result.url,
+        publicId:   result.publicId,
+        fileName:   req.file.originalname || defaultName,
+        format:     result.format || '',
+        bytes:      result.bytes || buffer.length,
+        width:      result.width || 0,
+        height:     result.height || 0,
+        uploadedAt: new Date(),
+      };
+      await about.save();
+
+      // 3. Only NOW delete the old file — non-fatal
+      let oldDeleted = false;
+      if (oldPublicId && oldPublicId !== result.publicId) {
+        try {
+          const del = await storage.destroy(oldPublicId, 'image');
+          oldDeleted = del.result === 'ok';
+          if (!oldDeleted) {
+            console.warn(`[PF-111] Old ${noun} not deleted (${del.result}): ${oldPublicId}`);
+          }
+        } catch (e) {
+          console.warn(`[PF-111] Failed to delete old ${noun} ${oldPublicId}:`, e.message);
+        }
+      }
+
+      res.json({
+        status: 'success',
+        data: {
+          [field]:  about[field],
+          ...presence(true),
+          replaced: Boolean(oldPublicId),
+          oldDeleted,
+        },
+      });
+
+    } catch (err) { next(err); }
+  };
+
+  const remove = async (req, res, next) => {
+    try {
+      const about = await About.findOne();
+      if (!about) return next(new AppError('About document not found', 404));
+
+      if (!about[field] || !about[field].url) {
+        return next(new AppError(`No ${noun} to remove`, 404));
+      }
+
+      const publicId = about[field].publicId;
+
+      // Clear the slot first so the site stops pointing at a file that is
+      // about to disappear — the same ordering removeResume uses.
+      about[field] = {
+        url: '', publicId: '', fileName: '', format: '',
+        bytes: 0, width: 0, height: 0, uploadedAt: null,
+      };
+      await about.save();
+
+      let deleted = false;
+      if (publicId) {
+        try {
+          const del = await storage.destroy(publicId, 'image');
+          deleted = del.result === 'ok';
+        } catch (e) {
+          console.warn(`[PF-111] Failed to delete ${noun} ${publicId}:`, e.message);
+        }
+      }
+
+      res.json({ status: 'success', data: { removed: true, deleted, ...presence(false) } });
+
+    } catch (err) { next(err); }
+  };
+
+  return { upload, remove };
+};
+
+// PF-111 — the About portrait. `hasAvatar` stays in its responses (PF-112's
+// shape; a model virtual of the same name rides on GET /api/about).
+const avatarHandlers = imageSlotHandlers({
+  field: 'avatar', label: 'Portrait', folder: AVATAR_FOLDER, defaultName: 'portrait', presenceKey: 'hasAvatar',
+});
+const uploadAvatar = avatarHandlers.upload;
+const removeAvatar = avatarHandlers.remove;
+
+// The hero cut-out (owner, 2026-10-14). Its own folder, so the two slots'
+// files are told apart in the Cloudinary console.
+const heroImageHandlers = imageSlotHandlers({
+  field: 'heroImage', label: 'Hero image', folder: HERO_FOLDER, defaultName: 'hero-image',
+});
+const uploadHeroImage = heroImageHandlers.upload;
+const removeHeroImage = heroImageHandlers.remove;
+
 // ── GET /api/resume ──────────────────────────────────────────────────────────
-// Public. 302-redirects to the current résumé as a forced download.
+// Public. Sends the current résumé as a download named after the file the
+// owner uploaded — `PC Gallage.pdf`, extension included.
 //
 // Gives one permanent URL that survives every replacement — safe to put in an
 // email signature, unlike the Cloudinary URL which changes on each upload.
+//
+// ⚠️ This PROXIES the bytes; it used to 302 to a Cloudinary `fl_attachment`
+// URL, and that download arrived with NO EXTENSION (`PC_Gallage`, typed
+// application/octet-stream) so the OS could not tell it was a PDF. Measured
+// 2026-10-04, Cloudinary cannot be made to name it correctly on a free account:
+//   - the résumé is a `raw` asset with no format, so `fl_attachment` has no
+//     extension to append (it does for images, not for raw);
+//   - a dot inside the flag is a parse error (400 "Invalid flag … pdf");
+//   - storing the public id WITH `.pdf` makes every URL 401 "deny or ACL
+//     failure" — the free plan's PDF delivery restriction applies to raw too.
+//     The extension-less id is what lets the file be delivered at all.
+// A résumé is ≤ 4 MB (MAX_PDF_BYTES), under Vercel's 4.5 MB response cap.
+const RESUME_ORIGIN = 'https://res.cloudinary.com/';
+
+// Header-safe download name. The quoted `filename` must be plain ASCII, so it
+// gets a sanitised copy; `filename*` (RFC 6266/5987) carries the real name for
+// every browser that reads it, which is all current ones.
+const resumeDisposition = (fileName) => {
+  const stem  = String(fileName || '').replace(/\.pdf$/i, '').trim() || 'resume';
+  const real  = `${stem}.pdf`;
+  const ascii = real.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  // encodeURIComponent leaves ' ( ) * alone; RFC 5987 does not allow them.
+  const encoded = encodeURIComponent(real)
+    .replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+};
+
 const downloadResume = async (req, res, next) => {
   try {
     const about = await About.findOne().select('resume');
@@ -240,7 +483,35 @@ const downloadResume = async (req, res, next) => {
       return next(new AppError('No résumé is currently available', 404));
     }
 
-    res.redirect(302, storage.attachmentUrl(about.resume.url, about.resume.fileName));
+    // The url is server-written (PUT /api/about strips `resume`), so this is
+    // defence in depth: this route never fetches anywhere but Cloudinary.
+    if (!about.resume.url.startsWith(RESUME_ORIGIN)) {
+      return next(new AppError('Résumé is unavailable', 502));
+    }
+
+    let upstream;
+    try {
+      upstream = await fetch(about.resume.url, { signal: AbortSignal.timeout(10_000) });
+    } catch (e) {
+      console.warn('[resume] Fetch from storage failed:', e.message);
+      return next(new AppError('Résumé is temporarily unavailable', 502));
+    }
+
+    if (!upstream.ok) {
+      console.warn(`[resume] Storage answered ${upstream.status} for ${about.resume.publicId}`);
+      return next(new AppError('Résumé is temporarily unavailable', 502));
+    }
+
+    const bytes = Buffer.from(await upstream.arrayBuffer());
+
+    res.set({
+      'Content-Type':        'application/pdf',
+      'Content-Disposition': resumeDisposition(about.resume.fileName),
+      'Content-Length':      String(bytes.length),
+      // A replaced résumé must not be served from a browser cache.
+      'Cache-Control':       'no-cache',
+    });
+    res.send(bytes);
 
   } catch (err) { next(err); }
 };
@@ -249,10 +520,14 @@ module.exports = {
   aboutRules,
   getAbout,
   updateAbout,
-  toggleAvailability,
   uploadResume,
   removeResume,
   downloadResume,
-  isPdf,              // exported for tests — magic-byte checking is the
-  MAX_RESUME_BYTES,   // security-critical part and deserves direct coverage
+  uploadAvatar,       // PF-111
+  removeAvatar,       // PF-111
+  uploadHeroImage,    // owner, 2026-10-14
+  removeHeroImage,
+  isPdf,              // re-exported from utils/fileType for tests — magic-byte
+  MAX_RESUME_BYTES,   // checking is the security-critical part and deserves
+  MAX_IMAGE_BYTES,    // direct coverage. storage.test.js imports isPdf here.
 };

@@ -1,14 +1,13 @@
 // frontend/src/components/layout/Footer.jsx
 import { useLocation } from 'react-router-dom';
 import { Reveal, Marquee } from '../motion';
-import {
-  MailIcon,
-  GitHubIcon,
-  LinkedInIcon,
-  FacebookIcon,
-  InstagramIcon,
-} from '../icons';
+// PF-112 — one lookup instead of five named imports: the row set is data-driven
+// now, so the component cannot know which glyphs it will need.
+import { iconFor } from '../icons';
 import { sectionHref } from '../../utils/nav';
+import { socialEntries } from '../../utils/social';
+import { useAbout } from '../../hooks/useAbout';
+import { timezoneLabel } from '../../utils/timezone';
 import logo from '../../assets/logo.png';
 import styles from './Footer.module.css';
 
@@ -31,7 +30,17 @@ import styles from './Footer.module.css';
    repeats, and the prototype writes it as a literal `&nbsp;` (lines 546,
    547). A plain space is collapsed by white-space processing and the two
    copies butt together at the wrap. */
-const MARQUEE_TEXT = "OPEN TO OPPORTUNITIES ✦ LET'S BUILD SOMETHING LOUD ✦ ";
+/* ⚠️ PF-118 — TWO strings, following `availableForWork` with the hero badge's
+   own two phrases. The band used to say OPEN TO OPPORTUNITIES while the hero,
+   the footer status row and About all said the owner was not. */
+const MARQUEE_OPEN = "OPEN TO OPPORTUNITIES ✦ LET'S BUILD SOMETHING LOUD ✦ ";
+const MARQUEE_BUILDING = "CURRENTLY BUILDING ✦ LET'S BUILD SOMETHING LOUD ✦ ";
+
+/* PF-118 — what renders when the panel's field is blank or the fetch failed.
+   The same sentence is the schema default (About.js `footerBio`). */
+const FOOTER_BIO_FALLBACK =
+  'Computer Science undergraduate at the University of Westminster, building '
+  + 'scalable web applications — MERN, FastAPI, Docker, shipped with CI/CD.';
 
 /* ⚠️ "Field Notes", not "BLOG". The footer labels the section by its
    name where the header labels it by its id, and the prototype has it
@@ -56,18 +65,42 @@ const NAV_LINKS = [
  * stays; the mark goes IN FRONT of the text, so the row reads
  * mark → name → outbound arrow.
  */
-const ELSEWHERE_LINKS = [
-  { href: 'https://github.com/Chami-02',                                  label: 'GitHub ↗',    external: true,  Icon: GitHubIcon },
-  { href: 'https://www.linkedin.com/in/chamikara-gallage-3b0861295/',     label: 'LinkedIn ↗',  external: true,  Icon: LinkedInIcon },
-  { href: 'https://web.facebook.com/parindra.chameekara',                 label: 'Facebook ↗',  external: true,  Icon: FacebookIcon },
-  { href: 'https://www.instagram.com/__pc_02/',                           label: 'Instagram ↗', external: true,  Icon: InstagramIcon },
-  { href: 'mailto:parindrachameekara@gmail.com',                          label: 'Email ↗',     external: false, Icon: MailIcon },
-];
+/*
+ * ── ELSEWHERE_LINKS was DELETED in PF-112 ───────────────────────────────────
+ *
+ * It held five hardcoded URLs and a hardcoded mailto:, so editing any of them in
+ * the admin panel changed nothing here. They now come from the About document
+ * through `socialEntries(about)`, which also drops any row whose URL is empty —
+ * the rule `backend/src/models/About.js` has stated since PF-60 and nothing had
+ * implemented: "the public site must treat an empty value as 'hide this icon',
+ * not render a dead link."
+ *
+ * ⚠️ The note this replaces is still true and still the reason the shape works:
+ * the list was already data rather than branched JSX, so "adding a sixth network
+ * is a row here, not a row plus a conditional." PF-112 only changed where the
+ * rows come from. The trailing "↗" is the prototype's and is applied at render.
+ */
 
 const COPYRIGHT =
   '© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM SCRATCH';
 
 export function Footer() {
+  // Shared cache entry with ContactSection's useAbout() — no extra request.
+  const { data: about } = useAbout();
+  const isAvailable = about?.availableForWork ?? true;
+  // PF-112 — the ELSEWHERE column and the status line are the owner's data now.
+  const elsewhere = socialEntries(about);
+  // ⚠️ NOT named `location`: that shadows the global `location` inside this
+  // component, in a file that also calls react-router's `useLocation`. Three
+  // different things called some form of "location" is a mis-read waiting to
+  // happen.
+  const place = about?.location || 'Galle, Sri Lanka';
+  // PF-118 — one field, two render sites (this and ContactSection). `??`, not
+  // `||`: a blank timezone is the owner HIDING it, so only a missing field (an
+  // older cached document, a failed fetch) falls back to the literal.
+  // PF-118 batch 2: an IANA place, printed as its offset NOW (DST-correct).
+  const timezone = timezoneLabel(about?.timezone ?? 'Asia/Colombo');
+
   const { pathname } = useLocation();
 
   return (
@@ -118,9 +151,30 @@ export function Footer() {
           prototype runs the footer at 15s and the hero at 26s; the
           footer was matched to 26 on 2026-08-25, both went to 40 the
           same day, then to 50.5/60, and now to 70.7/84. */}
-      <Marquee duration={70.7} copies={18} className={styles.marqueeBand}>
-        <span className={styles.marqueeText}>{MARQUEE_TEXT}</span>
-      </Marquee>
+      {/* ⚠️ PF-118 — TWO call sites, not one with a computed duration. The
+          strings differ in width, and the band's contract is equal SPEED
+          (50 px/s), so each needs its own duration over its own distance:
+
+            open      9 x 392.9 = 3536.4px / 70.7s = 50.02 px/s
+            building  9 x 373.1 = 3357.5px / 67.1s = 50.04 px/s
+
+          Both widths measured 2026-10-12 in Chromium, the same element and
+          font, with the open string re-measured as the control (392.93).
+          18 copies still covers a band to 2 x 3357px wide for the shorter
+          string, past any real viewport.
+
+          Marquee.test.jsx reads both `duration={n}` literals out of this file,
+          which is why they are not an expression. Toggling availability
+          remounts the band — a once-in-months event, never mid-scroll. */}
+      {isAvailable ? (
+        <Marquee duration={70.7} copies={18} className={styles.marqueeBand}>
+          <span className={styles.marqueeText}>{MARQUEE_OPEN}</span>
+        </Marquee>
+      ) : (
+        <Marquee duration={67.1} copies={18} className={styles.marqueeBand}>
+          <span className={styles.marqueeText}>{MARQUEE_BUILDING}</span>
+        </Marquee>
+      )}
 
       <div className={styles.inner}>
         <div className={styles.grid}>
@@ -148,21 +202,33 @@ export function Footer() {
               </span>
             </div>
 
-            <p className={styles.bio}>
-              Computer Science undergraduate at the University of Westminster,
-              building scalable web applications — MERN, FastAPI, Docker,
-              shipped with CI/CD.
-            </p>
+            {/* PF-118 — the panel's "Footer blurb". Blank falls back, never
+                an empty paragraph. */}
+            <p className={styles.bio}>{about?.footerBio || FOOTER_BIO_FALLBACK}</p>
 
-            <div className={styles.availability}>
-              <span aria-hidden="true" className={styles.availabilityDot} />
-              {/* data-ok is the prototype's own hook — applyTheme() (line
-                  868) recolours every [data-ok] element per theme. Ported
-                  as a theme-scoped CSS rule; see the module. */}
-              <span data-ok="" className={styles.availabilityLabel}>
-                AVAILABLE FOR WORK
-              </span>
-            </div>
+            {/* Two states from the admin panel's availability toggle —
+                owner decision 2026-09-16, same shape as the hero badge.
+                The OFF variants compose no keyframe carrier, so the dot
+                stops rather than pauses, and the label drops [data-ok]
+                because the theme-scoped green belongs to the ON state. */}
+            {isAvailable ? (
+              <div className={styles.availability}>
+                <span aria-hidden="true" className={styles.availabilityDot} />
+                {/* data-ok is the prototype's own hook — applyTheme() (line
+                    868) recolours every [data-ok] element per theme. Ported
+                    as a theme-scoped CSS rule; see the module. */}
+                <span data-ok="" className={styles.availabilityLabel}>
+                  AVAILABLE FOR WORK
+                </span>
+              </div>
+            ) : (
+              <div className={styles.availabilityOff}>
+                <span aria-hidden="true" className={styles.availabilityDotOff} />
+                <span className={styles.availabilityLabelOff}>
+                  CURRENTLY BUILDING
+                </span>
+              </div>
+            )}
           </Reveal>
 
           {/* ⚠️ NAVIGATE and ELSEWHERE are wrapped, owner-requested
@@ -186,19 +252,28 @@ export function Footer() {
             </Reveal>
 
             <Reveal delay={140} className={styles.column}>
+              {/* ⚠️ The heading stays even with no links at all. An empty column
+                  would collapse the footer grid, and footer.spec.js asserts this
+                  heading is visible. */}
               <span className={styles.columnHeading}>ELSEWHERE</span>
-              {ELSEWHERE_LINKS.map(({ href, label, external, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  className={styles.link}
-                  target={external ? '_blank' : undefined}
-                  rel={external ? 'noreferrer' : undefined}
-                >
-                  <Icon />
-                  {label}
-                </a>
-              ))}
+              {elsewhere.map(({ key, href, label, external }) => {
+                // ⚠️ `iconFor` falls back to the generic link glyph, so a custom
+                // row — or any key this map has not heard of — renders a mark
+                // rather than nothing.
+                const Icon = iconFor(key);
+                return (
+                  <a
+                    key={key}
+                    href={href}
+                    className={styles.link}
+                    target={external ? '_blank' : undefined}
+                    rel={external ? 'noreferrer' : undefined}
+                  >
+                    <Icon />
+                    {`${label} ↗`}
+                  </a>
+                );
+              })}
             </Reveal>
           </div>
 
@@ -206,7 +281,10 @@ export function Footer() {
             <span className={styles.columnHeading}>STATUS</span>
             <span className={styles.statusLines}>
               <span data-ok="" className={styles.statusDotOk}>●</span> CI pipeline green<br />
-              <span className={styles.statusDotAcc}>●</span> Galle, Sri Lanka · UTC+5:30<br />
+              {/* PF-118 — the timezone is the panel's own field now, shared with
+                  ContactSection's location line. Blank drops the segment AND its
+                  separator, so there is never a dangling "·". */}
+              <span className={styles.statusDotAcc}>●</span> {place}{timezone && ` · ${timezone}`}<br />
               <span className={styles.statusDotMuted}>●</span> Replies within 24h
             </span>
             <a href={sectionHref(pathname, 'contact')} className={styles.statusCta}>

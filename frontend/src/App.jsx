@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Routes, Route } from 'react-router-dom';
 import { Navbar }          from './components/layout/Navbar';
 import { Footer }          from './components/layout/Footer';
 import { ScrollToTop }     from './components/layout/ScrollToTop';
@@ -11,9 +11,9 @@ import { NotFoundPage }    from './pages/NotFoundPage';
 import { AdminLoginPage }  from './pages/AdminLoginPage';
 import { AdminPage }       from './pages/AdminPage';     // Created in PF-37
 
-function App() {
+function AppLayout() {
   return (
-    <BrowserRouter>
+    <>
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
 
         {/* PF-83. First child on purpose: a skip link is only a skip
@@ -88,8 +88,31 @@ function App() {
 
         <ScrollToTop />
       </div>
-    </BrowserRouter>
+    </>
   );
+}
+
+/*
+ * ⚠️ PF-118 batch 2 — a DATA router, because `useBlocker` needs one.
+ *
+ * The admin's unsaved-changes guard has to stop the browser's Back/Forward
+ * button, and React Router only exposes that through `useBlocker`, which throws
+ * under the classic <BrowserRouter>. So the router changed — and NOTHING ELSE
+ * did: ONE catch-all route renders the exact layout above, and its three
+ * <Routes> blocks (navbar / main / footer) keep matching as descendant routes,
+ * the same way they did inside <BrowserRouter>. Same history API, same URLs.
+ *
+ * ⚠️ Do not "modernise" those blocks into route objects as a side quest: the
+ * navbar and footer are separate <Routes> on purpose (chrome excluded on
+ * /admin/*), and the full E2E suite is what proved this swap changed nothing.
+ *
+ * Created at module scope: a router built inside a component would be rebuilt
+ * on every render and reset navigation state.
+ */
+const router = createBrowserRouter([{ path: '*', element: <AppLayout /> }]);
+
+function App() {
+  return <RouterProvider router={router} />;
 }
 
 export default App;

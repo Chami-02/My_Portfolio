@@ -5,6 +5,15 @@ import { fileURLToPath } from 'url';
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
+
+// The availability badge reads useAbout() since 2026-09-16 (owner
+// decision: the admin toggle drives it). vi.mock, not vi.spyOn — Vite's
+// SSR transform makes each export a getter-only property. ON by default;
+// the OFF tests override per case. `mockReturnValue` inside a test is
+// reset by the file's own restoreAllMocks/afterEach, never bleeding.
+const useAbout = vi.hoisted(() => vi.fn());
+vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
+const { cvAnchorProps } = await import('../../../utils/resume');
 import { HeroSection } from '../HeroSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
@@ -45,6 +54,7 @@ const pickAll = (container, name) => container.querySelectorAll(`[class*="${name
 
 describe('HeroSection (PF-80)', () => {
   beforeEach(() => {
+    useAbout.mockReturnValue({ data: { availableForWork: true } });
     window.innerWidth = 1440;
     window.innerHeight = 900;
   });
@@ -148,8 +158,53 @@ describe('HeroSection (PF-80)', () => {
 
     expect(screen.getByText('VIEW MY WORK →').closest('a'))
       .toHaveAttribute('href', '#projects');
+    // The empty-state branch: no résumé stored, so DOWNLOAD CV is the
+    // prototype's own inert anchor. See the describe below for the other half.
     expect(screen.getByText('DOWNLOAD CV').closest('a'))
       .toHaveAttribute('href', '#contact');
+  });
+
+  // ── PF-112: the hero's DOWNLOAD CV was UNWIRED and it was a real defect ────
+  // `applyResume()` (Portfolio Revolution.dc.html:675) sweeps `[data-cv]` and
+  // the prototype has TWO — this CTA and Contact's. PF-87 wired only Contact's.
+  //
+  // ⚠️ The old single assertion above passed both before and after the fix,
+  // because the default mock stores no résumé and both branches then agree on
+  // `#contact`. That agreement is exactly why the defect stayed invisible for
+  // three sprints, so the case that matters is the one where a résumé EXISTS.
+  describe('DOWNLOAD CV follows the stored résumé (PF-112)', () => {
+    const cv = () => screen.getByText('DOWNLOAD CV').closest('a');
+
+    it('becomes a real download once a résumé is stored', () => {
+      useAbout.mockReturnValue({ data: { availableForWork: true, hasResume: true } });
+      mockMatchMedia(false);
+      render(withMotion(<HeroSection />));
+
+      expect(cv()).toHaveAttribute('href', '/api/resume');
+      expect(cv()).toHaveAttribute('download');
+      expect(cv()).not.toHaveAttribute('title');
+    });
+
+    it('stays inert and explains itself when there is none', () => {
+      useAbout.mockReturnValue({ data: { availableForWork: true, hasResume: false } });
+      mockMatchMedia(false);
+      render(withMotion(<HeroSection />));
+
+      expect(cv()).toHaveAttribute('href', '#contact');
+      // ⚠️ `download` must be ABSENT here, not merely falsy — left on an inert
+      // `#contact` href the browser tries to download the page itself.
+      expect(cv()).not.toHaveAttribute('download');
+      expect(cv()).toHaveAttribute('title', expect.stringMatching(/admin panel/i));
+    });
+
+    it('matches what Contact renders, which is the bug that existed', () => {
+      useAbout.mockReturnValue({ data: { availableForWork: true, hasResume: true } });
+      mockMatchMedia(false);
+      render(withMotion(<HeroSection />));
+
+      // Both CV controls read the same helper now, so they cannot disagree.
+      expect(cv().getAttribute('href')).toBe(cvAnchorProps(true).href);
+    });
   });
 
   it('renders the portrait with its alt text and the marquee strip', () => {
@@ -577,5 +632,113 @@ describe('PF-91 SCROLL label contrast', () => {
     const d = declsOf(":global(html[data-theme='dark']) .scrollLabel");
     expect(d).not.toBeNull();
     expect(d.color).toBe('var(--muted)');
+  });
+});
+
+// ── availability, two states — owner decision 2026-09-16 ─────────────
+describe('availability badge', () => {
+  const badgeOf = () => screen.getByText(/OPEN TO OPPORTUNITIES|CURRENTLY BUILDING/).parentElement;
+  // Vitest scopes CSS-module classes as `_badge_f5cf21`; global carriers
+  // (`kf-dot`) come through unscoped. Unwrap the former, keep the latter.
+  const localName = (t) => /^_(.+)_[^_]+$/.exec(t)?.[1] ?? t;
+  const names = (el) => [...el.classList].map(localName);
+  // Declarations of one rule, as a name → value map, comments stripped.
+  const decls = (selector) => Object.fromEntries(
+    ruleBody(selector).replace(/\/\*[\s\S]*?\*\//g, '').split('\n')
+      .map((l) => l.trim()).filter((l) => l.includes(':'))
+      .map((l) => { const i = l.indexOf(':'); return [l.slice(0, i).trim(), l.slice(i + 1).replace(/;$/, '').trim()]; }),
+  );
+
+  // ⚠️ Vitest does not resolve `composes`, so the DOM never carries the
+  // `kf-` carrier classes here and a "no kf- class on the OFF badge"
+  // assertion would pass vacuously. The DOM tests pin WHICH module class
+  // each state uses; the parsed-CSS test below pins that the OFF classes
+  // compose nothing — together they are the guard.
+  it('ON: the prototype badge and its classes', () => {
+    render(withMotion(<HeroSection />));
+    const badge = badgeOf();
+    expect(badge.textContent).toContain('OPEN TO OPPORTUNITIES');
+    expect(names(badge)).toContain('badge');
+    expect(names(badge.querySelector('span[aria-hidden]'))).toContain('badgeDot');
+  });
+
+  it('OFF: CURRENTLY BUILDING on the neutral classes, the ON classes gone', () => {
+    useAbout.mockReturnValue({ data: { availableForWork: false } });
+    render(withMotion(<HeroSection />));
+    const badge = badgeOf();
+    expect(badge.textContent).toContain('CURRENTLY BUILDING');
+    expect(screen.queryByText('OPEN TO OPPORTUNITIES')).toBeNull();
+    expect(names(badge)).toContain('badgeOff');
+    expect(names(badge)).not.toContain('badge');
+    const dot = badge.querySelector('span[aria-hidden]');
+    expect(names(dot)).toContain('badgeDotOff');
+    expect(names(dot)).not.toContain('badgeDot');
+  });
+
+  it('defaults to ON while the About document is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    render(withMotion(<HeroSection />));
+    expect(screen.getByText('OPEN TO OPPORTUNITIES')).toBeInTheDocument();
+  });
+
+  it('the OFF variants declare no transition, no animation and no composes', () => {
+    for (const cls of ['badgeOff', 'badgeDotOff', 'badgeTextOff']) {
+      const d = decls(`.${cls}`);
+      expect(Object.keys(d).filter((k) => k.startsWith('animation') || k === 'transition' || k === 'composes')).toEqual([]);
+    }
+    expect(decls('.badgeDotOff').background).toBe('var(--muted)');
+    // and the ON badge still carries its carrier — the control
+    expect(decls('.badge').composes).toBe('kf-glowpulse from global');
+  });
+});
+
+// ── PF-118 — the intro paragraph is the panel's "Hero intro" ────────────────
+describe('hero intro (PF-118)', () => {
+  const FALLBACK = /^I’m a Computer Science undergraduate and Full-Stack Developer passionate about building modern, scalable web applications\.$/;
+  const introP = () => screen.getByText(/Computer Science|A different intro/, { selector: 'p' });
+
+  it('renders the stored intro', () => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, heroIntro: 'A different intro.' } });
+    render(withMotion(<HeroSection />));
+    expect(introP().textContent).toBe('A different intro.');
+  });
+
+  it('a blank intro falls back to the built-in sentence', () => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, heroIntro: '' } });
+    render(withMotion(<HeroSection />));
+    expect(introP().textContent).toMatch(FALLBACK);
+  });
+
+  it('renders the built-in sentence while loading — one space, no source line-break artefacts', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    render(withMotion(<HeroSection />));
+    expect(introP().textContent).toMatch(FALLBACK);
+  });
+});
+
+describe('hero image source (owner, 2026-10-14)', () => {
+  beforeEach(() => mockMatchMedia(false));
+  const img = () => screen.getByAltText('Portrait of Parindra Gallage');
+
+  it('shows an uploaded cut-out', () => {
+    const url = 'https://res.cloudinary.com/demo/image/upload/f_auto,q_auto/v1/portfolio/hero/me.png';
+    useAbout.mockReturnValue({ data: { availableForWork: true, heroImage: { url } } });
+    render(withMotion(<HeroSection />));
+    expect(img().getAttribute('src')).toBe(url);
+  });
+
+  it.each([
+    ['an empty url', { heroImage: { url: '' } }],
+    ['no heroImage field', {}],
+  ])('falls back to the bundled WebP cut-out on %s', (_label, extra) => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, ...extra } });
+    render(withMotion(<HeroSection />));
+    expect(img().getAttribute('src')).toMatch(/hero-ai\.webp$/);
+  });
+
+  it('falls back while About is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    render(withMotion(<HeroSection />));
+    expect(img().getAttribute('src')).toMatch(/hero-ai\.webp$/);
   });
 });

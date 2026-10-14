@@ -8,13 +8,14 @@ const skillSchema = new mongoose.Schema(
       trim:     true,
       unique:   true,     // No duplicate skill names
     },
+    // PF-114 — the KEY of a SkillCategory (an owner-managed section). No enum
+    // any more: the list lives in the database. ⚠️ Existence is checked in
+    // skillController on every API write (an async schema validator would also
+    // run on every test fixture and seed insert, which write trusted keys).
     category: {
       type:     String,
       required: [true, 'Skill category is required'],
-      enum: {
-        values:  ['language', 'frontend', 'backend', 'database', 'devops', 'other'],
-        message: '{VALUE} is not a valid category',
-      },
+      trim:     true,
     },
     level: {
       type:     String,

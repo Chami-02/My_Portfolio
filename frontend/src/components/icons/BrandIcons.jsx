@@ -66,6 +66,48 @@ export function GitHubIcon({ size = 16, className }) {
   );
 }
 
+/**
+ * X, formerly Twitter — the current mark, on the field still called `twitter`.
+ *
+ * ⚠️ PF-112, owner decision: the GLYPH is X's, the visible LABEL stays
+ * "Twitter", and `About.social.twitter` keeps its name. Renaming the field and
+ * the copy to match the rebrand would touch the schema, the seed, the admin
+ * form and three tests to change nothing a visitor can see; the mark is the only
+ * part anyone recognises.
+ *
+ * ⚠️ There was NO Twitter icon in this repo until now, which is why the field
+ * has been fillable since PF-60 and has never been renderable. Adding the
+ * schema key without the glyph is what made that invisible.
+ */
+export function TwitterIcon({ size = 16, className }) {
+  return (
+    <svg {...base(size)} className={className} viewBox="0 0 16 16">
+      <path d="M12.6 1.5h2.454l-5.36 6.126L16 14.5h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.556L0 1.5h5.063l3.495 4.633L12.6 1.5Zm-.86 11.52h1.36L4.323 2.9H2.865l8.875 10.12Z" />
+    </svg>
+  );
+}
+
+/**
+ * A generic chain link — the fallback for a CUSTOM social row (PF-112).
+ *
+ * ⚠️ Deliberately NOT a per-platform guessing game. The owner can name a custom
+ * link anything, so a brand-matching map would be an open-ended list that is
+ * always one platform behind, and worse, could pair a name with the WRONG mark.
+ * One neutral glyph is honest at any size of that list, and the row's own text
+ * label is what identifies it.
+ *
+ * This is also the reason the key→icon map below falls back rather than
+ * returning undefined: an unknown key must render a glyph, not nothing.
+ */
+export function LinkIcon({ size = 16, className }) {
+  return (
+    <svg {...base(size)} className={className} viewBox="0 0 16 16">
+      <path d="M6.354 5.5H4a3 3 0 0 0 0 6h3a3 3 0 0 0 2.83-4H8.9a2 2 0 0 1-1.9 3H4a2 2 0 0 1 0-4h1.535c.218-.376.495-.714.82-1z" />
+      <path d="M9 5.5a3 3 0 0 0-2.83 4h1.93a2 2 0 0 1 1.9-3h3a2 2 0 0 1 0 4h-1.535a4.02 4.02 0 0 1-.82 1H12a3 3 0 0 0 0-6H9z" />
+    </svg>
+  );
+}
+
 /** LinkedIn's official "in" mark. */
 export function LinkedInIcon({ size = 16, className }) {
   return (
@@ -151,6 +193,24 @@ export function EyeIcon({ size = 16, className }) {
   return (
     <svg {...base(size)} className={className} viewBox="0 0 24 24">
       <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
+    </svg>
+  );
+}
+
+
+/**
+ * An eye struck through — Material Design's `visibility_off`, public domain,
+ * EyeIcon's partner. The login form's show/hide-password toggle (owner,
+ * 2026-10-14) shows EyeIcon while the password is hidden ("show it") and this
+ * while it is visible ("hide it").
+ *
+ * ⚠️ Like SearchIcon / CloseIcon, the glyph IS the button's entire content —
+ * so it stays `aria-hidden` and the BUTTON carries the accessible name.
+ */
+export function EyeOffIcon({ size = 16, className }) {
+  return (
+    <svg {...base(size)} className={className} viewBox="0 0 24 24">
+      <path d="M12 7a5 5 0 0 1 5 5c0 .65-.13 1.26-.36 1.83l2.92 2.92A11.8 11.8 0 0 0 23 12c-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.8 11.8 0 0 0 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55A2.8 2.8 0 0 0 9 12a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55A4.97 4.97 0 0 1 12 17a5 5 0 0 1-5-5c0-.79.2-1.53.53-2.2zm4.31-.78 3.15 3.15.02-.16a3 3 0 0 0-3-3l-.17.01z" />
     </svg>
   );
 }

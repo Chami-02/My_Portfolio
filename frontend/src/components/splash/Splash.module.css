@@ -21,9 +21,10 @@
  * GrainOverlay (per-theme inline opacity).
  *
  * The six keyframes used below — pulsering, spin, orbdot, breathe,
- * riseIn, flicker — all live in styles/keyframes/base.css from PF-69,
- * each defined exactly once. None is a per-screen flt/drift/sheen
- * variant, so there is no -portfolio suffix to remember here.
+ * flicker in styles/keyframes/base.css from PF-69, and riseIn-portfolio
+ * in keyframes/portfolio.css. ⚠️ riseIn IS a per-screen variant since
+ * PF-109 (the prototypes disagree: 16px here, 22 Blog, 18 Admin), so
+ * the -portfolio suffix is load-bearing on those two rules.
  * (`scanline` was a seventh until the travelling lines were removed —
  * see the note further down. The keyframe itself is still in base.css.)
  *
@@ -292,7 +293,7 @@
 }
 
 .name {
-  composes: kf-riseIn from global;
+  composes: kf-riseIn-portfolio from global;
   font-family: var(--font-display);
   font-size: clamp(26px, 5vw, 54px);
   line-height: 1;
@@ -313,7 +314,7 @@
 }
 
 .role {
-  composes: kf-riseIn from global;
+  composes: kf-riseIn-portfolio from global;
   font-family: var(--font-mono);
   font-size: clamp(9.5px, 1.2vw, 11.5px);
   letter-spacing: .42em;

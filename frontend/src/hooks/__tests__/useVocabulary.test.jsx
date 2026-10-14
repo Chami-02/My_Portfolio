@@ -31,6 +31,7 @@ vi.mock('../../services/vocabularyService', () => ({ vocabularyService }));
 
 const { useCreateVocabulary, useDeleteVocabulary, vocabKey } = await import('../useVocabulary');
 const { BLOG_KEY, BLOG_ADMIN_KEY } = await import('../useBlog');
+const { PROJECTS_KEY } = await import('../useProjects');
 
 let client;
 let invalidated;
@@ -71,6 +72,7 @@ describe('useDeleteVocabulary — the cascade contract', () => {
     // the public site keep rendering a tag the server just deleted.
     expect(keys).toContain(JSON.stringify(BLOG_KEY));
     expect(keys).toContain(JSON.stringify(BLOG_ADMIN_KEY));
+    expect(keys).not.toContain(JSON.stringify(PROJECTS_KEY));
   });
 
   it('passes the id straight through to the service', async () => {
@@ -82,10 +84,10 @@ describe('useDeleteVocabulary — the cascade contract', () => {
     expect(vocabularyService.remove).toHaveBeenCalledWith('tag', 'chip-42');
   });
 
-  // `tech` cascades onto Projects, not Blog. Invalidating the blog keys
-  // there would be wrong, and wiring the project keys for a caller that
-  // does not exist yet is how an untested branch ships.
-  it('does not invalidate blog caches for a tech deletion', async () => {
+  // `tech` cascades onto Projects, not Blog (PF-113 gave it its first caller,
+  // the Projects panel's picker). Both halves are pinned: the project list
+  // refreshes, and the blog — which the server did not touch — does not.
+  it('invalidates projects, not blog caches, for a tech deletion', async () => {
     vocabularyService.remove.mockResolvedValue({ deleted: 'Redis', strippedFrom: 1 });
 
     const { result } = renderHook(() => useDeleteVocabulary('tech'), { wrapper });
@@ -95,6 +97,9 @@ describe('useDeleteVocabulary — the cascade contract', () => {
 
     const keys = invalidatedKeys();
     expect(keys).toContain(JSON.stringify(vocabKey('tech')));
+    // Without this the admin list and the public cards keep showing a tech
+    // the server just stripped from every project.
+    expect(keys).toContain(JSON.stringify(PROJECTS_KEY));
     expect(keys).not.toContain(JSON.stringify(BLOG_KEY));
     expect(keys).not.toContain(JSON.stringify(BLOG_ADMIN_KEY));
   });

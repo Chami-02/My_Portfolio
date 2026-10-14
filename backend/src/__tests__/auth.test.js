@@ -2,6 +2,7 @@ const request = require('supertest');
 const jwt     = require('jsonwebtoken');
 const app     = require('../app');
 const User    = require('../models/User');
+const { issueSession } = require('../services/sessionService');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 
 beforeAll(connectTestDB);
@@ -15,17 +16,34 @@ describe('POST /api/auth/login', () => {
     await User.create(ADMIN);
   });
 
-  it('returns a JWT token on successful login', async () => {
+  it('returns an access token and a refresh token on successful login', async () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send(ADMIN);
 
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('success');
-    expect(res.body.token).toBeDefined();
-    expect(typeof res.body.token).toBe('string');
-    // JWT is 3 dot-separated base64 parts
-    expect(res.body.token.split('.').length).toBe(3);
+    // The access token is a JWT: 3 dot-separated base64 parts
+    expect(typeof res.body.accessToken).toBe('string');
+    expect(res.body.accessToken.split('.').length).toBe(3);
+    // The refresh token is opaque — 32 random bytes, base64url
+    expect(typeof res.body.refreshToken).toBe('string');
+    expect(res.body.refreshToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    // PF-108: the pre-PF-108 bare `token` is gone, not merely joined
+    expect(res.body.token).toBeUndefined();
+  });
+
+  it('tells the client when each token expires, as ISO dates in the future', async () => {
+    const before = Date.now();
+    const res = await request(app).post('/api/auth/login').send(ADMIN);
+
+    const access  = Date.parse(res.body.accessExpiresAt);
+    const refresh = Date.parse(res.body.refreshExpiresAt);
+    expect(Number.isNaN(access)).toBe(false);
+    expect(Number.isNaN(refresh)).toBe(false);
+    expect(access).toBeGreaterThan(before);
+    // The refresh token must outlive the access token, or refresh is pointless
+    expect(refresh).toBeGreaterThan(access);
   });
 
   it('returns user data (without password) on login', async () => {
@@ -76,12 +94,12 @@ describe('GET /api/auth/me', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns user data with a valid token', async () => {
+  it('returns user data and the session expiry with a valid token', async () => {
     await User.create(ADMIN);
     const loginRes = await request(app)
       .post('/api/auth/login')
       .send(ADMIN);
-    const token = loginRes.body.token;
+    const token = loginRes.body.accessToken;
 
     const meRes = await request(app)
       .get('/api/auth/me')
@@ -89,16 +107,19 @@ describe('GET /api/auth/me', () => {
 
     expect(meRes.status).toBe(200);
     expect(meRes.body.data.email).toBe(ADMIN.email);
+    // The client cannot read `exp` out of a token it treats as opaque, so
+    // /me reports it — and it must be the SAME instant login reported.
+    expect(meRes.body.sessionExpiresAt).toBe(loginRes.body.accessExpiresAt);
   });
 
   it('returns 401 when the token user no longer exists', async () => {
     const user = await User.create(ADMIN);
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const { accessToken } = await issueSession(user);
     await User.deleteOne({ _id: user._id });
 
     const res = await request(app)
       .get('/api/auth/me')
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${accessToken}`);
 
     expect(res.status).toBe(401);
     expect(res.body.message).toMatch(/no longer exists/i);
@@ -106,7 +127,11 @@ describe('GET /api/auth/me', () => {
 
   it('returns 401 when the token is expired', async () => {
     const user = await User.create(ADMIN);
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '-1s' });
+    const token = jwt.sign(
+      { id: user._id, fam: 'any' },
+      process.env.JWT_SECRET,
+      { expiresIn: '-1s' }
+    );
 
     const res = await request(app)
       .get('/api/auth/me')
@@ -114,5 +139,20 @@ describe('GET /api/auth/me', () => {
 
     expect(res.status).toBe(401);
     expect(res.body.message).toMatch(/expired/i);
+  });
+
+  // PF-108: a token in the pre-PF-108 shape — correctly signed, unexpired,
+  // but naming no session family — must be refused. Otherwise a 7-day token
+  // issued before the change would keep working for a week after it.
+  it('returns 401 for a correctly signed token that names no session', async () => {
+    const user = await User.create(ADMIN);
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toMatch(/session has ended/i);
   });
 });

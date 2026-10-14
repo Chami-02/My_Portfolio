@@ -372,6 +372,36 @@
   color: var(--ok);
 }
 
+/* ── OFF state — owner decision 2026-09-16 ─────────────────────────────
+   About.availableForWork false. No prototype source. .availability's box
+   on the neutral pair (rgba(--gnd,.4) / rgba(--ln,.18)); the dot composes
+   NO carrier so it stops outright; the label is var(--muted) and carries
+   no [data-ok]. No `transition`: the brand column is Reveal-wrapped. */
+.availabilityOff {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .18);
+  background: rgba(var(--gnd), .4);
+  justify-self: start;
+}
+
+.availabilityDotOff {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.availabilityLabelOff {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+
 /* ── Columns 2 and 3 — NAVIGATE / ELSEWHERE ───────────────────────── */
 
 .column {

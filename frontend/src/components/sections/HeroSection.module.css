@@ -10,15 +10,13 @@
  * silently does not animate. See styles/animations.css.
  */
 
-/* `section.hero`, not `.hero`, and the element qualifier is the whole
-   point. Phase 1's global.css:338 carries `[id] { scroll-margin-top:
-   5rem }` — specificity (0,1,0), identical to a bare class, so the tie
-   breaks on stylesheet order and the global rule wins. The anchor jump
-   then clears 80px for a 71px header and lands the badge 9px low: a
-   wrong-by-a-little value, on screen, with nothing in this file looking
-   wrong. Adding the element name makes it (0,1,1) and settles it
-   outright. Every section from PF-81 on needs the same treatment until
-   global.css is trimmed at cutover. */
+/* `section.hero`, not `.hero`. Historical: Phase 1's global.css:338
+   carried `[id] { scroll-margin-top: 5rem }` at specificity (0,1,0),
+   identical to a bare class, so the global rule won on stylesheet order
+   and the anchor jump landed the badge 9px low. The element qualifier made
+   it (0,1,1). That global rule went in PF-89 and global.css is Tailwind's
+   entry point only since PF-116, so the qualifier is now harmless rather
+   than load-bearing. */
 section.hero {
   position: relative;
   min-height: 100vh;
@@ -98,6 +96,40 @@ section.hero {
   letter-spacing: .16em;
   color: var(--acc, #FCA311);
   text-shadow: 0 0 14px rgba(252, 163, 17, .7);
+}
+
+/* ── badge, OFF state — owner decision 2026-09-16 ─────────────────────
+   Rendered when About.availableForWork is false (the admin toggle). No
+   prototype source: the design has only the available state. The box
+   is .badge's, with every accent replaced by the neutral pair the admin
+   layer uses (rgba(--gnd,.4) / rgba(--ln,.18)) so it flips with the
+   theme, and NO `composes` — .badge carries kf-glowpulse and .badgeDot
+   carries kf-dot, and the off variants must not, so that the animation
+   stops completely rather than pausing. No `transition`: the badge is
+   Reveal-wrapped. */
+.badgeOff {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid rgba(var(--ln), .18);
+  background: rgba(var(--gnd), .4);
+  border-radius: 999px;
+  padding: 8px 16px;
+  margin-bottom: 26px;
+}
+
+.badgeDotOff {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.badgeTextOff {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .16em;
+  color: var(--muted);
 }
 
 /* ── eyebrow + heading ────────────────────────────────────────────── */
@@ -432,7 +464,7 @@ section.hero {
      Owner-requested, 2026-08-17. Not in the prototype, which paints the
      PNG as-is.
 
-     hero-ai.png is an egg-shaped cutout on transparency: the sky and the
+     hero-ai.webp is an egg-shaped cutout on transparency: the sky and the
      decorative arcs stop at a hard rim, and the turtleneck is cut flat
      by the bottom of the frame. Both edges read as cut-out rather than
      composited, which is what this softens.

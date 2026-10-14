@@ -101,6 +101,50 @@ describe('storage.upload', () => {
       .rejects.toThrow('Cloudinary returned no result');
   });
 
+  // ── PF-113 batch 2: optimise at DELIVERY, not at upload ────────────────
+  // Measured on the real account: upload-time quality/fetch_format STORED a
+  // 2.88 MB PNG as 3.97 MB and served that PNG to everyone; f_auto,q_auto in
+  // the delivery URL served a 1.19 MB WebP.
+  const IMAGE_RESULT = {
+    secure_url: 'https://res.cloudinary.com/demo/image/upload/v1/portfolio/projects/bg.png',
+    public_id:  'portfolio/projects/bg', bytes: 2048, format: 'png', width: 1200, height: 800,
+  };
+
+  it('gives an image a delivery URL carrying f_auto,q_auto', async () => {
+    mockStream(null, IMAGE_RESULT);
+
+    const out = await storage.upload(BUF, { resourceType: 'image' });
+
+    expect(out.url).toBe(
+      'https://res.cloudinary.com/demo/image/upload/f_auto,q_auto/v1/portfolio/projects/bg.png');
+  });
+
+  it('sends NO quality or fetch_format at upload — they inflated the stored file', async () => {
+    mockStream(null, IMAGE_RESULT);
+
+    await storage.upload(BUF, { resourceType: 'image', folder: 'portfolio/projects' });
+
+    expect(mockStream.lastOpts).toEqual({ resource_type: 'image', folder: 'portfolio/projects' });
+  });
+
+  it('leaves a PDF URL untouched — it must be served as the bytes uploaded', async () => {
+    mockStream(null, CLOUDINARY_RESULT);
+
+    const out = await storage.upload(BUF, { resourceType: 'raw' });
+
+    expect(out.url).toBe(CLOUDINARY_RESULT.secure_url);
+    expect(out.url).not.toMatch(/f_auto/);
+  });
+
+  it('never inserts the transformation twice', async () => {
+    mockStream(null, { ...IMAGE_RESULT,
+      secure_url: 'https://res.cloudinary.com/demo/image/upload/f_auto,q_auto/v1/x.png' });
+
+    const out = await storage.upload(BUF);
+
+    expect(out.url.match(/f_auto,q_auto/g)).toHaveLength(1);
+  });
+
   it('falls back to an empty string when format is absent', async () => {
     mockStream(null, { ...CLOUDINARY_RESULT, format: undefined });
 

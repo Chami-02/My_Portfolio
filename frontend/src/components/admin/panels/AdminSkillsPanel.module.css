@@ -1,0 +1,295 @@
+/* PF-114 — the Skills panel. Admin.dc.html:307-360, transcribed.
+ *
+ * Everything shared (panel, fields, buttons, chip, badges, banners) composes
+ * from admin.module.css; what is here is what only this panel has — plus the
+ * editing controls the prototype never had (position row, save row). */
+
+/* The form card's head row: title, spacer, CANCEL EDIT. A LOCAL title, as
+ * AdminProjectsPanel.module.css explains: `.panelTitle`'s 20px bottom margin
+ * pushes the baseline of a title sitting in a flex row. */
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--strong);
+}
+
+/* Same control as Projects' CANCEL EDIT (Admin.dc.html:206). */
+.cancelEdit {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+  background: none;
+  border: 1px solid rgba(var(--ln), .18);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+
+.cancelEdit:hover {
+  color: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+/* Admin.dc.html:312 — `display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end`. */
+.fieldRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+/* The three flex shares, :313 / :317 / :328. */
+.nameField     { flex: 2 1 220px; min-width: 0; }
+.categoryField { flex: 1 1 160px; min-width: 0; }
+.levelField    { flex: 1 1 150px; min-width: 0; }
+
+/* :336 — `flex:none`. */
+.addButton {
+  flex: none;
+}
+
+/* ── Editing only — no prototype source ───────────────────────────────────── */
+
+.positionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* `.label` carries a bottom margin for its stacked-above-an-input role.
+ * (0,2,0), so it wins on specificity, never on stylesheet emission order. */
+.positionRow .positionLabel {
+  margin-bottom: 0;
+}
+
+.positionControls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.positionNote {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.saveRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.unsaved {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--acc, #FCA311);
+}
+
+/* ── The list card ────────────────────────────────────────────────────────── */
+
+/* :341 — `margin:0 0 20px;font-size:15px;font-weight:700`. */
+.listTitle {
+  margin: 0 0 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--strong);
+}
+
+/* :342 — `display:grid;gap:22px`. */
+.groups {
+  display: grid;
+  gap: 22px;
+}
+
+/* :345 — the category caption. An h3 here (it heads a group of controls),
+ * so the UA's heading weight is reset to the prototype's plain mono. */
+.groupLabel {
+  margin: 0 0 11px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted2);
+}
+
+/* :346 — `display:flex;flex-wrap:wrap;gap:9px`. A list, so it is reset. */
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The chip's body as a button: inherits the chip's type, adds nothing of its
+ * own, so the chip looks exactly as the prototype's <span> did. */
+.chipEdit {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The chip being edited — the accent border the chip otherwise shows only on
+ * hover, held. */
+.chipActive {
+  border-color: var(--acc, #FCA311);
+}
+
+/* The one-line explanation under a list card's title. No prototype source. */
+.cardNote {
+  margin: -12px 0 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ── Drag-and-drop (PF-114, owner 2026-10-05) — no prototype source ───────── */
+
+/* Every box is a drop target, so it keeps a padded, faintly-bordered area
+ * even when empty — a target nobody can see cannot be aimed at. */
+.dropBox {
+  min-height: 44px;
+  padding: 6px;
+  margin: -6px;
+  border-radius: 14px;
+  border: 1px dashed transparent;
+  transition: border-color .2s, background-color .2s;
+}
+
+.dropBoxActive {
+  border-color: var(--acc, #FCA311);
+  /* ⚠️ There is no accent channel triplet (only srf/ln/gnd/ftr/shd), and an
+     unknown var() drops the whole declaration silently — so mix the token. */
+  background: color-mix(in srgb, var(--acc, #FCA311) 7%, transparent);
+}
+
+li[draggable='true'] {
+  cursor: grab;
+}
+
+.chipDragging {
+  opacity: .4;
+}
+
+/* Where the pill will land — an accent bar on the near side of the
+ * neighbour, drawn as a shadow so the chip's own box does not move. */
+.dropBefore { box-shadow: -4px 0 0 -1px var(--acc, #FCA311); }
+.dropAfter  { box-shadow:  4px 0 0 -1px var(--acc, #FCA311); }
+
+.emptyBox {
+  align-self: center;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.orderBar {
+  margin-top: 20px;
+}
+
+/* The chip's edit button while an order is unsaved. */
+.chipEdit:disabled {
+  cursor: grab;
+}
+
+/* ── The Sections card (PF-114) ───────────────────────────────────────────── */
+
+.sectionList {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.sectionRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sectionArrows {
+  display: inline-flex;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.sectionName {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.sectionCount {
+  padding-top: 13px;
+  min-width: 72px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+/* ⚠️ margin, at (0,2,0) — NOT padding. The shared `.btnIcon` declares
+ * `padding: 0 0 0 3px` at (0,1,0); a `.sectionDelete { padding-top }` ties it
+ * and the winner is decided by stylesheet EMISSION order, which put the ×
+ * 13px above the row's centre line. Nothing else sets margin-top. */
+.sectionRow .sectionDelete {
+  margin-top: 11px;
+  font-size: 18px;
+}
+
+.addSection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-end;
+  padding-top: 18px;
+  border-top: 1px solid rgba(var(--ln), .1);
+}
+
+/* Visually hidden, still in the accessibility tree — a section row's input
+ * label. Declared locally, as ViewCount.module.css explains. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── PF-91's contrast substitution, APPLIED not re-decided ────────────────── */
+/* `--muted2` and `--faint` on a tinted surface fail AA in dark; the site-wide
+ * fix substitutes `--muted`. Dark-scoped at (0,2,1), winning on specificity
+ * rather than emission order — the AdminProjectsPanel shape. `.chipLevel`
+ * rides on the shared `.chipMeta`, so no other consumer of it moves. */
+:global(html[data-theme='dark']) .groupLabel,
+:global(html[data-theme='dark']) .chipLevel { color: var(--muted); }

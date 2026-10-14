@@ -523,7 +523,7 @@ describe('BlogPostPage.module.css', () => {
     // it as running — `el.getAnimations().length === 0` is the only
     // runtime tell — so this is asserted at the source instead.
     const article = decls('.article');
-    expect(article.composes).toBe('kf-riseIn from global');
+    expect(article.composes).toBe('kf-riseIn-blog from global');
     expect(article['animation-name']).toBeUndefined();
     // Longhands, never the shorthand: `animation:` resets animation-name
     // to `none` and undoes the composed class.

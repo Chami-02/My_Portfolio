@@ -11,6 +11,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { waitFor } from '@testing-library/react';
+import { renderWithGuard } from '../../../../test/renderWithGuard';
 
 // vi.mock over the hooks module, not a QueryClientProvider: the panel's
 // data layer is not what is under test, and Vite's SSR transform makes
@@ -90,8 +92,20 @@ const dialog = () => within(screen.getByRole('dialog'));
 
 const openEditor = async (user) => {
   render(<AdminBlogPanel />);
-  await user.click(screen.getByRole('button', { name: 'Edit' }));
+  // PF-115: the row's EDIT is named for its post, `Edit <title>`.
+  await user.click(screen.getByRole('button', { name: `Edit ${POST.title}` }));
 };
+
+/**
+ * PF-115: SAVE is DIM until the form is dirty (the standing staging rule), so a
+ * test that saves an untouched post must first change something. A trailing
+ * space on the excerpt dirties the FORM while `formToPayload` trims it away —
+ * so the payload these tests inspect is exactly what an untouched save sent
+ * before the rule existed.
+ */
+const touch = (user) => user.type(screen.getByLabelText(/^Excerpt/), ' ');
+
+const saveChanges = () => screen.getByRole('button', { name: 'SAVE CHANGES' });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -154,7 +168,7 @@ describe('AdminBlogPanel — editing sections', () => {
     await openEditor(user);
 
     expect(screen.getAllByLabelText(/^Heading/)).toHaveLength(2);
-    await user.click(screen.getByRole('button', { name: '+ Add Section' }));
+    await user.click(screen.getByRole('button', { name: '+ ADD SECTION' }));
     expect(screen.getAllByLabelText(/^Heading/)).toHaveLength(3);
   });
 
@@ -174,7 +188,7 @@ describe('AdminBlogPanel — editing sections', () => {
 
     // Section 02 starts with no paragraphs — bullets only.
     const before = screen.getAllByPlaceholderText(/^Paragraph/).length;
-    await user.click(screen.getAllByRole('button', { name: '+ Add paragraph' })[1]);
+    await user.click(screen.getAllByRole('button', { name: '+ ADD PARAGRAPH' })[1]);
 
     expect(screen.getAllByPlaceholderText(/^Paragraph/)).toHaveLength(before + 1);
     // The first section's own paragraph is untouched — the shared-array bug
@@ -187,7 +201,7 @@ describe('AdminBlogPanel — editing sections', () => {
     await openEditor(user);
 
     await user.click(screen.getByRole('button', { name: 'Move section 01 down' }));
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await user.click(saveChanges());
 
     const { data } = updateMutation.mutateAsync.mock.calls[0][0];
     expect(data.sections.map((s) => s.heading)).toEqual(['Planning', 'Introduction']);
@@ -208,7 +222,8 @@ describe('AdminBlogPanel — what the save actually sends', () => {
     const user = userEvent.setup();
     await openEditor(user);
 
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await touch(user);
+    await user.click(saveChanges());
 
     expect(updateMutation.mutateAsync).toHaveBeenCalledTimes(1);
     const { id, data } = updateMutation.mutateAsync.mock.calls[0][0];
@@ -228,7 +243,8 @@ describe('AdminBlogPanel — what the save actually sends', () => {
     async (field) => {
       const user = userEvent.setup();
       await openEditor(user);
-      await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+      await touch(user);
+      await user.click(saveChanges());
 
       expect(updateMutation.mutateAsync.mock.calls[0][0].data).not.toHaveProperty(field);
     },
@@ -238,7 +254,8 @@ describe('AdminBlogPanel — what the save actually sends', () => {
   it('sends null for the pin when the field is left blank', async () => {
     const user = userEvent.setup();
     await openEditor(user);
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await touch(user);
+    await user.click(saveChanges());
 
     expect(updateMutation.mutateAsync.mock.calls[0][0].data.readingTimeOverride).toBeNull();
   });
@@ -247,7 +264,7 @@ describe('AdminBlogPanel — what the save actually sends', () => {
     const user = userEvent.setup();
     await openEditor(user);
     await user.type(screen.getByLabelText(/Reading time override/i), '8');
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await user.click(saveChanges());
 
     expect(updateMutation.mutateAsync.mock.calls[0][0].data.readingTimeOverride).toBe(8);
   });
@@ -280,8 +297,8 @@ describe('AdminBlogPanel — what the save actually sends', () => {
     const submits = [...form.querySelectorAll('button')]
       .filter((b) => (b.getAttribute('type') ?? 'submit') === 'submit');
 
-    // Exactly one: Save Changes. Anything else here submits on click.
-    expect(submits.map((b) => b.textContent)).toEqual(['Save Changes']);
+    // Exactly one: SAVE CHANGES. Anything else here submits on click.
+    expect(submits.map((b) => b.textContent)).toEqual(['SAVE CHANGES']);
   });
 });
 
@@ -294,7 +311,8 @@ describe('AdminBlogPanel — failures are visible', () => {
 
     const user = userEvent.setup();
     await openEditor(user);
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await touch(user);
+    await user.click(saveChanges());
 
     expect(await screen.findByText(/A post needs a body/)).toBeInTheDocument();
   });
@@ -306,7 +324,8 @@ describe('AdminBlogPanel — failures are visible', () => {
 
     const user = userEvent.setup();
     await openEditor(user);
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await touch(user);
+    await user.click(saveChanges());
 
     expect(await screen.findByText(/Cannot reach the server/)).toBeInTheDocument();
   });
@@ -317,12 +336,18 @@ describe('AdminBlogPanel — failures are visible', () => {
 
     // Empty section 01's only paragraph, leaving a heading with no body.
     await user.clear(screen.getByDisplayValue('I wanted my portfolio to do more.'));
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await user.click(saveChanges());
 
     expect(await screen.findByText('Section 01 needs at least one paragraph or bullet.')).toBeInTheDocument();
     expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
   });
 });
+
+// A locale date as a literal regex: EVERY special character escaped. The old
+// `/[/.]/` handled only `/` and `.` (CodeQL js/incomplete-sanitization) — a
+// locale writing dates with `-`, `(` or `+` would have built a pattern that
+// matched something else and still passed.
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
 
 describe('AdminBlogPanel — list view', () => {
 
@@ -334,8 +359,8 @@ describe('AdminBlogPanel — list view', () => {
     const expected = new Date(POST.publishedAt).toLocaleDateString();
     const notExpected = new Date(POST.createdAt).toLocaleDateString();
 
-    expect(screen.getByText(new RegExp(expected.replace(/[/.]/g, '\\$&')))).toBeInTheDocument();
-    expect(screen.queryByText(new RegExp(notExpected.replace(/[/.]/g, '\\$&')))).not.toBeInTheDocument();
+    expect(screen.getByText(new RegExp(escapeRegExp(expected)))).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(escapeRegExp(notExpected)))).not.toBeInTheDocument();
   });
 
   it('falls back to the insert stamp when a post has no publish date', async () => {
@@ -345,7 +370,7 @@ describe('AdminBlogPanel — list view', () => {
     render(<AdminBlogPanel />);
 
     const expected = new Date(POST.createdAt).toLocaleDateString();
-    expect(screen.getByText(new RegExp(expected.replace(/[/.]/g, '\\$&')))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(escapeRegExp(expected)))).toBeInTheDocument();
   });
 
   it('surfaces a failed publish toggle', async () => {
@@ -354,7 +379,7 @@ describe('AdminBlogPanel — list view', () => {
 
     const user = userEvent.setup();
     render(<AdminBlogPanel />);
-    await user.click(screen.getByRole('button', { name: 'Unpublish' }));
+    await user.click(screen.getByRole('button', { name: `Unpublish ${POST.title}` }));
 
     expect(await screen.findByText('Post not found')).toBeInTheDocument();
   });
@@ -410,7 +435,7 @@ describe('AdminBlogPanel — tag picker', () => {
     await openEditor(user);
 
     await user.click(chip('Docker'));
-    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await user.click(saveChanges());
 
     expect(updateMutation.mutateAsync.mock.calls[0][0].data.tags)
       .toEqual(['React', 'Node.js', 'Docker']);
@@ -490,7 +515,7 @@ describe('AdminBlogPanel — tag picker', () => {
       await user.click(chipRemove('Docker'));
 
       expect(await screen.findByText(/checking how many posts use it/i)).toBeInTheDocument();
-      expect(dialog().getByRole('button', { name: 'Yes, Remove' })).toBeDisabled();
+      expect(dialog().getByRole('button', { name: 'YES, REMOVE' })).toBeDisabled();
     });
 
     it('says so when the impact cannot be checked', async () => {
@@ -501,7 +526,7 @@ describe('AdminBlogPanel — tag picker', () => {
       await user.click(chipRemove('Docker'));
 
       expect(await screen.findByText(/safer to cancel/i)).toBeInTheDocument();
-      expect(dialog().getByRole('button', { name: 'Yes, Remove' })).toBeDisabled();
+      expect(dialog().getByRole('button', { name: 'YES, REMOVE' })).toBeDisabled();
     });
 
     it('reads naturally when exactly one post is affected', async () => {
@@ -535,7 +560,7 @@ describe('AdminBlogPanel — tag picker', () => {
       await openEditor(user);
 
       await user.click(chipRemove('Docker'));
-      await user.click(dialog().getByRole('button', { name: 'Cancel' }));
+      await user.click(dialog().getByRole('button', { name: 'CANCEL' }));
 
       expect(deleteVocabMutation.mutateAsync).not.toHaveBeenCalled();
     });
@@ -554,7 +579,7 @@ describe('AdminBlogPanel — tag picker', () => {
       expect(screen.getByLabelText(/^Tags/)).toHaveValue('React, Node.js');
 
       await user.click(chipRemove('React'));
-      await user.click(dialog().getByRole('button', { name: 'Yes, Remove' }));
+      await user.click(dialog().getByRole('button', { name: 'YES, REMOVE' }));
 
       expect(await screen.findByDisplayValue('Node.js')).toBeInTheDocument();
     });
@@ -573,7 +598,7 @@ describe('AdminBlogPanel — tag picker', () => {
       const user = userEvent.setup();
       await openEditor(user);
       await user.click(chipRemove('Docker'));
-      await user.click(dialog().getByRole('button', { name: 'Yes, Remove' }));
+      await user.click(dialog().getByRole('button', { name: 'YES, REMOVE' }));
 
       expect(deleteVocabMutation.mutateAsync).toHaveBeenCalledTimes(1);
       expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
@@ -585,7 +610,7 @@ describe('AdminBlogPanel — tag picker', () => {
       const user = userEvent.setup();
       await openEditor(user);
       await user.click(chipRemove('Docker'));
-      await user.click(dialog().getByRole('button', { name: 'Cancel' }));
+      await user.click(dialog().getByRole('button', { name: 'CANCEL' }));
 
       expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
       expect(screen.getByLabelText(/^Tags/)).toBeInTheDocument();
@@ -599,7 +624,7 @@ describe('AdminBlogPanel — tag picker', () => {
       const user = userEvent.setup();
       await openEditor(user);
       await user.click(chipRemove('Docker'));
-      await user.click(dialog().getByRole('button', { name: 'Yes, Remove' }));
+      await user.click(dialog().getByRole('button', { name: 'YES, REMOVE' }));
 
       expect(await screen.findByText(/No vocabulary item found/)).toBeInTheDocument();
     });
@@ -651,5 +676,493 @@ describe('per-post view counts', () => {
     expect(screen.queryByText(/views/)).toBeNull();
     // Control: the row itself still rendered.
     expect(screen.getByText(POST.title)).toBeInTheDocument();
+  });
+});
+
+/*
+ * ── The standing admin validation rule (owner, 2026-09-25) ──────────────────
+ *
+ * "when miss something if i try to save the save button should shake and say
+ *  check the changes again and pop up the text feild or somthing around the
+ *  missing field saying fill the missing values."
+ *
+ * ⚠️ TWO OF THESE COVER A DEFECT THAT WAS LIVE THE WHOLE TIME `formErrors` HAS
+ * EXISTED. `#post-title` and `#post-excerpt` carry `required`, and the <form>
+ * had no `noValidate` — so the browser's own bubble fired first and
+ * `handleSubmit` never ran. "Title is required." and "Excerpt is required."
+ * could not be reached from the UI by any route, while `blogForm.test.js`
+ * passed the whole time because a unit test calls the validator directly.
+ *
+ * That is the exact shape this file's header warns about: a green suite saying
+ * "alive" about code nothing reaches.
+ */
+describe('validation refuses the save (2026-09-25)', () => {
+  const save = () => screen.getByRole('button', { name: /Save Changes|Create Post/i });
+
+  it('turns the browser\'s own validation bubble off', async () => {
+    // Without this the two assertions below cannot pass in a real browser, no
+    // matter what the validator returns.
+    const user = userEvent.setup();
+    const { container } = render(<AdminBlogPanel />);
+    await user.click(screen.getByRole('button', { name: `Edit ${POST.title}` }));
+
+    expect(container.querySelector('form')).toHaveAttribute('novalidate');
+  });
+
+  it('refuses an empty title, marks the field, and sends nothing', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.click(save());
+
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('Title is required.')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Title/)).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('refuses an empty excerpt and marks THAT field, not the title', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Excerpt/));
+    await user.click(save());
+
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/^Excerpt/)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('counts the problems in the banner rather than listing them', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.clear(screen.getByLabelText(/^Excerpt/));
+    await user.click(save());
+
+    expect(screen.getByText(/CHECK THE CHANGES AGAIN — 2 fields need attention/i))
+      .toBeInTheDocument();
+  });
+
+  it('marks the RIGHT section when an empty one sits above the broken one', async () => {
+    /*
+     * ⚠️ THE TRAP THE FIELD PATHS EXIST FOR. `formToPayload` FILTERS OUT empty
+     * sections, so a validator numbering them from the payload closes the gaps
+     * up — and every mark after an empty section lands one card too high.
+     *
+     * Here: section 1 is fine, section 2 is added and left empty, section 3 has
+     * a paragraph but no heading. A payload-indexed validator calls the broken
+     * one `sections.1` and marks the EMPTY card instead.
+     */
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    // The fixture already has sections, so the two added ones are simply the
+    // last two — counted rather than assumed, so the test does not break the
+    // next time the fixture grows a section.
+    const before = screen.getAllByLabelText(/^Heading/).length;
+    await user.click(screen.getByRole('button', { name: /Add Section/i }));
+    await user.click(screen.getByRole('button', { name: /Add Section/i }));
+
+    const headings = screen.getAllByLabelText(/^Heading/);
+    expect(headings).toHaveLength(before + 2);
+
+    const emptyIdx  = before;       // left completely empty — dropped by the payload
+    const brokenIdx = before + 1;   // a paragraph, no heading — the real problem
+
+    // ⚠️ BY PLACEHOLDER, kept from before PF-115: until then the paragraph
+    // textareas had NO accessible name, so `getAllByLabelText(/paragraph 1$/i)`
+    // matched the "Remove paragraph 1" BUTTONS. PF-115 named them
+    // ("Section 03, paragraph 1") — pinned in the PF-115 block below.
+    const paragraphs = screen.getAllByPlaceholderText(/^Paragraph 1/);
+    await user.type(paragraphs[paragraphs.length - 1], 'Some body text.');
+
+    await user.click(save());
+
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText(`Section 0${brokenIdx + 1} needs a heading.`))
+      .toBeInTheDocument();
+    expect(headings[brokenIdx]).toHaveAttribute('aria-invalid', 'true');
+    // ⚠️ The assertion that actually catches payload-indexing: with the gap
+    // closed up, THIS is the card that would have been marked.
+    expect(headings[emptyIdx]).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('clears a mark as soon as the field is typed in', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.click(save());
+    expect(screen.getByLabelText(/^Title/)).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(screen.getByLabelText(/^Title/), 'A');
+
+    expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByText('Title is required.')).not.toBeInTheDocument();
+  });
+
+  it('saves once the problem is fixed', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.click(save());
+    await user.type(screen.getByLabelText(/^Title/), 'A real title');
+    await user.click(save());
+
+    expect(updateMutation.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ title: 'A real title' }) }),
+    );
+  });
+
+  it('shakes the button, and remounts it so a second refusal shakes again', async () => {
+    // Element identity, because `animationend` cannot be fired in jsdom at all
+    // — it defines no AnimationEvent constructor. See useFormGuard.test.jsx.
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.clear(screen.getByLabelText(/^Title/));
+    await user.click(save());
+    const first = save();
+    expect(first.className).toMatch(/shake/);
+
+    await user.click(save());
+    expect(save()).not.toBe(first);
+  });
+
+  it('keeps SERVER failures out of the field-level channel', async () => {
+    // ⚠️ A rejected request has no field to mark. Routing it through the guard
+    // would print "Cannot reach the server" under the title input and count it
+    // as a field needing attention.
+    updateMutation.mutateAsync.mockRejectedValueOnce(new Error('network down'));
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await user.type(screen.getByLabelText(/^Title/), '!');
+    await user.click(save());
+
+    expect(await screen.findByText(/Cannot reach the server/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByText(/CHECK THE CHANGES AGAIN/i)).not.toBeInTheDocument();
+  });
+});
+
+// ══ PF-115 — drafts, staging, and the list row's PUBLISH ══════════════════
+// Owner rules: a new post can be SAVED AS A DRAFT with only a title (2026-10-03);
+// SAVE is dim until something changed and REVERT restores the SAVED state
+// (2026-09-25); PUBLISH on an incomplete draft's row sends nothing and opens
+// the editor with the fields marked (2026-10-07).
+describe('PF-115 — drafts and staging', () => {
+  // A draft that would fail every publish rule: no excerpt, a heading-only
+  // section. Distinct from emptyForm() on purpose — REVERT must land HERE.
+  const DRAFT = {
+    _id: 'draft-1', title: 'Half Written Idea', slug: 'half-written-idea',
+    excerpt: '', tags: [], published: false, readingTimeMinutes: 1, views: 0,
+    publishedAt: null, createdAt: '2026-10-01T10:00:00.000Z',
+    sections: [{ heading: 'Outline', body: [], bullets: [] }],
+  };
+  const COMPLETE_DRAFT = { ...POST, _id: 'draft-2', title: 'Ready To Go', published: false };
+
+  const newPost = async (user) => {
+    render(<AdminBlogPanel />);
+    await user.click(screen.getByRole('button', { name: '+ NEW POST' }));
+  };
+
+  it('has no "Publish immediately" checkbox — the buttons decide (owner, 2026-10-07)', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Publish immediately/i)).not.toBeInTheDocument();
+  });
+
+  it('a new post offers CREATE POST and SAVE AS DRAFT, both dim until something is typed', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+
+    expect(screen.getByRole('button', { name: 'CREATE POST' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'SAVE AS DRAFT' })).toBeDisabled();
+
+    await user.type(screen.getByLabelText(/^Title/), 'Idea');
+    expect(screen.getByRole('button', { name: 'CREATE POST' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'SAVE AS DRAFT' })).toBeEnabled();
+  });
+
+  it('SAVE AS DRAFT sends a title-only post as published:false', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+
+    await user.type(screen.getByLabelText(/^Title/), 'Just an idea');
+    await user.click(screen.getByRole('button', { name: 'SAVE AS DRAFT' }));
+
+    expect(createMutation.mutateAsync).toHaveBeenCalledTimes(1);
+    const data = createMutation.mutateAsync.mock.calls[0][0];
+    expect(data.published).toBe(false);
+    expect(data.title).toBe('Just an idea');
+  });
+
+  // The control for the test above: the SAME form through the publish button
+  // is refused — so the draft passing is the draft rule, not a lax validator.
+  it('CREATE POST refuses that same title-only post and sends nothing', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+
+    await user.type(screen.getByLabelText(/^Title/), 'Just an idea');
+    await user.click(screen.getByRole('button', { name: 'CREATE POST' }));
+
+    expect(createMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/^Excerpt/)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'CREATE POST' }).className).toMatch(/shake/);
+  });
+
+  it('SAVE AS DRAFT still needs a title, in draft words', async () => {
+    const user = userEvent.setup();
+    await newPost(user);
+
+    await user.type(screen.getByLabelText(/^Excerpt/), 'x');   // dirty, but no title
+    await user.click(screen.getByRole('button', { name: 'SAVE AS DRAFT' }));
+
+    expect(createMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('A draft needs at least a title.')).toBeInTheDocument();
+    // The button PRESSED is the one that shakes.
+    expect(screen.getByRole('button', { name: 'SAVE AS DRAFT' }).className).toMatch(/shake/);
+    expect(screen.getByRole('button', { name: 'CREATE POST' }).className).not.toMatch(/shake/);
+  });
+
+  it('a live post offers SAVE CHANGES only — dim until edited — and no draft button', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    expect(saveChanges()).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /DRAFT/ })).not.toBeInTheDocument();
+
+    await touch(user);
+    expect(saveChanges()).toBeEnabled();
+  });
+
+  it('a draft offers PUBLISH (lit while untouched) and SAVE DRAFT', async () => {
+    useBlogPostAdmin.mockReturnValue({ data: [COMPLETE_DRAFT], isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminBlogPanel />);
+    await user.click(screen.getByRole('button', { name: `Edit ${COMPLETE_DRAFT.title}` }));
+
+    // Publishing IS the change on a draft, so PUBLISH is the one button lit
+    // without an edit (PF-113's rule).
+    expect(screen.getByRole('button', { name: 'PUBLISH' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'SAVE DRAFT' })).toBeDisabled();
+    expect(screen.getByText('DRAFT')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'PUBLISH' }));
+    expect(updateMutation.mutateAsync.mock.calls[0][0].data.published).toBe(true);
+  });
+
+  describe('REVERT CHANGES', () => {
+    it('appears only while there are changes, with the UNSAVED CHANGES marker', async () => {
+      const user = userEvent.setup();
+      await openEditor(user);
+
+      expect(screen.queryByRole('button', { name: 'REVERT CHANGES' })).not.toBeInTheDocument();
+      await user.type(screen.getByLabelText(/^Title/), '!');
+      expect(screen.getByRole('button', { name: 'REVERT CHANGES' })).toBeInTheDocument();
+      expect(screen.getByText('UNSAVED CHANGES')).toBeInTheDocument();
+    });
+
+    // ⚠️ The owner's objection to the old Projects cancel was that it BLANKED
+    // the form. The fixture is a real post, distinct from a blank form, so a
+    // revert-to-empty fails here.
+    it('restores the SAVED values — never a blank form', async () => {
+      const user = userEvent.setup();
+      await openEditor(user);
+
+      await user.clear(screen.getByLabelText(/^Title/));
+      await user.type(screen.getByLabelText(/^Title/), 'Something else');
+      await user.click(screen.getByRole('button', { name: 'Remove section 01' }));
+      await user.click(screen.getByRole('button', { name: 'REVERT CHANGES' }));
+
+      expect(screen.getByLabelText(/^Title/)).toHaveValue(POST.title);
+      expect(screen.getByDisplayValue('Introduction')).toBeInTheDocument();
+      expect(saveChanges()).toBeDisabled();
+      // Still editing — REVERT is "undo my typing", not "leave".
+      expect(screen.getByRole('heading', { name: 'Edit post' })).toBeInTheDocument();
+    });
+
+    it('clears the field marks with the values', async () => {
+      const user = userEvent.setup();
+      await openEditor(user);
+
+      await user.clear(screen.getByLabelText(/^Title/));
+      await user.click(saveChanges());
+      expect(screen.getByLabelText(/^Title/)).toHaveAttribute('aria-invalid', 'true');
+
+      await user.click(screen.getByRole('button', { name: 'REVERT CHANGES' }));
+      expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
+      expect(screen.queryByText(/CHECK THE CHANGES AGAIN/)).not.toBeInTheDocument();
+    });
+
+    it('treats "+ ADD SECTION" as a change — an empty block is still on screen', async () => {
+      const user = userEvent.setup();
+      await openEditor(user);
+
+      await user.click(screen.getByRole('button', { name: '+ ADD SECTION' }));
+      expect(saveChanges()).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'REVERT CHANGES' })).toBeInTheDocument();
+    });
+  });
+
+  it('CANCEL leaves the editor without saving', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await touch(user);
+    await user.click(screen.getByRole('button', { name: 'CANCEL' }));
+
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '+ NEW POST' })).toBeInTheDocument();
+  });
+
+  it('returns to the list after a successful save', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    await touch(user);
+    await user.click(saveChanges());
+
+    expect(await screen.findByRole('button', { name: '+ NEW POST' })).toBeInTheDocument();
+  });
+
+  describe('the list row PUBLISH', () => {
+    it('labels the row badge and toggle by state', () => {
+      useBlogPostAdmin.mockReturnValue({ data: [POST, DRAFT], isLoading: false });
+      render(<AdminBlogPanel />);
+
+      expect(screen.getByText('● PUBLISHED')).toBeInTheDocument();
+      expect(screen.getByText('○ DRAFT')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: `Unpublish ${POST.title}` })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: `Publish ${DRAFT.title}` })).toBeInTheDocument();
+    });
+
+    it('on an INCOMPLETE draft sends nothing and opens the editor with the fields marked', async () => {
+      useBlogPostAdmin.mockReturnValue({ data: [DRAFT], isLoading: false });
+      const user = userEvent.setup();
+      render(<AdminBlogPanel />);
+
+      await user.click(screen.getByRole('button', { name: `Publish ${DRAFT.title}` }));
+
+      expect(toggleMutation.mutate).not.toHaveBeenCalled();
+      expect(screen.getByRole('heading', { name: 'Edit post' })).toBeInTheDocument();
+      expect(screen.getByLabelText(/^Title/)).toHaveValue(DRAFT.title);
+      expect(screen.getByLabelText(/^Excerpt/)).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.getByText(/CHECK THE CHANGES AGAIN — 2 fields need attention/)).toBeInTheDocument();
+    });
+
+    it('on a COMPLETE draft publishes straight from the row', async () => {
+      useBlogPostAdmin.mockReturnValue({ data: [COMPLETE_DRAFT], isLoading: false });
+      const user = userEvent.setup();
+      render(<AdminBlogPanel />);
+
+      await user.click(screen.getByRole('button', { name: `Publish ${COMPLETE_DRAFT.title}` }));
+
+      expect(toggleMutation.mutate).toHaveBeenCalledWith('draft-2', expect.any(Object));
+    });
+
+    // UNPUBLISH needs nothing complete — a live post is already complete, and
+    // taking it down must never be refused by a content check.
+    it('UNPUBLISH toggles without checking anything', async () => {
+      const user = userEvent.setup();
+      render(<AdminBlogPanel />);
+      await user.click(screen.getByRole('button', { name: `Unpublish ${POST.title}` }));
+      expect(toggleMutation.mutate).toHaveBeenCalledWith('post-1', expect.any(Object));
+    });
+  });
+
+  it('names every paragraph and bullet input (was placeholder-only)', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+
+    expect(screen.getByRole('textbox', { name: 'Section 01, paragraph 1' }))
+      .toHaveValue('I wanted my portfolio to do more.');
+    expect(screen.getByRole('textbox', { name: 'Section 02, bullet 2' }))
+      .toHaveValue('Branching strategy');
+  });
+
+  it('DELETE asks first, with the prototype copy, and deletes on YES', async () => {
+    const user = userEvent.setup();
+    render(<AdminBlogPanel />);
+
+    await user.click(screen.getByRole('button', { name: `Delete ${POST.title}` }));
+    expect(deleteMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(dialog().getByText(/permanently delete/)).toBeInTheDocument();
+
+    await user.click(dialog().getByRole('button', { name: 'YES, DELETE' }));
+    expect(deleteMutation.mutateAsync).toHaveBeenCalledWith('post-1');
+  });
+});
+
+// PF-117 — a failed load used to read "No blog posts yet".
+describe('when the posts could not be loaded', () => {
+  const failed = (data) => ({ data, isLoading: false, isError: true, isFetching: false, refetch: vi.fn() });
+
+  it('says so, and never claims there are no posts', () => {
+    useBlogPostAdmin.mockReturnValue(failed(undefined));
+    render(<AdminBlogPanel />);
+    expect(screen.getByRole('alert')).toHaveTextContent('COULDN’T LOAD YOUR POSTS');
+    expect(screen.queryByText(/No blog posts yet/)).not.toBeInTheDocument();
+  });
+
+  it('keeps showing the posts when only a background refetch failed', () => {
+    useBlogPostAdmin.mockReturnValue(failed([POST]));
+    render(<AdminBlogPanel />);
+    expect(screen.getByRole('button', { name: `Edit ${POST.title}` })).toBeInTheDocument();
+    expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
+  });
+});
+
+// ── PF-118 batch 2 — the unsaved-changes guard, through the real panel ──────
+describe('leaving unsaved work asks first (PF-118 batch 2)', () => {
+  const leaveBtn = (name) => within(screen.getByRole('dialog')).getByRole('button', { name });
+
+  it('a NEW post: BACK TO LIST asks, and SAVE makes it a DRAFT', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminBlogPanel />);
+
+    await user.click(screen.getByRole('button', { name: '+ NEW POST' }));
+    await user.type(screen.getByLabelText(/^Title/), 'Half an idea');
+    await user.click(screen.getByRole('button', { name: '← BACK TO LIST' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Your new post has changes');
+    await user.click(leaveBtn('SAVE AS DRAFT'));
+
+    await waitFor(() => expect(createMutation.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Half an idea', published: false }),
+    ));
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ NEW POST' })).toBeInTheDocument());
+  });
+
+  it('editing a live post: CANCEL asks, offers SAVE CHANGES; KEEP EDITING stays', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminBlogPanel />);
+
+    // Not `openEditor` — it renders its own, unguarded panel.
+    await user.click(screen.getByRole('button', { name: `Edit ${POST.title}` }));
+    await touch(user);
+    await user.click(screen.getByRole('button', { name: 'CANCEL' }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent(`“${POST.title}” has changes`);
+    expect(leaveBtn('SAVE CHANGES')).toBeInTheDocument();
+    await user.click(leaveBtn('KEEP EDITING'));
+
+    expect(screen.getByRole('heading', { name: 'Edit post' })).toBeInTheDocument();
+    expect(updateMutation.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('an untouched editor closes freely — the zero case', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminBlogPanel />);
+    // Not `openEditor` — it renders its own, unguarded panel.
+    await user.click(screen.getByRole('button', { name: `Edit ${POST.title}` }));
+    await user.click(screen.getByRole('button', { name: '← BACK TO LIST' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: '+ NEW POST' })).toBeInTheDocument();
   });
 });

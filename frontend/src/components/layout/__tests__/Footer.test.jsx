@@ -10,13 +10,18 @@
 // matches the COMMENT explaining the absence and reports PASS while
 // asserting nothing. postcss never visits a comment node.
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import postcss from 'postcss';
 
+// The AVAILABLE FOR WORK row reads useAbout() since 2026-09-16 (owner
+// decision: the admin toggle drives it). vi.mock, not vi.spyOn — Vite's
+// SSR transform makes each export a getter-only property. ON by default.
+const useAbout = vi.hoisted(() => vi.fn());
+vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
 import { Footer } from '../Footer';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { leadsWithIcon } from '../../../test/leadsWithIcon';
@@ -107,6 +112,132 @@ function renderFooter({ path = '/' } = {}) {
     </MemoryRouter>,
   );
 }
+
+/*
+ * ⚠️ PF-112 — the ELSEWHERE column is data-driven now, so this fixture IS the
+ * link list. The five URLs are the ones the deleted ELSEWHERE_LINKS array held,
+ * so the assertions still describe the real footer.
+ *
+ * ⚠️ `twitter` is deliberately absent rather than blank-and-present: that is the
+ * live state (no account yet) and it is what proves a filled platform and an
+ * unfilled one are treated differently. A fixture with all six populated would
+ * pass whether or not the filter exists.
+ */
+const ABOUT_DATA = {
+  availableForWork: true,
+  email:    'pcgallege@gmail.com',
+  location: 'Galle, Sri Lanka',
+  social: {
+    github:    'https://github.com/Chami-02',
+    linkedin:  'https://www.linkedin.com/in/chamikara-gallage-3b0861295/',
+    facebook:  'https://web.facebook.com/parindra.chameekara',
+    instagram: 'https://www.instagram.com/__pc_02/',
+    twitter:   '',
+  },
+};
+
+const aboutWith = (overrides = {}) => ({ data: { ...ABOUT_DATA, ...overrides } });
+
+beforeEach(() => {
+  useAbout.mockReturnValue(aboutWith());
+});
+
+/*
+ * ── PF-112: the ELSEWHERE column is the owner's data ────────────────────────
+ *
+ * The rule the backend has stated since PF-60 and nothing implemented, quoted
+ * from About.js on the deliberately-empty twitter field: "the public site must
+ * treat an empty value as 'hide this icon', not render a dead link."
+ */
+describe('Footer — ELSEWHERE is driven by the About document (PF-112)', () => {
+  const elsewhereLinks = (container) => {
+    const heading = [...container.querySelectorAll('span')]
+      .find((el) => el.textContent === 'ELSEWHERE');
+    return [...heading.parentElement.querySelectorAll('a')];
+  };
+  const labels = (container) => elsewhereLinks(container).map((a) => a.textContent.trim());
+
+  it('renders a row per filled link, and none for a blank one', () => {
+    const { container } = renderFooter();
+
+    // twitter is '' in the fixture — so four platforms plus Email, not five.
+    expect(labels(container)).toEqual([
+      'GitHub ↗', 'LinkedIn ↗', 'Facebook ↗', 'Instagram ↗', 'Email ↗',
+    ]);
+  });
+
+  // ⚠️ THE ASSERTION THAT MATTERS, and it needs a fixture where one URL is blank
+  // and the rest are not — a fully-populated fixture passes whether or not the
+  // filter exists at all.
+  it('drops a platform the moment its URL is cleared', () => {
+    useAbout.mockReturnValue(aboutWith({
+      social: { ...ABOUT_DATA.social, instagram: '' },
+    }));
+    const { container } = renderFooter();
+
+    expect(labels(container)).not.toContain('Instagram ↗');
+    expect(labels(container)).toContain('GitHub ↗');
+  });
+
+  it('shows a platform as soon as its URL is filled in', () => {
+    useAbout.mockReturnValue(aboutWith({
+      social: { ...ABOUT_DATA.social, twitter: 'https://x.com/x' },
+    }));
+    const { container } = renderFooter();
+
+    expect(labels(container)).toContain('Twitter ↗');
+  });
+
+  it('appends a custom link after the fixed ones, before Email', () => {
+    useAbout.mockReturnValue(aboutWith({
+      socialExtra: [{ label: 'YouTube', url: 'https://youtube.com/@x' }],
+    }));
+    const { container } = renderFooter();
+
+    expect(labels(container)).toEqual([
+      'GitHub ↗', 'LinkedIn ↗', 'Facebook ↗', 'Instagram ↗', 'YouTube ↗', 'Email ↗',
+    ]);
+  });
+
+  // ⚠️ A custom row must still get a GLYPH. `iconFor` falls back to the generic
+  // link mark; returning undefined would render the label with no icon and no
+  // error, which reads as a CSS problem.
+  it('fronts a custom link with a mark rather than nothing', () => {
+    useAbout.mockReturnValue(aboutWith({
+      socialExtra: [{ label: 'YouTube', url: 'https://youtube.com/@x' }],
+    }));
+    const { container } = renderFooter();
+
+    const row = elsewhereLinks(container).find((a) => a.textContent.includes('YouTube'));
+    expect(row.querySelector('svg')).not.toBeNull();
+  });
+
+  it('builds the Email row from the one top-level address', () => {
+    useAbout.mockReturnValue(aboutWith({ email: 'someone@else.dev' }));
+    const { container } = renderFooter();
+
+    const row = elsewhereLinks(container).find((a) => a.textContent.includes('Email'));
+    expect(row).toHaveAttribute('href', 'mailto:someone@else.dev');
+  });
+
+  // ⚠️ The heading survives an empty list. An empty column collapses the footer
+  // grid, and footer.spec.js asserts this heading is visible.
+  it('keeps the ELSEWHERE heading even with no links at all', () => {
+    useAbout.mockReturnValue(aboutWith({ social: {}, email: '', socialExtra: [] }));
+    const { container } = renderFooter();
+
+    expect([...container.querySelectorAll('span')]
+      .some((el) => el.textContent === 'ELSEWHERE')).toBe(true);
+    expect(elsewhereLinks(container)).toHaveLength(0);
+  });
+
+  it('prints the location from the document, comma space intact', () => {
+    useAbout.mockReturnValue(aboutWith({ location: 'Colombo, Sri Lanka' }));
+    renderFooter();
+
+    expect(screen.getByText(/Colombo, Sri Lanka · UTC\+5:30/)).toBeInTheDocument();
+  });
+});
 
 describe('Footer (PF-88)', () => {
 
@@ -442,7 +573,7 @@ describe('Footer (PF-88)', () => {
       expect(link).toHaveAttribute('rel', 'noreferrer');
     }
     const email = screen.getByRole('link', { name: 'Email ↗' });
-    expect(email).toHaveAttribute('href', 'mailto:parindrachameekara@gmail.com');
+    expect(email).toHaveAttribute('href', 'mailto:pcgallege@gmail.com');
     expect(email).not.toHaveAttribute('target');
   });
 
@@ -811,5 +942,113 @@ describe('PF-91 contrast', () => {
       // would be a design change wearing an accessibility fix's clothes.
       expect(base('availabilityDot').background).toBe('#34d399');
     });
+  });
+});
+
+// ── availability, two states — owner decision 2026-09-16 ─────────────
+describe('availability row', () => {
+  it('ON: AVAILABLE FOR WORK on the [data-ok] label with the animated dot', () => {
+    const { container } = renderFooter();
+    const row = pick(container, 'availability');
+    expect(row.textContent).toContain('AVAILABLE FOR WORK');
+    expect(pick(row, 'availabilityLabel').getAttribute('data-ok')).toBe('');
+    expect(pick(row, 'availabilityDot')).not.toBeNull();
+    expect(pick(container, 'availabilityOff')).toBeNull();
+  });
+
+  it('OFF: CURRENTLY BUILDING on the neutral row, no [data-ok], ON classes gone', () => {
+    useAbout.mockReturnValue(aboutWith({ availableForWork: false }));
+    const { container } = renderFooter();
+    const row = pick(container, 'availabilityOff');
+    expect(row).not.toBeNull();
+    expect(row.textContent).toContain('CURRENTLY BUILDING');
+    expect(screen.queryByText('AVAILABLE FOR WORK')).toBeNull();
+    expect(row.querySelector('[data-ok]')).toBeNull();
+    expect(pick(row, 'availabilityDotOff')).not.toBeNull();
+    expect(pick(container, 'availability')).toBeNull();
+    expect(pick(container, 'availabilityDot')).toBeNull();
+  });
+
+  it('defaults to ON while the About document is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    renderFooter();
+    expect(screen.getByText('AVAILABLE FOR WORK')).toBeInTheDocument();
+  });
+
+  // ⚠️ Vitest never resolves `composes`, so "the OFF dot has no kf- class"
+  // would pass vacuously against the DOM. Parsed CSS is the guard: the OFF
+  // classes compose nothing and animate nothing, and the ON dot still does.
+  it('the OFF classes compose no carrier and declare no transition (parsed)', () => {
+    const declsOf = (cls) => Object.fromEntries(
+      baseDeclsFor(footerCss, (sel) => sel === `.${cls}`).map((d) => [d.prop, d.value]),
+    );
+    for (const cls of ['availabilityOff', 'availabilityDotOff', 'availabilityLabelOff']) {
+      const keys = Object.keys(declsOf(cls));
+      expect(keys.length).toBeGreaterThan(0);   // the rule exists — a typo'd name would pass the next line vacuously
+      expect(keys.some((k) => k.startsWith('animation') || k === 'transition' || k === 'composes')).toBe(false);
+    }
+    expect(declsOf('availabilityDotOff').background).toBe('var(--muted)');
+    // and the ON dot still carries its carrier — the control
+    expect(declsOf('availabilityDot').composes).toBe('kf-dot from global');
+  });
+});
+
+// ── PF-118 — one field, every render site ───────────────────────────────────
+describe('Footer — PF-118 wiring', () => {
+  const statusText = (container) => pick(container, 'statusLines').textContent;
+
+  it('the band follows availability: CURRENTLY BUILDING while unavailable', () => {
+    useAbout.mockReturnValue(aboutWith({ availableForWork: false }));
+    const { container } = renderFooter();
+    const strips = pickAll(container, 'marqueeText');
+
+    expect(strips).toHaveLength(18);
+    for (const strip of strips) {
+      // `\u00a0` spelled out: the trailing gap is load-bearing (see above).
+      expect(strip.textContent).toBe("CURRENTLY BUILDING ✦ LET'S BUILD SOMETHING LOUD ✦\u00a0");
+    }
+    // The zero case: not one copy of the available phrase survives.
+    expect(container.textContent).not.toMatch(/OPEN TO OPPORTUNITIES/);
+  });
+
+  it('the band stays OPEN TO OPPORTUNITIES while loading — the same default as the row', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    const { container } = renderFooter();
+    expect(pickAll(container, 'marqueeText')[0].textContent).toMatch(/^OPEN TO OPPORTUNITIES/);
+  });
+
+  it('prints the stored place as its UTC offset beside the location', () => {
+    // Asia/Dubai: no daylight saving, so the label is the same all year.
+    useAbout.mockReturnValue(aboutWith({ location: 'Dubai, UAE', timezone: 'Asia/Dubai' }));
+    const { container } = renderFooter();
+    expect(statusText(container)).toContain('Dubai, UAE · UTC+4');
+    expect(statusText(container)).not.toContain('UTC+5:30');
+  });
+
+  it('a blank timezone drops the segment and its separator', () => {
+    useAbout.mockReturnValue(aboutWith({ location: 'London, UK', timezone: '' }));
+    const { container } = renderFooter();
+    expect(statusText(container)).toContain('London, UK');
+    expect(statusText(container)).not.toMatch(/London, UK ·/);
+    expect(statusText(container)).not.toContain('UTC');
+  });
+
+  it('falls back to UTC+5:30 when the document has no timezone field at all', () => {
+    // An older cached document, or the failed-fetch path — not a blank.
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    const { container } = renderFooter();
+    expect(statusText(container)).toContain('Galle, Sri Lanka · UTC+5:30');
+  });
+
+  it('renders the panel’s footer blurb', () => {
+    useAbout.mockReturnValue(aboutWith({ footerBio: 'A different sentence.' }));
+    const { container } = renderFooter();
+    expect(pick(container, 'bio').textContent).toBe('A different sentence.');
+  });
+
+  it('a blank footer blurb falls back to the built-in sentence, never an empty paragraph', () => {
+    useAbout.mockReturnValue(aboutWith({ footerBio: '' }));
+    const { container } = renderFooter();
+    expect(pick(container, 'bio').textContent).toMatch(/^Computer Science undergraduate at the University of Westminster/);
   });
 });

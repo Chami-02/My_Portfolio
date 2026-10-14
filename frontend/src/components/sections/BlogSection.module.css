@@ -166,10 +166,13 @@ section.blog {
    the prototype's featured card has the gradient and `.sweep` and no
    image at all. Sanctioned deviation, recorded in locked-decisions.md.
 
-   ⚠️ A FIXED backdrop, deliberately NOT per-post. `Blog.coverImage`
-   exists in the schema (Blog.js:113) with no consumer; the owner chose a
+   ⚠️ A FIXED backdrop, deliberately NOT per-post. The owner chose a
    constant image so the card's title/excerpt/date/tags keep coming from
    the API while the backdrop stays put. Do not wire this to the model.
+   ⚠️ THERE IS NO LONGER A FIELD TO WIRE IT TO: `Blog.coverImage` was a
+   dead schema column and PF-111 deleted it. Giving the teaser a per-post
+   image therefore means re-adding a field AND reversing this decision,
+   not just connecting one that is sitting there unused.
 
    ⚠️ `position: absolute` IS LOAD-BEARING BEYOND PLACEMENT. `.featuredCard`
    is `display: flex`, and a `::before` is a FLEX ITEM unless it is taken

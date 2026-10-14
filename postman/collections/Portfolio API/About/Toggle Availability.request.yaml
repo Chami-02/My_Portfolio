@@ -1,5 +1,0 @@
-$kind: http-request
-name: Toggle Availability
-url: "{{baseUrl}}/about/availability"
-method: PATCH
-order: 2768240085240273

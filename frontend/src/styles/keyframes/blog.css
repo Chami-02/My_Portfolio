@@ -7,3 +7,10 @@
   0%   { transform: translateX(-40%) skewX(-18deg); }
   100% { transform: translateX(140%) skewX(-18deg); }
 }
+
+/* The reading view's article entrance — Blog.dc.html. 22px, the
+   largest of the three screens. */
+@keyframes riseIn-blog {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: none;             }
+}

@@ -9,6 +9,8 @@ const Blog    = require('./models/Blog');
 const About   = require('./models/About');
 const User    = require('./models/User');
 const Vocabulary = require('./models/Vocabulary');
+const SkillCategory = require('./models/SkillCategory');
+const { DEFAULT_CATEGORIES } = require('./controllers/skillCategoryController');
 
 // ── Seed data ──────────────────────────────────────────────────────────────
 
@@ -25,7 +27,7 @@ const PROJECTS = [
     // Empty on purpose — real background images are uploaded through the
     // admin panel in Sprint 14. Stated explicitly rather than left to the
     // schema defaults so re-seeding visibly clears any previous upload.
-    backgroundImage: { src: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   },
   {
     title:       'ClearDrive.lk',
@@ -35,7 +37,7 @@ const PROJECTS = [
     liveUrl:     'https://cleardrive.lk/' ,
     featured:    true,
     order:       2,
-    backgroundImage: { src: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   },
   {
     title:       'Smart Campus API',
@@ -45,7 +47,7 @@ const PROJECTS = [
     liveUrl:     null,
     featured:    false,
     order:       3,
-    backgroundImage: { src: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   },
    {
     title:       'Life Below Water',
@@ -55,7 +57,7 @@ const PROJECTS = [
     liveUrl:     null,
     featured:    false,
     order:       4,
-    backgroundImage: { src: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   }
 ];
 
@@ -330,12 +332,21 @@ const ABOUT_DATA = {
   name: 'Parindra Chameekara',
   title: 'Computer Science Undergraduate | Full-Stack Developer',
   location: 'Galle, Sri Lanka',
-  email: 'parindrachameekara@gmail.com',
+  email: 'pcgallege@gmail.com',
 
+  // ⚠️ THE PUBLIC SITE RENDERS THIS — it is no longer decorative seed text.
+  // `AboutSection.jsx` read two hardcoded paragraphs until the About panel was
+  // wired to the page; these two are now what a freshly seeded database shows,
+  // so they are kept character-for-character identical to `SITE_BIO` in
+  // `migrations/008-about-bio-from-site.js` and to `BIO_FALLBACK` in the
+  // component. Three copies in two packages that cannot import from each other;
+  // changing one alone makes a re-seeded environment disagree with a migrated
+  // one, and the difference only shows up as "the wording is different on the
+  // server".
   bio: [
-    "I'm a Computer Science undergraduate at the University of Westminster, building production-grade software one real project at a time. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.",
+    "I'm a Computer Science undergraduate at the University of Westminster, passionate about building scalable web applications and continuously improving my backend and full-stack development skills. I enjoy turning ideas into real-world software using modern technologies and engineering best practices.",
 
-    "I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk. My experience includes Python, FastAPI, JavaScript, React, Next.js, PostgreSQL, Docker, GitHub Actions, and Agile development using Jira."
+    "I've contributed to projects ranging from full-stack web applications to REST APIs and enterprise-style systems such as ClearDrive.lk. My experience includes Python, Java, Node.js, FastAPI, JavaScript, React, Next.js, PostgreSQL, MongoDB, Docker, GitHub Actions, and Agile development using Jira."
   ],
 
   availableForWork: true,
@@ -357,6 +368,20 @@ const ABOUT_DATA = {
     url: '', publicId: '', fileName: '', ext: '', bytes: 0, uploadedAt: null,
   },
 
+  // Same rule for the portrait (PF-111). The public About section falls
+  // back to its bundled photograph when this is empty, so a fresh seed
+  // renders correctly rather than showing a broken image.
+  avatar: {
+    url: '', publicId: '', fileName: '', format: '',
+    bytes: 0, width: 0, height: 0, uploadedAt: null,
+  },
+
+  // And the hero cut-out: empty = the bundled hero image.
+  heroImage: {
+    url: '', publicId: '', fileName: '', format: '',
+    bytes: 0, width: 0, height: 0, uploadedAt: null,
+  },
+
   stats: [
     { label: 'Projects Built', value: '5+' },
     { label: 'Technologies', value: '10+' },
@@ -375,25 +400,37 @@ const ABOUT_DATA = {
 // That line is gone; the Playwright suite and Postman collection now take
 // the value from the environment with this same fallback.
 //
-// Set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_EMAIL) for any
-// database that is not a throwaway. The env-supplied value is never
-// echoed to the console — only the fallback is, because you need to be
-// told when the shared default is in play.
-const DEMO_ADMIN_EMAIL    = 'admin@portfolio.dev';
+// Set SEED_ADMIN_PASSWORD for any database that is not a throwaway. The
+// env-supplied value is never echoed to the console — only the fallback is,
+// because you need to be told when the shared default is in play.
+//
+// PF-119 — the addresses are NOT configurable (owner, 2026-10-12): the one
+// admin signs in as `pcgallege@gmail.com` or `parindrachameekara@gmail.com`,
+// by password or Google, on every environment. The same pair migration 009
+// writes to an existing database.
+const { PRIMARY_EMAIL: ADMIN_EMAIL, LOGIN_EMAILS: ADMIN_LOGIN_EMAILS } =
+  require('./migrations/009-admin-accounts');
 const DEMO_ADMIN_PASSWORD = 'Admin@1234!';
 
-function resolveAdminCredentials() {
-  const email    = process.env.SEED_ADMIN_EMAIL || DEMO_ADMIN_EMAIL;
+// PF-120 — the databases the PUBLIC demo password may ever be written to.
+// Anything else needs SEED_ADMIN_PASSWORD. An allowlist, not a denylist: a
+// name nobody anticipated (`portfolio`, `portfolio_prod2`) is refused.
+const THROWAWAY_DB = /(?:^|_)(?:dev|test(?:_\d+)?|e2e|ci)$/;
+
+function resolveAdminCredentials(dbName) {
+  const email    = ADMIN_EMAIL;
   const password = process.env.SEED_ADMIN_PASSWORD;
 
   if (password) return { email, password, fromEnv: true };
 
-  // Backstop only. NODE_ENV is 'development' even when seeding a live
-  // Atlas cluster from a laptop, so this catches deliberate production
-  // runs, not the common case — the warning below is what does the work.
-  if (process.env.NODE_ENV === 'production') {
+  // ⚠️ PF-120 — keyed on the DATABASE, not NODE_ENV. This used to refuse only
+  // under NODE_ENV=production, which is 'development' when a laptop seeds a
+  // live Atlas cluster — the common case. The repo is public, and migration
+  // 009 keeps whatever password exists, so a production database seeded
+  // without SEED_ADMIN_PASSWORD would carry admin credentials anyone can read.
+  if (!THROWAWAY_DB.test(dbName || '')) {
     throw new Error(
-      'Refusing to seed with the public demo password while NODE_ENV=production. ' +
+      `Refusing to seed "${dbName}" with the public demo password. ` +
       'Set SEED_ADMIN_PASSWORD first.'
     );
   }
@@ -439,6 +476,10 @@ async function seed() {
     const dbName = assertExplicitDatabase(process.env.MONGO_URI);
     console.log(`→ connecting to database: ${dbName}`);
 
+    // PF-120 — resolved BEFORE connecting. It used to run after the wipe
+    // below, so a refusal left every collection already deleted.
+    const admin = resolveAdminCredentials(dbName);
+
     await mongoose.connect(process.env.MONGO_URI);
     console.log('✅ Connected to MongoDB');
 
@@ -446,6 +487,7 @@ async function seed() {
     await Promise.all([
       Project.deleteMany({}),
       Skill.deleteMany({}),
+      SkillCategory.deleteMany({}),
       Blog.deleteMany({}),
       About.deleteMany({}),
       User.deleteMany({}),
@@ -455,6 +497,10 @@ async function seed() {
     // Insert fresh data
     await Project.insertMany(PROJECTS);
     console.log(`📦 Seeded ${PROJECTS.length} projects`);
+
+    // PF-114 — the sections the skills point at, before the skills.
+    await SkillCategory.insertMany(DEFAULT_CATEGORIES.map((c) => ({ ...c })));
+    console.log(`🗂  Seeded ${DEFAULT_CATEGORIES.length} skill sections`);
 
     await Skill.insertMany(SKILLS);
     console.log(`💡 Seeded ${SKILLS.length} skills`);
@@ -466,8 +512,7 @@ async function seed() {
     console.log('👤 Seeded about/profile data');
 
     // Create admin user — password is hashed by the pre-save hook in User.js
-    const admin = resolveAdminCredentials();
-    await User.create({ email: admin.email, password: admin.password });
+    await User.create({ email: admin.email, loginEmails: [...ADMIN_LOGIN_EMAILS], password: admin.password });
 
     if (admin.fromEnv) {
       console.log(`🔐 Created admin user: ${admin.email} (password from SEED_ADMIN_PASSWORD)`);
@@ -492,4 +537,7 @@ async function seed() {
   }
 }
 
-seed();
+// Runs only as a script, so the guard above can be unit-tested (PF-120).
+if (require.main === module) seed();
+
+module.exports = { resolveAdminCredentials };
