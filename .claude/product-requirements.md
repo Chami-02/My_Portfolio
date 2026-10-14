@@ -52,6 +52,22 @@ REWRITTEN PF-123 / PF-124 / PF-125 — NOT built yet.**
   until a domain is verified). One adapter, so the swap is one file + env.
 - **Break-glass stays:** `npm run admin:password` (PF-120) works with no email.
 
+**Login page additions (owner, 2026-10-14):**
+- ✅ **BUILT 2026-10-14 — show / hide password eye** in the password field
+  (`EyeIcon` / `EyeOffIcon`, `type="button"`, fixed name "Show password" +
+  `aria-pressed`, hidden by default).
+- **Sprint 15 — a `Forgot password?` link** under the password field, opening the
+  forgot flow above. Never shipped before that flow exists (a dead link is worse
+  than none).
+- **Sprint 15 — after 3 failed sign-ins in a row**, a small *"Having trouble?
+  Reset your password"* button appears and leads to the same forgot flow.
+  ⚠️ **NOT a password hint** — the owner first asked for "do you need a hint?",
+  then chose the reset prompt (2026-10-14) once the risk was raised: both admin
+  addresses are public, so a hint shown on screen is readable by anyone who fails
+  three times (NIST SP 800-63B: no hints). **No hint is stored, anywhere.** The
+  count is per page visit (client-side, resets on success); the server's
+  authLimiter (10 / 15 min) stays the real gate.
+
 #### Admin panels STAGE — the public site changes only on SAVE
 
 **Owner requirement, 2026-09-25. Built for About by PF-112; binds every panel

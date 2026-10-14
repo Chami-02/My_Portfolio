@@ -516,7 +516,7 @@ record; that file is the sprint's authority.
 | ~~PF-109~~ | `/admin/login` rebuilt in Phase 2 | High | 5 | To Do | ✅ **BUILT 2026-09-16** — background re-decided, see entry |
 | ~~PF-110~~ | `GET /api/dashboard/stats` + Overview panel rebuild | High | 5 | To Do | ✅ **BUILT 2026-09-16** — see entry |
 | ~~PF-111~~ | Media pipeline — `publicId` everywhere, hard-delete on replace | Highest | 8 | To Do | ✅ **BUILT 2026-09-23** — ⚠️ scope GREW: delete-on-record-delete too, see entry |
-| PF-112 | About panel — rebuild, portrait upload, résumé card | High | 8 | To Do | not started |
+| ~~PF-112~~ | About panel — rebuild, portrait upload, résumé card | High | 8 | Done | ✅ **BUILT 2026-09-25** (row was stale until 2026-10-14) — see entry |
 | ~~PF-113~~ | Projects panel — rebuild, background image + opacity, tech chip picker | High | 8 | To Do | ✅ **BUILT 2026-10-03** — ⚠️ scope widened: project DRAFTS + REVERT (owner), upload-only background; ~12 pts, see entry |
 | PF-114 | Skills panel — rebuild + editing | Medium | 5 | Done | **BUILT 2026-10-05** — scope ~14 pts (owner): edit incl. level, level dots, owner-managed sections, drag-and-drop |
 | ~~PF-115~~ | Blog + Messages panels restyled | Medium | 5 | Done | ✅ **BUILT 2026-10-07** — ⚠️ scope widened (owner): Blog DRAFTS + REVERT, Messages STAR + SEARCH + filters; ~11 pts, see entry |
@@ -7703,8 +7703,8 @@ URL.
   decision for the owner; not changed. ✅ **REWORDED in PF-115** (owner: "if
   you think that need to be changed go ahead") — "Changes go live when you
   press SAVE. Drafts stay hidden.
-- **No UNPUBLISH for a live project** — not asked for; DELETE exists.
-- **`useProject` / `GET /api/projects/:id`** remain clientless (now draft-aware).
+- ✅ **BUILT 2026-10-14** (row PUBLISH / UNPUBLISH, owner). ~~**No UNPUBLISH for a live project** — not asked for; DELETE exists.~~
+- ✅ `useProject` + `getById` **DELETED 2026-10-14**; the route stays (public API). ~~**`useProject` / `GET /api/projects/:id`** remain clientless (now draft-aware).~~
 
 ### PF-113 batch 2 — uploads, the FEATURED pill, delivery optimisation (2026-10-03)
 
@@ -7747,7 +7747,7 @@ probes (known trap, waited it out).
 - **Confirm production's Cloudinary keys are the same account** as dev
   (records say added 2026-08-31; Vercel's settings are not visible from here).
 - **Cloudinary `samples` demo folder** (~166 MB, 0.16 credits) — optional delete.
-- **Open owner questions from PF-113, still unanswered:** keep the background
+- ✅ **ANSWERED 2026-10-14: KEEP both** (badge + caption); the SESSION card was reworded in PF-115. **Open owner questions from PF-113, still unanswered:** keep the background
   block's status badge + `MAX 4 MB` caption (my call, applying PF-112's pattern)?
   And rewrite the sidebar SESSION card's "Every change here is written straight
   to the live site", untrue since staging and drafts?
@@ -8054,7 +8054,7 @@ every deleted name, `Inter`, `--acc2`.
   repo's Playwright from a scratch script instead.
 
 ### Outstanding work added by PF-116
-- **ErrorBoundary's TRY AGAIN cannot recover from a bad CACHED payload** — reset
+- ✅ **FIXED 2026-10-14 (leftovers batch: refetch, then re-render).** **ErrorBoundary's TRY AGAIN cannot recover from a bad CACHED payload** — reset
   re-renders from TanStack's cache and throws again until staleTime. Same as the
   Phase 1 fallback; recovering would mean resetting the query too (a
   `QueryErrorResetBoundary`-style change). Not a regression.
@@ -8219,8 +8219,8 @@ unsaved work. Folded into PF-118 by owner choice. Report: same file, "Batch 2".
   `PUT /api/blog/:id` skips `blogRules` (raw API can set `publishedAt`/`views`/`slug`);
   `backgroundImage.publicId` is in the PUBLIC projects response (confirmed live);
   `GET /api/blog/:slug` still returns deprecated `content`.
-- Known gaps (recorded, not tickets): no `publishedAt` control (owner: leave); no
-  mark-unread; `useProject` clientless; `Vocabulary.order` never written; `hasAvatar`
+- Known gaps (recorded, not tickets) — ✅ 2026-10-14 BUILT: mark-unread, hero portrait upload, `og:` meta (title/description; url/image after the domain); `useProject` deleted. Still open: no `publishedAt` control (owner: leave); ~~no
+  mark-unread;~~ `useProject` clientless; `Vocabulary.order` never written; `hasAvatar`
   unread; hero portrait not uploadable; tech chips / role pills / hero marquee literal; no
   `og:` meta.
 - Dev's About now STORES heroIntro/footerBio equal to their defaults (were absent) and
@@ -8485,11 +8485,102 @@ PF-121.
   (locked-decisions, credential incidents).
 - **PF-121 after-deploy checks:** `curl -I` the live SPA (the PF-120 headers);
   password sign-in with BOTH addresses; Google sign-in with both.
+
+## Sprint 14 leftovers batch (2026-10-14) — everything except PF-121
+
+Owner: clear every leftover, in and out of the sprint plan's scope, before the
+sprint PR — "slight changes", so the PR stays one easy review; PF-121 stays the
+owner's (manual, with instructions). Owner picks: backend `GET /` welcome; BUILD
+unpublish-a-project, mark-unread, `og:` tags AND the hero portrait upload; KEEP
+the PF-113 badge + `MAX 4 MB` caption; LEAVE blog dates reader-local. Fixes, not
+tickets — no new PF numbers. Report:
+`new mds/E9/fixes-2026-10-14-sprint-14-leftovers.md`.
+
+**Built.**
+- **`GET /`** → `200 { status, service: 'portfolio-api', health }`, before
+  `connectDB()`, no DB call (the bare host used to 404 — owner's screenshot).
+- **Blog payloads:** `GET /api/blog/:slug` `.select('-content')` (no reader on
+  either branch, `origin/master` checked); the PUBLIC list projects
+  `{ content: 0, sections: 0 }`; the ADMIN list keeps `sections` (`postToForm`).
+  Schema `content` path stays (contract migration later).
+- **Mark unread:** `PATCH /api/contact/:id/read` takes optional `{ read }`
+  (strict boolean; absent = true for an old client), `protect → readRules →
+  validate`. Panel: `↺ MARK UNREAD` (plain `btnRow`) on read messages;
+  `useMarkMessageRead` is `mutate({ id, read })`, refreshes the dashboard.
+- **Projects row PUBLISH / UNPUBLISH** — Blog's `publishFromRow`: live →
+  UNPUBLISH sends only `{ published: false }`; complete draft publishes; an
+  incomplete one opens the editor marked (through `requestLeave`). Server's
+  document-level draft rule stays the gate. No dashboard refresh (project counts
+  ignore `published`).
+- **Hero image upload** (About panel card `Hero image`, `PUT/DELETE
+  /api/about/hero-image`, folder `<CLOUDINARY_FOLDER>/hero`). `About.js`
+  `imageSlot(label)` is the ONE shape for `avatar` + `heroImage`;
+  `aboutController.imageSlotHandlers({ field, label, folder, defaultName,
+  presenceKey })` builds both slots (avatar keeps `hasAvatar` + every message —
+  its 385-line suite passed unedited). Strip: destructure AND dotted regex include
+  `heroImage`. No migration (absent nested path hydrates defaults; tested raw).
+  `PortraitCard` → `ImageCard({ card, spec, … })`; save order profile → portrait →
+  hero → résumé. Hero: `about?.heroImage?.url || heroImg`.
+- **Bundled hero `hero-ai.png` 1.48 MB → `hero-ai.webp` 124 KB** (cwebp -q 90
+  -alpha_q 100 -m 6; 42.4 dB PSNR premultiplied, alpha identical, 820×1028). PNG
+  deleted from `src/assets` (design copy in `docs/design/assets/` untouched).
+- **`og:` / `twitter:` tags** in `index.html` (type, site_name, title,
+  description = `<title>`/description; `twitter:card summary`). `og:url` /
+  `og:image` wait for the custom domain. Guard `styles/__tests__/shareTags.test.js`.
+- **Blog cache key:** `useBlogPost` → `['blog', 'post', slug]` (a post slugged
+  `admin` WAS `BLOG_ADMIN_KEY`). Test now drives the real hooks.
+- **ErrorBoundary TRY AGAIN** → `await this.context?.refetchQueries()` then
+  re-render (`static contextType = QueryClientContext`); test with a real client
+  and a fresh bad cached payload.
+- **Docker `nginx.conf`:** vercel.json's headers (CSP `connect-src 'self'
+  http://localhost:5050`, XFO DENY, Permissions-Policy); Cache-Control via a
+  `map` — the asset `location`'s own `add_header` had been STRIPPING every
+  security header from assets. Pinned in `securityHeaders.test.js`.
+- **Housekeeping:** dead `useProject` + `projectService.getById` deleted (backend
+  route kept); stale comments (Hero/About/Skills scroll-margin, `blogService` search
+  scope, `resume.js` formatMonth); this file's PF-112 row.
+
+**Not done, with reasons:** `admin.module.css` ×6 in built CSS (`composes`
+behaviour; convention-level change for a few KB); Vite proxy env (no consumer);
+`Vocabulary.order` / `hasAvatar` (schema/API change, no visible gain); orphan
+`about-portrait.png` (kept deliberately). JS bundle 563 kB > 500 kB warning is
+PRE-EXISTING (clean HEAD 561 kB, measured in a worktree).
+
+**Verification.** Backend 46 suites / **806 tests** (775 →), coverage 82.01 /
+74.05 / 85.6 / 82.7. Frontend lint 0, 90 files / **2124 tests** (2090 →),
+coverage 95.01 / 91.33 / 90.32 / 96.32, build OK. **E2E 80/80** (2.5 min). Mutation: frontend **14/14**,
+backend **14/14** (scratch copy) killed, all restored byte-identical (`cmp`).
+**Browser on `portfolio_dev`** (session minted server-side, handed over by a
+same-origin file deleted at once, family revoked after): hero upload → PENDING
+SAVE → SAVE → LIVE `820 × 1028` → public hero = Cloudinary `f_auto,q_auto` URL,
+mask intact, dark + light; replace → first publicId **404 in Cloudinary** (control:
+the live id EXISTS, a made-up id 404s); REMOVE → slot empty, second publicId 404,
+public hero back on `hero-ai.webp`. Mark unread → dot + `1 UNREAD` + sidebar 1 →
+mark read → 0. Unpublish → public list 4 → 3 → publish → 4. Dev left as found.
+
+### Login eye toggle (2026-10-14, same day)
+Owner: an eye in the password field to show/hide what was typed. `AdminLoginPage`
+password field is now a `<div class=field>` with a `<label htmlFor>` (the button
+sits OUTSIDE the label — a button inside a label is itself labelable), input
+`#admin-login-password` (+ `spellCheck=false`, `autoCapitalize=none`), and a 40×40
+`type="button"` toggle (`aria-pressed`, `aria-controls`; accent colour while
+shown). New `EyeOffIcon` (Material `visibility_off`). 3 tests; mutants 3/3 killed
+(no `type="button"` submits the form, one-way toggle, no-op toggle). Browser:
+hidden→shown→hidden, value kept, button inside the field and hit-testable, dark +
+light. Frontend gate 2127 tests green. `Forgot password?` + the 3-failures reset
+prompt → Sprint 15 (product-requirements; the owner chose a reset prompt over a
+hint).
+
+### Owner's manual leftovers (no code)
+- LinkedIn URL (still `gallege`) via the About panel, after deploy.
+- Re-upload the 2 project backgrounds for the optimised URL.
+- Confirm prod Cloudinary keys = the dev account; optional `samples` delete.
+- Portrait framing (`object-position: 50% 32%`) on a real upload.
 - **The custom domain moves the API** → update `connect-src` (the guard test
   fails until it is); same for any new image host (`img-src`).
-- Docker `nginx.conf` has no CSP (local only). Docker-compose's DB is `portfolio`,
+- ✅ nginx CSP **FIXED 2026-10-14** (leftovers batch). ~~Docker `nginx.conf` has no CSP (local only).~~ Docker-compose's DB is `portfolio`,
   which the seed guard now refuses without `SEED_ADMIN_PASSWORD` — by design.
-- `GET /api/blog/:slug` still returns deprecated `content` (removal ticket).
+- ✅ **FIXED 2026-10-14** — response only; schema path awaits a contract migration. ~~`GET /api/blog/:slug` still returns deprecated `content` (removal ticket).~~
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 

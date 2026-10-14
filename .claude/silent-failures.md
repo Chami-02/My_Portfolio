@@ -3560,6 +3560,41 @@ migration's own "UPDATE".
 `admin:password` echoes nothing, not even `*`. The owner read that as "can't
 type". Say so up front whenever handing over a hidden prompt.
 
+## Sprint 14 leftovers batch (2026-10-14)
+
+### nginx drops EVERY inherited `add_header` in a location that declares its own
+`frontend/nginx.conf`'s asset block had `add_header Cache-Control …`, so every
+JS/CSS/image response lost the server-level X-Frame-Options / nosniff /
+Referrer-Policy — no error, the HTML still had them. Now: Cache-Control from a
+`map $uri`, no `add_header` inside any location (guarded; mutant killed).
+
+### A "default to true" body field makes a DROPPED body succeed in reverse
+`PATCH /contact/:id/read` treats a missing `read` as `true` (old clients). If the
+service ever stops sending `{ read }`, MARK UNREAD answers 200 and marks the
+message READ. Pinned at the wire (`contactService.test.js`, real axios pipeline,
+scripted adapter) — a mocked `api` cannot see it.
+
+### ErrorBoundary reset re-renders from the SAME cache that threw
+Clearing `hasError` re-mounts children onto TanStack's still-fresh bad payload,
+so TRY AGAIN threw again until staleTime. Fix: refetch, then re-render. The
+discriminating test seeds the bad payload with `staleTime: Infinity` — without
+that, a normal refetch-on-mount hides the bug.
+
+### A test that only compares key LITERALS never sees the keys the hooks build
+`useBlog.test.jsx`'s collision test asserted `[...BLOG_KEY, 'admin']` equals
+`BLOG_ADMIN_KEY` — true whatever `useBlogPost` did. Now it mounts the real hooks
+and counts the cache entries.
+
+### `git rm` STAGES the deletion
+Used to delete `hero-ai.png`; the owner's "stage nothing" rule then needed
+`git reset -q HEAD -- <path>` (file stays deleted in the tree). Delete with `rm`.
+
+### The dev API's global limiter fills from an open admin tab
+100 req / 15 min per IP, in memory: a browser left on `/admin` (60 s polls,
+focus refetches) plus probes hit 429 on EVERY route, including `GET /`. `touch
+src/app.js` makes `node --watch` restart the dev server and resets it without
+killing the owner's process.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

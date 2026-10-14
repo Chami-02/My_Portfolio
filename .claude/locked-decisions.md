@@ -4288,6 +4288,36 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
   password + emailed code; Gmail SMTP now, Resend after the domain; addresses
   stay fixed; PF-123/124/125 rewritten after PF-121, no new numbers.
 
+## Sprint 14 leftovers — owner decisions (2026-10-14)
+
+Raised and approved in the session that cleared the leftovers before the sprint
+PR. Each is a deliberate addition beyond the prototype.
+
+- **The hero cut-out is uploadable** — About panel card `Hero image`, its own
+  routes (`/api/about/hero-image`), folder `/hero`, delete-on-replace AND on
+  remove, staged until SAVE like every media field. Empty = the bundled cut-out.
+  The prototype's "true background-removed cutout drops into the same slot"
+  (DESIGN.md:234) is now the owner's to do. The card says a transparent PNG
+  works best; nothing ENFORCES transparency (an opaque photo is allowed and the
+  oval mask still fades its edges). Portrait and hero share ONE model shape
+  (`imageSlot`) and ONE handler factory — do not fork them back.
+- **The bundled hero is WebP**, not the design's PNG — performance (1.48 MB →
+  124 KB), measured visually identical (42.4 dB, alpha exact). The design copy
+  stays PNG in `docs/design/assets/`.
+- **Messages: `↺ MARK UNREAD`** on read messages (plain row button, NOT the green
+  success hover MARK READ uses). Explicit value on the wire, never a flip.
+- **Projects: row `PUBLISH` / `UNPUBLISH`**, Blog's rule exactly — instant,
+  admin-only, incomplete draft opens the editor marked.
+- **Backend `GET /`** answers a small JSON welcome (no DB call).
+- **Link previews:** `og:type/site_name/title/description` + `twitter:card
+  summary`, mirroring `<title>` and the meta description (guarded). `og:url` /
+  `og:image` are added WITH the custom domain, never with a vercel.app address.
+- **KEPT:** the PF-113 background block's status badge + `MAX 4 MB` caption.
+- **KEPT:** blog dates in the READER's local timezone (`formatDate`, no
+  `timeZone`) — a reader abroad may see a different day near midnight; accepted.
+- **Docker `nginx.conf` sends vercel.json's headers** (connect-src differs:
+  `localhost:5050`), pinned by `securityHeaders.test.js`.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

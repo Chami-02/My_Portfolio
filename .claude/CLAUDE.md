@@ -114,6 +114,7 @@ something surprises you, search the companions *before* deriving an explanation.
 - **Site address is `pcgallege@gmail.com` ONLY; admin logs in as pcgallege OR parindrachameekara** (Google or password, one User, PF-119 absorbed PF-122). Old demo address gone. Panel shows the address SIGNED IN WITH (`signedInAs`); counts poll 60 s + on focus.
 - **One panel field drives EVERY render site** (PF-118) — e.g. `timezone` → Contact AND footer; grep every literal before wiring. A fixed set of answers is CHOSEN (dropdown), never typed.
 - **Password change / reset / forgot = password + emailed code** (owner 2026-10-13, Sprint 15, NOT built): Gmail SMTP now, Resend after the domain; addresses stay fixed; `admin:password` is break-glass.
+- **Login page** (owner, 2026-10-14): password eye BUILT; Sprint 15 adds `Forgot password?` + a reset prompt after 3 failed sign-ins — **never a password hint** (owner chose this over a hint).
 - **Leaving unsaved admin work asks first — every exit** (PF-118 b2; REVERSES "marker, not a blocker"): Keep / Save (never publishes) / Discard; panels register via `useUnsavedChanges`.
 
 ## Project state
@@ -124,7 +125,7 @@ something surprises you, search the companions *before* deriving an explanation.
 | --- | --- | --- |
 | Phase 1 (PF-1 → PF-51) | original site | complete |
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 → PF-120 built (PF-120 on 2026-10-13) |
+| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 → PF-120 built; every leftover cleared 2026-10-14 (sprint-log "leftovers batch") |
 | Sprint 15 (PF-123 → PF-125) | auth + email | planned, not started |
 
 **Branch `sprint-14-admin_page_rebuild`** (NOT `sprint-14-admin`), cut from
@@ -271,6 +272,7 @@ Where a mistake would be silent, add a test that would catch it.
 
 **CSS**
 - Mistyped custom property / `animation-name` → dropped, no error (`drift-blog` does not exist).
+- nginx: a `location` with its own `add_header` drops EVERY inherited header — keep `add_header` out of locations (guarded).
 - Keyframe named in a CSS Module → scoped to nothing; tell is `el.getAnimations().length === 0`.
 - Never declare `transition` on a `Reveal`-wrapped element (guarded).
 - `rgba(#hex,.5)` is invalid — channel triplets stay bare `R,G,B`.
@@ -326,6 +328,7 @@ Where a mistake would be silent, add a test that would catch it.
 - An array bypasses `typeof x === 'string'` — always assert a ZERO case. express-validator `isLength` passes arrays too → `isString().bail()` first.
 - Chrome ACCEPTS `+05:30` as an Intl timeZone, Node 20 rejects it → `isTimeZone` needs its shape check; prove it with a stubbed Intl (a `function`, not an arrow).
 - `FormData` through `api.js` becomes JSON → `headers: { 'Content-Type': undefined }`.
+- A body field that DEFAULTS to true (`read`) makes a dropped body succeed in reverse — assert the wire body.
 - Raw Cloudinary assets download with no extension → `GET /api/resume` proxies; never add `.pdf` to the id.
 - axios array params → `paramsSerializer: { indexes: null }`.
 - A URI with no DB path silently uses/creates `test` (`assertExplicitDatabase`).
@@ -364,6 +367,7 @@ Where a mistake would be silent, add a test that would catch it.
 - A flex row can overflow while the page does not — compare the container's `scrollWidth`.
 - `<button>` in a `<form>` with no `type` submits it — always `type="button"`.
 - Snapshot AFTER the edit; confirm a mutation changed the file; restore from a copy.
+- `git rm` STAGES the deletion — delete with `rm` (stage-nothing rule).
 - `grep | head` reads like a complete answer — use `grep -c` / `awk`.
 - An error-message assertion can match the banner, not the guard — grep the string first.
 
@@ -410,6 +414,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-118 b2: timezone = IANA place (`Asia/Colombo`) shown as its live offset; App uses a DATA router (`createBrowserRouter`, one catch-all) for `useBlocker` — keep the three `<Routes>` as they are.
 - PF-118: footer band follows availability (two call sites, 70.7s / 67.1s = equal 50 px/s); Contact intro leads with the note; `timezone` / `heroIntro` / `footerBio` fields ("Site copy" card); three-letter months (`SEP`); no `publishedAt` control.
 - PF-120: SPA CSP in `frontend/vercel.json` (scripts by hash only, `frame-ancestors 'none'`); deleted `POST /api/upload`, `PATCH /about/availability`, `/uploads`; `contactLimiter` 5 stored/h; accepted risks (role unread, OAuth code in logs, per-instance limiter…) in locked-decisions.
+- Leftovers 2026-10-14: hero cut-out uploadable (`imageSlot` + `imageSlotHandlers` shared with the portrait — never fork), bundled hero is WebP, `↺ MARK UNREAD` (explicit `{ read }`), project row PUBLISH/UNPUBLISH (Blog's rule), backend `GET /`, `og:` tags (url/image only WITH the domain), dates stay reader-local, nginx mirrors vercel.json headers.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment
