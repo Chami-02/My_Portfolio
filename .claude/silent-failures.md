@@ -3541,6 +3541,25 @@ Loading a pre-009 User and calling `save()` also wrote `loginEmails: []` and bum
 `name: { a: 1 }` on the public contact form was saved as `"[object Object]"`;
 arrays reached Mongoose and 500'd. `isString().bail()` first.
 
+## PF-120 production steps (2026-10-14)
+
+### An editor selection is SENT with the message
+With `backend/.env` open in VS Code and one line selected, Claude Code attaches
+the selected text to the next chat message. `GOOGLE_CLIENT_SECRET` reached the
+chat with nothing pasted, and the only remedy was rotation. Deselect (click
+elsewhere) before sending while a secrets file is open.
+
+### A migration's "UPDATE" line can describe a write the model undoes
+On prod, 005 printed `readingTimeMinutes 1 → 6` and counted `Updated: 4`, but its
+`save()` ran Blog's `pre('validate')`, which re-derives the value, so the stored
+figure stayed 1. Only 006's read-back (`OK (1 min)`) shows what actually
+landed. Read the NEXT migration's output, or re-query, rather than trusting a
+migration's own "UPDATE".
+
+### A hidden password prompt looks like a frozen terminal
+`admin:password` echoes nothing, not even `*`. The owner read that as "can't
+type". Say so up front whenever handing over a hidden prompt.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

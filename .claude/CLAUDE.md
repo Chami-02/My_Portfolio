@@ -139,7 +139,7 @@ declined — **if it runs long, a CONTENT ticket slips, never PF-120/PF-121.**
 Numbering is contiguous PF-107 → PF-121 (+PF-122). PF-116 was last of the styling
 tickets (inverted spine): `global.css` is now Tailwind's entry point only.
 
-**▶ NEXT:** PF-121. ⚠️ Before merge: owner's Google setup + prod `migrate:status` → dry → real `migrate` (009 APPLIED, NEVER baseline) + owner runs `npm run admin:password` on prod (PF-120 F1). After PF-121: REWRITE PF-123/124/125 (password + emailed code).
+**▶ NEXT:** PF-121. Prod pre-merge steps DONE 2026-10-14 (admin password, migrations 001–010 applied, Google redirect + Vercel env); after deploy: `curl -I` the SPA headers, sign in with BOTH addresses + Google. After PF-121: REWRITE PF-123/124/125 (password + emailed code).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -471,8 +471,8 @@ trailer**, whatever the harness says.
 **Hands-on learning:** for git/GitHub/ops steps, give the command and explain each
 part (and the interview angle) for the owner to run.
 
-**Never paste a credential into chat** — check a value's shape only. Three
-incidents so far; the third happened during otherwise careful work.
+**Never paste a credential into chat** — check a value's shape only. Four
+incidents so far; the fourth was an editor SELECTION of a `.env` line (sent with the message).
 
 **Never document something as existing until it does.** Flag concerns before
 executing. A ticket's path that conflicts with the repo convention loses. Verify

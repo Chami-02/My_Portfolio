@@ -8460,8 +8460,31 @@ change / reset / forgot with an emailed code; PF-123/124/125 to be REWRITTEN aft
 PF-121.
 
 ### Outstanding work added by PF-120
-- **Owner: run `npm run admin:password` against production** — settles F1.
-- **After the PF-121 deploy: `curl -I` the live SPA** shows the new headers.
+- ~~**Owner: run `npm run admin:password` against production**~~ — ✅ DONE
+  2026-10-14. It printed `Password set for admin@portfolio.dev` (prod was still
+  pre-009), and the owner signed in on the live site with it.
+- ✅ **Production migrations, 2026-10-14** (owner ran them, I read each output):
+  `migrate:status` → **0 applied, 9 pending** (prod had never been migrated); dry
+  run read migration by migration against `master`'s code (`d799c07`) → real
+  `migrate` → status **Applied (9), all `2026-10-14 11:20`, Pending (0)**.
+  001/003/004 found nothing to do. 005 wrote 6/7/4/5, and Blog's `pre('validate')`
+  re-derived them on save, so 006 read **1 min** on all four: net, no visible
+  change. 005's dates were the same instant (14:30 +05:30 = 09:00Z). 007 unset 9
+  null/empty media fields (on `master` they are schema-only, with zero readers).
+  008 matched SEED_BIO exactly and copied the shown bio. 009 moved the admin to
+  pcgallege + parindrachameekara. 010 set the public address.
+  ⚠️ **Expected until the PF-121 deploy:** live sign-in works with
+  `pcgallege@gmail.com` and REFUSES `parindrachameekara@gmail.com`, because
+  `master`'s login is `User.findOne({ email })` and only the branch's
+  `findByLoginEmail` reads `loginEmails`.
+- ✅ **Google for prod, 2026-10-14 (owner):** redirect URI
+  `https://my-portfoliobackend-xi.vercel.app/api/auth/google/callback` added;
+  Vercel backend Production gets `GOOGLE_CLIENT_ID` / `GOOGLE_REDIRECT_URI` /
+  `FRONTEND_URL` (Config) and `GOOGLE_CLIENT_SECRET` (Secret). The secret was then
+  ROTATED the same day: it leaked into chat through an editor selection
+  (locked-decisions, credential incidents).
+- **PF-121 after-deploy checks:** `curl -I` the live SPA (the PF-120 headers);
+  password sign-in with BOTH addresses; Google sign-in with both.
 - **The custom domain moves the API** → update `connect-src` (the guard test
   fails until it is); same for any new image host (`img-src`).
 - Docker `nginx.conf` has no CSP (local only). Docker-compose's DB is `portfolio`,

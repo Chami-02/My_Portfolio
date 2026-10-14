@@ -5231,6 +5231,12 @@ is busy with something else:
   Atlas and propagated to `backend/.env`, `backend/.env.e2e` and
   Vercel's `MONGO_URI`, each **re-verified live** rather than assumed
   from the edit.
+- **2026-10-14**, during the PF-120 production steps: the owner had line 23 of
+  `backend/.env` SELECTED in VS Code, and Claude Code sends an editor selection
+  with the next message, so `GOOGLE_CLIENT_SECRET` reached the chat with nothing
+  pasted. The owner rotated it the same day (new secret added in Google Cloud
+  Console, put in `backend/.env` and Vercel Production, old one disabled and
+  deleted). New mechanism: **deselect before sending while a `.env` is open**.
 
 ⚠️ The rotation is the cheap part. What makes this worth a standing rule
 is that the *third* one happened while doing careful, well-verified work
