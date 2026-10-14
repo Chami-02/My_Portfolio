@@ -52,6 +52,13 @@ app.get('/api/health', async (_req, res) => {
     database,
   });
 });
+// The bare host answers too, so opening the API's address in a browser shows
+// what it is instead of a 404. No database call: like /api/health it must
+// answer during an outage, and it sits before the connectDB() middleware.
+app.get('/', (_req, res) => {
+  res.json({ status: 'ok', service: 'portfolio-api', health: '/api/health' });
+});
+
 app.use(async (_req, _res, next) => {
   try {
     await connectDB();

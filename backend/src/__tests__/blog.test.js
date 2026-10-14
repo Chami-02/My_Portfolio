@@ -59,7 +59,10 @@ describe('GET /api/blog/:slug', () => {
     // ⚠️ PF-96 changed this shape: `data` is now the compound
     // { post, prev, next } the reading view needs, not the bare post.
     expect(res.body.data.post.title).toBe(PUBLISHED_POST.title);
-    expect(res.body.data.post.content).toBeDefined();
+    // Deprecated since PF-59 and read by no client: no longer sent. The
+    // fixture HAS a `content`, so this cannot pass on a post without one.
+    expect(PUBLISHED_POST.content).toBeTruthy();
+    expect(res.body.data.post).not.toHaveProperty('content');
   });
 
   it('returns 404 for draft posts', async () => {
@@ -468,5 +471,40 @@ describe('drafts (PF-115)', () => {
 
     const one = await request(app).get('/api/blog/half-written-idea');
     expect(one.status).toBe(404);
+  });
+});
+
+// The body travels only where it is read: the reading view (by slug) and the
+// admin list (its edit form is built from list rows). The public list never
+// reads it, so it is not sent there.
+describe('where a post\'s sections are sent', () => {
+  const WITH_SECTIONS = {
+    ...PUBLISHED_POST,
+    content:  undefined,
+    sections: [{ heading: 'Intro', body: ['A paragraph long enough to count.'], bullets: [] }],
+  };
+
+  it('the public list omits them', async () => {
+    await Blog.create(WITH_SECTIONS);
+    const res = await request(app).get('/api/blog');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0]).not.toHaveProperty('sections');
+    // what the cards DO read is still there
+    expect(res.body.data[0]).toHaveProperty('readingTimeMinutes');
+  });
+
+  it('the admin list keeps them', async () => {
+    await Blog.create(WITH_SECTIONS);
+    const res = await request(app).get('/api/blog/admin/all').set(await authHeader());
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].sections).toHaveLength(1);
+  });
+
+  it('the reading view keeps them', async () => {
+    const post = await Blog.create(WITH_SECTIONS);
+    const res = await request(app).get(`/api/blog/${post.slug}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.post.sections).toHaveLength(1);
   });
 });

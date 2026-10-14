@@ -20,6 +20,14 @@ describe('GET /api/health', () => {
   });
 });
 
+describe('GET / (the bare API host)', () => {
+  it('says what it is instead of a 404', async () => {
+    const res = await request(app).get('/');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ok', service: 'portfolio-api', health: '/api/health' });
+  });
+});
+
 describe('GET /api/nonexistent', () => {
   it('returns 404 for unknown routes', async () => {
     const res = await request(app).get('/api/does-not-exist');
