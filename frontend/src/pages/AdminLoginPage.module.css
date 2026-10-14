@@ -392,6 +392,50 @@ a.google:hover {
   color: var(--faint);
 }
 
+/* ── Show / hide password (owner, 2026-10-14) ───────────────────────────────
+   The eye sits inside the field's right edge; the input keeps room for it so
+   a long password never runs under the button. 40px square: the admin's
+   36–42px rule (PF-117), centred on the 48px-tall field. */
+.passwordWrap {
+  position: relative;
+}
+
+.inputWithToggle {
+  padding-right: 52px;
+}
+
+.reveal {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .2s, background-color .2s;
+}
+
+.reveal:hover {
+  color: var(--text);
+  background: rgba(var(--ln), .08);
+}
+
+.reveal[aria-pressed='true'] {
+  color: var(--acc, #FCA311);
+}
+
+/* The repo's focus idiom: a visible ring, no border-radius in :focus-visible. */
+.reveal:focus-visible {
+  outline: 2px solid var(--acc, #FCA311);
+  outline-offset: 2px;
+}
+
 .input:focus {
   border-color: var(--acc, #FCA311);
   box-shadow: 0 0 0 3px rgba(252, 163, 17, .14);

@@ -52,6 +52,7 @@ import {
   googleExchangeErrorMessage,
 } from '../utils/loginError';
 import { ThemeToggle }       from '../components/layout/ThemeToggle';
+import { EyeIcon, EyeOffIcon } from '../components/icons/BrandIcons';
 import {
   PageShell,
   StarfieldCanvas,
@@ -90,6 +91,8 @@ export function AdminLoginPage() {
   const [form,    setForm]    = useState({ email: '', password: '' });
   const [error,   setError]   = useState(() => (google.error ? googleErrorMessage(google.error) : ''));
   const [loading, setLoading] = useState(false);
+  // Show / hide the typed password (owner, 2026-10-14). Hidden by default.
+  const [showPassword, setShowPassword] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(Boolean(google.handoff));
 
   // ⚠️ The handoff is SINGLE USE, and StrictMode runs this effect twice in
@@ -232,19 +235,41 @@ export function AdminLoginPage() {
               />
             </label>
 
-            <label className={`${styles.field} ${styles.fieldPassword}`}>
-              <span className={styles.fieldLabel}>Password</span>
-              <input
-                type="password"
-                name="password"
-                required
-                autoComplete="current-password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={handleChange}
-                className={styles.input}
-              />
-            </label>
+            {/* The toggle sits INSIDE the field but OUTSIDE the <label>: a
+                button inside a label is itself labelable, and the label's
+                click would then be ambiguous. `type="button"` — inside a
+                <form>, a type-less button SUBMITS. One fixed name plus
+                `aria-pressed` (not a name that flips): a screen reader then
+                says "Show password, toggle button, pressed". */}
+            <div className={`${styles.field} ${styles.fieldPassword}`}>
+              <label htmlFor="admin-login-password" className={styles.fieldLabel}>Password</label>
+              <div className={styles.passwordWrap}>
+                <input
+                  id="admin-login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  required
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="••••••••"
+                  value={form.password}
+                  onChange={handleChange}
+                  className={`${styles.input} ${styles.inputWithToggle}`}
+                />
+                <button
+                  type="button"
+                  className={styles.reveal}
+                  aria-label="Show password"
+                  aria-pressed={showPassword}
+                  aria-controls="admin-login-password"
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+                </button>
+              </div>
+            </div>
 
             {/* `disabled` guards against a double submit while the request
                 is in flight; it changes nothing visible (see the module).

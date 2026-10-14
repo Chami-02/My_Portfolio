@@ -435,3 +435,50 @@ describe('AdminLoginPage.module.css — structure (PF-109)', () => {
     });
   });
 });
+
+// ── Show / hide password (owner, 2026-10-14) ────────────────────────────────
+describe('the password eye toggle', () => {
+  const toggle = () => screen.getByRole('button', { name: 'Show password' });
+
+  it('starts hidden, shows on press, hides again on a second press', async () => {
+    const user = userEvent.setup();
+    renderAt();
+    const pass = screen.getByLabelText('Password');
+    await user.type(pass, 'hunter2');
+
+    expect(pass).toHaveAttribute('type', 'password');
+    expect(toggle()).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(toggle());
+    expect(pass).toHaveAttribute('type', 'text');
+    expect(toggle()).toHaveAttribute('aria-pressed', 'true');
+    expect(pass).toHaveValue('hunter2');            // what was typed survives the switch
+
+    await user.click(toggle());
+    expect(pass).toHaveAttribute('type', 'password');
+    expect(toggle()).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  // Inside a <form>, a button with no type SUBMITS — pressing the eye would
+  // send a sign-in request (and spend one of the 10 attempts).
+  it('is type="button" and never submits the form', async () => {
+    const user = userEvent.setup();
+    renderAt();
+    await user.type(screen.getByLabelText('Email address'), 'pcgallege@gmail.com');
+    await user.type(screen.getByLabelText('Password'), 'hunter2');
+
+    await user.click(toggle());
+
+    expect(toggle()).toHaveAttribute('type', 'button');
+    expect(login).not.toHaveBeenCalled();
+  });
+
+  it('names the field it controls, and the label still names the field', () => {
+    renderAt();
+    const pass = screen.getByLabelText('Password');
+    expect(toggle()).toHaveAttribute('aria-controls', pass.id);
+    // the browser never "fixes" a password it can now see
+    expect(pass).toHaveAttribute('spellcheck', 'false');
+    expect(pass).toHaveAttribute('autocapitalize', 'none');
+  });
+});

@@ -197,3 +197,20 @@ export function EyeIcon({ size = 16, className }) {
   );
 }
 
+
+/**
+ * An eye struck through — Material Design's `visibility_off`, public domain,
+ * EyeIcon's partner. The login form's show/hide-password toggle (owner,
+ * 2026-10-14) shows EyeIcon while the password is hidden ("show it") and this
+ * while it is visible ("hide it").
+ *
+ * ⚠️ Like SearchIcon / CloseIcon, the glyph IS the button's entire content —
+ * so it stays `aria-hidden` and the BUTTON carries the accessible name.
+ */
+export function EyeOffIcon({ size = 16, className }) {
+  return (
+    <svg {...base(size)} className={className} viewBox="0 0 24 24">
+      <path d="M12 7a5 5 0 0 1 5 5c0 .65-.13 1.26-.36 1.83l2.92 2.92A11.8 11.8 0 0 0 23 12c-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.8 11.8 0 0 0 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55A2.8 2.8 0 0 0 9 12a3 3 0 0 0 3 3c.22 0 .44-.03.65-.08l1.55 1.55A4.97 4.97 0 0 1 12 17a5 5 0 0 1-5-5c0-.79.2-1.53.53-2.2zm4.31-.78 3.15 3.15.02-.16a3 3 0 0 0-3-3l-.17.01z" />
+    </svg>
+  );
+}
