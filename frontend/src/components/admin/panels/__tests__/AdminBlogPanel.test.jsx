@@ -343,6 +343,12 @@ describe('AdminBlogPanel — failures are visible', () => {
   });
 });
 
+// A locale date as a literal regex: EVERY special character escaped. The old
+// `/[/.]/` handled only `/` and `.` (CodeQL js/incomplete-sanitization) — a
+// locale writing dates with `-`, `(` or `+` would have built a pattern that
+// matched something else and still passed.
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\/-]/g, '\\$&');
+
 describe('AdminBlogPanel — list view', () => {
 
   // PF-95 made publishedAt the displayed date on the site; the panel still
@@ -353,8 +359,8 @@ describe('AdminBlogPanel — list view', () => {
     const expected = new Date(POST.publishedAt).toLocaleDateString();
     const notExpected = new Date(POST.createdAt).toLocaleDateString();
 
-    expect(screen.getByText(new RegExp(expected.replace(/[/.]/g, '\\$&')))).toBeInTheDocument();
-    expect(screen.queryByText(new RegExp(notExpected.replace(/[/.]/g, '\\$&')))).not.toBeInTheDocument();
+    expect(screen.getByText(new RegExp(escapeRegExp(expected)))).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(escapeRegExp(notExpected)))).not.toBeInTheDocument();
   });
 
   it('falls back to the insert stamp when a post has no publish date', async () => {
@@ -364,7 +370,7 @@ describe('AdminBlogPanel — list view', () => {
     render(<AdminBlogPanel />);
 
     const expected = new Date(POST.createdAt).toLocaleDateString();
-    expect(screen.getByText(new RegExp(expected.replace(/[/.]/g, '\\$&')))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(escapeRegExp(expected)))).toBeInTheDocument();
   });
 
   it('surfaces a failed publish toggle', async () => {

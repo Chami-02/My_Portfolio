@@ -22,7 +22,10 @@ const protect = async (req, _res, next) => {
   try {
     // 1. Extract token from Authorization header
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // An explicit type check, not the truthiness of a header the client
+    // controls (CodeQL js/user-controlled-bypass) — same answer for every
+    // missing, empty or non-Bearer header.
+    if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
       return next(
         new AppError('You are not logged in. Please log in to access this.', 401)
       );
