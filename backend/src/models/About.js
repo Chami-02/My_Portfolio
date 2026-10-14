@@ -14,6 +14,28 @@ const urlValidator = {
 };
 // ──────────────────────────────────────────────────────────────
 
+// One uploaded image: Cloudinary can only delete a file by its public_id, so
+// the id is stored beside the url — a bare URL would orphan every replaced
+// file. Plain nested paths (not a sub-schema), so `about.avatar = {...}` and
+// `$set` behave exactly as they did when this shape was written inline.
+const imageSlot = (label) => ({
+  url: {
+    type:    String,
+    default: '',
+    validate: {
+      validator: v => !v || /^https?:\/\//i.test(v),   // no data: URIs
+      message:   `${label} URL must be an http(s) URL`,
+    },
+  },
+  publicId:   { type: String, default: '' },
+  fileName:   { type: String, default: '' },
+  format:     { type: String, default: '' },
+  bytes:      { type: Number, default: 0 },
+  width:      { type: Number, default: 0 },
+  height:     { type: Number, default: 0 },
+  uploadedAt: { type: Date,   default: null },
+});
+
 const aboutSchema = new mongoose.Schema(
   {
     // Basic info
@@ -132,23 +154,13 @@ const aboutSchema = new mongoose.Schema(
     //   bytes      → rendered as "248 KB"
     //   width/height → rendered as "1200 × 1600"
     //   uploadedAt → rendered as "replaced Sep 23, 2026"
-    avatar: {
-      url: {
-        type:    String,
-        default: '',
-        validate: {
-          validator: v => !v || /^https?:\/\//i.test(v),   // no data: URIs
-          message:   'Avatar URL must be an http(s) URL',
-        },
-      },
-      publicId:   { type: String, default: '' },
-      fileName:   { type: String, default: '' },
-      format:     { type: String, default: '' },
-      bytes:      { type: Number, default: 0 },
-      width:      { type: Number, default: 0 },
-      height:     { type: Number, default: 0 },
-      uploadedAt: { type: Date,   default: null },
-    },
+    avatar: imageSlot('Avatar'),
+
+    // The hero cut-out (owner, 2026-10-14). Same shape, same dedicated routes
+    // and the same delete-on-replace rule as the portrait; empty = the public
+    // hero shows its bundled image. Pre-existing documents read the defaults —
+    // no migration (a nested path absent on disk hydrates its defaults).
+    heroImage: imageSlot('Hero image'),
     // ──────────────────────────────────────────────────────────────
 
     // ── REPLACED IN PF-60: cvUrl → resumeUrl → resume {} ─────────

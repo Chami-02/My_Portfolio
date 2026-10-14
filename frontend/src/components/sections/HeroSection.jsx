@@ -3,7 +3,10 @@ import { useEffect, useRef } from 'react';
 import { Reveal, Marquee } from '../motion';
 import { useAbout } from '../../hooks/useAbout';
 import { cvAnchorProps } from '../../utils/resume';
-import heroImg from '../../assets/hero-ai.png';
+// WebP since 2026-10-14: the same 820×1028 cut-out, alpha intact, 1.48 MB →
+// 124 KB (cwebp -q 90 -alpha_q 100; 42.4 dB PSNR premultiplied, alpha
+// identical). The design source stays docs/design/assets/hero-ai.png.
+import heroImg from '../../assets/hero-ai.webp';
 import styles from './HeroSection.module.css';
 
 /**
@@ -192,7 +195,9 @@ export function HeroSection() {
             </Reveal>
           </div>
 
-          <HeroPortrait />
+          {/* An uploaded cut-out replaces the bundled one (owner, 2026-10-14);
+              empty = the bundled image, as the About portrait does. */}
+          <HeroPortrait src={about?.heroImage?.url || heroImg} />
         </div>
 
         <div aria-hidden="true" className={styles.scrollIndicator}>
@@ -236,7 +241,7 @@ export function HeroSection() {
  * smoothing on each update is a plain CSS transition, which motion.css
  * already collapses globally.
  */
-function HeroPortrait() {
+function HeroPortrait({ src }) {
   const hostRef = useRef(null);
   const innerRef = useRef(null);
 
@@ -292,7 +297,7 @@ function HeroPortrait() {
               with a real screen reader at some point; it is a judgment
               call, not a settled fact. */}
           <img
-            src={heroImg}
+            src={src}
             alt="Portrait of Parindra Gallage"
             className={styles.portraitImg}
           />

@@ -21,6 +21,8 @@ const hooks = vi.hoisted(() => ({
   updateAbout:   { mutateAsync: vi.fn(), isPending: false },
   uploadAvatar:  { mutateAsync: vi.fn(), isPending: false },
   removeAvatar:  { mutateAsync: vi.fn(), isPending: false },
+  uploadHeroImage: { mutateAsync: vi.fn(), isPending: false },
+  removeHeroImage: { mutateAsync: vi.fn(), isPending: false },
   uploadResume:  { mutateAsync: vi.fn(), isPending: false },
   removeResume:  { mutateAsync: vi.fn(), isPending: false },
   showFlash:     vi.fn(),
@@ -31,6 +33,8 @@ vi.mock('../../../../hooks/useAbout', () => ({
   useUpdateAbout:   () => hooks.updateAbout,
   useUploadAvatar:  () => hooks.uploadAvatar,
   useRemoveAvatar:  () => hooks.removeAvatar,
+  useUploadHeroImage: () => hooks.uploadHeroImage,
+  useRemoveHeroImage: () => hooks.removeHeroImage,
   useUploadResume:  () => hooks.uploadResume,
   useRemoveResume:  () => hooks.removeResume,
 }));
@@ -106,6 +110,8 @@ beforeEach(() => {
   Object.assign(hooks.updateAbout,  { mutateAsync: vi.fn().mockResolvedValue(ABOUT) });
   Object.assign(hooks.uploadAvatar, { mutateAsync: vi.fn().mockResolvedValue({}) });
   Object.assign(hooks.removeAvatar, { mutateAsync: vi.fn().mockResolvedValue({}) });
+  Object.assign(hooks.uploadHeroImage, { mutateAsync: vi.fn().mockResolvedValue({}) });
+  Object.assign(hooks.removeHeroImage, { mutateAsync: vi.fn().mockResolvedValue({}) });
   Object.assign(hooks.uploadResume, { mutateAsync: vi.fn().mockResolvedValue({}) });
   Object.assign(hooks.removeResume, { mutateAsync: vi.fn().mockResolvedValue({}) });
   hooks.useAbout.mockReturnValue({ data: ABOUT, isLoading: false });
@@ -359,19 +365,21 @@ describe('SAVE', () => {
   });
 
   // The profile PUT goes first so a storage outage still lets a text edit land.
-  it('saves the profile before either upload', async () => {
+  it('saves the profile before every upload', async () => {
     const order = [];
     hooks.updateAbout.mutateAsync  = vi.fn(async () => { order.push('profile'); });
     hooks.uploadAvatar.mutateAsync = vi.fn(async () => { order.push('avatar'); });
+    hooks.uploadHeroImage.mutateAsync = vi.fn(async () => { order.push('heroImage'); });
     hooks.uploadResume.mutateAsync = vi.fn(async () => { order.push('resume'); });
     const user = userEvent.setup();
     render(<AdminAboutPanel />);
 
     await user.upload(fileInputIn(card('Portrait')), png());
+    await user.upload(fileInputIn(card('Hero image')), png());
     await user.upload(fileInputIn(card('Résumé / CV')), pdf());
     await user.click(save());
 
-    expect(order).toEqual(['profile', 'avatar', 'resume']);
+    expect(order).toEqual(['profile', 'avatar', 'heroImage', 'resume']);
   });
 
   it('sends the edited fields', async () => {
@@ -608,15 +616,17 @@ describe('REVERT restores the saved state (PF-112)', () => {
   // ⚠️ A revert that left a file staged would be a HALF-revert, and the tell is
   // subtle: the text fields look restored, then SAVE uploads a portrait the owner
   // thought they had discarded. A text-only assertion would pass that bug.
-  it('discards a staged portrait and résumé too', async () => {
+  it('discards a staged portrait, hero image and résumé too', async () => {
     const user = userEvent.setup();
     render(<AdminAboutPanel />);
 
     await user.upload(fileInputIn(card('Portrait')), png());
+    await user.upload(fileInputIn(card('Hero image')), png());
     await user.upload(fileInputIn(card('Résumé / CV')), pdf());
     await user.click(revert());
 
     expect(within(card('Portrait')).getByText('MISSING')).toBeInTheDocument();
+    expect(within(card('Hero image')).getByText('MISSING')).toBeInTheDocument();
     expect(within(card('Résumé / CV')).getByText('MISSING')).toBeInTheDocument();
     expect(screen.queryByText('UNSAVED CHANGES')).not.toBeInTheDocument();
     expect(save()).toBeDisabled();
@@ -913,11 +923,12 @@ describe('form hygiene', () => {
 
   // ⚠️ `display: none` / `hidden` would take the file input out of the focus
   // order, which is what makes the prototype's upload pill keyboard-unreachable.
-  it('keeps both file inputs focusable rather than hidden', () => {
+  it('keeps every file input focusable rather than hidden', () => {
     const { container } = render(<AdminAboutPanel />);
     const inputs = [...container.querySelectorAll('input[type="file"]')];
 
-    expect(inputs).toHaveLength(2);
+    // Named, not only counted: portrait, hero image, résumé.
+    expect(inputs.map((i) => i.id)).toEqual(['about-portrait-file', 'about-hero-image-file', 'about-resume-file']);
     inputs.forEach((input) => {
       expect(input).not.toHaveAttribute('hidden');
       input.focus();
@@ -1496,5 +1507,75 @@ describe('leaving the About panel with unsaved edits asks first (PF-118 batch 2)
     expect(router.state.location.pathname).toBe('/admin');
     expect(hooks.updateAbout.mutateAsync).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Timezone')).toHaveAttribute('aria-invalid', 'true');
+  });
+});
+
+// ── The hero image card (owner, 2026-10-14) ─────────────────────────────────
+// The same component as the portrait card, so the portrait tests above prove
+// the shared behaviour. These prove the hero SLOT: its own staging, its own
+// mutations, and that it never touches the portrait's.
+describe('the hero image stages until SAVE', () => {
+  const HERO = { url: 'https://res.cloudinary.com/demo/image/upload/v1/portfolio/hero/h.png', publicId: 'portfolio/hero/h', fileName: 'cutout.png', bytes: 123938, width: 820, height: 1028 };
+
+  it('uploads nothing when a file is picked, and marks the form dirty', async () => {
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+    expect(save()).toBeDisabled();
+
+    await user.upload(fileInputIn(card('Hero image')), png());
+
+    expect(hooks.uploadHeroImage.mutateAsync).not.toHaveBeenCalled();
+    expect(within(card('Hero image')).getByText('PENDING SAVE')).toBeInTheDocument();
+    expect(within(card('Portrait')).getByText('MISSING')).toBeInTheDocument();
+    expect(save()).not.toBeDisabled();
+  });
+
+  it('uploads it on SAVE through its own mutation, never the portrait\'s', async () => {
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+    const file = png();
+
+    await user.upload(fileInputIn(card('Hero image')), file);
+    await user.click(save());
+
+    expect(hooks.uploadHeroImage.mutateAsync).toHaveBeenCalledWith(file);
+    expect(hooks.uploadAvatar.mutateAsync).not.toHaveBeenCalled();
+    expect(hooks.showFlash).toHaveBeenCalledWith('Profile saved');
+  });
+
+  it('stages a removal, and deletes only on SAVE', async () => {
+    hooks.useAbout.mockReturnValue({ data: { ...ABOUT, heroImage: HERO }, isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+
+    expect(within(card('Hero image')).getByText('LIVE')).toBeInTheDocument();
+    expect(within(card('Hero image')).getByText('cutout.png')).toBeInTheDocument();
+    await user.click(within(card('Hero image')).getByRole('button', { name: 'REMOVE' }));
+    expect(hooks.removeHeroImage.mutateAsync).not.toHaveBeenCalled();
+    expect(within(card('Hero image')).getByText('REMOVE ON SAVE')).toBeInTheDocument();
+
+    await user.click(save());
+    expect(hooks.removeHeroImage.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(hooks.removeAvatar.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('a refused upload names the hero image and stays staged', async () => {
+    hooks.uploadHeroImage.mutateAsync = rejected(httpError(415, 'Hero image must be a PNG, JPEG, WEBP image.'));
+    const user = userEvent.setup();
+    render(<AdminAboutPanel />);
+
+    await user.upload(fileInputIn(card('Hero image')), png());
+    await user.click(save());
+
+    expect(await screen.findByText(/Hero image: Hero image must be a PNG/)).toBeInTheDocument();
+    expect(within(card('Hero image')).getByText('PENDING SAVE')).toBeInTheDocument();
+    expect(hooks.showFlash).not.toHaveBeenCalled();
+  });
+
+  it('says what it falls back to when empty', () => {
+    render(<AdminAboutPanel />);
+    expect(within(card('Hero image')).getByText('No hero image uploaded yet')).toBeInTheDocument();
+    expect(within(card('Hero image')).getByText('The hero falls back to the bundled cut-out')).toBeInTheDocument();
+    expect(within(card('Hero image')).getByText('↑ UPLOAD HERO IMAGE')).toBeInTheDocument();
   });
 });

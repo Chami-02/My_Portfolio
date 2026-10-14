@@ -44,6 +44,17 @@ export const useRemoveAvatar = () => {
   return useMutation({ mutationFn: aboutService.removeAvatar, onSuccess: invalidateAbout(qc) });
 };
 
+// The hero cut-out (owner, 2026-10-14) — same staged-commit contract.
+export const useUploadHeroImage = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: aboutService.uploadHeroImage, onSuccess: invalidateAbout(qc) });
+};
+
+export const useRemoveHeroImage = () => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: aboutService.removeHeroImage, onSuccess: invalidateAbout(qc) });
+};
+
 export const useUploadResume = () => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: aboutService.uploadResume, onSuccess: invalidateAbout(qc) });

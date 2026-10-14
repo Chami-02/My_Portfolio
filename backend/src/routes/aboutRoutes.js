@@ -10,6 +10,8 @@ const {
   removeResume,
   uploadAvatar,
   removeAvatar,
+  uploadHeroImage,
+  removeHeroImage,
 } = require('../controllers/aboutController');
 
 
@@ -33,6 +35,10 @@ router.delete('/resume', protect, removeResume);
 // PF-111 — the portrait, same ordering and the same reasoning.
 router.put('/avatar',    protect, uploadSingle, uploadAvatar);
 router.delete('/avatar', protect, removeAvatar);
+
+// The hero cut-out — same ordering, same reasoning.
+router.put('/hero-image',    protect, uploadSingle, uploadHeroImage);
+router.delete('/hero-image', protect, removeHeroImage);
 // ─────────────────────────────────────────────────────────────
 
 module.exports = router;

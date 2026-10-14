@@ -55,6 +55,7 @@ afterEach(() => { api.defaults.adapter = originalAdapter; });
 describe('multipart uploads survive the JSON instance default', () => {
   it.each([
     ['uploadAvatar', () => aboutService.uploadAvatar(pngFile()), '/about/avatar'],
+    ['uploadHeroImage', () => aboutService.uploadHeroImage(pngFile()), '/about/hero-image'],
     ['uploadResume', () => aboutService.uploadResume(pdfFile()), '/about/resume'],
   ])('%s sends a real FormData body', async (_name, call, url) => {
     await call();
@@ -74,6 +75,7 @@ describe('multipart uploads survive the JSON instance default', () => {
 
   it.each([
     ['uploadAvatar', () => aboutService.uploadAvatar(pngFile()), 'me.png'],
+    ['uploadHeroImage', () => aboutService.uploadHeroImage(pngFile()), 'me.png'],
     ['uploadResume', () => aboutService.uploadResume(pdfFile()), 'cv.pdf'],
   ])('%s puts the File under the field name multer expects', async (_name, call, fileName) => {
     await call();
@@ -112,6 +114,7 @@ describe('multipart uploads survive the JSON instance default', () => {
 describe('the delete routes', () => {
   it.each([
     ['removeAvatar', () => aboutService.removeAvatar(), '/about/avatar'],
+    ['removeHeroImage', () => aboutService.removeHeroImage(), '/about/hero-image'],
     ['removeResume', () => aboutService.removeResume(), '/about/resume'],
   ])('%s issues a DELETE and carries no body', async (_name, call, url) => {
     await call();

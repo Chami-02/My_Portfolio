@@ -10,15 +10,13 @@
  * silently does not animate. See styles/animations.css.
  */
 
-/* `section.hero`, not `.hero`, and the element qualifier is the whole
-   point. Phase 1's global.css:338 carries `[id] { scroll-margin-top:
-   5rem }` — specificity (0,1,0), identical to a bare class, so the tie
-   breaks on stylesheet order and the global rule wins. The anchor jump
-   then clears 80px for a 71px header and lands the badge 9px low: a
-   wrong-by-a-little value, on screen, with nothing in this file looking
-   wrong. Adding the element name makes it (0,1,1) and settles it
-   outright. Every section from PF-81 on needs the same treatment until
-   global.css is trimmed at cutover. */
+/* `section.hero`, not `.hero`. Historical: Phase 1's global.css:338
+   carried `[id] { scroll-margin-top: 5rem }` at specificity (0,1,0),
+   identical to a bare class, so the global rule won on stylesheet order
+   and the anchor jump landed the badge 9px low. The element qualifier made
+   it (0,1,1). That global rule went in PF-89 and global.css is Tailwind's
+   entry point only since PF-116, so the qualifier is now harmless rather
+   than load-bearing. */
 section.hero {
   position: relative;
   min-height: 100vh;
@@ -466,7 +464,7 @@ section.hero {
      Owner-requested, 2026-08-17. Not in the prototype, which paints the
      PNG as-is.
 
-     hero-ai.png is an egg-shaped cutout on transparency: the sky and the
+     hero-ai.webp is an egg-shaped cutout on transparency: the sky and the
      decorative arcs stop at a hard rim, and the turtleneck is cut flat
      by the bottom of the frame. Both edges read as cut-out rather than
      composited, which is what this softens.

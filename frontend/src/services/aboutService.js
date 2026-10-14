@@ -18,6 +18,9 @@ export const aboutService = {
   // rather than writing the response into the cache.
   uploadAvatar: (file) => api.put('/about/avatar', ...multipart(file)).then((r) => r.data.data),
   removeAvatar: ()     => api.delete('/about/avatar').then((r) => r.data.data),
+  // The hero cut-out — the same contract; payload { heroImage, replaced, oldDeleted }.
+  uploadHeroImage: (file) => api.put('/about/hero-image', ...multipart(file)).then((r) => r.data.data),
+  removeHeroImage: ()     => api.delete('/about/hero-image').then((r) => r.data.data),
   uploadResume: (file) => api.put('/about/resume', ...multipart(file)).then((r) => r.data.data),
   removeResume: ()     => api.delete('/about/resume').then((r) => r.data.data),
 };

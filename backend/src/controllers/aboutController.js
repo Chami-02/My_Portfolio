@@ -18,6 +18,7 @@ const { isPdf, isAllowedImage, MEDIA_IMAGE_MIME } = require('../utils/fileType')
 const { MAX_IMAGE_BYTES, MAX_PDF_BYTES: MAX_RESUME_BYTES } = require('../middleware/upload');
 
 const AVATAR_FOLDER = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/profile`;
+const HERO_FOLDER   = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/hero`;
 
 // ── Validation rules ─────────────────────────────────────────────────────────
 const aboutRules = [
@@ -130,17 +131,17 @@ const updateAbout = async (req, res, next) => {
     // anywhere that could identify it. The exact orphan this ticket exists
     // to prevent, reachable from the ordinary save button.
     //
-    // ⚠️ The strip is the FIX, not the validation. Both fields are written
+    // ⚠️ The strip is the FIX, not the validation. The media fields are written
     // ONLY by their own routes, which upload first and derive the publicId
     // from Cloudinary's own response — so the client never names a publicId
     // and therefore can never aim a delete at one.
-    const { avatar, resume, ...rest } = req.body ?? {};
-    void avatar; void resume;   // named to document intent, deliberately unused
+    const { avatar, heroImage, resume, ...rest } = req.body ?? {};
+    void avatar; void heroImage; void resume;   // named to document intent, deliberately unused
     // ⚠️ PF-120 — dotted paths too. `$set` reads `"resume.publicId"` as the
     // nested field, so stripping only the top-level keys let a raw request
     // name a publicId after all — measured, for resume and avatar alike.
     const safe = Object.fromEntries(
-      Object.entries(rest).filter(([key]) => !/^(avatar|resume)\./.test(key))
+      Object.entries(rest).filter(([key]) => !/^(avatar|heroImage|resume)\./.test(key))
     );
 
     const about = await About.findOneAndUpdate(
@@ -288,145 +289,158 @@ const removeResume = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ── PUT /api/about/avatar ────────────────────────────────────────────────────
-// Protected. Uploads a new portrait and DELETES the previous one.
+// ── Uploaded images: PUT/DELETE /api/about/avatar and /api/about/hero-image ──
+// Protected. Upload a new image and DELETE the previous one; or remove it, and
+// the public site falls back to its bundled picture.
 //
-// Deliberately a near-copy of uploadResume rather than a shared helper: the two
-// differ in resource type, folder, size limit, accepted formats, the metadata
-// they store and the shape they return, which is most of a handler. A helper
-// taking six parameters to unify twenty lines would be harder to read than the
-// two it replaced, and every one of those parameters is a place a portrait
-// could accidentally be destroyed with the résumé's arguments.
-const uploadAvatar = async (req, res, next) => {
-  try {
-    if (!req.file) {
-      return next(new AppError('No file uploaded — send a "file" field', 400));
-    }
+// One handler pair per SLOT, built here — the portrait and the hero cut-out
+// share every step, so a second copy would be a second place the
+// delete-on-replace rule could drift. The résumé stays separate on purpose:
+// it differs in resource type, size limit, formats and metadata.
+//
+// Order, both slots: judge the REQUEST (file present, magic bytes, size)
+// before server state (storage configured) — an SVG is wrong whether or not
+// storage is set up, and the operator can act on a 415 but not on a 503. Then
+// upload → save → only NOW destroy the old file, non-fatally: a working image
+// exists either way.
+//
+// ⚠️ destroy with 'image', NOT 'raw'. A wrong resourceType makes Cloudinary
+// answer { result: 'not found' } — a successful call that deletes nothing —
+// and the orphan PF-111 exists to prevent is created silently.
+const imageSlotHandlers = ({ field, label, folder, defaultName, presenceKey }) => {
+  const noun = label.toLowerCase();
+  const presence = (has) => (presenceKey ? { [presenceKey]: has } : {});
 
-    const buffer = req.file.buffer;
+  const upload = async (req, res, next) => {
+    try {
+      if (!req.file) {
+        return next(new AppError('No file uploaded — send a "file" field', 400));
+      }
 
-    // Judge the REQUEST before inspecting server state — the same ordering
-    // uploadResume uses, for the same reason: an SVG is wrong whether or not
-    // storage happens to be configured, and the operator can act on a 415 but
-    // can do nothing about a 503.
-    if (!isAllowedImage(buffer)) {
-      return next(new AppError(
-        `Portrait must be a ${MEDIA_IMAGE_MIME.map(m => m.replace('image/', '').toUpperCase()).join(', ')} image.`,
-        415
-      ));
-    }
+      const buffer = req.file.buffer;
 
-    if (buffer.length > MAX_IMAGE_BYTES) {
-      return next(new AppError(
-        `Portrait is ${(buffer.length / 1024 / 1024).toFixed(1)} MB — the limit is ` +
-        `${MAX_IMAGE_BYTES / 1024 / 1024} MB.`,
-        413
-      ));
-    }
+      if (!isAllowedImage(buffer)) {
+        return next(new AppError(
+          `${label} must be a ${MEDIA_IMAGE_MIME.map(m => m.replace('image/', '').toUpperCase()).join(', ')} image.`,
+          415
+        ));
+      }
 
-    if (!storage.isConfigured()) {
-      return next(new AppError('File storage is not configured on this server', 503));
-    }
+      if (buffer.length > MAX_IMAGE_BYTES) {
+        return next(new AppError(
+          `${label} is ${(buffer.length / 1024 / 1024).toFixed(1)} MB — the limit is ` +
+          `${MAX_IMAGE_BYTES / 1024 / 1024} MB.`,
+          413
+        ));
+      }
 
-    let about = await About.findOne();
-    if (!about) about = await About.create({});
+      if (!storage.isConfigured()) {
+        return next(new AppError('File storage is not configured on this server', 503));
+      }
 
-    // Remember the old file so it can be deleted AFTER the new one lands
-    const oldPublicId = about.avatar && about.avatar.publicId;
+      let about = await About.findOne();
+      if (!about) about = await About.create({});
 
-    // ── 1. Upload the new file first ────────────────────────────
-    // resource_type 'image', unlike the résumé's 'raw': these ARE images, and
-    // storage.upload only applies Cloudinary's fetch_format/quality auto
-    // delivery optimisation on the image path.
-    const result = await storage.upload(buffer, {
-      resourceType: 'image',
-      folder:       AVATAR_FOLDER(),
-    });
+      // Remember the old file so it can be deleted AFTER the new one lands
+      const oldPublicId = about[field] && about[field].publicId;
 
-    // ── 2. Save the new metadata ────────────────────────────────
-    about.avatar = {
-      url:        result.url,
-      publicId:   result.publicId,
-      fileName:   req.file.originalname || 'portrait',
-      format:     result.format || '',
-      bytes:      result.bytes || buffer.length,
-      width:      result.width || 0,
-      height:     result.height || 0,
-      uploadedAt: new Date(),
-    };
+      // 1. Upload first. resource_type 'image' (unlike the résumé's 'raw'):
+      // storage.upload only applies Cloudinary's f_auto/q_auto delivery on
+      // the image path.
+      const result = await storage.upload(buffer, { resourceType: 'image', folder: folder() });
 
-    await about.save();
+      // 2. Save the new metadata
+      about[field] = {
+        url:        result.url,
+        publicId:   result.publicId,
+        fileName:   req.file.originalname || defaultName,
+        format:     result.format || '',
+        bytes:      result.bytes || buffer.length,
+        width:      result.width || 0,
+        height:     result.height || 0,
+        uploadedAt: new Date(),
+      };
+      await about.save();
 
-    // ── 3. Only NOW delete the old file ─────────────────────────
-    // Non-fatal: there is a working portrait either way, so a failure here is
-    // logged rather than turned into an error the visitor cannot act on.
-    //
-    // ⚠️ 'image', NOT 'raw'. A wrong resourceType makes Cloudinary answer
-    // { result: 'not found' } — a successful HTTP call that deletes nothing —
-    // and the orphan this whole ticket exists to prevent is created silently.
-    let oldDeleted = false;
-    if (oldPublicId && oldPublicId !== result.publicId) {
-      try {
-        const del = await storage.destroy(oldPublicId, 'image');
-        oldDeleted = del.result === 'ok';
-
-        if (!oldDeleted) {
-          console.warn(`[PF-111] Old portrait not deleted (${del.result}): ${oldPublicId}`);
+      // 3. Only NOW delete the old file — non-fatal
+      let oldDeleted = false;
+      if (oldPublicId && oldPublicId !== result.publicId) {
+        try {
+          const del = await storage.destroy(oldPublicId, 'image');
+          oldDeleted = del.result === 'ok';
+          if (!oldDeleted) {
+            console.warn(`[PF-111] Old ${noun} not deleted (${del.result}): ${oldPublicId}`);
+          }
+        } catch (e) {
+          console.warn(`[PF-111] Failed to delete old ${noun} ${oldPublicId}:`, e.message);
         }
-      } catch (e) {
-        console.warn(`[PF-111] Failed to delete old portrait ${oldPublicId}:`, e.message);
       }
-    }
 
-    res.json({
-      status: 'success',
-      data: {
-        avatar:    about.avatar,
-        hasAvatar: true,
-        replaced:  Boolean(oldPublicId),
-        oldDeleted,
-      },
-    });
+      res.json({
+        status: 'success',
+        data: {
+          [field]:  about[field],
+          ...presence(true),
+          replaced: Boolean(oldPublicId),
+          oldDeleted,
+        },
+      });
 
-  } catch (err) { next(err); }
+    } catch (err) { next(err); }
+  };
+
+  const remove = async (req, res, next) => {
+    try {
+      const about = await About.findOne();
+      if (!about) return next(new AppError('About document not found', 404));
+
+      if (!about[field] || !about[field].url) {
+        return next(new AppError(`No ${noun} to remove`, 404));
+      }
+
+      const publicId = about[field].publicId;
+
+      // Clear the slot first so the site stops pointing at a file that is
+      // about to disappear — the same ordering removeResume uses.
+      about[field] = {
+        url: '', publicId: '', fileName: '', format: '',
+        bytes: 0, width: 0, height: 0, uploadedAt: null,
+      };
+      await about.save();
+
+      let deleted = false;
+      if (publicId) {
+        try {
+          const del = await storage.destroy(publicId, 'image');
+          deleted = del.result === 'ok';
+        } catch (e) {
+          console.warn(`[PF-111] Failed to delete ${noun} ${publicId}:`, e.message);
+        }
+      }
+
+      res.json({ status: 'success', data: { removed: true, deleted, ...presence(false) } });
+
+    } catch (err) { next(err); }
+  };
+
+  return { upload, remove };
 };
 
-// ── DELETE /api/about/avatar ─────────────────────────────────────────────────
-// Protected. Removes the portrait entirely — the public About section falls
-// back to its bundled photograph.
-const removeAvatar = async (req, res, next) => {
-  try {
-    const about = await About.findOne();
-    if (!about) return next(new AppError('About document not found', 404));
+// PF-111 — the About portrait. `hasAvatar` stays in its responses (PF-112's
+// shape; a model virtual of the same name rides on GET /api/about).
+const avatarHandlers = imageSlotHandlers({
+  field: 'avatar', label: 'Portrait', folder: AVATAR_FOLDER, defaultName: 'portrait', presenceKey: 'hasAvatar',
+});
+const uploadAvatar = avatarHandlers.upload;
+const removeAvatar = avatarHandlers.remove;
 
-    if (!about.avatar || !about.avatar.url) {
-      return next(new AppError('No portrait to remove', 404));
-    }
-
-    const publicId = about.avatar.publicId;
-
-    // Clear the slot first so the site stops pointing at a file that is about
-    // to disappear — the same ordering removeResume uses.
-    about.avatar = {
-      url: '', publicId: '', fileName: '', format: '',
-      bytes: 0, width: 0, height: 0, uploadedAt: null,
-    };
-    await about.save();
-
-    let deleted = false;
-    if (publicId) {
-      try {
-        const del = await storage.destroy(publicId, 'image');
-        deleted = del.result === 'ok';
-      } catch (e) {
-        console.warn(`[PF-111] Failed to delete portrait ${publicId}:`, e.message);
-      }
-    }
-
-    res.json({ status: 'success', data: { removed: true, deleted, hasAvatar: false } });
-
-  } catch (err) { next(err); }
-};
+// The hero cut-out (owner, 2026-10-14). Its own folder, so the two slots'
+// files are told apart in the Cloudinary console.
+const heroImageHandlers = imageSlotHandlers({
+  field: 'heroImage', label: 'Hero image', folder: HERO_FOLDER, defaultName: 'hero-image',
+});
+const uploadHeroImage = heroImageHandlers.upload;
+const removeHeroImage = heroImageHandlers.remove;
 
 // ── GET /api/resume ──────────────────────────────────────────────────────────
 // Public. Sends the current résumé as a download named after the file the
@@ -511,6 +525,8 @@ module.exports = {
   downloadResume,
   uploadAvatar,       // PF-111
   removeAvatar,       // PF-111
+  uploadHeroImage,    // owner, 2026-10-14
+  removeHeroImage,
   isPdf,              // re-exported from utils/fileType for tests — magic-byte
   MAX_RESUME_BYTES,   // checking is the security-critical part and deserves
   MAX_IMAGE_BYTES,    // direct coverage. storage.test.js imports isPdf here.

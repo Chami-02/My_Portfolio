@@ -152,9 +152,13 @@ describe('formToPayload', () => {
     expect(formToPayload({ ...aboutToForm(ABOUT), availableForWork: true }).availableForWork).toBe(true);
   });
 
-  it('carries no avatar or resume key', () => {
-    const payload = formToPayload(aboutToForm(ABOUT));
+  it('carries no avatar, heroImage or resume key', () => {
+    const payload = formToPayload(aboutToForm({
+      ...ABOUT,
+      heroImage: { url: 'https://res.cloudinary.com/demo/image/upload/h.png', publicId: 'portfolio/hero/h' },
+    }));
 
+    expect(payload).not.toHaveProperty('heroImage');
     expect(payload).not.toHaveProperty('avatar');
     expect(payload).not.toHaveProperty('resume');
   });

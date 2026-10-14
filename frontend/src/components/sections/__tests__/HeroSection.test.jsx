@@ -715,3 +715,30 @@ describe('hero intro (PF-118)', () => {
     expect(introP().textContent).toMatch(FALLBACK);
   });
 });
+
+describe('hero image source (owner, 2026-10-14)', () => {
+  beforeEach(() => mockMatchMedia(false));
+  const img = () => screen.getByAltText('Portrait of Parindra Gallage');
+
+  it('shows an uploaded cut-out', () => {
+    const url = 'https://res.cloudinary.com/demo/image/upload/f_auto,q_auto/v1/portfolio/hero/me.png';
+    useAbout.mockReturnValue({ data: { availableForWork: true, heroImage: { url } } });
+    render(withMotion(<HeroSection />));
+    expect(img().getAttribute('src')).toBe(url);
+  });
+
+  it.each([
+    ['an empty url', { heroImage: { url: '' } }],
+    ['no heroImage field', {}],
+  ])('falls back to the bundled WebP cut-out on %s', (_label, extra) => {
+    useAbout.mockReturnValue({ data: { availableForWork: true, ...extra } });
+    render(withMotion(<HeroSection />));
+    expect(img().getAttribute('src')).toMatch(/hero-ai\.webp$/);
+  });
+
+  it('falls back while About is still loading', () => {
+    useAbout.mockReturnValue({ data: undefined, isLoading: true });
+    render(withMotion(<HeroSection />));
+    expect(img().getAttribute('src')).toMatch(/hero-ai\.webp$/);
+  });
+});

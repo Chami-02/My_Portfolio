@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   useAbout, useUpdateAbout,
   useUploadAvatar, useRemoveAvatar,
+  useUploadHeroImage, useRemoveHeroImage,
   useUploadResume, useRemoveResume,
 } from '../../../hooks/useAbout';
 import { useAdminFlash } from '../../../hooks/useAdminFlash';
@@ -45,6 +46,24 @@ import styles from './AdminAboutPanel.module.css';
 
 // Shared with the project background (PF-113) — same handler limit, same types.
 const PORTRAIT_SPEC = imageSpec('Portrait');
+const HERO_SPEC     = imageSpec('Hero image');
+
+// ── The two image cards: one component, the words per slot ─────────────────
+// The portrait (PF-112) and the hero cut-out (owner, 2026-10-14) stage, preview,
+// badge and remove identically; only what they SAY differs. `noteLead` +
+// `noteTail` wrap the shared "permanently deletes" warning.
+const PORTRAIT_CARD = {
+  id: 'about-portrait', title: 'Portrait', noun: 'portrait', upload: '↑ UPLOAD PORTRAIT',
+  noteLead: 'Replaces the photograph in the About section. Uploading a new one',
+  noteTail: 'the previous file. Any aspect ratio works — the section crops it to a 3:4 portrait.',
+  fallback: 'The About section falls back to the bundled photograph',
+};
+const HERO_CARD = {
+  id: 'about-hero-image', title: 'Hero image', noun: 'hero image', upload: '↑ UPLOAD HERO IMAGE',
+  noteLead: 'Replaces the cut-out at the top of the home page. Uploading a new one',
+  noteTail: 'the previous file. A transparent PNG cut-out works best — the hero fades its edges into the page.',
+  fallback: 'The hero falls back to the bundled cut-out',
+};
 
 /**
  * The id namespace for every validatable input in this panel.
@@ -174,7 +193,7 @@ function ResumeCard({ stored, staged, onPick, onReject, onRemove, onUndo, error 
   );
 }
 
-function PortraitCard({ stored, staged, onPick, onReject, onRemove, onUndo, error }) {
+function ImageCard({ card, spec, stored, staged, onPick, onReject, onRemove, onUndo, error }) {
   const hasStored = Boolean(stored?.url);
   const badge = badgeFor(staged.file, hasStored);
   const stagedFile = staged.file instanceof File ? staged.file : null;
@@ -183,8 +202,8 @@ function PortraitCard({ stored, staged, onPick, onReject, onRemove, onUndo, erro
   const src = stagedFile ? staged.previewUrl : pendingRemove ? null : stored?.url || null;
 
   const fileName = stagedFile ? stagedFile.name
-    : pendingRemove || !hasStored ? 'No portrait uploaded yet'
-    : stored.fileName || 'portrait';
+    : pendingRemove || !hasStored ? `No ${card.noun} uploaded yet`
+    : stored.fileName || card.noun;
 
   const meta = stagedFile
     ? [formatBytes(stagedFile.size), staged.resizedFrom && `resized from ${formatBytes(staged.resizedFrom)}`, 'not saved yet']
@@ -196,20 +215,18 @@ function PortraitCard({ stored, staged, onPick, onReject, onRemove, onUndo, erro
           stored.width && stored.height && `${stored.width} × ${stored.height}`,
           stored.uploadedAt && `replaced ${formatDate(stored.uploadedAt)}`,
         ].filter(Boolean).join(' · ')
-      : 'The About section falls back to the bundled photograph';
+      : card.fallback;
 
   return (
-    <section className={a.panel} aria-labelledby="about-portrait-title">
+    <section className={a.panel} aria-labelledby={`${card.id}-title`}>
       <div className={styles.cardHead}>
-        <h2 className={styles.cardTitle} id="about-portrait-title">Portrait</h2>
+        <h2 className={styles.cardTitle} id={`${card.id}-title`}>{card.title}</h2>
         <span className={a.spacer} />
         <span className={badge.cls}>{badge.text}</span>
       </div>
 
       <p className={styles.cardNote}>
-        Replaces the photograph in the About section. Uploading a new one{' '}
-        <strong>permanently deletes</strong> the previous file. Any aspect ratio works — the
-        section crops it to a 3:4 portrait.
+        {card.noteLead}{' '}<strong>permanently deletes</strong> {card.noteTail}
       </p>
 
       <DropZone onFile={onPick} onReject={onReject}>
@@ -223,9 +240,9 @@ function PortraitCard({ stored, staged, onPick, onReject, onRemove, onUndo, erro
           <span className={styles.mediaMeta}>{meta}</span>
           <div className={styles.mediaActions}>
             <UploadPill
-              id="about-portrait-file"
-              accept={PORTRAIT_SPEC.accept}
-              label={hasStored || stagedFile ? '↑ REPLACE FILE' : '↑ UPLOAD PORTRAIT'}
+              id={`${card.id}-file`}
+              accept={spec.accept}
+              label={hasStored || stagedFile ? '↑ REPLACE FILE' : card.upload}
               onPick={onPick}
             />
             {(stagedFile || pendingRemove) && (
@@ -290,6 +307,8 @@ export function AdminAboutPanel() {
   const updateAbout  = useUpdateAbout();
   const uploadAvatar = useUploadAvatar();
   const removeAvatar = useRemoveAvatar();
+  const uploadHeroImage = useUploadHeroImage();
+  const removeHeroImage = useRemoveHeroImage();
   const uploadResume = useUploadResume();
   const removeResume = useRemoveResume();
   const { showFlash } = useAdminFlash();
@@ -319,6 +338,7 @@ export function AdminAboutPanel() {
   };
 
   const avatar = useStagedFile();
+  const heroImage = useStagedFile();
   const resume = useStagedFile();
 
   // ── The validation guard (owner requirement, 2026-09-25) ─────────────────
@@ -336,7 +356,8 @@ export function AdminAboutPanel() {
   const [saveErrors, setSaveErrors] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  const dirty = isAboutDirty(form, about) || Boolean(avatar.file) || Boolean(resume.file);
+  const dirty = isAboutDirty(form, about)
+    || Boolean(avatar.file) || Boolean(heroImage.file) || Boolean(resume.file);
 
   // ⚠️ A rejected pick does NOT clear what is already staged. The first version
   // called `staged.clear()` here, which threw away a good file the owner had
@@ -400,6 +421,16 @@ export function AdminAboutPanel() {
         avatar.clear();
       } catch (err) {
         failures.push(`Portrait: ${messageFor(err)}`);
+      }
+    }
+
+    if (heroImage.file) {
+      try {
+        if (heroImage.file === 'remove') await removeHeroImage.mutateAsync();
+        else                             await uploadHeroImage.mutateAsync(heroImage.file);
+        heroImage.clear();
+      } catch (err) {
+        failures.push(`Hero image: ${messageFor(err)}`);
       }
     }
 
@@ -537,7 +568,9 @@ export function AdminAboutPanel() {
         </div>
       </section>
 
-      <PortraitCard
+      <ImageCard
+        card={PORTRAIT_CARD}
+        spec={PORTRAIT_SPEC}
         stored={about?.avatar}
         staged={avatar}
         onPick={pick('avatar', avatar, PORTRAIT_SPEC)}
@@ -545,6 +578,18 @@ export function AdminAboutPanel() {
         error={pickErrors.avatar}
         onRemove={() => avatar.stage('remove')}
         onUndo={() => { avatar.clear(); setPickError('avatar', null); }}
+      />
+
+      <ImageCard
+        card={HERO_CARD}
+        spec={HERO_SPEC}
+        stored={about?.heroImage}
+        staged={heroImage}
+        onPick={pick('heroImage', heroImage, HERO_SPEC)}
+        onReject={(message) => setPickError('heroImage', message)}
+        error={pickErrors.heroImage}
+        onRemove={() => heroImage.stage('remove')}
+        onUndo={() => { heroImage.clear(); setPickError('heroImage', null); }}
       />
 
       {/* ── Bio paragraphs ────────────────────────────────────────────────── */}
@@ -894,7 +939,7 @@ export function AdminAboutPanel() {
           gave Projects this same REVERT).
 
           Dropping `draft` hands every field back to the query cache, and clearing
-          both staged slots discards a picked portrait or résumé too — a revert
+          every staged slot discards a picked portrait, hero image or résumé too — a revert
           that left a file staged would be a half-revert.
         */}
         {dirty && !saving && (
@@ -904,6 +949,7 @@ export function AdminAboutPanel() {
             onClick={() => {
               setDraft(null);
               avatar.clear();
+              heroImage.clear();
               resume.clear();
               setPickErrors({});
               setSaveErrors([]);

@@ -376,6 +376,12 @@ const ABOUT_DATA = {
     bytes: 0, width: 0, height: 0, uploadedAt: null,
   },
 
+  // And the hero cut-out: empty = the bundled hero image.
+  heroImage: {
+    url: '', publicId: '', fileName: '', format: '',
+    bytes: 0, width: 0, height: 0, uploadedAt: null,
+  },
+
   stats: [
     { label: 'Projects Built', value: '5+' },
     { label: 'Technologies', value: '10+' },
