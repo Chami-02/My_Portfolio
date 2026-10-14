@@ -1,11 +1,34 @@
 import { Component } from 'react';
+import { QueryClientContext } from '@tanstack/react-query';
 import styles from './ErrorBoundary.module.css';
 
 export class ErrorBoundary extends Component {
+  // The page's QueryClient, when there is one — read so TRY AGAIN can refetch.
+  static contextType = QueryClientContext;
+
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
+
+  /**
+   * TRY AGAIN refetches, THEN re-renders.
+   *
+   * ⚠️ Clearing the error alone re-rendered the section from TanStack's cache
+   * — the same payload that just threw — so it threw again until staleTime ran
+   * out, and the button looked broken. Refetching first means the retry reads
+   * what the server holds NOW. A refetch that fails keeps the old data and the
+   * section may throw again, which is the honest answer.
+   *
+   * Every cached query, not a guess at which one: the boundary cannot know
+   * which query fed the throw, and the stale data stays on screen elsewhere
+   * until the fresh answer replaces it — nothing blanks. No client (a test, a
+   * page outside the provider) = just re-render, as before.
+   */
+  retry = async () => {
+    await this.context?.refetchQueries();
+    this.setState({ hasError: false, error: null });
+  };
 
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
@@ -38,7 +61,7 @@ export class ErrorBoundary extends Component {
             <button
               type="button"
               className={styles.button}
-              onClick={() => this.setState({ hasError: false, error: null })}
+              onClick={this.retry}
             >
               TRY AGAIN
             </button>

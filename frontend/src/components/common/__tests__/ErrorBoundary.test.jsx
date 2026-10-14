@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent }             from '@testing-library/react';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { ErrorBoundary }                         from '../ErrorBoundary';
 
 // A component that throws on first render only
@@ -49,7 +50,7 @@ describe('ErrorBoundary', () => {
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
-  it('resets error state when "Try again" is clicked', () => {
+  it('resets error state when "Try again" is clicked', async () => {
     shouldThrow = true;
     render(
       <ErrorBoundary>
@@ -60,7 +61,37 @@ describe('ErrorBoundary', () => {
     shouldThrow = false;
     fireEvent.click(screen.getByRole('button', { name: /try again/i }));
 
-    expect(screen.getByText('Content rendered fine')).toBeInTheDocument();
+    expect(await screen.findByText('Content rendered fine')).toBeInTheDocument();
+  });
+
+  /**
+   * The bad payload is in the CACHE, fresh (staleTime Infinity), so nothing
+   * would refetch it on its own. Before the fix TRY AGAIN re-rendered from
+   * that cache and threw again; now it refetches first and gets the good one.
+   */
+  it('TRY AGAIN refetches a bad cached payload instead of re-throwing it', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData(['section'], { broken: true });
+    const queryFn = vi.fn(async () => ({ broken: false }));
+
+    function Section() {
+      const { data } = useQuery({ queryKey: ['section'], queryFn });
+      if (data?.broken) throw new Error('Unexpected payload');
+      return <p>Fresh content</p>;
+    }
+
+    render(
+      <QueryClientProvider client={client}>
+        <ErrorBoundary><Section /></ErrorBoundary>
+      </QueryClientProvider>
+    );
+    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    expect(queryFn).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+    expect(await screen.findByText('Fresh content')).toBeInTheDocument();
+    expect(queryFn).toHaveBeenCalledTimes(1);
   });
 
   // ── PF-116 — the fallback moved onto Phase 2 ─────────────────────────
