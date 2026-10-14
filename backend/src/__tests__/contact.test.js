@@ -134,6 +134,58 @@ describe('PATCH /api/contact/:id/read', () => {
 
     expect(res.status).toBe(404);
   });
+
+  // Mark unread: an explicit value, never a flip.
+  it('{ read: false } marks a read message unread', async () => {
+    const message = await Contact.create({ ...VALID_MESSAGE, read: true });
+
+    const res = await request(app)
+      .patch(`/api/contact/${message._id}/read`)
+      .set(await authHeader())
+      .send({ read: false });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.read).toBe(false);
+    expect((await Contact.findById(message._id)).read).toBe(false);
+  });
+
+  it('{ read: false } twice stays unread (not a toggle)', async () => {
+    const message = await Contact.create({ ...VALID_MESSAGE, read: true });
+    const headers = await authHeader();
+    await request(app).patch(`/api/contact/${message._id}/read`).set(headers).send({ read: false });
+    const res = await request(app).patch(`/api/contact/${message._id}/read`).set(headers).send({ read: false });
+    expect(res.body.data.read).toBe(false);
+  });
+
+  it('{ read: true } marks it read', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    const res = await request(app)
+      .patch(`/api/contact/${message._id}/read`)
+      .set(await authHeader())
+      .send({ read: true });
+    expect(res.body.data.read).toBe(true);
+  });
+
+  it.each([['a string', 'false'], ['a number', 0], ['null', null]])(
+    'refuses %s with a 400 and changes nothing',
+    async (_label, value) => {
+      const message = await Contact.create({ ...VALID_MESSAGE, read: true });
+      const res = await request(app)
+        .patch(`/api/contact/${message._id}/read`)
+        .set(await authHeader())
+        .send({ read: value });
+      expect(res.status).toBe(400);
+      expect((await Contact.findById(message._id)).read).toBe(true);
+    },
+  );
+
+  it('answers 401 before reading the body', async () => {
+    const message = await Contact.create(VALID_MESSAGE);
+    const res = await request(app)
+      .patch(`/api/contact/${message._id}/read`)
+      .send({ read: 'nonsense' });
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('DELETE /api/contact/:id', () => {

@@ -96,10 +96,12 @@ describe('unread marker (2026-09-16, carried over)', () => {
 });
 
 describe('the card (Admin.dc.html:538-568)', () => {
-  it('shows MARK READ only on an unread message, and REPLY as a mailto', () => {
+  it('shows MARK READ on an unread message, MARK UNREAD on a read one, and REPLY as a mailto', () => {
     render(<AdminMessagesPanel />);
     expect(within(cardOf('Unread Sender')).getByRole('button', { name: '✓ MARK READ' })).toBeInTheDocument();
+    expect(within(cardOf('Unread Sender')).queryByRole('button', { name: '↺ MARK UNREAD' })).toBeNull();
     expect(within(cardOf('Read Sender')).queryByRole('button', { name: '✓ MARK READ' })).toBeNull();
+    expect(within(cardOf('Read Sender')).getByRole('button', { name: '↺ MARK UNREAD' })).toBeInTheDocument();
     expect(within(cardOf('Read Sender')).getByRole('link', { name: '✉ REPLY' }))
       .toHaveAttribute('href', 'mailto:r@example.com?subject=Re: Your Portfolio Message');
   });
@@ -118,6 +120,29 @@ describe('the card (Admin.dc.html:538-568)', () => {
     render(<AdminMessagesPanel />);
 
     await user.click(screen.getByRole('button', { name: '✓ MARK READ' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Message not found');
+  });
+
+  it('sends an explicit value each way — never a flip', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+
+    await user.click(within(cardOf('Unread Sender')).getByRole('button', { name: '✓ MARK READ' }));
+    await user.click(within(cardOf('Read Sender')).getByRole('button', { name: '↺ MARK UNREAD' }));
+
+    expect(markRead.mutate.mock.calls.map(([arg]) => arg)).toEqual([
+      { id: 'm1', read: true },
+      { id: 'm2', read: false },
+    ]);
+  });
+
+  it('surfaces a failed MARK UNREAD too', async () => {
+    markRead.mutate.mockImplementation((_arg, { onError }) =>
+      onError({ response: { data: { message: 'Message not found' } } }));
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+
+    await user.click(within(cardOf('Read Sender')).getByRole('button', { name: '↺ MARK UNREAD' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Message not found');
   });
 

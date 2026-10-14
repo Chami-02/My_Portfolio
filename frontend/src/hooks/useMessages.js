@@ -41,10 +41,11 @@ export const useMessages = () => {
   return useQuery({ queryKey: MESSAGES_KEY, queryFn: contactService.getAll });
 };
 
+/** Read / unread. Called as `mutate({ id, read })` — `read: false` is MARK UNREAD. */
 export const useMarkMessageRead = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: contactService.markRead,
+    mutationFn: ({ id, read }) => contactService.markRead(id, read),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MESSAGES_KEY });
       refreshDashboard(qc);

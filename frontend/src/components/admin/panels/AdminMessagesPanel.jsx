@@ -212,9 +212,17 @@ export function AdminMessagesPanel() {
                   </div>
                   <p className={styles.message}><Highlighted text={msg.message} words={words} /></p>
                   <div className={styles.actions}>
-                    {!msg.read && (
+                    {msg.read ? (
+                      // Owner, 2026-10-14: undo a read, so a message can be
+                      // kept as a to-do. Plain row button — not the success
+                      // green MARK READ hovers with.
+                      <button type="button" className={a.btnRow}
+                        onClick={() => markRead.mutate({ id: msg._id, read: false }, { onError: onError('Could not mark the message unread.') })}>
+                        ↺ MARK UNREAD
+                      </button>
+                    ) : (
                       <button type="button" className={styles.markRead}
-                        onClick={() => markRead.mutate(msg._id, { onError: onError('Could not mark the message read.') })}>
+                        onClick={() => markRead.mutate({ id: msg._id, read: true }, { onError: onError('Could not mark the message read.') })}>
                         ✓ MARK READ
                       </button>
                     )}

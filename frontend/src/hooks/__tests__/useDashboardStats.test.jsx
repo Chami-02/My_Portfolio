@@ -154,7 +154,8 @@ describe('mutations that change a count invalidate the stats entry', () => {
     ['useUpdatePost',      useUpdatePost,      { id: 'id', data: {} }],   // the form can flip `published`
     ['useTogglePublish',   useTogglePublish,   'id'],
     ['useDeletePost',      useDeletePost,      'id'],
-    ['useMarkMessageRead', useMarkMessageRead, 'id'],
+    ['useMarkMessageRead', useMarkMessageRead, { id: 'id', read: true }],
+    ['useMarkMessageRead (unread)', useMarkMessageRead, { id: 'id', read: false }],
     ['useDeleteMessage',   useDeleteMessage,   'id'],
     // PF-114: deleting a section can delete its skills with it.
     ['useDeleteSkillCategory', useDeleteSkillCategory, { id: 'id', choice: { deleteSkills: true } }],

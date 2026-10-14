@@ -66,12 +66,18 @@ const getAllMessages = async (req, res, next) => {
 };
 
 // ── PATCH /api/contact/:id/read ──────────────────────────────────────────────
-// Protected — mark a message as read in admin panel
+// Protected — mark a message read, or unread with `{ read: false }`. An
+// EXPLICIT value like the star (never a flip); no body still means read, so a
+// client sending nothing keeps its old meaning.
+const readRules = [
+  body('read').optional().isBoolean({ strict: true }).withMessage('read must be true or false'),
+];
+
 const markAsRead = async (req, res, next) => {
   try {
     const message = await Contact.findByIdAndUpdate(
       req.params.id,
-      { read: true },
+      { read: req.body?.read ?? true },
       { returnDocument: 'after' }
     );
     if (!message) return next(new AppError('Message not found', 404));
@@ -120,4 +126,5 @@ const deleteMessage = async (req, res, next) => {
 module.exports = {
   contactRules, submitContact, getAllMessages, markAsRead, deleteMessage,
   starRules, setStarred,
+  readRules,
 };
