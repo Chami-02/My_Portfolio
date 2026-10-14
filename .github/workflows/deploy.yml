@@ -89,7 +89,7 @@ jobs:
       # be read next to the approval request. The runner prints the database
       # NAME and never the connection string, so this file is safe to store.
       - name: Save the plan
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: migration-plan
           path: migration-plan.txt
