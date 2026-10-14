@@ -4,9 +4,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const getPublished = vi.hoisted(() => vi.fn(() => Promise.resolve([])));
-vi.mock('../../services/blogService', () => ({ blogService: { getPublished } }));
+const getBySlug    = vi.hoisted(() => vi.fn(() => Promise.resolve({ post: {} })));
+const getAllAdmin  = vi.hoisted(() => vi.fn(() => Promise.resolve([])));
+vi.mock('../../services/blogService', () => ({ blogService: { getPublished, getBySlug, getAllAdmin } }));
 
-const { blogListParams, useBlogPosts, BLOG_KEY, BLOG_ADMIN_KEY, useBlogPost } =
+const { blogListParams, useBlogPosts, BLOG_KEY, useBlogPost, useBlogPostAdmin } =
   await import('../useBlog');
 
 describe('blogListParams', () => {
@@ -166,15 +168,23 @@ describe('useBlogPosts cache identity', () => {
   });
 
   /**
-   * ⚠️ FOUND, NOT FIXED — reported to Outstanding work in PF-98.
-   *
-   * This asserts the CURRENT behaviour, which is a latent bug: a post whose
-   * slug is `admin` produces exactly `BLOG_ADMIN_KEY`, so the post detail and
-   * the admin list share one cache entry. It is pre-existing (both keys
-   * predate PF-98) and out of this ticket's scope, but it is written down
-   * here so whoever fixes it has a test that changes colour when they do.
+   * Fixed 2026-10-14 (PF-98 found it). A post slugged `admin` used to key on
+   * exactly `BLOG_ADMIN_KEY`, so the post detail and the admin list shared one
+   * cache entry. Driven through the REAL hooks, so the test follows the keys
+   * the code builds rather than a copy of them.
    */
-  it('DOCUMENTS a pre-existing collision: a post slugged "admin" shares the admin key', () => {
-    expect([...BLOG_KEY, 'admin']).toEqual(BLOG_ADMIN_KEY);
+  it('a post slugged "admin" or "list" has its own cache entry', () => {
+    renderHook(() => {
+      useBlogPostAdmin();
+      useBlogPosts();
+      useBlogPost('admin');
+      useBlogPost('list');
+    }, { wrapper });
+
+    const keys = client.getQueryCache().getAll().map((e) => e.queryKey);
+    expect(keys).toHaveLength(4);
+    expect(new Set(keys.map((k) => JSON.stringify(k))).size).toBe(4);
+    // and every one is still under BLOG_KEY, so mutations invalidate them all
+    keys.forEach((k) => expect(k.slice(0, BLOG_KEY.length)).toEqual(BLOG_KEY));
   });
 });
