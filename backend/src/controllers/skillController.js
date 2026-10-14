@@ -17,6 +17,28 @@ const nextOrder = async () => {
   return (last?.order ?? 0) + 1;
 };
 
+// ── What a request may write to a skill — and as what type ──────────────────
+// ⚠️ The body used to be spread straight into create / findByIdAndUpdate. An
+// update document is MongoDB syntax, so `{ "$rename": { "level": "x" } }` ran
+// as a command: measured 2026-10-14 (CodeQL js/sql-injection), it answered 200
+// and deleted the REQUIRED `level`, past the model's validators; `$inc` and
+// `$set` ran too. Admin-only, but a body must never be a database command.
+// Only these four fields are copied, each only as its own type — an operator
+// key is never copied, and an object can never stand in for a value.
+const SKILL_FIELDS = { name: 'string', category: 'string', level: 'string', order: 'number' };
+
+/** The body → `{ data }`, or `{ error }` when a field has the wrong type. */
+const skillPayload = (body) => {
+  const data = {};
+  for (const [field, type] of Object.entries(SKILL_FIELDS)) {
+    const value = body?.[field];
+    if (value === undefined) continue;
+    if (typeof value !== type) return { error: `${field} must be a ${type}` };
+    data[field] = value;
+  }
+  return { data };
+};
+
 // The two write errors a skill can hit, mapped the same way on create AND
 // update. ⚠️ Before PF-114 only create mapped them: a rename to an existing
 // name reached errorHandler as a raw Mongo 11000, which is not an AppError, so
@@ -36,6 +58,7 @@ const writeError = (err, name) => {
 // this; the list is the owner's now, so the check reads the collection.
 const unknownSection = async (key) => {
   if (key === undefined) return false;
+  if (typeof key !== 'string') return true;   // never a query operand
   await ensureDefaults();
   return !(await SkillCategory.exists({ key }));
 };
@@ -54,7 +77,8 @@ const getAllSkills = async (req, res, next) => {
 // Protected — JWT required (PF-35)
 const createSkill = async (req, res, next) => {
   try {
-    const data = { ...req.body };
+    const { data, error } = skillPayload(req.body);
+    if (error) return next(new AppError(error, 400));
     if (data.category !== undefined && await unknownSection(data.category)) {
       return next(new AppError('Choose a section that exists', 400));
     }
@@ -73,7 +97,8 @@ const createSkill = async (req, res, next) => {
 // "update runs no pre('save')" trap (Silent failures) has nothing to skip.
 const updateSkill = async (req, res, next) => {
   try {
-    const data = { ...req.body };
+    const { data, error } = skillPayload(req.body);
+    if (error) return next(new AppError(error, 400));
     if (await unknownSection(data.category)) {
       return next(new AppError('Choose a section that exists', 400));
     }

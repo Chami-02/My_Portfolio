@@ -1,4 +1,5 @@
 const crypto    = require('crypto');
+const { body }  = require('express-validator');
 const { parse: parseCookies } = require('cookie');
 const User      = require('../models/User');
 const Session   = require('../models/Session');
@@ -28,15 +29,23 @@ const sessionPayload = (session, user) => ({
 });
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
+// One rule, one message: both fields present and both strings.
+const loginRules = [
+  body().custom((b) =>
+    typeof b?.email === 'string' && b.email.length > 0 &&
+    typeof b?.password === 'string' && b.password.length > 0,
+  ).withMessage('Please provide email and password'),
+];
+
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // 1. Check both fields were provided — as STRINGS. `!email` lets an array
-    // through, and an array is a Mongo operand, not an address.
-    if (typeof email !== 'string' || !email || typeof password !== 'string' || !password) {
-      return next(new AppError('Please provide email and password', 400));
-    }
+    // 1. Both fields are non-empty STRINGS — enforced by `loginRules` in the
+    // route, before this runs (an array would be a Mongo operand, not an
+    // address). CodeQL flagged the old in-controller `!email` as a user-
+    // controlled condition guarding sign-in; the route validator is where
+    // every other request shape in this API is checked.
 
     // 2. Find user by ANY of its login addresses (PF-119: one admin, two
     // addresses, one password) — we need password, which is select: false
@@ -316,7 +325,7 @@ const googleExchange = async (req, res, next) => {
 };
 
 module.exports = {
-  login, refresh, logout, getMe,
+  loginRules, login, refresh, logout, getMe,
   googleStart, googleCallback, googleExchange,
   safeReturnTo,
 };

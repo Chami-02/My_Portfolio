@@ -115,6 +115,9 @@ const createCategory = async (req, res, next) => {
 const renameCategory = async (req, res, next) => {
   try {
     const { label } = req.body;
+    // labelRule already requires a string; checked HERE as well so the query
+    // below never depends on a validator wired in another file.
+    if (typeof label !== 'string') return next(new AppError('Section name is required', 400));
     if (await labelTaken(label, req.params.id)) {
       return next(new AppError(`A section named "${label}" already exists`, 409));
     }
@@ -176,7 +179,8 @@ const deleteCategory = async (req, res, next) => {
 
     if (skills.length > 0) {
       if (moveTo) {
-        if (!mongoose.isValidObjectId(moveTo) || String(moveTo) === String(category._id)) {
+        if (typeof moveTo !== 'string' || !mongoose.isValidObjectId(moveTo)
+            || moveTo === String(category._id)) {
           return next(new AppError('Choose another section to move the skills to', 400));
         }
         const target = await SkillCategory.findById(moveTo);

@@ -1,13 +1,16 @@
 const router = require('express').Router();
 const {
-  login, refresh, logout, getMe,
+  loginRules, login, refresh, logout, getMe,
   googleStart, googleCallback, googleExchange,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
+const validate    = require('../middleware/validate');
 const { authLimiter, refreshLimiter, googleLimiter } = require('../middleware/rateLimiter');
 
 // Public — rate limited (10 attempts per 15 minutes)
-router.post('/login', authLimiter, login);
+// The limiter FIRST, so a malformed body still spends an attempt; then the
+// shape check (non-empty strings), then the handler.
+router.post('/login', authLimiter, loginRules, validate, login);
 
 // Public, its own limiter (PF-108). Neither refresh nor logout sits behind
 // `protect`: the access token is expected to be dead when refresh is called,

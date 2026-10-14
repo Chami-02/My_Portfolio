@@ -346,3 +346,53 @@ describe('PF-114 — PUT /api/skills/reorder', () => {
     expect(empty.status).toBe(400);
   });
 });
+
+// ── A request body is data, never a database command (CodeQL, 2026-10-14) ───
+// Measured before the fix: PUT with `{ "$rename": { "level": "zzz" } }` answered
+// 200 and DELETED the required `level`; `$inc` and `$set` ran as well. Only
+// name / category / level / order are copied now, each only as its own type.
+describe('skills: the body cannot carry MongoDB operators or wrong types', () => {
+  const seeded = async () => Skill.create({ ...VALID_SKILL, name: 'Probe', order: 1 });
+
+  it.each([
+    ['$rename', { $rename: { level: 'zzz' } }],
+    ['$set',    { $set: { name: 'Hijacked' } }],
+    ['$inc',    { $inc: { order: 1000 } }],
+    ['$unset',  { $unset: { level: 1 } }],
+  ])('PUT with %s changes nothing', async (_label, body) => {
+    const skill = await seeded();
+    await request(app).put(`/api/skills/${skill._id}`).set(await authHeader()).send(body);
+    const after = await Skill.findById(skill._id).lean();
+    expect(after.name).toBe('Probe');
+    expect(after.level).toBe(VALID_SKILL.level);
+    expect(after.order).toBe(1);
+  });
+
+  it.each([
+    ['an object category', { category: { $ne: null } }, /category/],
+    ['a numeric name',     { name: 42 },                 /name must be a string/],
+    ['a string order',     { order: '3' },               /order must be a number/],
+    ['an array level',     { level: ['advanced'] },      /level must be a string/],
+  ])('PUT with %s is a 400 and changes nothing', async (_label, body, message) => {
+    const skill = await seeded();
+    const res = await request(app).put(`/api/skills/${skill._id}`).set(await authHeader()).send(body);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(message);
+    const after = await Skill.findById(skill._id).lean();
+    expect(after).toMatchObject({ name: 'Probe', category: VALID_SKILL.category, level: VALID_SKILL.level, order: 1 });
+  });
+
+  it('POST copies only the four fields — an operator key is dropped, not run', async () => {
+    const res = await request(app).post('/api/skills').set(await authHeader())
+      .send({ name: 'Clean', category: 'language', level: 'beginner', $set: { name: 'Dirty' } });
+    expect(res.status).toBe(201);
+    expect(res.body.data.name).toBe('Clean');
+  });
+
+  it('POST with an object category is a 400', async () => {
+    const res = await request(app).post('/api/skills').set(await authHeader())
+      .send({ name: 'X', category: { $ne: null }, level: 'beginner' });
+    expect(res.status).toBe(400);
+    expect(await Skill.countDocuments({ name: 'X' })).toBe(0);
+  });
+});

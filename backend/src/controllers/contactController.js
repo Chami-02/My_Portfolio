@@ -77,7 +77,9 @@ const markAsRead = async (req, res, next) => {
   try {
     const message = await Contact.findByIdAndUpdate(
       req.params.id,
-      { read: req.body?.read ?? true },
+      // A real boolean in the CODE, not only in readRules: `!== false` is
+      // true for `true` and for an absent field (the old client's meaning).
+      { read: req.body?.read !== false },
       { returnDocument: 'after' }
     );
     if (!message) return next(new AppError('Message not found', 404));
@@ -100,7 +102,9 @@ const setStarred = async (req, res, next) => {
   try {
     const message = await Contact.findByIdAndUpdate(
       req.params.id,
-      { starred: req.body.starred },
+      // starRules already demands a strict boolean; `=== true` makes the
+      // value a boolean here too, so nothing else can reach the update.
+      { starred: req.body.starred === true },
       { returnDocument: 'after' }
     );
     if (!message) return next(new AppError('Message not found', 404));

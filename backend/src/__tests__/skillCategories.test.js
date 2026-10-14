@@ -206,6 +206,17 @@ describe('DELETE /api/skill-categories/:id — the three choices', () => {
     expect(await Skill.countDocuments({ category: 'soft' })).toBe(2);
   });
 
+  // CodeQL js/sql-injection (2026-10-14): `moveTo` reaches findById, so it must
+  // be a string id — an object is refused before any query, and nothing moves.
+  it('MOVE refuses a non-string target', async () => {
+    await addSoftSkills();
+    const res = await request(app).delete(`/api/skill-categories/${soft._id}`)
+      .set(await authHeader()).send({ moveTo: { $ne: null } });
+    expect(res.status).toBe(400);
+    expect(await Skill.countDocuments({ category: 'soft' })).toBe(2);
+    expect(await byKey('soft')).not.toBeNull();
+  });
+
   it('DELETE SECTION + SKILLS removes both', async () => {
     await addSoftSkills();
     const res = await request(app).delete(`/api/skill-categories/${soft._id}`)
