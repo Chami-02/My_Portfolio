@@ -6,7 +6,7 @@
 // the only consumer while the hero's CTA was still a hardcoded `href="#contact"`
 // (PF-87 wired one of the prototype's two `[data-cv]` elements and deferred the
 // other). PF-112 wires the second, and the same trigger applies that moved
-// formatMonth into blogMeta.js in PF-98: a second consumer is when a local
+// formatMonth (now formatDate) into blogMeta.js in PF-98: a second consumer is when a local
 // helper becomes shared.
 //
 // ⚠️ It is the THREE ATTRIBUTES TOGETHER that matter, which is why this exports

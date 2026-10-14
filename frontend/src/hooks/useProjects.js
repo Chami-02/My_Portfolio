@@ -29,14 +29,6 @@ export const useAdminProjects = () =>
     queryFn:  projectService.getAllAdmin,
   });
 
-/** Fetch a single project by ID */
-export const useProject = (id) =>
-  useQuery({
-    queryKey: [...PROJECTS_KEY, id],
-    queryFn:  () => projectService.getById(id),
-    enabled:  !!id,   // Don't run if id is null/undefined
-  });
-
 // ── Write (Mutations) ─────────────────────────────────────────────────────────
 
 /** Create a new project — used in admin panel */

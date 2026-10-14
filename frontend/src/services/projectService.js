@@ -4,7 +4,6 @@ import { multipart } from './multipart';
 export const projectService = {
   // Public — PUBLISHED projects only since PF-113; drafts never leave the server
   getAll:   ()           => api.get('/projects').then((r) => r.data.data),
-  getById:  (id)         => api.get(`/projects/${id}`).then((r) => r.data.data),
 
   // Admin protected
   // PF-113: every project, drafts included — the admin panel's list.

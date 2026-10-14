@@ -23,8 +23,8 @@
    to a bare class, so the tie breaks on stylesheet order and the global
    rule wins, computing 80px for a 71px header and landing the eyebrow
    9px low. The element qualifier makes it (0,1,1) and settles it.
-   Same fix as section.hero and section.about; required for every section
-   until global.css is trimmed at cutover.
+   Same fix as section.hero and section.about. Historical since PF-89
+   removed that rule — harmless now, not load-bearing.
 
    patterns.module.css's `.section` holds these exact padding values and
    is deliberately not composed: `composes` is only legal on a single
