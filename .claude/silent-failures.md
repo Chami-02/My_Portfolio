@@ -3595,6 +3595,32 @@ focus refetches) plus probes hit 429 on EVERY route, including `GET /`. `touch
 src/app.js` makes `node --watch` restart the dev server and resets it without
 killing the owner's process.
 
+## PF-126 follow-up fix (2026-10-15) — the pipeline's frontend build
+
+### A Vercel SENSITIVE variable pulls as the literal `[SENSITIVE]`, and it WINS
+`vercel pull` cannot decrypt a Sensitive variable; it writes `VITE_API_URL="[SENSITIVE]"`
+into `.vercel/.env.production.local` (log: `! 1 Secret value cannot be pulled`).
+`vercel build` puts that in `process.env`, and in Vite `process.env` beats the
+committed `frontend/.env.production` — so the bundle's API base was `[SENSITIVE]`,
+a RELATIVE path: every request went to the SPA host (login 405, sections empty).
+Git-integration builds run on Vercel and decrypt it, so they were fine — the
+same commit worked one way and not the other. Reproduced locally:
+`VITE_API_URL='[SENSITIVE]' npx vite build` → 2 `[SENSITIVE]`, 0 backend URLs.
+Fix: the variable is deleted from the Vercel project (public value; the committed
+file is the one source). Guarded twice: a pre-deploy grep of `.vercel/output`
+in `deploy.yml`, and `smoke-test.js`'s site checks (deploy + hourly).
+
+### Every job green while the site was dead — the smoke test never looked at the site
+All four `deploy.yml` jobs passed on run `38616456600`: the smoke test only
+called the backend, which was healthy. A check of the thing users load (the
+page, then its entry script naming the API) is the only one that sees a build-time
+mistake in the frontend.
+
+### Two Vercel projects from ONE checkout share `.vercel/` — and `pull` MERGES
+The frontend pull printed `Kept CLOUDINARY_API_KEY, … JWT_SECRET, MONGO_URI …
+(defined locally)`: the backend's pulled env survived into the frontend build.
+Harmless only because Vite exposes `VITE_*` alone. `rm -rf .vercel` before each pull.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

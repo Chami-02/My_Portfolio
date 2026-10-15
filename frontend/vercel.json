@@ -1,4 +1,5 @@
 {
+  "git": { "deploymentEnabled": { "master": false } },
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "headers": [
     {
