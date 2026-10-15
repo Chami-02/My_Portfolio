@@ -337,6 +337,7 @@ Where a mistake would be silent, add a test that would catch it.
 - Four shapes of a red backend suite — reproducibility discriminates.
 - The Vite proxy targets a Docker host; local dev uses absolute `VITE_API_URL` — probe that URL.
 - SRV DNS failures look like a broken backend; CORS is exact-match.
+- A Vercel SENSITIVE var pulls as `[SENSITIVE]` and beats `.env.production` in a CLI build — `deploy.yml` greps the built bundle before deploying (PF-126 follow-up).
 - A Vercel production alias serves the production BRANCH; rewrites drop `Set-Cookie`.
 - `authLimiter` is live under test — mint via `issueSession`.
 - Deleting a refresh token does not end a session for 15 min.

@@ -8582,6 +8582,42 @@ hint).
   which the seed guard now refuses without `SEED_ADMIN_PASSWORD` — by design.
 - ✅ **FIXED 2026-10-14** — response only; schema path awaits a contract migration. ~~`GET /api/blog/:slug` still returns deprecated `content` (removal ticket).~~
 
+## PF-126 follow-up fix — the pipeline built the frontend with no API address (2026-10-15)
+
+A FIX on PF-126 (the deploy-pipeline ticket), not a new ticket — owner decision.
+PF-126 §5 removed the vercel steps' `working-directory`, which is why both
+projects now share one `.vercel/`. Branch `fix/pipeline-frontend-env` (GitHub
+Flow). Report: appended to `new mds/E9/PF-126-migration-database-guard.md`
+("Follow-up fix — 2026-10-15").
+
+**Incident.** PR #29's merge (`d243464`) ran `deploy.yml` for the first time (run
+`38616456600`): every job green, live site calling itself. Owner rolled back to
+the Git-integration build the same night. Root cause traced from the run log —
+see silent-failures "PF-126 follow-up": `VITE_API_URL` is Sensitive in the frontend Vercel
+project, `vercel pull` wrote `[SENSITIVE]`, `process.env` beat `.env.production`.
+
+**Built.**
+- `deploy.yml`: `rm -rf .vercel` before each pull; frontend split into Build →
+  **Check the built frontend** (fails on any `[SENSITIVE]` in `.vercel/output`, on
+  no `assets/*.js` containing `vars.PRODUCTION_API_URL`, or on that var empty) →
+  Deploy. Smoke passes `vars.PRODUCTION_URL`.
+- `backend/scripts/smoke-test.js`: optional 3rd arg = site URL → `GET <site>/
+  serves the app` + `…and its script calls THIS API`. No arg = unchanged output.
+  `health-check.yml` passes it too (hourly, six checks).
+- `"git": { "deploymentEnabled": { "master": false } }` in BOTH `vercel.json` —
+  the pipeline is now the ONLY path from `master` to production (PR previews stay).
+- Owner, dashboard: delete `VITE_API_URL` from the frontend Vercel project.
+
+**Verified.** Guard (extracted from the yml by awk, run as-is): `[SENSITIVE]` build
+→ exit 1 (placeholder message), empty-var build → exit 1 (no-origin message),
+good build → 0, empty origin → 1, wrong origin → 1. Smoke: live 6/6 ✅; no 3rd
+arg → the old 4 lines; local `[SENSITIVE]` / empty / good / dead-port builds →
+fail / fail / pass / fail(2, second "skipped"). Gates: frontend check 2127/2127
+(90 files), backend 824/824, actionlint clean.
+
+**After merge (owner):** approve the run; read the guard + smoke output; `curl`
+the live bundle; confirm NO Git-triggered production deploy of the merge commit.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
