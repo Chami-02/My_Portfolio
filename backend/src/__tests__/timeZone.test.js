@@ -18,10 +18,11 @@ describe('isTimeZone', () => {
 });
 
 describe('isTimeZone — the SHAPE check, on an engine that accepts offsets', () => {
-  // ⚠️ Node 20's ICU REJECTS "+05:30", so the tests above pass with or without
-  // the shape check. Newer engines (ECMA-402 2024 offset time zones) ACCEPT it,
-  // and then the shape check is the only thing standing between a typed offset
-  // and a stored fixed offset. Simulate that engine to prove the check exists.
+  // ⚠️ Node 20's ICU REJECTED "+05:30"; Node 24 (this project's runtime since
+  // 2026-10-15) ACCEPTS it, like Chrome (ECMA-402 2024 offset time zones). The
+  // shape check is the only thing standing between a typed offset and a stored
+  // fixed offset. The stub keeps that proof independent of the engine running
+  // the tests — measured: on Node 24, removing the check fails 4 tests.
   let spy;
   beforeEach(() => { spy = jest.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => ({})); });
   afterEach(() => spy.mockRestore());

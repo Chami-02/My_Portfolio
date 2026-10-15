@@ -326,7 +326,7 @@ Where a mistake would be silent, add a test that would catch it.
 
 **Backend / environment**
 - An array bypasses `typeof x === 'string'` — always assert a ZERO case. express-validator `isLength` passes arrays too → `isString().bail()` first.
-- Chrome ACCEPTS `+05:30` as an Intl timeZone, Node 20 rejects it → `isTimeZone` needs its shape check; prove it with a stubbed Intl (a `function`, not an arrow).
+- Chrome AND Node 24 ACCEPT `+05:30` as an Intl timeZone (Node 20 rejected it) → `isTimeZone`'s shape check is load-bearing; keep the stubbed-Intl proof (a `function`, not an arrow).
 - `FormData` through `api.js` becomes JSON → `headers: { 'Content-Type': undefined }`.
 - A body field that DEFAULTS to true (`read`) makes a dropped body succeed in reverse — assert the wire body.
 - Raw Cloudinary assets download with no extension → `GET /api/resume` proxies; never add `.pdf` to the id.
