@@ -3621,6 +3621,20 @@ The frontend pull printed `Kept CLOUDINARY_API_KEY, … JWT_SECRET, MONGO_URI �
 (defined locally)`: the backend's pulled env survived into the frontend build.
 Harmless only because Vite exposes `VITE_*` alone. `rm -rf .vercel` before each pull.
 
+### mongodb ≥ 7.6 under Jest: the handshake loses `driver`, every DB test HANGS (2026-10-15)
+7.6 loads `os` via dynamic `import()`; under Jest's CommonJS sandbox it rejects
+silently, so the hello is sent without `client.driver` → `MongoServerError:
+Missing required sub-document 'driver'`. Plain Node connects fine (probed) —
+it is test-only, but looks like a hang (CI's 20-min timeout), not a failure.
+Measured in a worktree: raw driver 7.5 OK / 7.6 + 7.7 FAIL inside Jest. Upstream
+NODE-7832 (typegoose/mongodb-memory-server#1026). Held via `~7.5.0` + Dependabot
+`ignore`; mongoose ≥ 9.10 requires the broken driver, held too.
+
+### A deploy that starts on `push` runs BESIDE CI, not after it
+Both `ci.yml` and `deploy.yml` triggered on push to master, so a red merge's
+deploy still reached the approval button. Fixed with `workflow_run` + a
+`conclusion == 'success'` gate; checkouts pin `head_sha` (the commit CI tested).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

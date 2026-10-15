@@ -306,6 +306,7 @@ Where a mistake would be silent, add a test that would catch it.
 
 **Tooling and gates**
 - `npm test` does not run E2E; unit green + E2E red = removed feature, stale tests.
+- `mongodb` ≥ 7.6 HANGS every DB test under Jest (NODE-7832) — held at `~7.5.0` + Dependabot ignore; lift steps in `dependabot.yml`.
 - A required check that never started looks like nothing failing — confirm `All Checks Pass` is listed AND `pass`.
 - After a re-trigger, read the LATEST run, not the merged check list.
 - Piping a long run through `tail` buffers to the end; `timeout` does not exist on macOS (`gtimeout`).
