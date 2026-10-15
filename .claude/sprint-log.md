@@ -8641,6 +8641,28 @@ coverage still in `frontend/coverage/` (CI artifact path unchanged); backend
 
 **Still held:** #31 (mongodb ≥7.6 breaks under Jest, NODE-7832) — next fix.
 
+## PF-126 follow-up fix 3 — deploy waits for CI; hold the MongoDB driver (2026-10-15)
+
+Owner: fixes, industry standard. Replaces Dependabot #31.
+
+**Deploy waits for CI.** `deploy.yml` started on `push`, in PARALLEL with CI — a
+red merge still reached the approval button. Now `on: workflow_run` ("CI
+Pipeline" completed, branch master); `plan`'s `if:` requires conclusion
+`success`, event `push`, same repository (a fork's PR can be named master);
+all 4 checkouts use `workflow_run.head_sha || github.sha` (the tested commit);
+`run-name` shows the commit title. `workflow_dispatch` kept (skips the CI wait).
+Header order list gains step 0 = CI. ⚠️ `workflow_run` reads deploy.yml from the
+DEFAULT branch, so the change takes effect from its own merge.
+
+**#31.** Took cloudinary 2.11, express 5.3, express-rate-limit 8.7.1, helmet 8.3
+(+ mongoose patch 9.9.5). Held mongodb ≥7.6 / mongoose ≥9.10: `~7.5.0` / `~9.9.1`
+in package.json + Dependabot `ignore` with reason and lift steps — see
+silent-failures "mongodb ≥ 7.6 under Jest". Backend 824/824 on Node 24.
+
+Also on 2026-10-15: the 18:44 backend production deploy from #16's branch was
+the OWNER's dashboard click (Redeploy/Promote) — harmless (frontend-only diff),
+but a dashboard promote skips the gate; only Instant Rollback is sanctioned.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

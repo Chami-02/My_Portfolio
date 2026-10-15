@@ -18,6 +18,7 @@
 #
 # ── THE ORDER IS THE WHOLE DESIGN ───────────────────────────────────────────
 #
+#   0. CI        "CI Pipeline" passes on master (this workflow waits for it)
 #   1. plan      dry-run the migrations against production, save the output
 #   2. ⏸ APPROVE  a human reads that output and clicks Approve
 #   3. migrate   apply them, recorded in the `migrations` collection
@@ -32,12 +33,26 @@
 # field is already live. See the report in `new mds/E9/`.
 
 name: Deploy to Production
+run-name: Deploy · ${{ github.event.workflow_run.display_title || 'manual run' }}
 
+# ⚠️ STARTS ONLY AFTER CI PASSES ON MASTER (PF-126 follow-up, 2026-10-15).
+# It used to start on `push`, in PARALLEL with CI — so a merge whose tests went
+# red still reached the approval button, and the only thing between a broken
+# build and production was the approver remembering to check CI first.
+# `workflow_run` fires when "CI Pipeline" COMPLETES; the `plan` job's `if:`
+# lets it through only on success, only for a push to master in THIS repo
+# (a fork's PR can have a branch named master too). Every checkout uses the
+# exact commit CI tested (`head_sha`), not whatever master points at by now.
+# A CI run cancelled by a newer push concludes `cancelled`, so only the newest
+# tested commit deploys.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
     branches: [master]
   # Lets you re-run a deploy without an empty commit — after fixing a secret,
-  # for instance.
+  # for instance. A manual run deploys the commit you pick and skips the CI
+  # wait, so only use it on a commit whose CI is already green.
   workflow_dispatch:
 
 permissions:
@@ -58,6 +73,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # The gate described at the top of the file. Every later job `needs:` this
+    # one, so a skipped plan skips the whole release.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+
     # ⚠️ NOTE: no `environment:` here, so this job needs no approval. Reading
     # is safe, and the whole point is to produce the information the approver
     # needs BEFORE they are asked to approve anything.
@@ -68,6 +91,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v7
@@ -136,6 +161,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v7
@@ -167,6 +194,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v7
@@ -249,6 +278,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v7

@@ -99,6 +99,20 @@ updates:
       backend-site-minor:
         dependency-type: production
         update-types: [minor]
+    # ⚠️ TEMPORARY HOLD (2026-10-15) — REMOVE WHEN NODE-7832 SHIPS.
+    # mongodb >= 7.6 loads `os` with a dynamic import() that fails silently
+    # under Jest, so the handshake is sent without its `driver` field, the
+    # server rejects it, and every database test hangs until CI's timeout
+    # (#31). Plain Node is unaffected — this is a TEST-ONLY break, but a suite
+    # that cannot run proves nothing. mongoose >= 9.10 requires mongodb ~7.6+,
+    # so it is held too. package.json pins `~7.5.0` / `~9.9.1` (patches only).
+    # Upstream: https://github.com/typegoose/mongodb-memory-server/issues/1026
+    # To lift: delete this block, set both back to `^`, run the backend suite.
+    ignore:
+      - dependency-name: mongodb
+        versions: [">=7.6.0"]
+      - dependency-name: mongoose
+        versions: [">=9.10.0"]
     commit-message:
       prefix: "chore(deps)"
 
