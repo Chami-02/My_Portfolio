@@ -4,7 +4,7 @@
 // The check that runs immediately AFTER a deploy, against the real deployed
 // site, to answer one question: is it actually serving?
 //
-//   node scripts/smoke-test.js https://api.example.com
+//   node scripts/smoke-test.js https://api.example.com [expected-db] [site-url]
 //
 // ── WHAT A SMOKE TEST IS ────────────────────────────────────────────────────
 // The name comes from hardware: power the board up and see whether smoke comes
@@ -23,22 +23,31 @@
 // So the assertion is on the `database` FIELD being a non-null string. A smoke
 // test that checked `res.status === 200` would have passed throughout the
 // outage it exists to catch.
+//
+// ⚠️ THE SITE CHECKS (optional 3rd argument, PF-126 follow-up). The frontend
+// bakes the API address into its JavaScript at BUILD time. The pipeline's first deploy
+// shipped a bundle whose API address was the literal `[SENSITIVE]` (an
+// unpullable Vercel variable), so the site called itself and showed nothing —
+// while every check above stayed green, because the backend was fine. Given a
+// site URL, this script loads the page, finds its entry script and asserts the
+// script names THIS API.
 
 const BASE = (process.argv[2] || '').replace(/\/+$/, '');
 const EXPECTED_DB = process.argv[3] || null;   // optional, e.g. portfolio_prod
+const SITE = (process.argv[4] || '').replace(/\/+$/, '');   // optional, the frontend
 
 if (!BASE) {
-  console.error('Usage: node scripts/smoke-test.js <base-url> [expected-db-name]');
+  console.error('Usage: node scripts/smoke-test.js <base-url> [expected-db-name] [site-url]');
   process.exit(1);
 }
 
 const TIMEOUT_MS = 15000;
 
-const get = async (path) => {
+const request = async (url) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(`${BASE}${path}`, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal });
     const text = await res.text();
     let json = null;
     try { json = JSON.parse(text); } catch { /* not JSON — reported below */ }
@@ -47,6 +56,8 @@ const get = async (path) => {
     clearTimeout(timer);
   }
 };
+
+const get = (path) => request(`${BASE}${path}`);
 
 const checks = [];
 const check = (name, fn) => checks.push({ name, fn });
@@ -91,9 +102,36 @@ check('GET /api/blog returns the post list', async () => {
   return `${posts.length} posts`;
 });
 
+if (SITE) {
+  let entryScript = null;
+
+  check('GET <site>/ serves the app', async () => {
+    const { status, text } = await request(`${SITE}/`);
+    if (status !== 200) throw new Error(`expected 200, got ${status}`);
+    // Vite writes one module entry: <script type="module" crossorigin src="/assets/index-….js">
+    const src = text.match(/<script\b[^>]*\bsrc="([^"]*\/assets\/[^"]+\.js)"/)?.[1];
+    if (!src) throw new Error('no /assets/*.js entry script in the page');
+    entryScript = new URL(src, `${SITE}/`).href;
+    return src;
+  });
+
+  check('…and its script calls THIS API', async () => {
+    if (!entryScript) throw new Error('skipped — the page itself did not load');
+    const { status, text } = await request(entryScript);
+    if (status !== 200) throw new Error(`entry script answered ${status}`);
+    if (text.includes('[SENSITIVE]')) {
+      throw new Error('the bundle contains a [SENSITIVE] placeholder — a Vercel Sensitive variable was built in unreadable');
+    }
+    if (!text.includes(BASE)) {
+      throw new Error(`the bundle never mentions ${BASE} — the site would call itself instead of the API`);
+    }
+    return BASE;
+  });
+}
+
 (async () => {
   console.log('');
-  console.log(`Smoke testing: ${BASE}`);
+  console.log(`Smoke testing: ${BASE}${SITE ? ` + ${SITE}` : ''}`);
   console.log('─'.repeat(64));
 
   let failed = 0;

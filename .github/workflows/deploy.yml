@@ -11,6 +11,10 @@
 # ⚠️ THIS WORKFLOW ONLY WORKS ONCE VERCEL'S AUTOMATIC GIT DEPLOYS ARE TURNED
 # OFF. Leave both on and every release races itself: Vercel deploys the new
 # code immediately while this workflow is still waiting for approval to migrate.
+# They are off for `master` in code — `"git": { "deploymentEnabled":
+# { "master": false } }` in BOTH frontend/vercel.json and backend/vercel.json
+# (PF-126 follow-up). Pull-request preview deploys still run. Delete that key
+# and the race comes back.
 #
 # ── THE ORDER IS THE WHOLE DESIGN ───────────────────────────────────────────
 #
@@ -174,25 +178,67 @@ jobs:
 
       # Frontend and backend are two Vercel projects, so each is pulled,
       # built and deployed separately with its own project id.
+      #
+      # ⚠️ `rm -rf .vercel` BEFORE EVERY PULL. Both projects run from the repo
+      # root, so they share one `.vercel/` folder, and `vercel pull` MERGES into
+      # the env file it finds there ("Kept … defined locally"). Without the
+      # wipe, the frontend build ran with the backend's eleven variable names
+      # in its environment (PF-126 follow-up).
       - name: Deploy backend
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_BACKEND }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
+          rm -rf .vercel
           vercel pull --yes --environment=production
           vercel build --prod
           vercel deploy --prebuilt --prod
+
+      # The frontend is built, CHECKED, and only then deployed — three steps,
+      # so the check sits in the one slot where a bad bundle can still be
+      # stopped.
+      - name: Build frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          rm -rf .vercel
+          vercel pull --yes --environment=production
+          vercel build --prod
+
+      # ⚠️ THE CHECK THE FIRST RUN OF THIS PIPELINE NEEDED (PF-126 follow-up).
+      # The API address is baked into the bundle at BUILD time. A Vercel
+      # "Sensitive" variable cannot be pulled — `vercel pull` writes the
+      # literal string `[SENSITIVE]` instead — and a value in the environment
+      # beats the committed `frontend/.env.production`. The bundle shipped with
+      # `[SENSITIVE]` as its API address, every request went to the SPA host,
+      # and every job here was green: the smoke test only looks at the backend.
+      - name: Check the built frontend
+        env:
+          API_ORIGIN: ${{ vars.PRODUCTION_API_URL }}
+        run: |
+          API_ORIGIN="${API_ORIGIN%/}"
+          if [ -z "$API_ORIGIN" ]; then
+            echo "::error::vars.PRODUCTION_API_URL is empty — nothing to check the bundle against."
+            exit 1
+          fi
+          if grep -rlF '[SENSITIVE]' .vercel/output; then
+            echo "::error::The build contains a [SENSITIVE] placeholder — a Vercel Sensitive variable reached the bundle unreadable."
+            exit 1
+          fi
+          if ! grep -lF "$API_ORIGIN" .vercel/output/static/assets/*.js; then
+            echo "::error::No script in the build contains $API_ORIGIN — the site would call itself instead of the API."
+            exit 1
+          fi
 
       - name: Deploy frontend
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_FRONTEND }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          vercel pull --yes --environment=production
-          vercel build --prod
-          vercel deploy --prebuilt --prod
+        run: vercel deploy --prebuilt --prod
 
   smoke:
     name: 4 · Smoke test production
@@ -214,9 +260,9 @@ jobs:
       # swallows connection errors, so it answers 200 with `database: null`
       # while the database is unreachable. This project has had exactly that
       # outage with every status-code monitor green throughout.
-      - name: Smoke test the live API
+      - name: Smoke test the live API and site
         working-directory: ./backend
-        run: node scripts/smoke-test.js "${{ vars.PRODUCTION_API_URL }}" portfolio_prod
+        run: node scripts/smoke-test.js "${{ vars.PRODUCTION_API_URL }}" portfolio_prod "${{ vars.PRODUCTION_URL }}"
 
       - name: Report
         if: failure()
