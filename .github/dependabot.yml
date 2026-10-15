@@ -29,7 +29,8 @@
 #
 # ("auto" = merges itself once EVERY required check is green.)
 # MAJOR updates are never grouped — each arrives as its own PR, because a major
-# version may remove things and need code changes.
+# version may remove things and need code changes. One exception: the vitest
+# family (frontend-vitest below), whose packages cannot move apart.
 #
 # ⚠️ Note the THIRD ecosystem. Dependabot also updates the GitHub Actions the
 # workflows use (actions/checkout, actions/setup-node…). Those run with access
@@ -61,6 +62,14 @@ updates:
       frontend-build-minor:
         patterns: ["vite", "@vitejs/*"]
         update-types: [minor]
+      # ⚠️ VITEST MOVES AS ONE FAMILY, majors included. @vitest/coverage-v8
+      # pins the EXACT vitest version it was released with, so a lone vitest
+      # bump can never install (ERESOLVE — #16, vitest 5, 2026-10-15). This is
+      # the one exception to "majors are never grouped". Above
+      # frontend-dev-tools for the same first-match reason as the build group.
+      frontend-vitest:
+        patterns: ["vitest", "@vitest/*"]
+        update-types: [major, minor, patch]
       frontend-dev-tools:
         dependency-type: development
         update-types: [minor, patch]

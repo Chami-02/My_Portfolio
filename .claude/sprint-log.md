@@ -8618,6 +8618,29 @@ fail / fail / pass / fail(2, second "skipped"). Gates: frontend check 2127/2127
 **After merge (owner):** approve the run; read the guard + smoke output; `curl`
 the live bundle; confirm NO Git-triggered production deploy of the merge commit.
 
+## PF-126 follow-up fix — Node 20 → 24, jsdom 30 + vitest 5 (2026-10-15)
+
+Owner: fixes, not tickets; "do everything industry standard". Replaces Dependabot
+#15 (jsdom 30) and #16 (vitest 5), which could never pass: jsdom 30 needs Node
+^22.22.2/^24.15, vitest 5 needs ^22.12 (CI crashed every worker with
+`markAsUncloneable is not a function`), and `@vitest/coverage-v8` pins the EXACT
+vitest version (#16 = ERESOLVE). Node 20 is end-of-life (2026-04-30) and
+deprecated on Vercel (2026-10-01); both Dockerfiles were already on node:24.
+
+**Built.** All 10 `node-version` pins in ci/deploy/health-check → '24'; `engines`
+`"24.x"` in both package.json (Vercel reads it); `.nvmrc` = 24; jsdom ^30.1.3,
+vitest + coverage-v8 ^5.0.5; `dependabot.yml` group `frontend-vitest` (vitest +
+@vitest/*, majors included — the one exception to "majors never grouped");
+timeZone test comment: Node 24 ACCEPTS `+05:30` (Node 20 rejected it), so the
+shape check is now load-bearing at runtime.
+
+**Verified (Node v24.22.0, npm 11.19.1).** Frontend check 2127/2127 (90 files),
+coverage still in `frontend/coverage/` (CI artifact path unchanged); backend
+824/824; actionlint clean; isTimeZone shape-check mutant → 4 tests fail
+(restored, cmp-checked).
+
+**Still held:** #31 (mongodb ≥7.6 breaks under Jest, NODE-7832) — next fix.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
