@@ -139,7 +139,7 @@ REWRITE PF-123/124/125 (password + emailed code), Settings section.
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
-- Ticket reports go to `new mds/E9/` (outside the repo).
+- **Every doc I create** (tickets, reports, plans, PDFs) goes to `new mds/Sprint 15/` (owner, 2026-10-16; outside the repo). Sprint 15 plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`.
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
 - `frontend/src/styles/`: `global.css` (Tailwind only), `tokens.css`,
@@ -449,8 +449,8 @@ message and stop. A ticket I authored has no independent authority — if it pro
 wrong, say so and re-plan with the owner. Never invent PF numbers.
 
 **The ticket report** — required after EVERY ticket, written to TEACH:
-`/Users/chami02/Documents/Personal/Projects/Portfolio/new mds/E<N>/PF-NN-short-description.md`
-(Sprint 14 = `E9`; never `docs/tickets/`). Answer WHAT, HOW, WHY separately; show
+`/Users/chami02/Documents/Personal/Projects/Portfolio/new mds/Sprint 15/PF-NN-short-description.md`
+(older reports stay in `new mds/E<N>/`; never `docs/tickets/`). Answer WHAT, HOW, WHY separately; show
 every changed file's path and before/after code; the trace; what was rejected;
 real test numbers from both passes; bugs found in recheck; what was deliberately
 not fixed (also → Outstanding work); the commit message. Write for someone without
