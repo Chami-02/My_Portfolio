@@ -49,12 +49,12 @@ grep -n "^### \|^\*\*Built by" .claude/sprint-log.md   # all entry headings
 All twelve tickets (PF-95 → PF-106) shipped; `sprint-13-blog` has zero
 unmerged commits.
 
-**SPRINT 14 — Epic E9, Admin Panel Rebuild — IS THE CURRENT SPRINT**, locked
-2026-09-08 at full scope: **15 items, 103 points, PF-107 → PF-121**. The plan, the sprint goal, the inverted dependency spine
-and the four items flagged for master-level care are in **Sprint 14 → The
-plan**, and the full ticket set is in
-`new mds/E9/PF-107-121-sprint-14-plan.md`. ⚠️ **The branch is not yet cut and
-no ticket is started** — both are the owner's.
+**⚠️ SPRINT 14 IS CLOSED AND MERGED** — PR #29, 2026-10-14T18:35Z, merge
+commit `d243464`. PF-107 → PF-122 all shipped (PF-122 absorbed into PF-119);
+Jira sprint completed by the owner 2026-10-15. Close entry: **Sprint 14 closed —
+PF-121** (end of the ticket entries). The plan is in **Sprint 14 → The plan** and
+`new mds/E9/PF-107-121-sprint-14-plan.md`. **Next: Sprint 15** (planned, not
+started); GitHub Flow from here on.
 
 | Ticket | Pts | Inherits |
 | --- | --- | --- |
@@ -525,7 +525,7 @@ record; that file is the sprint's authority.
 | ~~PF-118~~ | Admin ↔ public-site parity audit | Highest | 8 | Done | ✅ **BUILT 2026-10-12** — field matrix + owner-approved wiring (timezone, hero intro, footer blurb, band + Contact intro follow availability) + 4 leftovers; see entry |
 | ~~PF-119~~ | Google sign-in for `/admin` + production-standard auth | High | 8 | Done | ✅ **BUILT 2026-10-12** — auth code + PKCE, one-time handoff, two admin login addresses; ⚠️ ABSORBED PF-122 (owner); ~9 pts, see entry |
 | ~~PF-120~~ | Security review and hardening | High | 5 | Done | ✅ **BUILT 2026-10-13** — 8 findings fixed (seed guard + break-glass `admin:password`, SPA CSP/headers, contact limiter, CORS 403, dead routes deleted, JWT alg pin, contact string check, dotted media keys); 9 accepted + recorded; see entry |
-| PF-121 | Sprint gate, PR, close | Highest | 8 | To Do | not started |
+| ~~PF-121~~ | Sprint gate, PR, close | Highest | 8 | Done | ✅ **MERGED 2026-10-14** — PR #29, `d243464`; first pipeline deploy shipped a frontend with no API address (rolled back, fixed 2026-10-15); see "Sprint 14 closed — PF-121" |
 | ~~PF-122~~ | Owner email address consolidation → `pcgallege@gmail.com` | Medium | 3 | — | ✅ **ABSORBED into PF-119 2026-10-12** (owner) — migrations 009 + 010 |
 
 ⚠️ **NUMBERING IS CONTIGUOUS — PF-107 → PF-121, NO GAPS.** Worth recording
@@ -8663,6 +8663,57 @@ Also on 2026-10-15: the 18:44 backend production deploy from #16's branch was
 the OWNER's dashboard click (Redeploy/Promote) — harmless (frontend-only diff),
 but a dashboard promote skips the gate; only Instant Rollback is sanctioned.
 
+## Sprint 14 closed — PF-121: gate, PR #29, first pipeline deploy (2026-10-14 → 2026-10-16)
+
+**Merged.** PR #29 `sprint-14-admin_page_rebuild` → `master`, merge commit
+`d243464`, 2026-10-14T18:35Z — 90 commits, 328 files, +43,543 / −10,290. Merge
+commit (not squash), like #3–#7. Branch deleted on GitHub and locally. Jira
+sprint completed by the owner 2026-10-15 (PF-107 → PF-122 Done, nothing carried).
+PR body: `new mds/E9/PF-121-sprint-14-pr-body.md`; report:
+`new mds/E9/PF-121-sprint-gate-pr-close.md`.
+
+**Gate, fresh, on `f48439e`:** frontend 2127/2127 (90 files), lint 0 warnings,
+frontend coverage 94.99 / 91.3 / 90.35 / 96.32, build ✅, backend 806/806 (46
+suites), backend coverage 82.01 / **74.05** / 85.6 / 82.7, E2E 80/80 (2.7 min),
+`All Checks Pass` listed and green. CodeQL findings on the branch closed before
+the PR: `7e67514`, `7269f78`.
+
+**Production steps before merge (2026-10-14):** `admin:password`, migrations
+001–010 applied by hand (status → dry → real, never baselined), Google redirect
+URI + Vercel env. See the PF-120 entry.
+
+**First pipeline deploy went wrong — fixed as PF-126 follow-ups, not PF-121.**
+Run `38616456600` was green end to end but shipped a frontend with no API
+address (Sensitive `VITE_API_URL` → `[SENSITIVE]`). Owner rolled back the same
+night; fixes 1–3 above (2026-10-15) added the bundle guard, the site smoke
+checks, `git.deploymentEnabled.master=false` (the pipeline is now the ONLY path
+to production — PF-121 step G, done this way), Node 24, deploy-after-CI and the
+mongodb hold. Dependabot queue cleared the same day. Production as of
+2026-10-16: deploy run `38796619253` (`90b7b3f`), smoke 6/6.
+
+**Live checks (owner, 2026-10-16) — all 8 passed:** password sign-in with both
+addresses, Google with both, password eye, Hero image card staging, MARK
+UNREAD, project PUBLISH/UNPUBLISH, "PF-92 GATE TEST" message deleted
+(ConfirmDialog, focus on CANCEL). PF-120 headers and backend `GET /` verified by
+`curl` 2026-10-14.
+
+**Incidents during PF-121:** credential incidents #5 and #6 (2026-10-14) — see
+locked-decisions "Never paste a credential".
+
+### Outstanding work added by PF-121
+
+- Owner suggestions from the live checks (2026-10-16), to be ticketed from
+  PF-127 BEFORE Sprint 15: (1) the session gate after the Google redirect
+  (`ProtectedRoute` → `a.gate`, three skeleton rows) is bare — a branded loading
+  state; (2) an uploaded hero image with an opaque background doesn't blend the
+  way the bundled transparent cut-out does — `.portraitImg`'s mask has no top
+  fade; (3) speed, measured: cold start 5.0 s, warm ~0.7 s (functions run in
+  `iad1`, traffic enters at `sin1`), one 594 kB JS bundle with no route
+  splitting, hashed `/assets/*` served `max-age=0`, about-portrait 817 kB, logo
+  178 kB used in 6 places.
+- Still open from the ticket: Safari check of Google's `pf_oauth` cookie on the
+  live site.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
@@ -8728,12 +8779,12 @@ authority; this table is the index.
 | ~~PF-114~~ | Skills panel — rebuild + editing ✅ **BUILT 2026-10-05** — ⚠️ scope widened by owner: skill EDIT incl. level, level DOTS + legend on the home page, owner-managed SECTIONS (`SkillCategory`), three-choice section delete, ◀ ▶ + drag-and-drop (cross-box). **~14 pts, not 5**. No drafts (owner) | Medium | 5 |
 | ~~PF-115~~ | Blog + Messages panels restyled ✅ **BUILT 2026-10-07** — ⚠️ scope widened by owner: Blog DRAFTS (title-only, enforced by the MODEL on every path incl. `togglePublish`) + REVERT, checkbox → buttons; Messages STAR + client-side SEARCH (AND, highlighted) + ALL · UNREAD · STARRED, delete confirm. **~11 pts, not 5** | Medium | 5 |
 | ~~PF-116~~ | Phase 1 cutover — `:root` deletion, font cutover, admin light theme ✅ **BUILT 2026-10-08** — ⚠️ scope SHRANK: the panel tickets had cleared admin; one site-wide Phase 1 reader was left (`ErrorBoundary`). Body → Space Grotesk, `line-height: 1.6` KEPT, `--acc2` DELETED, title → `Parindra Gallage — …` (owner). ~4 pts | Highest | 8 |
-| PF-117 | Admin responsive + state audit, both themes | Medium | 6 |
-| PF-118 | Admin ↔ public-site parity audit | Highest | 8 |
-| PF-119 | Google sign-in for `/admin` + production-standard auth | High | 8 |
-| PF-120 | Security review and hardening | High | 5 |
-| PF-121 | Sprint gate, PR, close | Highest | 8 |
-| PF-122 | Owner email address consolidation → `pcgallege@gmail.com` | Medium | 3 |
+| ~~PF-117~~ | Admin responsive + state audit, both themes ✅ **BUILT 2026-10-11** | Medium | 6 |
+| ~~PF-118~~ | Admin ↔ public-site parity audit ✅ **BUILT 2026-10-12** | Highest | 8 |
+| ~~PF-119~~ | Google sign-in for `/admin` + production-standard auth ✅ **BUILT 2026-10-12** | High | 8 |
+| ~~PF-120~~ | Security review and hardening ✅ **BUILT 2026-10-13** | High | 5 |
+| ~~PF-121~~ | Sprint gate, PR, close ✅ **MERGED 2026-10-14** (PR #29, `d243464`) | Highest | 8 |
+| ~~PF-122~~ | Owner email address consolidation → `pcgallege@gmail.com` ✅ absorbed into PF-119 | Medium | 3 |
 
 ⚠️ **Numbering is CONTIGUOUS — PF-107 → PF-121, no gaps.** An earlier draft
 ended the sprint at PF-118 and, when three tickets were added, pushed the gate

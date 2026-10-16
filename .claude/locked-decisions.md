@@ -5267,6 +5267,16 @@ is busy with something else:
   pasted. The owner rotated it the same day (new secret added in Google Cloud
   Console, put in `backend/.env` and Vercel Production, old one disabled and
   deleted). New mechanism: **deselect before sending while a `.env` is open**.
+- **2026-10-14, incidents #5 and #6**, during PF-121. (5) A long terminal
+  scroll-back pasted into chat still held that morning's commands, including the
+  full production `mongodb+srv://` URI. (6) While rotating, the NEW password
+  reached chat through an editor selection of a `backend/.env` line. Rotated
+  again; every consumer re-verified live: `backend/.env` → `portfolio_dev`,
+  `.env.e2e` → `portfolio_e2e`, Vercel `MONGO_URI` (redeployed, health says
+  `portfolio_prod`), GitHub secret `MONGO_URI_PROD` (proven by the pipeline's
+  Plan job). New mechanisms: **paste only the last lines of terminal output**,
+  and **close `.env` files before sending** — the selection rule alone did not
+  hold the same day.
 
 ⚠️ The rotation is the cheap part. What makes this worth a standing rule
 is that the *third* one happened while doing careful, well-verified work

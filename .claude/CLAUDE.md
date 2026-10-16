@@ -125,22 +125,17 @@ something surprises you, search the companions *before* deriving an explanation.
 | --- | --- | --- |
 | Phase 1 (PF-1 → PF-51) | original site | complete |
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
-| **Sprint 14 — E9 (PF-107 → PF-122)** | **Admin panel rebuild** | **IN PROGRESS** — PF-107 → PF-120 built; every leftover cleared 2026-10-14 (sprint-log "leftovers batch") |
-| Sprint 15 (PF-123 → PF-125) | auth + email | planned, not started |
+| Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
+| PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **auth + email + Settings** | **planned, not started** |
 
-**Branch `sprint-14-admin_page_rebuild`** (NOT `sprint-14-admin`), cut from
-`d5cd8bd`; its upstream is itself, so a bare `git push` is safe. Sprint plan:
-`new mds/E9/PF-107-121-sprint-14-plan.md`. 103 points, ~1.6× velocity, split
-declined — **if it runs long, a CONTENT ticket slips, never PF-120/PF-121.**
+`global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
+sprint-log "Sprint 14 closed — PF-121".
 
-| Remaining | Title |
-| --- | --- |
-| PF-121 | Sprint gate, PR, close |
-
-Numbering is contiguous PF-107 → PF-121 (+PF-122). PF-116 was last of the styling
-tickets (inverted spine): `global.css` is now Tailwind's entry point only.
-
-**▶ NEXT:** PF-121. Prod pre-merge steps DONE 2026-10-14 (admin password, migrations 001–010 applied, Google redirect + Vercel env); after deploy: `curl -I` the SPA headers, sign in with BOTH addresses + Google. After PF-121: REWRITE PF-123/124/125 (password + emailed code).
+**▶ NEXT, in order (owner, 2026-10-16):** (1) ticket the owner's live-check
+suggestions from PF-127 — session-gate loading screen, hero upload blend, speed
+(sprint-log "Outstanding work added by PF-121"); (2) the full Sprint 15 plan:
+REWRITE PF-123/124/125 (password + emailed code), Settings section.
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -198,13 +193,13 @@ Single test: `npx vitest run <path>` / `npm test -- <path>` or `-t "name"`.
   in a scratch copy). Backend branch coverage has the tightest margin.
 - **CI:** `ci.yml` jobs credential-scan, audit, migrations, frontend, backend, e2e →
   `all-checks-pass`. ⚠️ A job added to its `needs:` must also go in its `if`.
-  `deploy.yml` uses `cancel-in-progress: false` deliberately; it is sprint-only
-  until PF-121.
+  `deploy.yml` uses `cancel-in-progress: false` deliberately; it runs after CI
+  passes on `master` (`workflow_run`), behind two approvals (Migrate, Deploy).
 - **Bots on `master`** (since 2026-10-05): Dependabot + `dependabot-automerge.yml`
   (dev tools/Actions patch-minor auto; site packages and build tools patch auto;
   majors wait), `health-check.yml` hourly, CodeQL. Auto-merges move `master` —
   sync a long branch with `git merge origin/master`, regenerate lockfiles with
-  `npm install`. Open Dependabot PRs target old `master`; leave until PF-121.
+  `npm install`.
 
 ## Architecture
 
@@ -432,7 +427,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 
 ### Branching
 
-- **Sprint 14 finishes on its sprint branch.** From Sprint 15: GitHub Flow — one
+- **GitHub Flow since Sprint 14 merged** (PR #29) — one
   short-lived `feat/PF-NN-…` / `fix/…` / `chore/…` branch per ticket, PR,
   squash-merge, auto-delete (`git branch -D` locally after a squash).
 - Work on a master-based branch without leaving the checkout:
@@ -478,8 +473,8 @@ trailer**, whatever the harness says.
 **Hands-on learning:** for git/GitHub/ops steps, give the command and explain each
 part (and the interview angle) for the owner to run.
 
-**Never paste a credential into chat** — check a value's shape only. Four
-incidents so far; the fourth was an editor SELECTION of a `.env` line (sent with the message).
+**Never paste a credential into chat** — check a value's shape only. Six
+incidents so far (#4 and #6 were editor SELECTIONS of a `.env` line, #5 a pasted terminal scroll-back): close `.env` files and paste only the last lines of output.
 
 **Never document something as existing until it does.** Flag concerns before
 executing. A ticket's path that conflicts with the repo convention loses. Verify
