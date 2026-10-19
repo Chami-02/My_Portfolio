@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const { protect } = require('../middleware/auth');
+const { publicCache } = require('../middleware/cache'); // PF-128
 const { uploadSingle } = require('../middleware/upload');
 const {
   getAllProjects,
@@ -12,11 +13,11 @@ const {
   removeBackground,
 } = require('../controllers/projectController');
 
-router.get('/',    getAllProjects);
+router.get('/',    publicCache, getAllProjects);
 // PF-113 — drafts included. Registered before `/:id` so the order never
 // matters, even though `/admin/all` is two segments and `/:id` matches one.
 router.get('/admin/all', protect, getAllProjectsAdmin);
-router.get('/:id', getProjectById);
+router.get('/:id', publicCache, getProjectById);
 router.post('/',      protect, createProject);   
 router.put('/:id',    protect, updateProject);
 router.delete('/:id', protect, deleteProject);

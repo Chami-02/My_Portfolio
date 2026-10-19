@@ -5,7 +5,13 @@
  * it takes FOUR arguments (err, req, res, next).
  * Must be the LAST app.use() call in app.js.
  */
+const { forgetPublicCache } = require('./cache');
+
 const errorHandler = (err, req, res, _next) => {
+  // PF-128 — a public route set CDN headers before it failed; a 404 for a
+  // slug about to be published must not be cached as the answer.
+  forgetPublicCache(res);
+
   // Default to 500 Internal Server Error if no statusCode was set
   err.statusCode = err.statusCode || 500;
   err.status     = err.status     || 'error';

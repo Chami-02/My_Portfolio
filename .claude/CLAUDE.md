@@ -127,13 +127,13 @@ something surprises you, search the companions *before* deriving an explanation.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
 | PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127 built 2026-10-19 |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127 merged; PF-128 built 2026-10-19 |
 
 `global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
-PF-127 (built 2026-10-19) → PF-128 speed II → PF-129 hero blend → PF-130 gate
+PF-127 (merged) → PF-128 speed II (built 2026-10-19) → PF-129 hero blend → PF-130 gate
 screen → PF-123/125/131/124… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
@@ -350,6 +350,7 @@ Where a mistake would be silent, add a test that would catch it.
 
 - Stripping a top-level body key leaves its DOTTED paths (`"resume.publicId"`) writable — filter prefixes.
 - A CSP hash / `connect-src` breaks on prod only (`vercel.json`) — guarded by `securityHeaders.test.js`.
+- Admin panels read the PUBLIC URLs: fresh only while the CDN skips `Authorization` AND `Cache-Control` has no `public`/`must-revalidate`/`s-maxage` (RFC 9111 §3.5); a missed purge is invisible (stale ≤1 h) — PF-128.
 
 **Measurement**
 - History API cannot tell first load from Back-to-first-entry.
@@ -413,6 +414,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-118: footer band follows availability (two call sites, 70.7s / 67.1s = equal 50 px/s); Contact intro leads with the note; `timezone` / `heroIntro` / `footerBio` fields ("Site copy" card); three-letter months (`SEP`); no `publishedAt` control.
 - PF-120: SPA CSP in `frontend/vercel.json` (scripts by hash only, `frame-ancestors 'none'`); deleted `POST /api/upload`, `PATCH /about/availability`, `/uploads`; `contactLimiter` 5 stored/h; accepted risks (role unread, OAuth code in logs, per-instance limiter…) in locked-decisions.
 - Leftovers 2026-10-14: hero cut-out uploadable (`imageSlot` + `imageSlotHandlers` shared with the portrait — never fork), bundled hero is WebP, `↺ MARK UNREAD` (explicit `{ read }`), project row PUBLISH/UNPUBLISH (Blog's rule), backend `GET /`, `og:` tags (url/image only WITH the domain), dates stay reader-local, nginx mirrors vercel.json headers.
+- PF-128: API in `bom1` (Atlas Mumbai); public GETs CDN-cached (tag `public-data`), a signed-in write DELETES the tag (SAVE is instant); everything else `no-store`.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment

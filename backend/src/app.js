@@ -13,6 +13,7 @@ const connectDB          = require('./config/db');
 const { globalLimiter }  = require('./middleware/rateLimiter');
 const notFound           = require('./middleware/notFound');
 const errorHandler       = require('./middleware/errorHandler');
+const { noStore, purgeOnWrite } = require('./middleware/cache');
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use(
 );                                               // Request logging
 app.use(express.json({ limit: '10kb' }));        // Parse JSON bodies (limit size)
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(noStore);                                // PF-128 — nothing is cached unless a route opts in
 
 // ── Health check ─────────────────────────────────────────────────────────────
 // This endpoint is used by Docker, Railway, and our CI pipeline
@@ -67,6 +69,8 @@ app.use(async (_req, _res, next) => {
     next(err);
   }
 });
+
+app.use(purgeOnWrite);                           // PF-128 — a signed-in SAVE clears the CDN copy
 
 // ── API Routes ────────────────────────────────────────────────────────────────
    app.use('/api/projects', require('./routes/projectRoutes'));   

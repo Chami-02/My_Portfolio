@@ -3647,6 +3647,31 @@ dotenv 18 added a `dotenv` bin; `dotenv-cli` has one too. `node_modules/.bin/dot
 `npm run dev:e2e` fails as "webServer was not able to start". CI never runs that
 script, so every check stayed green. Check with `readlink node_modules/.bin/<name>`.
 
+## PF-128 (2026-10-19) — the CDN cache of public data
+
+- **The admin panels read the SAME URLs as the public site** (`/api/about`,
+  `/skills`, `/skill-categories`, `/vocabulary/:type`). They stay fresh because
+  Vercel's CDN never serves or stores a request with an `Authorization` header,
+  and because `Cache-Control` carries none of `public` / `must-revalidate` /
+  `s-maxage` (RFC 9111 §3.5 — any of them lets ANY shared cache reuse a signed-in
+  answer; adding `public` "for clarity" silently breaks the second lock). Anything that makes an admin read go out WITHOUT the Bearer token (a
+  panel mounting before `/auth/me`, a cookie session in Sprint 16) would load a
+  cached, pre-SAVE copy into a form — and the next SAVE would write it back.
+  When the session moves to a cookie, revisit this first.
+- **A purge that does not run is invisible** — the site just shows old data for
+  up to an hour. `@vercel/functions` reads Vercel's request context; off Vercel
+  (tests, local, Docker) it is a silent no-op. `cache.test.js` installs a fake
+  context to test the real call path; on Vercel only a live check proves it
+  (SAVE → next anonymous request `x-vercel-cache: MISS`).
+- **Purge from `res.end`, not `res.on('finish')`** — `finish` can fire after the
+  request context is gone; off Vercel the two are indistinguishable (the one
+  mutant the suite cannot kill).
+- **`errorHandler` must clear the CDN headers** — `publicCache` sets them before
+  the controller runs, so without `forgetPublicCache` a 404 for a slug about to
+  be published would be cached for an hour.
+- **A protected READ also sets `req.user`** — the purge guard must check the
+  method too, or every admin panel load wipes the cache (mutant M5).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
