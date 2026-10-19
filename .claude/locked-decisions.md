@@ -4318,6 +4318,29 @@ PR. Each is a deliberate addition beyond the prototype.
 - **Docker `nginx.conf` sends vercel.json's headers** (connect-src differs:
   `localhost:5050`), pinned by `securityHeaders.test.js`.
 
+## PF-128 — API region and public-data caching (owner decisions 2026-10-19)
+
+- **The API runs in `bom1` (Mumbai)** because Atlas is AWS Mumbai (ap-south-1).
+  If the cluster ever moves, the region moves with it (`cache.test.js` pins it).
+- **A SAVE shows on the public site straight away** (owner chose "instant" over
+  "within about a minute"). Mechanism: every public GET is CDN-cached under one
+  tag, `public-data`; every successful signed-in write DELETES that tag. Not
+  "invalidate" — an invalidated copy is served once more, so the first visitor
+  after a SAVE would see the old site. The 1 h `s-maxage` is only the safety net
+  for a failed purge (logged, never fails the save).
+- **One tag for all public data** — per-record tags are not worth it at this
+  traffic; a SAVE refetches eight small URLs.
+- **The browser never caches API data** (`Cache-Control: max-age=0`); only Vercel's CDN does,
+  through `Vercel-CDN-Cache-Control` (never sent to the browser). `Cache-Control` must
+  NEVER gain `public`, `must-revalidate` or `s-maxage` — RFC 9111 §3.5 lets any shared
+  cache reuse a signed-in answer with those, and the admin reads these URLs (owner asked
+  for fully standard, 2026-10-19).
+- **Everything is `no-store` unless a route opts in** — tokens, admin data,
+  health, errors.
+- **Visitor writes never purge** (blog views, contact) — the purge keys on
+  `req.user`, so a reader counting a view cannot wipe the cache. Consequence,
+  accepted: a cached post's view count can lag until the next SAVE or the hour.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

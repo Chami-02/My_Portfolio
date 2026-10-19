@@ -8778,6 +8778,51 @@ Also used by `health-check.yml` (hourly), which failed the same way until merged
 Live checks of PF-127 itself (2026-10-19): `/assets/*` `max-age=31536000,
 immutable`; missing asset 404; `/blog` 200.
 
+## PF-128 — Speed II: API next to the database + CDN cache of public data (2026-10-19)
+
+Sprint 15's second ticket (E11, 3 pts). Branch `feat/PF-128-region-cdn-cache`.
+Ticket + report: `new mds/Sprint 15/PF-128-ticket.md`, `PF-128-region-cdn-cache.md`.
+
+**Why.** Live before (2026-10-19): `x-vercel-id: sin1::iad1`, cold 5.47 s, warm
+0.58–0.79 s, every public GET `x-vercel-cache: MISS`. Atlas is AWS Mumbai
+(ap-south-1, owner) — the function sat in Washington, a world away from its DB.
+
+**Built.**
+- `backend/vercel.json`: `"regions": ["bom1"]` (Mumbai).
+- `backend/src/middleware/cache.js` (new): `noStore` app-level before
+  `/api/health` (every answer `Cache-Control: no-store` by default);
+  `publicCache` on the 8 public GETs (about, projects, projects/:id, skills,
+  skill-categories, blog, blog/:slug, vocabulary/:type): browser
+  `max-age=0` (no `public`/`must-revalidate` — RFC 9111 §3.5), `Vercel-CDN-Cache-Control: public,
+  s-maxage=3600, stale-while-revalidate=86400`, `Vercel-Cache-Tag: public-data`;
+  `purgeOnWrite` app-level before routes: a non-GET with `req.user` and status
+  < 400 → `waitUntil(dangerouslyDeleteByTag('public-data'))` from
+  `@vercel/functions` (new dep; pulls `@vercel/oidc`, `jose`, `zod`). Hooks
+  `res.end`, not `finish`, so it runs inside Vercel's request context.
+  DELETE not invalidate (invalidate serves the old copy once more).
+- `errorHandler` calls `forgetPublicCache(res)` first — a 404 slug is never cached.
+- Off Vercel the package reads an empty context → purge is a no-op (read in its source).
+
+**Two locks** keep the admin panels (which read the SAME public URLs, always
+with `Authorization` — ProtectedRoute waits for `/auth/me`) off a cached copy:
+Vercel never caches a request with `Authorization`, AND the `Cache-Control`
+every cache sees carries none of `public` / `must-revalidate` / `s-maxage`,
+the three that let a shared cache reuse such an answer (RFC 9111 §3.5).
+Added after the owner asked for fully standard (first draft sent
+`public, max-age=0, must-revalidate`).
+
+**Verification.** `cache.test.js` 25 tests through the REAL package (a fake
+`Symbol.for('@vercel/request-context')`, no module mock). Backend 849/849
+(48 suites), `cache.js` 100 %; frontend check 2136/2136, lint 0, build ✅.
+Mutation: 14 mutants, 14 killed (3 on the RFC lock) (M5 "purge on reads" survived the first pass —
+the signed-in-read test used an unprotected URL; fixed). `end` vs `finish` is
+equivalent off Vercel — only the live check proves it.
+
+### Outstanding work added by PF-128
+- **Live checks after deploy (owner approves the deploy):** `x-vercel-id`
+  shows `::bom1::`; `/api/about` MISS then HIT; with `Authorization` never HIT;
+  a SAVE → next anonymous request MISS with the new value; timings vs before.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
