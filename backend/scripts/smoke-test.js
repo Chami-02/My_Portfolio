@@ -31,6 +31,12 @@
 // while every check above stayed green, because the backend was fine. Given a
 // site URL, this script loads the page, finds its entry script and asserts the
 // script names THIS API.
+//
+// ⚠️ "Its script" means EVERY script the page loads up front, not just the
+// entry. Since PF-127 (route splitting) Rollup moves shared code — the API
+// client included — into a chunk the entry imports and index.html preloads
+// (`<link rel="modulepreload" href="/assets/ambient-….js">`). Reading only the
+// entry failed the first PF-127 deploy while the site was healthy.
 
 const BASE = (process.argv[2] || '').replace(/\/+$/, '');
 const EXPECTED_DB = process.argv[3] || null;   // optional, e.g. portfolio_prod
@@ -103,7 +109,7 @@ check('GET /api/blog returns the post list', async () => {
 });
 
 if (SITE) {
-  let entryScript = null;
+  let pageScripts = null;
 
   check('GET <site>/ serves the app', async () => {
     const { status, text } = await request(`${SITE}/`);
@@ -111,18 +117,25 @@ if (SITE) {
     // Vite writes one module entry: <script type="module" crossorigin src="/assets/index-….js">
     const src = text.match(/<script\b[^>]*\bsrc="([^"]*\/assets\/[^"]+\.js)"/)?.[1];
     if (!src) throw new Error('no /assets/*.js entry script in the page');
-    entryScript = new URL(src, `${SITE}/`).href;
-    return src;
+    // …plus the shared chunks it preloads (see the PF-127 note above).
+    const preloads = [...text.matchAll(/<link\b[^>]*\brel="modulepreload"[^>]*\bhref="([^"]*\/assets\/[^"]+\.js)"/g)]
+      .map((m) => m[1]);
+    pageScripts = [src, ...preloads].map((s) => new URL(s, `${SITE}/`).href);
+    return [src, ...preloads].join(' + ');
   });
 
   check('…and its script calls THIS API', async () => {
-    if (!entryScript) throw new Error('skipped — the page itself did not load');
-    const { status, text } = await request(entryScript);
-    if (status !== 200) throw new Error(`entry script answered ${status}`);
-    if (text.includes('[SENSITIVE]')) {
-      throw new Error('the bundle contains a [SENSITIVE] placeholder — a Vercel Sensitive variable was built in unreadable');
+    if (!pageScripts) throw new Error('skipped — the page itself did not load');
+    let mentions = false;
+    for (const url of pageScripts) {
+      const { status, text } = await request(url);
+      if (status !== 200) throw new Error(`${new URL(url).pathname} answered ${status}`);
+      if (text.includes('[SENSITIVE]')) {
+        throw new Error('the bundle contains a [SENSITIVE] placeholder — a Vercel Sensitive variable was built in unreadable');
+      }
+      if (text.includes(BASE)) mentions = true;
     }
-    if (!text.includes(BASE)) {
+    if (!mentions) {
       throw new Error(`the bundle never mentions ${BASE} — the site would call itself instead of the API`);
     }
     return BASE;
