@@ -8764,6 +8764,20 @@ route, stale-chunk reload fires once, light + dark backdrops.
   5174 + `CI=1 npx playwright test`. Fix as a `fix/` branch (drop `dotenv-cli`
   for `node --env-file`).
 
+## PF-127 follow-up fix — smoke test reads the preloaded chunks (2026-10-19)
+
+PR #43 merged; the deploy's smoke test then failed ONE check: "…and its script
+calls THIS API" — while the live site was healthy. Route splitting moved the API
+client into the shared `ambient-*.js` chunk; `smoke-test.js` read only the entry
+`index-*.js` (0 mentions; `ambient` 1). `deploy.yml`'s pre-deploy guard greps
+EVERY asset, so it passed. Fix (`fix/smoke-test-lazy-chunks`): read the entry
+plus every `<link rel="modulepreload">` script; `[SENSITIVE]` in any fails, the
+API in at least one passes. Live: 6/6. Controls on a fake site: API nowhere →
+fail; API in the preload only → pass; `[SENSITIVE]` in the preload → fail.
+Also used by `health-check.yml` (hourly), which failed the same way until merged.
+Live checks of PF-127 itself (2026-10-19): `/assets/*` `max-age=31536000,
+immutable`; missing asset 404; `/blog` 200.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
