@@ -303,6 +303,7 @@ Where a mistake would be silent, add a test that would catch it.
 - `npm test` does not run E2E; unit green + E2E red = removed feature, stale tests.
 - dotenv 18 ships a `dotenv` bin that shadows `dotenv-cli`'s → `npm run dev:e2e` broken locally (CI unaffected); see Outstanding work PF-127.
 - `mongodb` ≥ 7.6 HANGS every DB test under Jest (NODE-7832) — held at `~7.5.0` + Dependabot ignore; lift steps in `dependabot.yml`.
+- `cookie` 2.x is ESM-only → Jest cannot load it (every backend suite fails); majors ignored in `dependabot.yml` (#39).
 - A required check that never started looks like nothing failing — confirm `All Checks Pass` is listed AND `pass`.
 - After a re-trigger, read the LATEST run, not the merged check list.
 - Piping a long run through `tail` buffers to the end; `timeout` does not exist on macOS (`gtimeout`).
