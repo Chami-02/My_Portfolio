@@ -107,10 +107,11 @@ describe('Navbar (PF-79)', () => {
     const { container } = render(withProviders(<Navbar />));
     const src = container.querySelector('img').getAttribute('src');
     // docs/design/assets/ is not served by anything, and public/ has no
-    // logo. A literal "/assets/logo.png" renders a broken image with no
-    // error — the exact silent 404 CLAUDE.md documents.
-    expect(src).not.toBe('/assets/logo.png');
-    expect(src).toBeTruthy();
+    // logo. A literal "/assets/logo.webp" renders a broken image with no
+    // error — the exact silent 404 CLAUDE.md documents. (PF-127: .png → .webp;
+    // the positive match keeps this from passing vacuously on a rename.)
+    expect(src).not.toBe('/assets/logo.webp');
+    expect(src).toMatch(/logo\.webp/);
   });
 
   it('reflects scroll position immediately on mount, not just after the first scroll event', () => {

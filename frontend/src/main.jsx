@@ -7,11 +7,14 @@ import { queryClient }          from './lib/queryClient';   // PF-108: shared wi
 import { ThemeProvider } from './providers/ThemeProvider';
 import { MotionProvider } from './providers/MotionProvider';
 import App from './App.jsx';
+import { installChunkReload } from './utils/chunkReload';   // PF-127
 import './styles/global.css';
 import './styles/tokens.css';
 import './styles/keyframes/index.css';
 import './styles/animations.css';       // must follow keyframes/
 import './styles/motion.css';           // must be LAST
+
+installChunkReload();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -6,7 +6,7 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useAbout } from '../../hooks/useAbout';
 import { statCards } from '../../utils/aboutStats';
 import { computeParallaxTransform } from '../../utils/parallax';
-import aboutPortrait from '../../assets/about-portrait.jpg';
+import aboutPortrait from '../../assets/about-portrait.webp';
 import styles from './AboutSection.module.css';
 
 /*

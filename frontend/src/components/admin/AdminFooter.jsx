@@ -1,6 +1,6 @@
 // frontend/src/components/admin/AdminFooter.jsx
 import { Link } from 'react-router-dom';
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo.webp';
 import styles from './AdminFooter.module.css';
 
 /**

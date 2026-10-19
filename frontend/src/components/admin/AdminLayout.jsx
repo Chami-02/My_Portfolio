@@ -11,7 +11,7 @@ import { AdminFooter } from './AdminFooter';
 import { SessionExpiryBanner } from './SessionExpiryBanner';
 import { useRequestLeave } from '../../hooks/useUnsavedChanges';
 import { StarfieldCanvas, CursorGlow, GrainOverlay } from '../ambient';
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo.webp';
 import styles from './AdminLayout.module.css';
 import a from '../../styles/admin.module.css';
 

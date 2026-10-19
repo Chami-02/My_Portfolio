@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Routes, Route } from 'react-router-dom';
 import { Navbar }          from './components/layout/Navbar';
 import { Footer }          from './components/layout/Footer';
@@ -5,11 +6,21 @@ import { ScrollToTop }     from './components/layout/ScrollToTop';
 import { SkipLink }        from './components/layout/SkipLink';
 import { ProtectedRoute }  from './components/common/ProtectedRoute';
 import { HomePage }        from './pages/HomePage';
-import { BlogPage }        from './pages/BlogPage';
-import { BlogPostPage }    from './pages/BlogPostPage';
 import { NotFoundPage }    from './pages/NotFoundPage';
-import { AdminLoginPage }  from './pages/AdminLoginPage';
-import { AdminPage }       from './pages/AdminPage';     // Created in PF-37
+
+/*
+ * PF-127. Blog and admin load on demand — the home page used to download all
+ * of their code in one 593 KB bundle before it could paint. Home and 404 stay
+ * in the main bundle: home is the landing page, and 404 is tiny.
+ *
+ * The pages are NAMED exports and React.lazy wants a default, hence the
+ * `.then`. A chunk that fails to load after a deploy is handled in main.jsx
+ * (vite:preloadError).
+ */
+const BlogPage       = lazy(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
+const BlogPostPage   = lazy(() => import('./pages/BlogPostPage').then((m) => ({ default: m.BlogPostPage })));
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })));
+const AdminPage      = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 function AppLayout() {
   return (
@@ -41,43 +52,48 @@ function AppLayout() {
             so the keyboard order PF-83 specified is unchanged. It takes no
             focus ring: :focus-visible does not match a programmatic focus. */}
         <main id="main-content" tabIndex={-1} style={{ flexGrow: 1 }}>
-          <Routes>
-            {/* Public */}
-            <Route path="/"            element={<HomePage />} />
-            {/* PF-98. Ahead of the `*` catch-all, which swallowed /blog until
-                now — PF-86 pointed five Blog-teaser links here and every one
-                of them rendered NotFoundPage. */}
-            <Route path="/blog"        element={<BlogPage />} />
-            {/* PF-99. Every card PF-98 rendered pointed here and landed
-                on NotFoundPage; so did the four post links in the home
-                page's teaser. Order does not matter against `/blog`
-                (React Router v7 ranks by specificity, not declaration),
-                but it must precede nothing in particular — the `*`
-                catch-all below is what it is escaping. */}
-            <Route path="/blog/:slug"  element={<BlogPostPage />} />
-            <Route path="/admin/login" element={<AdminLoginPage />} />
+          {/* PF-127. While a lazy page's chunk loads (~100 ms), hold the
+              viewport so the footer below does not jump up into view and
+              back down. Nothing visible — a spinner for 100 ms is noise. */}
+          <Suspense fallback={<div style={{ minHeight: '100vh' }} />}>
+            <Routes>
+              {/* Public */}
+              <Route path="/"            element={<HomePage />} />
+              {/* PF-98. Ahead of the `*` catch-all, which swallowed /blog until
+                  now — PF-86 pointed five Blog-teaser links here and every one
+                  of them rendered NotFoundPage. */}
+              <Route path="/blog"        element={<BlogPage />} />
+              {/* PF-99. Every card PF-98 rendered pointed here and landed
+                  on NotFoundPage; so did the four post links in the home
+                  page's teaser. Order does not matter against `/blog`
+                  (React Router v7 ranks by specificity, not declaration),
+                  but it must precede nothing in particular — the `*`
+                  catch-all below is what it is escaping. */}
+              <Route path="/blog/:slug"  element={<BlogPostPage />} />
+              <Route path="/admin/login" element={<AdminLoginPage />} />
 
-            {/* Protected — requires JWT */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <AdminPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/*"
-              element={
-                <ProtectedRoute>
-                  <AdminPage />
-                </ProtectedRoute>
-              }
-            />
+              {/* Protected — requires JWT */}
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <AdminPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/*"
+                element={
+                  <ProtectedRoute>
+                    <AdminPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* 404 */}
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+              {/* 404 */}
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
         </main>
 
         {/* Hide footer on admin pages */}

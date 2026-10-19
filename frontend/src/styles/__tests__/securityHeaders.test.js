@@ -38,7 +38,9 @@ const sha256 = (text) => `'sha256-${crypto.createHash('sha256').update(text, 'ut
 
 describe('vercel.json security headers (PF-120)', () => {
   it('applies to every path', () => {
-    expect(vercel.headers.map((h) => h.source)).toEqual(['/(.*)']);
+    // PF-127 added a second block (asset caching, below); the security block
+    // itself must still be the catch-all.
+    expect(vercel.headers.map((h) => h.source)).toEqual(['/(.*)', '/assets/(.*)']);
   });
 
   it('allows each inline script in index.html by its exact hash — and nothing inline besides', () => {
@@ -101,5 +103,47 @@ describe('nginx.conf mirrors the vercel.json headers (Docker)', () => {
     const locations = [...nginx.matchAll(/location[^{]*\{([^}]*)\}/g)].map((m) => m[1]);
     expect(locations.length).toBeGreaterThan(0);
     locations.forEach((body) => expect(body).not.toMatch(/^\s*add_header/m));
+  });
+});
+
+// PF-127 — Vite names every file in /assets by its content hash, so a changed
+// file is a NEW URL and the old one can be cached forever. Without this block
+// Vercel sends `max-age=0, must-revalidate` (measured live 2026-10-19) and
+// every visit re-asks the server about every file.
+//
+// ⚠️ The rewrite exclusion is the silent half. The SPA rewrite used to catch
+// EVERY path, so a request for a chunk that a newer deploy deleted came back
+// as index.html with a 200 (measured live 2026-10-19) — and, with this cache
+// header, it would be stored under the chunk's URL for a year. A missing
+// asset must 404 instead. (nginx already 404s: its asset location has no
+// try_files.)
+describe('vercel.json caches hashed assets (PF-127)', () => {
+  // A Vercel `source` is a path-to-regexp pattern; these two use only plain
+  // regex syntax, so anchoring them is an exact translation.
+  const matches = (source, url) => new RegExp(`^${source}$`).test(url);
+  const assetBlock = vercel.headers.find((h) => h.source === '/assets/(.*)');
+
+  it('sends a one-year immutable Cache-Control on /assets/*', () => {
+    expect(assetBlock.headers).toEqual([
+      { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+    ]);
+    expect(matches(assetBlock.source, '/assets/index-BRPZDQFy.js')).toBe(true);
+  });
+
+  it('caches nothing outside /assets — index.html must always be re-fetched', () => {
+    const cacheBlocks = vercel.headers.filter((h) => h.headers.some((x) => x.key === 'Cache-Control'));
+    expect(cacheBlocks).toEqual([assetBlock]);
+    expect(matches(assetBlock.source, '/')).toBe(false);
+    expect(matches(assetBlock.source, '/index.html')).toBe(false);
+  });
+
+  it('never rewrites a missing asset to index.html, but still rewrites every route', () => {
+    expect(vercel.rewrites).toHaveLength(1);
+    const { source, destination } = vercel.rewrites[0];
+    expect(destination).toBe('/index.html');
+    expect(matches(source, '/assets/index-OLDHASH.js')).toBe(false);
+    for (const route of ['/', '/blog', '/blog/some-post', '/admin', '/admin/login', '/nope']) {
+      expect(matches(source, route)).toBe(true);
+    }
   });
 });
