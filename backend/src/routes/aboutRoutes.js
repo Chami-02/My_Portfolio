@@ -1,6 +1,7 @@
 const router   = require('express').Router();
 const validate = require('../middleware/validate');
 const { protect }      = require('../middleware/auth');
+const { publicCache } = require('../middleware/cache'); // PF-128
 const { uploadSingle } = require('../middleware/upload');
 const {
   aboutRules,
@@ -15,7 +16,7 @@ const {
 } = require('../controllers/aboutController');
 
 
-router.get('/', getAbout);
+router.get('/', publicCache, getAbout);
 // ⚠️ PF-112 — `protect` FIRST, then the rule array.
 // This used to read `aboutRules, validate, protect`, which is the exact
 // ordering PF-97 fixed in blogRoutes.js: `validate` 400s on a malformed body

@@ -2,6 +2,7 @@ const router    = require('express').Router();
 const rateLimit = require('express-rate-limit');
 const validate = require('../middleware/validate');
 const { protect } = require('../middleware/auth');
+const { publicCache } = require('../middleware/cache'); // PF-128
 const {
   blogRules,
   getAllPosts,
@@ -25,8 +26,8 @@ const viewLimiter = rateLimit({
   legacyHeaders:   false,
 });
 
-router.get('/',      getAllPosts);
-router.get('/:slug', getPostBySlug);
+router.get('/',      publicCache, getAllPosts);
+router.get('/:slug', publicCache, getPostBySlug);
 router.get('/admin/all',         protect, getAllPostsAdmin);
 router.patch('/:slug/view',      viewLimiter, incrementViews);
 // ⚠️ PF-97 — `protect` moved AHEAD of the rule array. It used to read

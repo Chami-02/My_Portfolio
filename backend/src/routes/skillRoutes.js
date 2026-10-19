@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const validate = require('../middleware/validate');
 const { protect } = require('../middleware/auth');
+const { publicCache } = require('../middleware/cache'); // PF-128
 const {
   getAllSkills,
   createSkill,
@@ -10,7 +11,7 @@ const {
   deleteSkill,
 } = require('../controllers/skillController');
 
-router.get('/',       getAllSkills);
+router.get('/',       publicCache, getAllSkills);
 router.post('/',      protect, createSkill);
 // ⚠️ PF-114 — declared BEFORE '/:id', or Express matches 'reorder' as an id and
 // updateSkill answers "Invalid skill ID". And `protect` BEFORE the rules (the
