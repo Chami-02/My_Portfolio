@@ -8818,10 +8818,24 @@ Mutation: 14 mutants, 14 killed (3 on the RFC lock) (M5 "purge on reads" survive
 the signed-in-read test used an unprotected URL; fixed). `end` vs `finish` is
 equivalent off Vercel — only the live check proves it.
 
+**Live (after deploy #49, 2026-10-19):** `sin1::bom1` ✅; `/api/about` MISS then
+HIT ✅; `Cache-Control: max-age=0` and the Vercel-only headers hidden ✅;
+`Authorization` → `BYPASS` ✅; 401 / health / 404 slug `no-store` ✅. Timings:
+HIT 0.15–0.27 s; uncached 0.58–0.79 s → 0.23–0.28 s.
+
 ### Outstanding work added by PF-128
-- **Live checks after deploy (owner approves the deploy):** `x-vercel-id`
-  shows `::bom1::`; `/api/about` MISS then HIT; with `Authorization` never HIT;
-  a SAVE → next anonymous request MISS with the new value; timings vs before.
+- **One live check left:** a SAVE in the admin → the next anonymous request is
+  `MISS` with the new value (proves the purge runs on Vercel — the one thing
+  the suite cannot).
+
+## Dependabot hold — `cookie` majors (2026-10-19, `chore/dependabot-cookie-major`)
+
+PR #39 (`cookie` 1.1.1 → 2.0.1) failed every backend suite: "Must use import to
+load ES Module". cookie 2.x is `"type": "module"` only; the backend is
+CommonJS. Node 24 can `require()` an ES module, Jest's loader cannot, and
+`authController.js` (reads the Google flow cookie) loads with `app.js`. Fix:
+`dependabot.yml` ignores `cookie` `version-update:semver-major` (reason + lift
+steps in the file); PR #39 closed by the owner. 1.x is maintained.
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 

@@ -108,11 +108,21 @@ updates:
     # so it is held too. package.json pins `~7.5.0` / `~9.9.1` (patches only).
     # Upstream: https://github.com/typegoose/mongodb-memory-server/issues/1026
     # To lift: delete this block, set both back to `^`, run the backend suite.
+    #
+    # ⚠️ HOLD (2026-10-19) — cookie 2.x is ESM-ONLY (`"type": "module"`).
+    # The backend is CommonJS: Node 24 can require() an ES module, but Jest's
+    # module loader cannot ("Must use import to load ES Module"), so every
+    # suite that loads app.js (authController reads the Google flow cookie)
+    # fails before it starts (#39). 1.x is maintained, so patches and minors
+    # still arrive. To lift: when Jest can load it (or the backend moves to
+    # ESM), delete this entry and run the backend suite.
     ignore:
       - dependency-name: mongodb
         versions: [">=7.6.0"]
       - dependency-name: mongoose
         versions: [">=9.10.0"]
+      - dependency-name: cookie
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
 
