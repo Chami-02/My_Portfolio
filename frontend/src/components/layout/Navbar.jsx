@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo.webp';
 import styles from './Navbar.module.css';
 import { navModel } from '../../utils/nav';
 

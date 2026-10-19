@@ -59,7 +59,7 @@ import {
   CursorGlow,
   GrainOverlay,
 } from '../components/ambient';
-import logo   from '../assets/logo.png';
+import logo   from '../assets/logo.webp';
 import styles from './AdminLoginPage.module.css';
 
 /**

@@ -3635,6 +3635,18 @@ Both `ci.yml` and `deploy.yml` triggered on push to master, so a red merge's
 deploy still reached the approval button. Fixed with `workflow_run` + a
 `conclusion == 'success'` gate; checkouts pin `head_sha` (the commit CI tested).
 
+### An SPA catch-all rewrite answers a MISSING chunk with index.html + 200 (PF-127, 2026-10-19)
+`/(.*)` → `/index.html` also caught `/assets/old-hash.js` (measured live: `200
+text/html`). Harmless while assets were `max-age=0`; with a 1-year `immutable`
+header on `/assets/*` the HTML would be stored under the chunk URL. The rewrite is
+`/((?!assets/).*)` now; `securityHeaders.test.js` pins both halves.
+
+### Two packages can ship the same bin name — npm links ONE (2026-10-19)
+dotenv 18 added a `dotenv` bin; `dotenv-cli` has one too. `node_modules/.bin/dotenv`
+→ dotenv's, which wants `-f` not `-e`, prints usage and exits 1 — so
+`npm run dev:e2e` fails as "webServer was not able to start". CI never runs that
+script, so every check stayed green. Check with `readlink node_modules/.bin/<name>`.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

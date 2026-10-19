@@ -245,7 +245,7 @@ section.blog {
       rgba(var(--gnd), .80) 56%,
       rgba(var(--gnd), .34) 74%,
       rgba(var(--gnd), .16) 100%),
-    url('../../assets/blog_section_first_card_Light_Mode.jpg')
+    url('../../assets/blog_section_first_card_Light_Mode.webp')
       center / cover no-repeat;
   opacity: 1;
   pointer-events: none;
@@ -273,7 +273,7 @@ section.blog {
       rgba(var(--gnd), .66) 56%,
       rgba(var(--gnd), .56) 74%,
       rgba(var(--gnd), .56) 100%),
-    url('../../assets/blog_section_first_card.jpg')
+    url('../../assets/blog_section_first_card.webp')
       left center / cover no-repeat;
 }
 

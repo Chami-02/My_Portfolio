@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSplashControls } from '../../hooks/useSplashControls';
 import { markSplashShown } from '../../utils/splash';
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo.webp';
 import styles from './Splash.module.css';
 
 const BOOT_LINES = [

@@ -8,7 +8,7 @@ import { sectionHref } from '../../utils/nav';
 import { socialEntries } from '../../utils/social';
 import { useAbout } from '../../hooks/useAbout';
 import { timezoneLabel } from '../../utils/timezone';
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo.webp';
 import styles from './Footer.module.css';
 
 /**

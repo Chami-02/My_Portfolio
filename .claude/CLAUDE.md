@@ -127,15 +127,14 @@ something surprises you, search the companions *before* deriving an explanation.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
 | PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **auth + email + Settings** | **planned, not started** |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127 built 2026-10-19 |
 
 `global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
 sprint-log "Sprint 14 closed — PF-121".
 
-**▶ NEXT, in order (owner, 2026-10-16):** (1) ticket the owner's live-check
-suggestions from PF-127 — session-gate loading screen, hero upload blend, speed
-(sprint-log "Outstanding work added by PF-121"); (2) the full Sprint 15 plan:
-REWRITE PF-123/124/125 (password + emailed code), Settings section.
+**▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
+PF-127 (built 2026-10-19) → PF-128 speed II → PF-129 hero blend → PF-130 gate
+screen → PF-123/125/131/124… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -268,6 +267,7 @@ Where a mistake would be silent, add a test that would catch it.
 **CSS**
 - Mistyped custom property / `animation-name` → dropped, no error (`drift-blog` does not exist).
 - nginx: a `location` with its own `add_header` drops EVERY inherited header — keep `add_header` out of locations (guarded).
+- The SPA rewrite must exclude `/assets/` — else a missing chunk gets index.html + 200, cached a year (guarded, PF-127).
 - Keyframe named in a CSS Module → scoped to nothing; tell is `el.getAnimations().length === 0`.
 - Never declare `transition` on a `Reveal`-wrapped element (guarded).
 - `rgba(#hex,.5)` is invalid — channel triplets stay bare `R,G,B`.
@@ -301,6 +301,7 @@ Where a mistake would be silent, add a test that would catch it.
 
 **Tooling and gates**
 - `npm test` does not run E2E; unit green + E2E red = removed feature, stale tests.
+- dotenv 18 ships a `dotenv` bin that shadows `dotenv-cli`'s → `npm run dev:e2e` broken locally (CI unaffected); see Outstanding work PF-127.
 - `mongodb` ≥ 7.6 HANGS every DB test under Jest (NODE-7832) — held at `~7.5.0` + Dependabot ignore; lift steps in `dependabot.yml`.
 - A required check that never started looks like nothing failing — confirm `All Checks Pass` is listed AND `pass`.
 - After a re-trigger, read the LATEST run, not the merged check list.

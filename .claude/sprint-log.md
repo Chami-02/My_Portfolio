@@ -8714,6 +8714,56 @@ locked-decisions "Never paste a credential".
 - Still open from the ticket: Safari check of Google's `pf_oauth` cookie on the
   live site.
 
+## PF-127 — Speed I: asset caching, route splitting, WebP images (2026-10-19)
+
+Sprint 15's first ticket (E11, 5 pts). Branch `feat/PF-127-speed-caching-splitting`.
+Ticket + report: `new mds/Sprint 15/PF-127-ticket.md`, `PF-127-speed-caching-splitting-images.md`.
+
+**Trace corrections to the plan.** nginx ALREADY sent `immutable` on hashed
+assets (the `map`), so only `vercel.json` changed. `admin.module.css` stays in the
+main CSS — `ProjectsSection.module.css` and `ErrorBoundary.module.css` compose it.
+
+**Built.**
+- `frontend/vercel.json`: `/assets/(.*)` → `Cache-Control: public, max-age=31536000,
+  immutable`; SPA rewrite narrowed to `/((?!assets/).*)` (a missing chunk was
+  answered with index.html + 200 — measured live — and would have been cached a year).
+- `App.jsx`: `React.lazy` for BlogPage, BlogPostPage, AdminLoginPage, AdminPage
+  (named exports → `.then(m => ({ default: m.X }))`); one `<Suspense>` around the
+  main `<Routes>`, fallback an empty `min-height: 100vh` div (footer never jumps).
+  Home, 404, ProtectedRoute, chrome stay eager.
+- `utils/chunkReload.js` + `main.jsx`: `vite:preloadError` → reload ONCE per 10 s
+  (sessionStorage stamp); blocked storage = no reload (guard cannot hold).
+- Images → WebP at the SAME pixel size (cwebp, now installed): about-portrait
+  1200×1600 q82 (817 → 314 KB), blog backdrops q80 (299 → 59, 350 → 103 KB), logo
+  320 q90 + alpha (178 → 20 KB). PSNR 39–41 dB photos, 43 dB logo (visible pixels;
+  `-exact` — without it transparent-pixel RGB drags the score to 18, invisibly).
+  Side-by-side in the browser: indistinguishable. Old `.jpg`/`.png` deleted (git
+  keeps them; `.heic` stays the portrait source; orphan `about-portrait.png` untouched).
+
+**Numbers (local build).** Home JS 593 KB / 158 KB br (one file) → 481 KB / 135 KB br
+(`index` 296 + shared `ambient` 185 — Rollup names the shared vendor chunk after its
+first module). Admin 93 KB, blog 9 + 4 KB load only on their routes. Home images
+≈ 1.42 MB → ≈ 0.52 MB per theme. Live before: `/assets/*.js` `max-age=0,
+must-revalidate`; missing asset → `200 text/html`. Live after: in the report.
+
+**Verification.** Fast gate 2136/2136 (91 files), lint 0, build ✅; backend 824/824;
+E2E 80/80 (2.7 min). Mutation: 9 mutants, 9 killed (one equivalent mutant
+replaced by the real one). Browser (prod build on local API): chunks load per
+route, stale-chunk reload fires once, light + dark backdrops.
+
+### Outstanding work added by PF-127
+- **A chunk that fails AFTER the one reload lands on React Router's default
+  "Unexpected Application Error!" page** (measured). Not wrapped in
+  `<ErrorBoundary>` on purpose: `React.lazy` caches the rejection, so TRY AGAIN
+  would throw forever. Needs an `errorElement` design (owner) — rare on Vercel
+  (atomic deploys; offline shows the browser's own page).
+- **`npm run dev:e2e` / `seed:e2e` are broken locally since dotenv 18 (#13):**
+  dotenv 18 ships its own `dotenv` bin and npm links it over `dotenv-cli`'s
+  (different flags → prints usage, exits 1). CI is unaffected (starts the server
+  directly). Workaround used: `node --env-file=.env.e2e src/server.js` + vite on
+  5174 + `CI=1 npx playwright test`. Fix as a `fix/` branch (drop `dotenv-cli`
+  for `node --env-file`).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

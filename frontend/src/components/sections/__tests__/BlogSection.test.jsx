@@ -775,7 +775,7 @@ describe("the featured card's backdrop image (2026-09-07)", () => {
    */
   it('uses a different photograph and crop per theme', () => {
     const light = decls('.featuredCard::before').background;
-    expect(light).toContain('blog_section_first_card_Light_Mode.jpg');
+    expect(light).toContain('blog_section_first_card_Light_Mode.webp');
     expect(light).toContain('center');
     expect(light).not.toContain('left center');
 
@@ -786,7 +786,7 @@ describe("the featured card's backdrop image (2026-09-07)", () => {
       rule.walkDecls('background', (d) => dark.push({ sel: rule.selector, v: d.value }));
     });
     expect(dark).toHaveLength(1);
-    expect(dark[0].v).toContain('blog_section_first_card.jpg');
+    expect(dark[0].v).toContain('blog_section_first_card.webp');
     expect(dark[0].v).toContain('left center');
     // Specificity (0,2,1) against the base rule's (0,1,0), never emission order.
     expect(dark[0].sel).toMatch(/:global\(html\[data-theme='dark'\]\)\s*\./);
