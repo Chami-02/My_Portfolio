@@ -152,7 +152,8 @@
   border-color: rgba(52, 211, 153, .35);
 }
 
-/* Admin.dc.html:546 — padding-right clears the unread dot at top/right 17px. */
+/* Admin.dc.html:546 — padding-right clears the unread dot at top/right 17px
+   (the star sits last in the row since PF-123 moved the date out). */
 .head {
   display: flex;
   flex-wrap: wrap;
@@ -183,10 +184,40 @@
   text-decoration: underline;
 }
 
-.date {
+/* PF-123 — DATE · TIME · FROM, the owner's email copy on the card. Wraps
+   pair by pair on a phone; a pair never splits from its label. */
+.details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+  margin: 0 0 13px;
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted2);
+  font-size: 11.5px;
+}
+
+.detail {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* --muted, not --muted2: the card is a tinted surface (PF-91 — the surface
+   decides). */
+.detail dt {
+  flex: none;
+  color: var(--muted);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.detail dd {
+  margin: 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.detailNote {
+  color: var(--muted);
 }
 
 /* PF-115 — the star. A glyph button; the BUTTON carries the name. */
@@ -222,6 +253,18 @@
      long unbroken URL wrap instead of widening the card. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* PF-123 — unread only: the owner's reminder, below one solid line. */
+.replyDue {
+  margin: -3px 0 15px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(var(--ln), .14);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
 }
 
 .actions {
