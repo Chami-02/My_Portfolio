@@ -8837,6 +8837,22 @@ CommonJS. Node 24 can `require()` an ES module, Jest's loader cannot, and
 `dependabot.yml` ignores `cookie` `version-update:semver-major` (reason + lift
 steps in the file); PR #39 closed by the owner. 1.x is maintained.
 
+## PF-129 — Uploaded hero image gets the bundled image's oval (2026-10-20)
+
+Sprint 15's third ticket. Branch `feat/PF-129-hero-image-blend`. Ticket + report:
+`new mds/Sprint 15/PF-129-hero-image-blend-ticket.md`, `PF-129-hero-image-blend.md`.
+Decision: locked-decisions "PF-129".
+- `HeroSection.jsx`: `HeroPortrait({ uploadedSrc })` picks the src and adds
+  `portraitImgUploaded` only for an upload.
+- `HeroSection.module.css`: `.portraitImgUploaded` = measured oval layer + PF-80's
+  two layers (composite inherited).
+- `AdminAboutPanel.jsx`: hero card tip — any photo works, soft oval like the default.
+- Tests: +5 in `HeroSection.test.jsx` (class per source, exact local names; mask =
+  oval + PF-80 verbatim, both spellings). 5/5 mutants killed.
+- Browser (dev, About photo as a stand-in upload): before = hard top edge and cut
+  shape; after = soft oval in dark and light; bundled class + mask unchanged.
+- Gate: frontend 2141 tests / 91 files, backend 849 / 48 suites. No E2E covers it.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

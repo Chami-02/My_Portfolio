@@ -446,6 +446,20 @@ describe('HeroSection (PF-80)', () => {
       expect(Number(radial[2])).toBeLessThanOrEqual(50);
     });
 
+    // PF-129. The upload mask = a measured oval layer FIRST, then PF-80's two
+    // layers verbatim. Both spellings, or Safari / Chrome shows the raw
+    // rectangle; PF-80's layers copied exactly, or an upload stops getting
+    // the softening the bundled image gets.
+    it('masks an uploaded image with the measured oval plus PF-80\'s two layers', () => {
+      const pf80 = ruleBody('.portraitImg').match(/\n\s*mask-image:([^;]+);/)[1].trim();
+      const up = ruleBody('.portraitImgUploaded');
+      const oval = 'radial-gradient(ellipse 52% 50% at 50% 50%, #000 64%, transparent 100%)';
+      for (const prop of ['mask-image', '-webkit-mask-image']) {
+        const value = up.match(new RegExp(`\\n\\s*${prop}:([^;]+);`))[1].replace(/\s+/g, ' ').trim();
+        expect(value).toBe(`${oval}, ${pf80.replace(/\s+/g, ' ')}`);
+      }
+    });
+
     // Owner-requested slimming. Both halves matter — dropping the padding
     // alone barely moves the band, because the line box dominates it.
     it('slims the marquee band below the prototype\'s values', () => {
@@ -740,5 +754,26 @@ describe('hero image source (owner, 2026-10-14)', () => {
     useAbout.mockReturnValue({ data: undefined, isLoading: true });
     render(withMotion(<HeroSection />));
     expect(img().getAttribute('src')).toMatch(/hero-ai\.webp$/);
+  });
+
+  // PF-129. Local names compared EXACTLY — `portraitImg` is a prefix of
+  // `portraitImgUploaded`, so a substring check would pass either way.
+  const localClasses = () => [...img().classList].map((c) => /^_(.+)_[^_]+$/.exec(c)?.[1] ?? c);
+
+  it('cuts an upload into the bundled image\'s oval (PF-129)', () => {
+    const url = 'https://res.cloudinary.com/demo/image/upload/v1/portfolio/hero/me.jpg';
+    useAbout.mockReturnValue({ data: { availableForWork: true, heroImage: { url } } });
+    render(withMotion(<HeroSection />));
+    expect(localClasses()).toEqual(['portraitImg', 'portraitImgUploaded']);
+  });
+
+  it.each([
+    ['an empty url', { data: { availableForWork: true, heroImage: { url: '' } } }],
+    ['no heroImage field', { data: { availableForWork: true } }],
+    ['About still loading', { data: undefined, isLoading: true }],
+  ])('keeps the bundled image on its PF-80 class alone on %s', (_label, value) => {
+    useAbout.mockReturnValue(value);
+    render(withMotion(<HeroSection />));
+    expect(localClasses()).toEqual(['portraitImg']);
   });
 });

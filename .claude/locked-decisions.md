@@ -4341,6 +4341,21 @@ PR. Each is a deliberate addition beyond the prototype.
   `req.user`, so a reader counting a view cannot wipe the cache. Consequence,
   accepted: a cached post's view count can lag until the next SAVE or the hour.
 
+## PF-129 — an uploaded hero image gets the bundled image's oval (owner 2026-10-20)
+
+- **The bundled `hero-ai.webp` must not change** — owner: "its perfect". Its soft
+  oval is baked into its ALPHA (made in Claude Design), not drawn by CSS.
+- **Only an upload gets `.portraitImgUploaded`** (`HeroPortrait`): a first mask
+  layer that cuts the SAME oval, then PF-80's two layers verbatim. Bundled image
+  keeps `.portraitImg` alone → unchanged by construction.
+- **The oval is MEASURED from hero-ai.webp's alpha**, not eyeballed: centred
+  50/50; opaque 20–80% of height and 15–85% of width, linear ramp to 0 at the
+  edges → `ellipse 52% 50% at 50% 50%, #000 64%, transparent 100%`. 52% is over
+  PF-80's 50% pin on purpose: PF-80's radial still takes the side edges to 0.
+- **No background removal, no image processing** — any photo works (rejected:
+  "remove the background first" tip; owner wants uploads to just blend). The
+  admin tip now says so. Same rule in dark and light.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
