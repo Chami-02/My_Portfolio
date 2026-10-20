@@ -3672,6 +3672,18 @@ script, so every check stayed green. Check with `readlink node_modules/.bin/<nam
 - **A protected READ also sets `req.user`** — the purge guard must check the
   method too, or every admin panel load wipes the cache (mutant M5).
 
+## PF-123 (2026-10-20) — the tests load the REAL `.env`
+
+`scripts/run-jest.js` starts with `require('dotenv').config()`, and `app.js` does the
+same under `npm run dev:e2e` (dotenv-cli loads `.env.e2e` first, then `.env` fills every
+key it did not set). So any credential added to `backend/.env` is live inside the
+test suite and the E2E server. For mail that means REAL emails from every contact
+test. Measured: with fake `GMAIL_*` in the shell and the guard removed, the contact
+suite reached smtp.gmail.com and logged `EAUTH 535` — green tests, real network.
+- Fix: run-jest `delete`s the vars; `.env.e2e` sets them BLANK. dotenv never
+  overwrites a key that exists, even as `''` (measured with a control).
+- Any future secret that triggers an outward action needs the same treatment.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
