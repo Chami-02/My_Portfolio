@@ -618,11 +618,10 @@
   border-radius: 999px;
 }
 
-/* PF-108: what ProtectedRoute paints while /auth/me answers — three
-   skeleton rows in a panel-width column, on the page ground, so the
-   session check reads as "loading" rather than a blank flash before
-   either the shell or the login page. Full-height because it is the
-   only thing on the route. */
+/* PF-108: ProtectedRoute's column — a panel-width column on the page
+   ground, full-height because it is the only thing on the route. Since
+   PF-130 it holds only the "couldn't check your session" banner; the
+   wait itself is components/common/LoadingScreen. */
 .gate {
   min-height: 100vh;
   max-width: 720px;

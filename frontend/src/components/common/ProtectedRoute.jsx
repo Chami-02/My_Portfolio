@@ -1,5 +1,7 @@
+import { Suspense } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useMe } from '../../hooks/useMe';
+import { LoadingScreen } from './LoadingScreen';
 import a from '../../styles/admin.module.css';
 
 /**
@@ -9,9 +11,12 @@ import a from '../../styles/admin.module.css';
  * EXPIRED token rendered the whole admin shell, every panel then 401'd,
  * and each one raced the same full-page redirect. Now it asks the server:
  *
- *   pending  → a gate skeleton, not the shell. Nothing under it mounts, so
- *              nothing under it can fire a request that would fail.
- *   success  → children.
+ *   pending  → the loading screen, not the shell. Nothing under it mounts,
+ *              so nothing under it can fire a request that would fail.
+ *   success  → children, behind a Suspense whose fallback is the SAME
+ *              screen (PF-130): <AdminPage/> is lazy (PF-127), and its
+ *              chunk used to suspend to App's blank fallback — a blank
+ *              frame between "signing you in" and the shell.
  *   signed out — a 401, or data === null (api.js writes null when a
  *              silent refresh fails) → ONE router navigate to
  *              /admin/login, remembering where the user was going.
@@ -35,15 +40,11 @@ export function ProtectedRoute({ children }) {
   const location = useLocation();
   const { data, error, isPending, isError, refetch } = useMe();
 
-  if (isPending) {
-    return (
-      <div className={a.gate} role="status" aria-label="Checking your session">
-        <span className={a.skelRow} />
-        <span className={a.skelRow} />
-        <span className={a.skelRow} />
-      </div>
-    );
-  }
+  // PF-130. Shown only if the check is slow (LoadingScreen's delay); the
+  // Suspense below reuses it, and the hand-off keeps it on screen.
+  const gate = <LoadingScreen label="Signing you in…" />;
+
+  if (isPending) return gate;
 
   const signedOut = data === null || (isError && error?.response?.status === 401);
 
@@ -71,5 +72,5 @@ export function ProtectedRoute({ children }) {
     );
   }
 
-  return children;
+  return <Suspense fallback={gate}>{children}</Suspense>;
 }

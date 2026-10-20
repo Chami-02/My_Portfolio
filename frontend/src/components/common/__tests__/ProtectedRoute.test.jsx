@@ -2,11 +2,16 @@
 //
 // PF-108 — the first test this component has had. It used to check that a
 // string existed in localStorage; now it asks the server through useMe and
-// has four states, each pinned here.
-import { render, screen } from '@testing-library/react';
+// has four states, each pinned here. PF-130 made the pending state the
+// branded LoadingScreen and put a Suspense (same screen) around the children.
+import { lazy } from 'react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ThemeProvider } from '../../../providers/ThemeProvider';
+import { MotionProvider } from '../../../providers/MotionProvider';
+import { LOADING_DELAY_MS } from '../LoadingScreen';
 
 const useMe = vi.hoisted(() => vi.fn());
 vi.mock('../../../hooks/useMe', () => ({ useMe }));
@@ -25,36 +30,89 @@ function LoginProbe() {
   );
 }
 
-function renderAt(path = '/admin/projects?tab=2') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/admin/login" element={<LoginProbe />} />
-        <Route
-          path="/admin/*"
-          element={(
-            <ProtectedRoute>
-              <p>the panel</p>
-            </ProtectedRoute>
-          )}
-        />
-      </Routes>
-    </MemoryRouter>,
-  );
+// Theme + Motion: the loading screen mounts the site's ambient layer.
+const tree = (path, panel) => (
+  <ThemeProvider>
+    <MotionProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/admin/login" element={<LoginProbe />} />
+          <Route
+            path="/admin/*"
+            element={(
+              <ProtectedRoute>
+                {panel}
+              </ProtectedRoute>
+            )}
+          />
+        </Routes>
+      </MemoryRouter>
+    </MotionProvider>
+  </ThemeProvider>
+);
+
+function renderAt(path = '/admin/projects?tab=2', panel = <p>the panel</p>) {
+  return render(tree(path, panel));
+}
+
+/** A lazy panel whose chunk "arrives" when the test says so. */
+function lazyPanel() {
+  let arrive;
+  const chunk = new Promise((r) => { arrive = () => r({ default: () => <p>the panel</p> }); });
+  const Panel = lazy(() => chunk);
+  return { panel: <Panel />, arrive: () => act(async () => { arrive(); await chunk; }) };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
+afterEach(() => { vi.useRealTimers(); });
+
 describe('ProtectedRoute', () => {
-  it('while /auth/me is pending, shows a gate and mounts NOTHING underneath', () => {
+  it('while /auth/me is pending, shows the loading screen and mounts NOTHING underneath', () => {
+    vi.useFakeTimers();
     useMe.mockReturnValue({ data: undefined, isPending: true, isError: false });
     renderAt();
 
-    expect(screen.getByRole('status', { name: /checking your session/i })).toBeInTheDocument();
+    // A quick check paints nothing (PF-130's delay)…
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    // …a slow one says what is happening.
+    act(() => { vi.advanceTimersByTime(LOADING_DELAY_MS); });
+    expect(screen.getByRole('status')).toHaveTextContent('Signing you in…');
     expect(screen.queryByText('the panel')).not.toBeInTheDocument();
     expect(screen.queryByTestId('login')).not.toBeInTheDocument();
+  });
+
+  it('a lazy panel whose chunk is still downloading shows the SAME screen, then the panel', async () => {
+    // PF-130. Before, <AdminPage/>'s chunk suspended to App's blank
+    // fallback — a blank frame between "signing you in" and the shell.
+    vi.useFakeTimers();
+    useMe.mockReturnValue({ data: { email: 'owner@example.com' }, isPending: false, isError: false });
+    const { panel, arrive } = lazyPanel();
+    renderAt('/admin', panel);
+
+    act(() => { vi.advanceTimersByTime(LOADING_DELAY_MS); });
+    expect(screen.getByRole('status')).toHaveTextContent('Signing you in…');
+
+    await arrive();
+    expect(screen.getByText('the panel')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('a slow session check hands over to the chunk wait with no blank in between', () => {
+    vi.useFakeTimers();
+    useMe.mockReturnValue({ data: undefined, isPending: true, isError: false });
+    const { panel } = lazyPanel();
+    const { rerender } = renderAt('/admin', panel);
+    act(() => { vi.advanceTimersByTime(LOADING_DELAY_MS); });
+    expect(screen.getByRole('status')).toHaveTextContent('Signing you in…');
+
+    // /auth/me answers; the panel's chunk has not arrived. The very next
+    // frame must still show the screen — not restart the 300 ms delay.
+    useMe.mockReturnValue({ data: { email: 'owner@example.com' }, isPending: false, isError: false });
+    rerender(tree('/admin', panel));
+    expect(screen.getByRole('status')).toHaveTextContent('Signing you in…');
   });
 
   it('renders the children once the account resolves', () => {

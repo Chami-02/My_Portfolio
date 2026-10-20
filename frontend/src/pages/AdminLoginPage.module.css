@@ -112,40 +112,9 @@
   animation-fill-mode: both;
 }
 
-/* Admin.dc.html:55 — the float carries the ring with it */
-.logoWrap {
-  composes: kf-floatY from global;
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  animation-duration: 6s;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
-
-/* Admin.dc.html:56. ringPulse scales THIS element and breathes its
-   opacity — it is not a box-shadow ring (that is `pulsering`). */
-.ring {
-  composes: kf-ringPulse from global;
-  position: absolute;
-  inset: -9px;
-  border-radius: 50%;
-  border: 1px solid rgba(252, 163, 17, .35);
-  animation-duration: 3.4s;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
-
-/* Admin.dc.html:57 */
-.logo {
-  position: relative;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid var(--acc, #FCA311);
-  box-shadow: 0 0 26px rgba(252, 163, 17, .4);
-}
+/* The logo, ring and float (Admin.dc.html:55-57) moved to
+   components/common/BrandMark.module.css in PF-130 — the loading
+   screen wears the same mark. */
 
 .brandText {
   display: grid;

@@ -354,6 +354,11 @@
 /* No prototype source — the export has no loading or error branch for
    the reader at all. Both follow BlogPage.module.css's own placeholder
    and empty-state treatment rather than inventing a third shape. */
+/* PF-130. The positioning box LoadingScreen's inline variant fills. */
+.loading {
+  position: relative;
+}
+
 .placeholder {
   composes: surface from '../styles/patterns.module.css';
   min-height: 320px;

@@ -1,0 +1,50 @@
+/* frontend/src/components/common/LoadingScreen.module.css
+ *
+ * PF-130. No prototype source — the owner approved the sketch on
+ * 2026-10-20: the sign-in card's brand mark over the site's ambient
+ * layer, a mono label under it, nothing else. Theme tokens only, so it
+ * holds in dark and light; the ring and float stop under reduced motion
+ * through motion.css's global rule.
+ */
+
+/* Holds the viewport like the blank div it replaced (PF-127), so the
+   footer below never jumps up while a chunk loads. */
+.screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+
+/* Laid over its host block (the reading view's placeholder), which keeps
+   the shape and the dimmed surface. */
+.inline {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Above the starfield canvas (fixed, z-index 0) — the login card's
+   own .screen layer. */
+.content {
+  composes: kf-fadeIn from global;
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  animation-duration: .4s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
