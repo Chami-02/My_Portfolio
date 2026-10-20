@@ -420,6 +420,9 @@ section.contact {
   font-size: 11.5px;
   color: var(--ok);
   margin: 0;
+  /* PF-123: the line now carries the visitor's address, which has no spaces
+     to break at — a long one must wrap, never widen the form on a phone. */
+  overflow-wrap: anywhere;
 }
 
 .submit {
@@ -438,6 +441,17 @@ section.contact {
   border-radius: 999px;
   cursor: pointer;
   box-shadow: 0 12px 34px rgba(252, 163, 17, .3);
+}
+
+/* PF-123 — the location disclosure. Quiet on purpose: --muted (legible
+   on the section surface in both themes), the mono caption scale. */
+.privacyNote {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.6;
+  letter-spacing: .02em;
+  color: var(--muted);
 }
 
 .submit:hover {

@@ -8893,6 +8893,73 @@ text stay as they were (owner's choice).
 - Each stage waits its own 300 ms: a 250 ms chunk + 250 ms post fetch shows
   nothing. Deliberate (owner: only when slow) — revisit if a real wait feels bare.
 
+## PF-123 — Mailer (Gmail SMTP) + contact messages emailed to the owner (2026-10-20)
+
+Sprint 15's fifth ticket. Branch `feat/PF-123-mailer-contact-email`. Plan shown in
+chat and approved (owner 2026-10-20: no separate ticket file any more — the report
+is the only md). Report: `new mds/Sprint 15/PF-123-mailer-contact-email.md`.
+Decision: locked-decisions "PF-123". Requirement: product-requirements "Contact
+messages are emailed to the owner" — now BUILT.
+- `nodemailer` ^10.0.15 (2026-10-05; newest 10.1.7 was 2 days old). 0 prod vulns.
+- NEW `services/mailer.js`: one adapter like `storage.js` — `isConfigured()` (both
+  `GMAIL_USER` + `GMAIL_APP_PASSWORD`, read lazily), `address()`, `send()` (Gmail
+  465/TLS, 10 s connect/greeting/socket timeouts, plain `text` only, from
+  `"Portfolio" <GMAIL_USER>`), optional `html`. PF-125/124/133 reuse it.
+- `Contact.notifiedAt` (Date, default null, no migration — old rows were never emailed).
+- `submitContact`: after the save, `waitUntil(notifyOwner(contact))`, then the same
+  201. `notifyOwner` never throws: TO the account itself, Reply-To the visitor,
+  subject name with `\s+` collapsed (no header forging); body text + HTML with every
+  visitor value escaped; owner's layout (Date YYYY/MM/DD and 12-hour Time on separate
+  lines in About's `timezone`, solid line, saved note, red "Please reply within 24
+  hours!!" — locked-decisions "PF-123"); success → `updateOne`
+  `notifiedAt`; failure → `console.error` code + message only; mail off → `console.warn`.
+- ⚠️ Found + fixed: `scripts/run-jest.js` loads `backend/.env`, and `app.js` loads it
+  under `dev:e2e` too — with the real app password there, every contact test and the
+  E2E contact spec would send REAL emails. run-jest deletes both vars; `.env.e2e`
+  (+ example) sets them BLANK (dotenv never overwrites an existing key, blank or not
+  — measured, with a control). Control run without the guard: tests reached Gmail
+  (`EAUTH 535`).
+- Owner review of the first real email (2026-10-20) → layout pass: date/time split,
+  YYYY/MM/DD, 24-hour then 12-hour (owner's final word), solid line, red reminder;
+  html added (escaped). `formatSent` exported for its fixed-instant test (a route test
+  only ever sees one half of the day — the h12/h23 mutant survived a morning run).
+- `ContactSection.jsx`: success line reads the visitor's address back (`sentTo` state
+  replaces `formSent`; `.sentText` gets `overflow-wrap: anywhere`); unit #13 + E2E
+  contact spec updated, +1 test; 2/2 mutants killed. Owner-approved visible change.
+- Owner addition (plan approved in chat): sender's LOCATION + the email's details on
+  the Messages card. NEW `backend/src/utils/requestLocation.js` (Vercel `x-vercel-ip-*`
+  headers, ONLY when `VERCEL` is set, URL-decoded city, all-digit region codes dropped (Sri Lanka's Western Province is `1`), `Intl.DisplayNames` country,
+  100-char cap); `Contact.location`; email `From:` line. NEW
+  `frontend/src/utils/messageTime.js` (mirror of `formatSent`); `AdminMessagesPanel`
+  `<dl>` DATE/TIME/FROM row + red unread-only reminder (`useAbout` zone);
+  `ContactSection` privacy note. +12 backend tests (NEW `requestLocation.test.js` 8),
+  +12 frontend; mutants 6/6 backend (VERCEL check, escaping, From always, body
+  location, decode, cap) + 3/3 panel (reminder always, From always, About zone).
+  Browser (dev): card dark + light + 375 px (pairs stack, 0 overflow), privacy note dark
+  + light. A dev test message was given a location by hand to render FROM locally.
+- Tests: NEW `mailer.test.js` (9), NEW `contact.notify.test.js` (17, through the real
+  route/controller/mailer, nodemailer mocked at `createTransport`, each case its own
+  `X-Forwarded-For` because contactLimiter is live). Mutants killed: 8/8 first pass;
+  layout pass 11/11 (no escaping, quotes unescaped, 24-hour, no AM/PM, h11, dashes in
+  the date, About zone ignored, UTC, not red, dashed line, …).
+- Gate: backend 888 tests / 51 suites (mailer.js 100%), frontend 2167 / 93 + lint + build.
+- Real email (local, dev DB, owner's app password in `backend/.env`): Gmail `verify()`
+  OK (the 3 spaces in the pasted password are accepted); POST → 201 in 0.82 s,
+  `notifiedAt` 4.5 s later = background proven; owner confirmed the inbox and that
+  Reply goes to the visitor. Wrong password (shell override) → 201 in 0.79 s, saved,
+  `EAUTH 535` logged, password absent from the log, `notifiedAt` null. Mail-off seen
+  by accident: the owner's 5050 server predated the `.env` edit → saved, not emailed.
+- ⚠️ `node --watch` restarts on source changes, NOT on `.env` changes — restart the
+  dev server after editing `.env`.
+
+### Outstanding work added by PF-123
+- Live check after merge: send from the live site → the email's `From:` and the card's
+  FROM show a real city (location is null everywhere off Vercel).
+- The Messages panel does not show `notifiedAt` — an "email not sent" tag is a visible
+  change; raise it with the owner (maybe with PF-131 Settings).
+- No retry for a failed send: the message is safe in the panel and the log names it.
+  Add a retry only if failures are ever seen.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

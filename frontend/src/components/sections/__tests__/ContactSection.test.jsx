@@ -522,13 +522,38 @@ describe('form submission (Step 9 #11, #12, #13)', () => {
     await user.click(send());
 
     expect(await screen.findByRole('status'))
-      .toHaveTextContent("✓ Message sent — I'll reply within 24 hours.");
+      .toHaveTextContent("✓ Message sent — I'll reply to ada@example.com within 24 hours.");
     expect(submit).toHaveBeenCalledWith({
       name: 'Ada', email: 'ada@example.com', message: 'A properly long message.',
     });
     expect(screen.getByRole('textbox', { name: /name/i })).toHaveValue('');
     expect(screen.getByRole('textbox', { name: /email/i })).toHaveValue('');
     expect(screen.getByRole('textbox', { name: /message/i })).toHaveValue('');
+  });
+
+  // PF-123: the backend stores the sender's approximate location — the form
+  // says so.
+  it('tells the visitor their approximate location is shared', () => {
+    renderSection();
+    expect(screen.getByText('Your approximate location is shared with your message.'))
+      .toBeInTheDocument();
+  });
+
+  // PF-123: the form can check an address's SHAPE, never that the mailbox
+  // exists — reading it back is the visitor's one chance to catch a typo.
+  it('reads back the address AS TYPED, and forgets it once the visitor types again', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await fill(user, { name: 'Ada', email: 'ada@gmial.com', message: 'A properly long message.' });
+    await user.click(send());
+
+    expect(await screen.findByRole('status'))
+      .toHaveTextContent("✓ Message sent — I'll reply to ada@gmial.com within 24 hours.");
+
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'A');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(send()).toHaveTextContent('SEND MESSAGE');
   });
 
   /** The prototype's `onField` (line 1132) clears both statuses on any

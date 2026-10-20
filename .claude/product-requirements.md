@@ -13,7 +13,8 @@ ticket closes. Read before changing behaviour in the area each names.
 
 #### Contact messages are emailed to the owner
 
-**Owner requirement, 2026-09-12. Built by PF-123 (Sprint 15) — NOT built yet.**
+**Owner requirement, 2026-09-12. ✅ BUILT by PF-123, 2026-10-20** (`services/mailer.js`,
+`Contact.notifiedAt`, sent in the background with `waitUntil`).
 
 A submission through the public contact form must **both** persist to the
 `Contact` collection **and** send a copy of the message to the owner's address
@@ -31,10 +32,9 @@ requirement:
 - **Never delete a message because it was emailed.** The panel remains the
   place messages live.
 
-⚠️ **The backend has ZERO email capability today** — no dependency, no config,
-no service, nothing in `backend/src` mentioning a provider. Do not assume a
-mailer exists; PF-123 builds the first one, and PF-125 reuses it rather than
-building a second.
+⚠️ **There is ONE mailer: `services/mailer.js`** (PF-123). PF-125, PF-124 and
+PF-133 reuse it — never build a second. Before PF-123 the backend had no email
+capability at all.
 
 #### The admin can change, reset and recover the password — proved twice
 

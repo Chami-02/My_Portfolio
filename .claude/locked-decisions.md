@@ -4373,6 +4373,42 @@ the website gets boring.
 - **Hand-off:** a screen that replaces a visible one starts visible — never
   mark → blank → mark.
 
+## PF-123 — the contact email is a background notification (2026-10-20)
+
+Plan approved by the owner in chat, 2026-10-20.
+- **Background, never awaited:** `waitUntil()` — the visitor's 201 never waits on
+  Gmail (1–3 s), and a failed send can never turn into a failed submission.
+- **Recipient = the Gmail account itself** (`GMAIL_USER`, pcgallege — the only site
+  address, PF-119). No `MAIL_TO` until Resend needs one.
+- **Text + HTML (multipart); every visitor value HTML-ESCAPED** (`escapeHtml`) — the
+  owner asked for a red reminder, which only HTML can show (2026-10-20; the first build
+  was text-only). Reply-To = the visitor; subject name whitespace-collapsed.
+- **Owner's layout (2026-10-20):** Name / Email / `Date: YYYY/MM/DD` / `Time: h:mm AM|PM
+  (zone)` on separate lines — 12-HOUR (owner first said 24, then 12; 12 wins); zone =
+  About `timezone` (blank → Asia/Colombo); message; ONE SOLID line (not dashed); "This
+  message is saved in the Messages section of the admin panel."; "Please reply within
+  24 hours!!" in red `#d32f2f`.
+- **No retry queue:** `notifiedAt: null` + an error log line answer "did it go out".
+- **Blank env = mail OFF**, the form still works (the Google sign-in rule).
+- **Success line reads the address back** (owner-approved visible change, 2026-10-20):
+  `✓ Message sent — I'll reply to <address> within 24 hours.` The form checks an
+  address's SHAPE only; this is the visitor's chance to catch a typo. A confirmation
+  email TO the visitor was rejected — anyone could make the site email a stranger.
+- **Sender's location** (owner, 2026-10-20): `Contact.location` = "City, Region,
+  Country" from Vercel's `x-vercel-ip-*` headers (`utils/requestLocation.js`) — read
+  ONLY when `process.env.VERCEL` is set (off Vercel a client could send them), never
+  from the body, 100 chars per part. Shown as "(approx.)" in the email (`From:`) and on
+  the card (`FROM`); absent when null. Disclosed by one `--muted` line under SEND
+  (owner chose it): "Your approximate location is shared with your message. (Owner shortened it, 2026-10-21.)"
+- **Messages card = the email copy** (owner, 2026-10-20): a `<dl>` row DATE · TIME (zone)
+  · FROM replaces the header's short date; time zone = About `timezone` via `useAbout`
+  (card and email always agree; `utils/messageTime.js` mirrors the backend
+  `formatSent`); the red (`--danger`) "Please reply within 24 hours!!" below one solid
+  line on UNREAD messages only (owner chose it) — MARK READ is "handled". The email's
+  "saved in the admin panel" note is not repeated on the panel.
+- **Tests and E2E never see the real password:** run-jest deletes the vars;
+  `.env.e2e` sets them blank.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

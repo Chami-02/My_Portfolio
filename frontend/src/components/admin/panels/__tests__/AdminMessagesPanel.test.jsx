@@ -23,6 +23,10 @@ vi.mock('../../../../hooks/useMessages', () => ({
   useDeleteMessage:   () => deleteMsg,
 }));
 
+// PF-123: the card's time zone is the About panel's.
+const useAbout = vi.hoisted(() => vi.fn());
+vi.mock('../../../../hooks/useAbout', () => ({ useAbout }));
+
 const { AdminMessagesPanel } = await import('../AdminMessagesPanel');
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +42,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   deleteMsg.mutateAsync.mockResolvedValue({});
   useMessages.mockReturnValue({ data: MESSAGES, isLoading: false });
+  useAbout.mockReturnValue({ data: undefined });
 });
 
 const cardOf  = (name) => screen.getByText(name).closest('[data-message-card]');
@@ -358,5 +363,51 @@ describe('when the messages could not be loaded', () => {
     render(<AdminMessagesPanel />);
     expect(screen.queryByText(/COULDN.T LOAD/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: `ALL ${MESSAGES.length}`, exact: true })).toBeInTheDocument();
+  });
+});
+
+// PF-123 (owner, 2026-10-20) — the card shows what the owner's email copy shows.
+describe('the email copy\'s details on the card (PF-123)', () => {
+  const detail = (card, label) => {
+    const dt = within(card).getByText(label, { selector: 'dt' });
+    return dt.nextElementSibling.textContent;
+  };
+
+  it('DATE is YYYY/MM/DD and TIME is 12-hour in Asia/Colombo while About has no zone', () => {
+    render(<AdminMessagesPanel />);
+    const card = cardOf('Unread Sender');           // 2026-09-16T10:00Z = 3:30 PM in Colombo
+    expect(detail(card, 'Date')).toBe('2026/09/16');
+    expect(detail(card, 'Time')).toBe('3:30 PM (Asia/Colombo)');
+  });
+
+  it('follows the About panel time zone, so the card and the email agree', () => {
+    useAbout.mockReturnValue({ data: { timezone: 'Asia/Tokyo' } });
+    render(<AdminMessagesPanel />);
+    const card = cardOf('Unread Sender');           // 10:00Z = 7:00 PM in Tokyo
+    expect(detail(card, 'Time')).toBe('7:00 PM (Asia/Tokyo)');
+  });
+
+  it('FROM shows the approximate location when there is one, and is absent when not', () => {
+    useMessages.mockReturnValue({
+      data: [{ ...MESSAGES[0], location: 'New York, NY, United States' }, MESSAGES[1]],
+      isLoading: false,
+    });
+    render(<AdminMessagesPanel />);
+    expect(detail(cardOf('Unread Sender'), 'From')).toBe('New York, NY, United States (approx.)');
+    expect(within(cardOf('Read Sender')).queryByText('From', { selector: 'dt' })).toBeNull();
+  });
+
+  it('the red reply reminder shows on UNREAD messages only', () => {
+    render(<AdminMessagesPanel />);
+    expect(within(cardOf('Unread Sender')).getByText('Please reply within 24 hours!!')).toBeInTheDocument();
+    expect(within(cardOf('Read Sender')).queryByText('Please reply within 24 hours!!')).toBeNull();
+    expect(within(cardOf('Third Person')).queryByText('Please reply within 24 hours!!')).toBeNull();
+  });
+
+  it('the reminder is red (--danger) below one SOLID line', () => {
+    const decls = {};
+    postcss.parse(CSS).walkRules('.replyDue', (r) => r.walkDecls((d) => { decls[d.prop] = d.value; }));
+    expect(decls.color).toBe('var(--danger)');
+    expect(decls['border-top']).toMatch(/^1px solid /);
   });
 });

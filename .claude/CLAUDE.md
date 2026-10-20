@@ -88,10 +88,10 @@ something surprises you, search the companions *before* deriving an explanation.
 
 **Full text: `.claude/product-requirements.md`. These outlive their tickets.**
 
-- **Contact messages are emailed to the owner** (PF-123, Sprint 15 — NOT built).
+- **Contact messages are emailed to the owner** (PF-123, BUILT 2026-10-20).
   Email is a NOTIFICATION: a failed send never fails the submission, is never
-  silent (`Contact.notifiedAt`), never deletes the message. Backend has ZERO email
-  capability today; PF-125 reuses PF-123's mailer.
+  silent (`Contact.notifiedAt`), never deletes the message. ONE mailer,
+  `services/mailer.js` — PF-125/124/133 reuse it.
 - **Admin panels STAGE — the public site changes only on SAVE.** REMOVE stages
   too; toggles that drive the site stage; client file checks are a COURTESY, the
   magic-byte check in `utils/fileType.js` is the gate.
@@ -133,8 +133,8 @@ something surprises you, search the companions *before* deriving an explanation.
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
-PF-127 → PF-128 → PF-129 (merged) → PF-130 loading screens (built 2026-10-20) →
-PF-123/125/131/124… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+PF-127 → PF-128 → PF-129 → PF-130 (merged) → PF-123 mailer (built 2026-10-20) →
+PF-125/131/124… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -302,6 +302,7 @@ Where a mistake would be silent, add a test that would catch it.
 
 **Tooling and gates**
 - `npm test` does not run E2E; unit green + E2E red = removed feature, stale tests.
+- run-jest AND `dev:e2e` load the REAL `backend/.env` → a new outward secret must be stripped there (PF-123: run-jest deletes `GMAIL_*`, `.env.e2e` blanks them) or tests send real mail.
 - dotenv 18 ships a `dotenv` bin that shadows `dotenv-cli`'s → `npm run dev:e2e` broken locally (CI unaffected); see Outstanding work PF-127.
 - `mongodb` ≥ 7.6 HANGS every DB test under Jest (NODE-7832) — held at `~7.5.0` + Dependabot ignore; lift steps in `dependabot.yml`.
 - `cookie` 2.x is ESM-only → Jest cannot load it (every backend suite fails); majors ignored in `dependabot.yml` (#39).
@@ -418,6 +419,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - Leftovers 2026-10-14: hero cut-out uploadable (`imageSlot` + `imageSlotHandlers` shared with the portrait — never fork), bundled hero is WebP, `↺ MARK UNREAD` (explicit `{ read }`), project row PUBLISH/UNPUBLISH (Blog's rule), backend `GET /`, `og:` tags (url/image only WITH the domain), dates stay reader-local, nginx mirrors vercel.json headers.
 - PF-128: API in `bom1` (Atlas Mumbai); public GETs CDN-cached (tag `public-data`), a signed-in write DELETES the tag (SAVE is instant); everything else `no-store`.
 - PF-129: bundled hero image never changes (its oval is in its ALPHA); only an UPLOAD gets `.portraitImgUploaded` = measured oval + PF-80's layers.
+- PF-123: contact email sent in the BACKGROUND (`waitUntil`), text + ESCAPED html, 12-hour `YYYY/MM/DD` in About's zone, TO the Gmail account itself, Reply-To the visitor; blank `GMAIL_*` = mail off; no retry queue; `location` from Vercel IP headers ONLY when `VERCEL` is set; card mirrors the email (red reminder unread-only).
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 

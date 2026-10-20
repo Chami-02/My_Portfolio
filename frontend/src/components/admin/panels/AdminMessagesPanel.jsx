@@ -3,6 +3,8 @@ import { useMessages, useMarkMessageRead, useStarMessage, useDeleteMessage }
   from '../../../hooks/useMessages';
 import { searchWords, messageMatches, highlightParts, MESSAGE_TABS }
   from '../../../utils/messageSearch';
+import { useAbout } from '../../../hooks/useAbout';
+import { formatSent, DEFAULT_ZONE } from '../../../utils/messageTime';
 import { CloseIcon }     from '../../icons/BrandIcons';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { LoadError }     from '../LoadError';
@@ -25,9 +27,13 @@ import styles from './AdminMessagesPanel.module.css';
  *   • ALL · UNREAD · STARRED filters, applied together with the search.
  *
  * And one fix: DELETE asks first. It used to delete on the first click.
+ *
+ * PF-123 (owner, 2026-10-20): the card shows what the owner's email copy
+ * shows — DATE (YYYY/MM/DD), TIME (12-hour, the About panel's zone, so the
+ * card and the email always agree), FROM (the sender's approximate location,
+ * when known) — and, while the message is UNREAD, the red "Please reply within
+ * 24 hours!!" below a solid line. MARK READ is the owner's "handled".
  */
-
-const DATE_FORMAT = { year: 'numeric', month: 'short', day: 'numeric' };
 
 /** `text` with every hit wrapped in <mark> — as TEXT, never HTML. */
 function Highlighted({ text, words }) {
@@ -53,6 +59,8 @@ export function AdminMessagesPanel() {
   const markRead  = useMarkMessageRead();
   const star      = useStarMessage();
   const deleteMsg = useDeleteMessage();
+  // Blank `timezone` = "hide it on the site", not "no zone" — fall back.
+  const zone = useAbout().data?.timezone || DEFAULT_ZONE;
 
   const [query,     setQuery]     = useState('');
   const [tab,       setTab]       = useState('all');
@@ -166,6 +174,7 @@ export function AdminMessagesPanel() {
                 msg.starred && styles.cardStarred,
                 !msg.read && styles.cardUnread,
               ].filter(Boolean).join(' ');
+              const sent = formatSent(msg.createdAt, zone);
 
               return (
                 <li key={msg._id} className={cardClass} data-message-card="">
@@ -206,11 +215,26 @@ export function AdminMessagesPanel() {
                     >
                       <span aria-hidden="true">{msg.starred ? '★' : '☆'}</span>
                     </button>
-                    <span className={styles.date}>
-                      {new Date(msg.createdAt).toLocaleDateString('en-US', DATE_FORMAT)}
-                    </span>
                   </div>
+                  {/* A description list: each label names its value for a
+                      screen reader, which loose spans would not. */}
+                  <dl className={styles.details}>
+                    <div className={styles.detail}>
+                      <dt>Date</dt><dd>{sent.date}</dd>
+                    </div>
+                    <div className={styles.detail}>
+                      <dt>Time</dt><dd>{sent.time} <span className={styles.detailNote}>({zone})</span></dd>
+                    </div>
+                    {msg.location && (
+                      <div className={styles.detail}>
+                        <dt>From</dt><dd>{msg.location} <span className={styles.detailNote}>(approx.)</span></dd>
+                      </div>
+                    )}
+                  </dl>
                   <p className={styles.message}><Highlighted text={msg.message} words={words} /></p>
+                  {!msg.read && (
+                    <p className={styles.replyDue}>Please reply within 24 hours!!</p>
+                  )}
                   <div className={styles.actions}>
                     {msg.read ? (
                       // Owner, 2026-10-14: undo a read, so a message can be
