@@ -57,7 +57,8 @@ test.describe('Contact Form', () => {
     await page.click('#contact button[type="submit"]');
 
     await expect(page.getByRole('status'))
-      .toHaveText("✓ Message sent — I'll reply within 24 hours.", { timeout: 8000 });
+      // PF-123: the line reads the visitor's own address back to them.
+      .toHaveText("✓ Message sent — I'll reply to recruiter@company.com within 24 hours.", { timeout: 8000 });
     // Cleared on success only. The unit suite covers the failure half,
     // where a typed message must survive a network blip.
     await expect(page.locator('input[name="name"]')).toHaveValue('');

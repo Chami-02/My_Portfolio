@@ -104,7 +104,10 @@ function validate({ name, email, message }) {
 export function ContactSection() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState('');
-  const [formSent, setFormSent] = useState(false);
+  // The address the last message went from ('' = nothing sent). PF-123: the
+  // success line reads it back, so a visitor can spot a typo in their own
+  // address — the form can check its shape, never that the mailbox exists.
+  const [sentTo, setSentTo] = useState('');
   const [sending, setSending] = useState(false);
 
   // Read only for `hasResume` — a schema virtual (models/About.js:148)
@@ -155,7 +158,7 @@ export function ContactSection() {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     setFormError('');
-    setFormSent(false);
+    setSentTo('');
   };
 
   const onSubmit = async (e) => {
@@ -168,17 +171,17 @@ export function ContactSection() {
     const message = validate(form);
     if (message) {
       setFormError(message);
-      setFormSent(false);
+      setSentTo('');
       return;
     }
 
     setSending(true);
     setFormError('');
-    setFormSent(false);
+    setSentTo('');
 
     try {
       await contactService.submit(form);
-      setFormSent(true);
+      setSentTo(form.email);
       // Cleared on success ONLY. On failure the visitor's typed message
       // survives, so a network blip does not cost them the thing they
       // came here to write. No design source — the prototype's submit
@@ -200,7 +203,7 @@ export function ContactSection() {
   };
 
   // The prototype's own three labels (line 1129).
-  const submitLabel = sending ? 'SENDING…' : formSent ? 'SENT ✓' : 'SEND MESSAGE';
+  const submitLabel = sending ? 'SENDING…' : sentTo ? 'SENT ✓' : 'SEND MESSAGE';
 
   return (
     <section id="contact" className={styles.contact}>
@@ -356,15 +359,21 @@ export function ContactSection() {
             {formError && (
               <p role="alert" className={styles.errorText}>{formError}</p>
             )}
-            {formSent && (
+            {sentTo && (
               <p role="status" className={styles.sentText}>
-                ✓ Message sent — I&apos;ll reply within 24 hours.
+                ✓ Message sent — I&apos;ll reply to {sentTo} within 24 hours.
               </p>
             )}
 
             <button type="submit" disabled={sending} className={styles.submit}>
               {submitLabel}
             </button>
+            {/* PF-123 (owner, 2026-10-20): the backend stores the sender's
+                approximate location from Vercel's IP headers — say so where
+                the visitor decides to send. */}
+            <p className={styles.privacyNote}>
+              Your approximate location is shared with your message.
+            </p>
           </Reveal>
         </div>
       </div>
