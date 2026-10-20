@@ -34,6 +34,23 @@ const contactSchema = new mongoose.Schema(
       type:    Boolean,
       default: false,
     },
+    // PF-123: when the owner's email copy went out. `null` = it did not (mail
+    // off, or the send failed) — the message itself is saved either way; the
+    // email is a notification, the Messages panel is the record. No
+    // migration: older rows read as null, which is true — they were never
+    // emailed.
+    notifiedAt: {
+      type:    Date,
+      default: null,
+    },
+    // PF-123: the sender's APPROXIMATE location ("New York, NY, United
+    // States"), from Vercel's IP headers (utils/requestLocation.js). Null off
+    // Vercel, for older rows, and when Vercel had nothing. Admin-only:
+    // submitContact sets it from the request, never from the body.
+    location: {
+      type:    String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

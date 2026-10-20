@@ -1,6 +1,10 @@
 const { body }   = require('express-validator');
+const { waitUntil } = require('@vercel/functions');
 const Contact    = require('../models/Contact');
+const About      = require('../models/About');
 const AppError   = require('../utils/AppError');
+const mailer     = require('../services/mailer');
+const { requestLocation } = require('../utils/requestLocation');
 
 // ── Validation rules array ────────────────────────────────────────────────────
 // These run BEFORE the controller function.
@@ -33,15 +37,101 @@ const contactRules = [
     .isLength({ max: 1000 }).withMessage('Message cannot exceed 1000 characters'),
 ];
 
+// ── The owner's email copy (PF-123) ─────────────────────────────────────────
+// A NOTIFICATION, not the record: the message is already saved when this
+// runs. It never throws — a failed send leaves `notifiedAt` null and a log
+// line, and the visitor's 201 has already gone.
+
+// The owner's zone is the About panel's `timezone` — the field that already
+// drives Contact and the footer (PF-118: one field, every render site). Blank
+// there means "hide it on the site", not "no zone", so the email falls back
+// to the model's default.
+const DEFAULT_ZONE = 'Asia/Colombo';
+
+/** `{ date: '2026/10/20', time: '11:18 PM' }` in `timeZone` — owner's format
+ *  (YYYY/MM/DD; 12-hour clock, owner 2026-10-20). */
+// ⚠️ Mirrored by frontend/src/utils/messageTime.js (the Messages panel shows
+// the same instant) — change both together.
+const formatSent = (when, timeZone) => {
+  const part = {};
+  new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: 'numeric', minute: '2-digit', hourCycle: 'h12',
+  }).formatToParts(when).forEach(({ type, value }) => { part[type] = value; });
+  return {
+    date: `${part.year}/${part.month}/${part.day}`,
+    time: `${part.hour}:${part.minute} ${part.dayPeriod.toUpperCase()}`,
+  };
+};
+
+// Every visitor-written value goes through this before it touches the HTML
+// body, so a message can never become markup or a disguised link.
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[c]));
+
+const SAVED_NOTE = 'This message is saved in the Messages section of the admin panel.';
+const REPLY_NOTE = 'Please reply within 24 hours!!';
+
+const notifyOwner = async (contact) => {
+  if (!mailer.isConfigured()) {
+    console.warn(`[PF-123] Mail is not configured — message ${contact._id} saved, not emailed`);
+    return;
+  }
+  try {
+    const about = await About.findOne().select('timezone').lean();
+    const zone  = about?.timezone || DEFAULT_ZONE;
+    const { date, time } = formatSent(contact.createdAt, zone);
+    const e = escapeHtml;
+
+    await mailer.send({
+      to:      mailer.address(),
+      replyTo: contact.email,   // Reply in Gmail answers the visitor
+      // Collapse line breaks: a name must never be able to start a new header.
+      subject: `New portfolio message from ${contact.name.replace(/\s+/g, ' ')}`,
+      // Plain text for any client that shows no HTML — same content, no colour.
+      text: [
+        `Name:  ${contact.name}`,
+        `Email: ${contact.email}`,
+        `Date:  ${date}`,
+        `Time:  ${time} (${zone})`,
+        ...(contact.location ? [`From:  ${contact.location} (approx.)`] : []),
+        '',
+        contact.message,
+        '',
+        '─'.repeat(48),
+        SAVED_NOTE,
+        REPLY_NOTE,
+      ].join('\n'),
+      html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a">
+<p style="margin:0 0 16px"><b>Name:</b> ${e(contact.name)}<br><b>Email:</b> ${e(contact.email)}<br><b>Date:</b> ${date}<br><b>Time:</b> ${time} (${e(zone)})${contact.location ? `<br><b>From:</b> ${e(contact.location)} (approx.)` : ''}</p>
+<p style="margin:0;white-space:pre-wrap">${e(contact.message)}</p>
+<hr style="border:none;border-top:1px solid #9a9a9a;margin:28px 0 16px">
+<p style="margin:0 0 6px">${SAVED_NOTE}</p>
+<p style="margin:0;color:#d32f2f;font-weight:bold">${REPLY_NOTE}</p>
+</div>`,
+    });
+    await Contact.updateOne({ _id: contact._id }, { notifiedAt: new Date() });
+  } catch (err) {
+    // code + message only: the error object carries the transport (PF-123).
+    console.error(`[PF-123] Contact email failed for ${contact._id}: ${err.code || ''} ${err.message}`);
+  }
+};
+
 // ── POST /api/contact ────────────────────────────────────────────────────────
 // Public — anyone can submit
 const submitContact = async (req, res, next) => {
   try {
-    await Contact.create({
+    const contact = await Contact.create({
       name:    req.body.name,
       email:   req.body.email,
       message: req.body.message,
+      location: requestLocation(req),
     });
+
+    // In the background: the visitor never waits for Gmail, and Vercel keeps
+    // the function alive until the send settles. Off Vercel it just runs.
+    waitUntil(notifyOwner(contact));
 
     // Don't send the saved document back — just a friendly message
     res.status(201).json({
@@ -131,4 +221,5 @@ module.exports = {
   contactRules, submitContact, getAllMessages, markAsRead, deleteMessage,
   starRules, setStarred,
   readRules,
+  formatSent,   // exported for its fixed-date test only
 };
