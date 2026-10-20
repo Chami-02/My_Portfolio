@@ -140,12 +140,14 @@ describe('POST /api/contact — the owner is emailed (PF-123)', () => {
     await post({
       ...VALID,
       name:    '<b>Eve</b>',
-      message: 'Click <a href="https://evil.example">here</a> & "win" <script>x()</script>',
+      message: 'Click <a href="https://evil.example">here</a> & "win" <script>x()</script> <SCRIPT>y()</SCRIPT>',
     });
     await eventually(() => sendMail.mock.calls.length);
 
     const { html } = sendMail.mock.calls[0][0];
-    expect(html).not.toMatch(/<a |<script|<b>Eve/);
+    // Case-insensitive: <SCRIPT> or <A HREF> must not survive either (CodeQL
+    // js/bad-tag-filter).
+    expect(html).not.toMatch(/<a |<script|<b>eve/i);
     expect(html).toContain('&lt;b&gt;Eve&lt;/b&gt;');
     expect(html).toContain('&lt;a href=&quot;https://evil.example&quot;&gt;here&lt;/a&gt; &amp; &quot;win&quot;');
   });
