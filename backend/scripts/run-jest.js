@@ -2,6 +2,12 @@ require('dotenv').config();
 
 process.env.NODE_ENV = 'test';
 
+// PF-123: the line above loaded backend/.env, which holds the REAL Gmail app
+// password once mail is set up. Without this, every contact test would send a
+// real email. Tests that need the mailer configure (and mock) it themselves.
+delete process.env.GMAIL_USER;
+delete process.env.GMAIL_APP_PASSWORD;
+
 // ── Where the tests' database is ─────────────────────────────────────────────
 // DEFAULT (since the faster-tests change): an IN-MEMORY MongoDB that Jest's
 // globalSetup starts on this machine — no network, nothing shared. Each worker
