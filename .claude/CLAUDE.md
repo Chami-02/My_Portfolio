@@ -133,8 +133,8 @@ something surprises you, search the companions *before* deriving an explanation.
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
-PF-127 → PF-128 (merged) → PF-129 hero blend (built 2026-10-20) → PF-130 gate
-screen → PF-123/125/131/124… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+PF-127 → PF-128 → PF-129 (merged) → PF-130 loading screens (built 2026-10-20) →
+PF-123/125/131/124… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -296,6 +296,7 @@ Where a mistake would be silent, add a test that would catch it.
 - Mutation harness: `cmp` the snapshot before/after; zsh does not word-split `$FILES`.
 - A query's `data = []` default turns a FAILED load into the empty state (and a derived form into an empty, saveable one).
 - TanStack DEDUPES an invalidation into a query's FIRST in-flight fetch (stale answer wins) → `refreshDashboard` = cancel, then invalidate.
+- Data-router navigations are TRANSITIONS — a lazy page's Suspense fallback shows on direct loads only; in-app the old page stays up (PF-130).
 - E2E "scroll to bottom" before API data lands stops short; assert the bottom element is ON SCREEN, never `scrollY > 0`.
 - CSS-Module rules are invisible to Vitest; `el.style.opacity` reads back normalised.
 
@@ -417,6 +418,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - Leftovers 2026-10-14: hero cut-out uploadable (`imageSlot` + `imageSlotHandlers` shared with the portrait — never fork), bundled hero is WebP, `↺ MARK UNREAD` (explicit `{ read }`), project row PUBLISH/UNPUBLISH (Blog's rule), backend `GET /`, `og:` tags (url/image only WITH the domain), dates stay reader-local, nginx mirrors vercel.json headers.
 - PF-128: API in `bom1` (Atlas Mumbai); public GETs CDN-cached (tag `public-data`), a signed-in write DELETES the tag (SAVE is instant); everything else `no-store`.
 - PF-129: bundled hero image never changes (its oval is in its ALPHA); only an UPLOAD gets `.portraitImgUploaded` = measured oval + PF-80's layers.
+- PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment
