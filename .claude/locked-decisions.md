@@ -4356,6 +4356,23 @@ PR. Each is a deliberate addition beyond the prototype.
   "remove the background first" tip; owner wants uploads to just blend). The
   admin tip now says so. Same rule in dark and light.
 
+## PF-130 — loading screens appear only when a wait is real (owner 2026-10-20)
+
+**Owner, in their words:** show the loading banner only when loading takes longer
+than usual; never create extra time to show it; keep the time natural, otherwise
+the website gets boring.
+- **Delay, never minimum:** `LOADING_DELAY_MS = 300`, a JS timer (motion.css zeroes
+  `animation-delay` under reduced motion, so a CSS delay would flash it). No minimum
+  display time — the screen leaves the moment the content is ready.
+- **Where:** session check (`Signing you in…`), lazy page code (`Loading…`), blog
+  post data (`Loading post…`, inline). NOT the admin panel skeletons, the public
+  placeholder cards, button busy text or the splash — owner kept those.
+- **Look:** sketch approved 2026-10-20 — the sign-in card's brand mark (logo, ring,
+  float) over the site's ambient layer, mono `--muted` label. No prototype source.
+  Not a spinner (the "no spinner" rule stands).
+- **Hand-off:** a screen that replaces a visible one starts visible — never
+  mark → blank → mark.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

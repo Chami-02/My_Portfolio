@@ -4,7 +4,7 @@
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import postcss from 'postcss';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -463,6 +463,19 @@ describe('states', () => {
     expect(pick(c, 'placeholder')).not.toBeNull();
     expect(pick(c, 'title')).toBeNull();
     expect(pick(c, 'navRow')).toBeNull();
+  });
+
+  it('a SLOW load says so over the placeholder; a quick one shows only the placeholder', () => {
+    // PF-130 — the branded screen waits LOADING_DELAY_MS before painting.
+    vi.useFakeTimers();
+    try {
+      draw({ query: loading() });
+      expect(screen.getByRole('status')).toBeEmptyDOMElement();
+      act(() => { vi.advanceTimersByTime(300); });
+      expect(screen.getByRole('status')).toHaveTextContent('Loading post…');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('shows an inline not-found panel, keeping the reader on /blog/:slug', () => {

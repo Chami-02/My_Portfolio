@@ -371,8 +371,6 @@ describe('AdminLoginPage.module.css — structure (PF-109)', () => {
   it.each([
     ['.card',    'kf-riseIn-admin from global'],
     ['.brand',   'kf-typeIn from global'],
-    ['.logoWrap','kf-floatY from global'],
-    ['.ring',    'kf-ringPulse from global'],
     ['.heading', 'kf-typeIn from global'],
     ['.lede',    'kf-typeIn from global'],
     ['.error',   'kf-fadeIn from global'],

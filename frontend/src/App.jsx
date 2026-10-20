@@ -5,6 +5,7 @@ import { Footer }          from './components/layout/Footer';
 import { ScrollToTop }     from './components/layout/ScrollToTop';
 import { SkipLink }        from './components/layout/SkipLink';
 import { ProtectedRoute }  from './components/common/ProtectedRoute';
+import { LoadingScreen }   from './components/common/LoadingScreen';
 import { HomePage }        from './pages/HomePage';
 import { NotFoundPage }    from './pages/NotFoundPage';
 
@@ -54,8 +55,10 @@ function AppLayout() {
         <main id="main-content" tabIndex={-1} style={{ flexGrow: 1 }}>
           {/* PF-127. While a lazy page's chunk loads (~100 ms), hold the
               viewport so the footer below does not jump up into view and
-              back down. Nothing visible — a spinner for 100 ms is noise. */}
-          <Suspense fallback={<div style={{ minHeight: '100vh' }} />}>
+              back down. PF-130: the screen paints nothing for its first
+              300 ms, so a normal load still shows nothing at all — only a
+              slow one gets the branded LOADING… screen. */}
+          <Suspense fallback={<LoadingScreen label="Loading…" />}>
             <Routes>
               {/* Public */}
               <Route path="/"            element={<HomePage />} />

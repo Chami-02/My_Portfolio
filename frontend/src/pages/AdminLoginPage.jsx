@@ -59,7 +59,7 @@ import {
   CursorGlow,
   GrainOverlay,
 } from '../components/ambient';
-import logo   from '../assets/logo.webp';
+import { BrandMark }       from '../components/common/BrandMark';
 import styles from './AdminLoginPage.module.css';
 
 /**
@@ -165,10 +165,7 @@ export function AdminLoginPage() {
         <div className={styles.card}>
 
           <div className={styles.brand}>
-            <span className={styles.logoWrap}>
-              <span aria-hidden="true" className={styles.ring} />
-              <img src={logo} alt="Parindra Gallage" width="54" height="54" className={styles.logo} />
-            </span>
+            <BrandMark alt="Parindra Gallage" />
             <span className={styles.brandText}>
               <span className={styles.brandName}>
                 PARINDRA<span className={styles.brandDot}>.</span>DEV

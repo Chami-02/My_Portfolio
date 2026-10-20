@@ -23,6 +23,7 @@ import {
   GrainOverlay,
 } from '../components/ambient';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
+import { LoadingScreen } from '../components/common/LoadingScreen';
 import { useBlogPost, useRecordView } from '../hooks/useBlog';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { formatDate, formatReadTime } from '../utils/blogMeta';
@@ -148,8 +149,16 @@ export function BlogPostPage() {
           <div className={styles.inner}>
             <Link to={backTo} className={styles.backLink}>{backLabel}</Link>
 
+            {/* PF-130. The placeholder keeps its shape and dim surface;
+                the branded LOADING POST… sits over it, not inside it, so
+                the .45 opacity does not dim the label too. It paints
+                nothing for 300 ms, so a quick load still shows only the
+                placeholder. */}
             {isLoading && (
-              <div className={styles.placeholder} aria-hidden="true" />
+              <div className={styles.loading}>
+                <div className={styles.placeholder} aria-hidden="true" />
+                <LoadingScreen inline label="Loading post…" />
+              </div>
             )}
 
             {/* ── the post is gone, or was never there ─────────────────

@@ -8853,6 +8853,46 @@ Decision: locked-decisions "PF-129".
   shape; after = soft oval in dark and light; bundled class + mask unchanged.
 - Gate: frontend 2141 tests / 91 files, backend 849 / 48 suites. No E2E covers it.
 
+## PF-130 — Branded loading screens, only when a wait is real (2026-10-20)
+
+Sprint 15's fourth ticket. Branch `feat/PF-130-loading-screens`. Ticket + report:
+`new mds/Sprint 15/PF-130-loading-screens-ticket.md`, `PF-130-loading-screens.md`.
+Decision: locked-decisions "PF-130". Owner widened the ticket from the session gate
+to every real wait except the splash; panel skeletons, placeholder cards and button
+text stay as they were (owner's choice).
+- NEW `components/common/LoadingScreen.jsx` (+ module): `LOADING_DELAY_MS` 300, no
+  minimum display time; empty `role="status"` from the first frame; full-screen
+  variant mounts Starfield + CursorGlow + Grain only once shown; `inline` variant.
+  Module-level `visibleCount` = the HAND-OFF: a screen replacing a visible one
+  starts visible (React renders the new instance before unmounting the old).
+- NEW `components/common/BrandMark.jsx` (+ module): logo + ring + float, moved
+  verbatim out of `AdminLoginPage.module.css` (main bundle must not pull the login
+  sheet). Login page composes it; computed values identical in the browser.
+- `ProtectedRoute.jsx`: pending → `Signing you in…`; children wrapped in a
+  Suspense with the same screen (kills the blank frame before the lazy AdminPage).
+- `App.jsx`: Suspense fallback → `Loading…` (still holds 100vh).
+- `BlogPostPage.jsx` (+ module `.loading`): `Loading post…` laid over the
+  placeholder, not inside it (its .45 opacity would dim the label).
+- Tests: NEW `LoadingScreen.test.jsx` (12); `ProtectedRoute.test.jsx` +2 (lazy
+  chunk, hand-off); `BlogPostPage.test.jsx` +1; two carrier rows moved from
+  `AdminLoginPage.test.jsx`. 7/7 mutants killed.
+- Browser (dev, delay proxy on :5176): slow direct `/blog` → empty status at
+  ~110 ms, label at ~440 ms, gone when the page lands; fast loads never paint the
+  label; `/admin` with `/auth/me` held → `Signing you in…` + starfield (dark);
+  slow post → inline state (light); reduced motion → ring/float stop, label stays.
+- ⚠️ Found: in-app navigation never shows App's fallback — the data router runs
+  navigations as transitions, so the OLD page stays up while the chunk loads. The
+  screen appears on direct loads / reloads only.
+- Gate: frontend 2154 tests / 92 files, backend 849 / 48 suites. No E2E names the
+  old gate text.
+
+### Outstanding work added by PF-130
+- In-app navigation to a slow lazy page shows no feedback (old page stays up,
+  React transition). Fix if it is ever measured slow: a pending indicator from
+  `useNavigation()`, never artificial time.
+- Each stage waits its own 300 ms: a 250 ms chunk + 250 ms post fetch shows
+  nothing. Deliberate (owner: only when slow) — revisit if a real wait feels bare.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
