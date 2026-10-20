@@ -61,7 +61,7 @@ const PORTRAIT_CARD = {
 const HERO_CARD = {
   id: 'about-hero-image', title: 'Hero image', noun: 'hero image', upload: '↑ UPLOAD HERO IMAGE',
   noteLead: 'Replaces the cut-out at the top of the home page. Uploading a new one',
-  noteTail: 'the previous file. A transparent PNG cut-out works best — the hero fades its edges into the page.',
+  noteTail: 'the previous file. Any photo works — the hero fades it into the same soft oval as the default. A centred head-and-shoulders shot fits best.',
   fallback: 'The hero falls back to the bundled cut-out',
 };
 

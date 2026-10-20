@@ -195,9 +195,9 @@ export function HeroSection() {
             </Reveal>
           </div>
 
-          {/* An uploaded cut-out replaces the bundled one (owner, 2026-10-14);
+          {/* An uploaded image replaces the bundled one (owner, 2026-10-14);
               empty = the bundled image, as the About portrait does. */}
-          <HeroPortrait src={about?.heroImage?.url || heroImg} />
+          <HeroPortrait uploadedSrc={about?.heroImage?.url} />
         </div>
 
         <div aria-hidden="true" className={styles.scrollIndicator}>
@@ -241,7 +241,14 @@ export function HeroSection() {
  * smoothing on each update is a plain CSS transition, which motion.css
  * already collapses globally.
  */
-function HeroPortrait({ src }) {
+function HeroPortrait({ uploadedSrc }) {
+  // PF-129. The bundled image carries its soft oval IN ITS PIXELS; an upload
+  // is a plain rectangle, so only an upload gets the mask that cuts the same
+  // oval. The bundled image keeps exactly its PF-80 class.
+  const src = uploadedSrc || heroImg;
+  const imgClass = uploadedSrc
+    ? `${styles.portraitImg} ${styles.portraitImgUploaded}`
+    : styles.portraitImg;
   const hostRef = useRef(null);
   const innerRef = useRef(null);
 
@@ -299,7 +306,7 @@ function HeroPortrait({ src }) {
           <img
             src={src}
             alt="Portrait of Parindra Gallage"
-            className={styles.portraitImg}
+            className={imgClass}
           />
         </div>
       </Reveal>
