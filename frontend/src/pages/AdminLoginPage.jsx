@@ -41,6 +41,13 @@
  *
  * Both are in the fragment, which never reaches a server. They are read
  * ONCE, at mount, and wiped from the address bar straight away.
+ *
+ * PF-125 adds the way back from a forgotten password: a `Forgot password?`
+ * link under the password field, always; after THREE wrong passwords in a
+ * row, a "Having trouble?" line offering the same reset (owner, 2026-10-14
+ * — chosen over a password hint, which this page must never show). The
+ * count is this page visit's only; the server's authLimiter is the real
+ * gate. A finished reset lands here with "Password changed".
  */
 import { useEffect, useRef, useState }              from 'react';
 import { useNavigate, useLocation, Navigate, Link } from 'react-router-dom';
@@ -74,6 +81,9 @@ const destinationFrom = (location) => {
   return `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`;
 };
 
+/** Wrong passwords in a row before the reset is offered (owner, 2026-10-14). */
+const TROUBLE_AFTER = 3;
+
 /** What Google sign-in left in the fragment, if anything. */
 const googleResultFrom = (hash) => {
   const params = new URLSearchParams(String(hash || '').replace(/^#/, ''));
@@ -88,12 +98,18 @@ export function AdminLoginPage() {
   // Read once, at mount. Later renders see the hash already wiped.
   const [google] = useState(() => googleResultFrom(location.hash));
 
-  const [form,    setForm]    = useState({ email: '', password: '' });
+  // PF-125 — a finished reset arrives with the address it used.
+  const [form,    setForm]    = useState(() => ({ email: location.state?.email ?? '', password: '' }));
   const [error,   setError]   = useState(() => (google.error ? googleErrorMessage(google.error) : ''));
   const [loading, setLoading] = useState(false);
   // Show / hide the typed password (owner, 2026-10-14). Hidden by default.
   const [showPassword, setShowPassword] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(Boolean(google.handoff));
+  const [notice, setNotice] = useState(() =>
+    (location.state?.passwordReset ? 'Password changed. Sign in with your new password.' : ''));
+  // Only a WRONG PASSWORD counts (a 401). An unreachable server says
+  // nothing about the password, so it must not push anyone towards a reset.
+  const [failures, setFailures] = useState(0);
 
   // ⚠️ The handoff is SINGLE USE, and StrictMode runs this effect twice in
   // development. A ref survives that double run (same component instance),
@@ -139,11 +155,13 @@ export function AdminLoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setNotice('');
 
     try {
       await authService.login(form.email, form.password);
       navigate(destination, { replace: true });
     } catch (err) {
+      if (err?.response?.status === 401) setFailures((n) => n + 1);
       setError(loginErrorMessage(err));
     } finally {
       setLoading(false);
@@ -187,6 +205,22 @@ export function AdminLoginPage() {
             <div role="alert" className={styles.error}>
               <span aria-hidden="true" className={styles.errorMark}>!</span>
               <p className={styles.errorText}>{error}</p>
+            </div>
+          )}
+
+          {notice && !error && (
+            <div role="status" className={styles.notice}>
+              <span aria-hidden="true" className={styles.noticeMark}>✓</span>
+              <p className={styles.noticeText}>{notice}</p>
+            </div>
+          )}
+
+          {failures >= TROUBLE_AFTER && (
+            <div className={styles.trouble}>
+              <span>Having trouble?</span>
+              <Link to="/admin/forgot-password" state={{ email: form.email }} className={styles.troubleLink}>
+                RESET YOUR PASSWORD →
+              </Link>
             </div>
           )}
 
@@ -266,6 +300,14 @@ export function AdminLoginPage() {
                   {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                 </button>
               </div>
+            </div>
+
+            {/* PF-125 — always here, so a forgotten password never needs
+                three wrong guesses first. Carries the typed address over. */}
+            <div className={`${styles.assist} ${styles.assistEnd}`}>
+              <Link to="/admin/forgot-password" state={{ email: form.email }} className={styles.textLink}>
+                Forgot password?
+              </Link>
             </div>
 
             {/* `disabled` guards against a double submit while the request

@@ -480,3 +480,91 @@ describe('the password eye toggle', () => {
     expect(pass).toHaveAttribute('autocapitalize', 'none');
   });
 });
+
+describe('AdminLoginPage — the way back from a forgotten password (PF-125)', () => {
+  const wrongPassword = { response: { status: 401, data: { message: 'Invalid email or password' } } };
+  const submit = (user) => user.click(screen.getByRole('button', { name: 'SIGN IN →' }));
+
+  /* Renders the forgot route too, so a link click can be followed and the
+     address it carries read back. */
+  function ForgotLanding() {
+    const { pathname, state } = useLocation();
+    return <p data-testid="forgot">{`${pathname} ${state?.email ?? ''}`}</p>;
+  }
+  const renderWithForgot = (entry = '/admin/login') => render(
+    <ThemeProvider>
+      <MotionProvider>
+        <MemoryRouter initialEntries={[entry]}>
+          <Routes>
+            <Route path="/admin/login"           element={<AdminLoginPage />} />
+            <Route path="/admin/forgot-password" element={<ForgotLanding />} />
+          </Routes>
+        </MemoryRouter>
+      </MotionProvider>
+    </ThemeProvider>,
+  );
+
+  it('always shows `Forgot password?`, carrying the typed address', async () => {
+    const user = userEvent.setup();
+    renderWithForgot();
+    await user.type(screen.getByLabelText('Email address'), 'me@example.com');
+    await user.click(screen.getByRole('link', { name: 'Forgot password?', exact: true }));
+    expect(screen.getByTestId('forgot')).toHaveTextContent('/admin/forgot-password me@example.com');
+  });
+
+  it('offers the reset after THREE wrong passwords — not after two', async () => {
+    login.mockRejectedValue(wrongPassword);
+    const user = userEvent.setup();
+    renderAt();
+    await fillAndSubmit(user);
+    await submit(user);
+    await screen.findByRole('alert');
+    await waitFor(() => expect(login).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Having trouble?')).toBeNull();
+
+    await submit(user);
+    expect(await screen.findByText('Having trouble?')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'RESET YOUR PASSWORD →', exact: true }))
+      .toHaveAttribute('href', '/admin/forgot-password');
+  });
+
+  it('an unreachable server does NOT count towards the three', async () => {
+    login.mockRejectedValue(new Error('Network Error'));
+    const user = userEvent.setup();
+    renderAt();
+    await fillAndSubmit(user);
+    await submit(user);
+    await submit(user);
+    await waitFor(() => expect(login).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText('Having trouble?')).toBeNull();
+  });
+
+  it('never shows a password hint', async () => {
+    login.mockRejectedValue(wrongPassword);
+    const user = userEvent.setup();
+    renderAt();
+    await fillAndSubmit(user);
+    await submit(user);
+    await submit(user);
+    await screen.findByText('Having trouble?');
+    expect(screen.queryByText(/hint/i)).toBeNull();
+  });
+
+  it('after a reset: "Password changed", and the address filled in', () => {
+    render(
+      <ThemeProvider>
+        <MotionProvider>
+          <MemoryRouter initialEntries={[{
+            pathname: '/admin/login', state: { passwordReset: true, email: 'me@example.com' },
+          }]}>
+            <Routes>
+              <Route path="/admin/login" element={<AdminLoginPage />} />
+            </Routes>
+          </MemoryRouter>
+        </MotionProvider>
+      </ThemeProvider>,
+    );
+    expect(screen.getByRole('status')).toHaveTextContent('Password changed. Sign in with your new password.');
+    expect(screen.getByLabelText('Email address')).toHaveValue('me@example.com');
+  });
+});
