@@ -22,6 +22,10 @@ const TIMEOUT_MS = 3000;
  * null  — the check could not run (the caller accepts the password).
  */
 const isBreached = async (password) => {
+  // ⚠️ SHA-1 is HIBP's format, not password STORAGE: the hash is never kept,
+  // only its first 5 characters leave the server, and the stored password is
+  // bcrypt cost 12 (User.js). CodeQL's js/insufficient-password-hash flags
+  // this line; it was dismissed on GitHub as a false positive (PF-125).
   const sha1   = crypto.createHash('sha1').update(password, 'utf8').digest('hex').toUpperCase();
   const prefix = sha1.slice(0, 5);
   const suffix = sha1.slice(5);
