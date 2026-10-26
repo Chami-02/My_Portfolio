@@ -5,7 +5,12 @@ const {
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const validate    = require('../middleware/validate');
-const { authLimiter, refreshLimiter, googleLimiter } = require('../middleware/rateLimiter');
+const {
+  forgotRules, forgotPassword, resetRules, resetPassword,
+} = require('../controllers/passwordResetController');
+const {
+  authLimiter, refreshLimiter, googleLimiter, forgotLimiter, resetLimiter,
+} = require('../middleware/rateLimiter');
 
 // Public — rate limited (10 attempts per 15 minutes)
 // The limiter FIRST, so a malformed body still spends an attempt; then the
@@ -25,6 +30,11 @@ router.post('/logout', logout);
 router.get('/google/start',     googleLimiter, googleStart);
 router.get('/google/callback',  googleLimiter, googleCallback);
 router.post('/google/exchange', googleLimiter, googleExchange);
+
+// Forgot password (PF-125). Public, each with its own limiter — limiter
+// first, as on /login, so a malformed body still spends an attempt.
+router.post('/password/forgot', forgotLimiter, forgotRules, validate, forgotPassword);
+router.post('/password/reset',  resetLimiter,  resetRules,  validate, resetPassword);
 
 // Protected — requires a live session
 router.get('/me', protect, getMe);

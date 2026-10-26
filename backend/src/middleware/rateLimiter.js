@@ -149,4 +149,41 @@ const contactLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter };
+/**
+ * Limiters for the forgot-password routes (PF-125).
+ *
+ * `forgotLimiter` — `POST /api/auth/password/forgot`. Every accepted request
+ * may send an email, so this bounds mail (with the per-account 60 s cooldown
+ * in the controller). 5 per 15 minutes is more than a real reset ever needs.
+ *
+ * `resetLimiter` — `POST /api/auth/password/reset`, where a code is guessed.
+ * Each code also dies after 5 wrong guesses (the controller), so this cap is
+ * about one IP cycling through fresh codes, not one code.
+ *
+ * Neither is `authLimiter`: a reset is its own door, and sharing a budget
+ * would let a few failed sign-ins block the very reset they lead to.
+ * Both live under `NODE_ENV=test`, asserted directly in the backend suite.
+ */
+const forgotLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             5,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many reset requests. Please wait 15 minutes before trying again.',
+  },
+});
+
+const resetLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many reset attempts. Please wait 15 minutes before trying again.',
+  },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter };
