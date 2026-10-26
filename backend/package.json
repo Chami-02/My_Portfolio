@@ -64,8 +64,8 @@
     "mongodb": "~7.5.0",
     "mongoose": "~9.9.1",
     "morgan": "^1.11.0",
-    "multer": "^2.2.0",
-    "nodemailer": "^10.0.15",
+    "multer": "^2.5.0",
+    "nodemailer": "^10.2.1",
     "slugify": "^1.6.9"
   },
   "devDependencies": {
