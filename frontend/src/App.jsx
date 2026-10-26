@@ -21,6 +21,8 @@ import { NotFoundPage }    from './pages/NotFoundPage';
 const BlogPage       = lazy(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
 const BlogPostPage   = lazy(() => import('./pages/BlogPostPage').then((m) => ({ default: m.BlogPostPage })));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })));
+const AdminForgotPasswordPage = lazy(() =>
+  import('./pages/AdminForgotPasswordPage').then((m) => ({ default: m.AdminForgotPasswordPage })));
 const AdminPage      = lazy(() => import('./pages/AdminPage').then((m) => ({ default: m.AdminPage })));
 
 function AppLayout() {
@@ -74,6 +76,9 @@ function AppLayout() {
                   catch-all below is what it is escaping. */}
               <Route path="/blog/:slug"  element={<BlogPostPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
+              {/* PF-125. Public, like sign-in: ranked above `/admin/*`, so it
+                  never reaches ProtectedRoute. */}
+              <Route path="/admin/forgot-password" element={<AdminForgotPasswordPage />} />
 
               {/* Protected — requires JWT */}
               <Route

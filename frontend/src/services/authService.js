@@ -70,4 +70,20 @@ export const authService = {
   },
 
   getMe: () => api.get('/auth/me').then((r) => r.data.data),
+
+  /**
+   * PF-125 — ask for a reset code. The server answers the SAME for any
+   * address (it never says whether one signs in here), so there is nothing
+   * to return: resolving means "asked".
+   */
+  requestPasswordReset: (email) =>
+    api.post('/auth/password/forgot', { email }).then(() => undefined),
+
+  /**
+   * PF-125 — the emailed code plus the new password. Starts NO session: the
+   * server signs every device out, and the admin then signs in with the new
+   * password like anyone else.
+   */
+  resetPassword: ({ email, code, password }) =>
+    api.post('/auth/password/reset', { email, code, password }).then((r) => r.data.message),
 };
