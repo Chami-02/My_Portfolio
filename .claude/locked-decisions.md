@@ -4409,6 +4409,37 @@ Plan approved by the owner in chat, 2026-10-20.
 - **Tests and E2E never see the real password:** run-jest deletes the vars;
   `.env.e2e` sets them blank.
 
+## PF-125 — forgot password follows OWASP + NIST (2026-10-26)
+
+Owner asked for "the industry standard"; plan approved in chat 2026-10-26.
+- **Six-digit emailed code**, 10 min, single use, max 5 guesses, only an HMAC (keyed
+  `JWT_SECRET`) stored; a new code cancels the old; 60 s resend cooldown per account.
+- **Same answer AND same timing for any address** — all account work runs after the
+  response (`waitUntil`). One message for every code failure.
+- **No account lockout** — both admin addresses are public, a lockout would let anyone
+  lock the owner out. Per-IP limiters (forgot 5, reset 10 per 15 min) + per-code cap.
+- **A reset signs out every session and signs nobody in**; "password changed" email.
+- **New-password rule (owner): at least 15 characters** (NIST 800-63B-4, password-only
+  sign-in), max 64 / 72 bytes, no composition rules — `utils/passwordPolicy.js`, used by
+  reset, `admin:password`, and PF-124. `User.minlength` stays 8 (DB floor; the current
+  password keeps working).
+- **Leaked-password check (owner): Have I Been Pwned range API**, k-anonymity, fails
+  OPEN, runs only after a correct code.
+- **Sign-in costs the same for an unknown address** (gap 3, owner 2026-10-26): no user →
+  bcrypt compare against a cost-12 dummy hash. Keep it — removing it reopens a 223 ms
+  enumeration gap (measured).
+- **Security emails use ONE template, `services/alertEmail.js` `renderAlert`** (owner,
+  2026-10-27): branded, coloured by tone; PF-124/133/140 alerts must use it. The
+  CONTACT email deliberately keeps its own plain layout (owner).
+- **"Password changed" goes to the MAIN address + the address used** (owner, 2026-10-27,
+  superseding "every address" the same day): a reset through the second address always
+  copies the main inbox; a reset through the main address does NOT copy the second.
+  Subject names the address used. One password for both addresses.
+- **Step 2 reads the typed address back in bold** (owner, 2026-10-27).
+- **"Having trouble?" after 3 consecutive wrong passwords (401 only)**; `Forgot password?`
+  always visible; never a hint. The page is the sign-in card (owner approved "the login
+  card's look"); success banner is `.error`'s shape in `--ok`.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

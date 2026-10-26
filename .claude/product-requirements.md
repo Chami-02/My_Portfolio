@@ -39,12 +39,15 @@ capability at all.
 #### The admin can change, reset and recover the password — proved twice
 
 **Owner requirement, 2026-10-13 (raised in PF-120). Built in Sprint 15 by
-REWRITTEN PF-123 / PF-124 / PF-125 — NOT built yet.**
+REWRITTEN PF-123 / PF-124 / PF-125 — Forgot BUILT 2026-10-26 (PF-125); Change
+(PF-124) NOT built yet.**
 
 - **Change (signed in):** current password **AND** a one-time code emailed to the
   address signed in with (`signedInAs`).
 - **Forgot (signed out):** type either login address → the SAME 200 whether it
-  exists or not → a one-time code to that address → a new password.
+  exists or not → a one-time code to that address → a new password. ✅ BUILT
+  (PF-125): 6 digits, 10 min, 5 guesses, single use; new password ≥15 characters
+  and not in a known leak (owner, 2026-10-26); signs nobody in.
 - **Every change signs out every other session** (`revokeAllForUser`).
 - **One password for both addresses; the addresses stay fixed** (2026-10-12).
 - **Mail: Gmail SMTP (app password) now**, behind `services/mailer.js`; **Resend
@@ -56,10 +59,10 @@ REWRITTEN PF-123 / PF-124 / PF-125 — NOT built yet.**
 - ✅ **BUILT 2026-10-14 — show / hide password eye** in the password field
   (`EyeIcon` / `EyeOffIcon`, `type="button"`, fixed name "Show password" +
   `aria-pressed`, hidden by default).
-- **Sprint 15 — a `Forgot password?` link** under the password field, opening the
+- ✅ **BUILT 2026-10-26 (PF-125) — a `Forgot password?` link** under the password field, opening the
   forgot flow above. Never shipped before that flow exists (a dead link is worse
   than none).
-- **Sprint 15 — after 3 failed sign-ins in a row**, a small *"Having trouble?
+- ✅ **BUILT 2026-10-26 (PF-125) — after 3 failed sign-ins in a row**, a small *"Having trouble?
   Reset your password"* button appears and leads to the same forgot flow.
   ⚠️ **NOT a password hint** — the owner first asked for "do you need a hint?",
   then chose the reset prompt (2026-10-14) once the risk was raised: both admin
