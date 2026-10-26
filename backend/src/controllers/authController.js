@@ -1,4 +1,5 @@
 const crypto    = require('crypto');
+const bcrypt    = require('bcryptjs');
 const { body }  = require('express-validator');
 const { parse: parseCookies } = require('cookie');
 const User      = require('../models/User');
@@ -37,6 +38,21 @@ const loginRules = [
   ).withMessage('Please provide email and password'),
 ];
 
+/**
+ * PF-125 — an unknown address must cost what a wrong password costs.
+ *
+ * bcrypt at cost 12 takes ~200 ms. Skipping it when no user matches made an
+ * unknown address answer ~200 ms faster than a known one, so the TIME told an
+ * attacker which addresses sign in here — the same leak the forgot-password
+ * form was built to avoid. Comparing against a real hash of the same cost
+ * (made once, on first use) closes it. The result is thrown away.
+ */
+let dummyHash;
+const spendPasswordCheck = async (password) => {
+  dummyHash ??= bcrypt.hash(crypto.randomBytes(16).toString('hex'), 12);
+  await bcrypt.compare(password, await dummyHash);
+};
+
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -51,10 +67,14 @@ const login = async (req, res, next) => {
     // addresses, one password) — we need password, which is select: false
     const user = await User.findByLoginEmail(email).select('+password');
 
-    // 3. Check user exists AND password matches
-    // We check both in one condition to prevent user enumeration attacks
-    // (never tell the attacker which one was wrong)
-    if (!user || !(await user.matchPassword(password))) {
+    // 3. Check user exists AND password matches — one message for both, so
+    // the answer never says which was wrong; and (PF-125) the same bcrypt
+    // work for both, so the TIME never says it either.
+    if (!user) {
+      await spendPasswordCheck(password);
+      return next(new AppError('Invalid email or password', 401));
+    }
+    if (!(await user.matchPassword(password))) {
       return next(new AppError('Invalid email or password', 401));
     }
 
