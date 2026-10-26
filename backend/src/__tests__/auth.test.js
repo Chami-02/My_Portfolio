@@ -72,6 +72,26 @@ describe('POST /api/auth/login', () => {
     expect(res.status).toBe(401);
   });
 
+  // PF-125 — an unknown address does the same bcrypt work as a wrong
+  // password, so response TIME cannot tell them apart. Asserted on the work
+  // (a cost-12 compare happens), not on a stopwatch: timing in CI is noise.
+  it('an unknown address still runs a cost-12 bcrypt compare', async () => {
+    const bcrypt  = require('bcryptjs');
+    const compare = jest.spyOn(bcrypt, 'compare');
+    try {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'nobody@test.com', password: ADMIN.password });
+
+      expect(res.status).toBe(401);
+      expect(compare).toHaveBeenCalledTimes(1);
+      expect(compare.mock.calls[0][0]).toBe(ADMIN.password);
+      expect(compare.mock.calls[0][1]).toMatch(/^\$2[aby]\$12\$/);
+    } finally {
+      compare.mockRestore();
+    }
+  });
+
   it('returns 400 when email is missing', async () => {
     const res = await request(app)
       .post('/api/auth/login')

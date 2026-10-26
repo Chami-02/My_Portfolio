@@ -25,6 +25,7 @@ const mongoose = require('mongoose');
 const User     = require('../src/models/User');
 const { assertExplicitDatabase } = require('../src/config/db');
 const { revokeAllForUser }       = require('../src/services/sessionService');
+const { passwordProblem }        = require('../src/utils/passwordPolicy');
 
 /**
  * The part worth testing. Expects an open mongoose connection.
@@ -33,13 +34,16 @@ const { revokeAllForUser }       = require('../src/services/sessionService');
  * script's call.
  */
 async function setAdminPassword({ password }) {
+  // PF-125 — the same rule as every other place a password is chosen.
+  const problem = passwordProblem(password);
+  if (problem) throw new Error(`${problem}. Nothing changed.`);
   const users = await User.find({});
   if (users.length !== 1) {
     throw new Error(`Expected exactly one admin user, found ${users.length}. Nothing changed.`);
   }
   const [user] = users;
   user.password = password;
-  await user.save();               // pre('save') hashes; schema enforces the minimum length
+  await user.save();               // pre('save') hashes
   await revokeAllForUser(user._id);
   return { email: user.email };
 }

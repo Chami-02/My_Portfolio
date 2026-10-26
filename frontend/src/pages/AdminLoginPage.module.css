@@ -217,6 +217,94 @@
   line-height: 1.5;
 }
 
+/* ── Success banner (PF-125) ────────────────────────────────────────
+   The error banner's shape in --ok: "Password changed", "Code sent". The
+   tint is --ok's own triplet-free literal per theme below, like .error's
+   red; the ink is var(--ok), which flips (PF-91: #0B6446 in light). */
+.notice {
+  composes: error;
+  background: rgba(52, 211, 153, .08);
+  border-color: rgba(52, 211, 153, .4);
+}
+
+.noticeMark {
+  composes: errorMark;
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.noticeText {
+  composes: errorText;
+  color: var(--ok);
+}
+
+:global(html[data-theme='light']) .notice {
+  background: rgba(11, 100, 70, .07);
+  border-color: rgba(11, 100, 70, .35);
+}
+
+/* ── Small text links (PF-125) ──────────────────────────────────────
+   "Forgot password?", "Resend code", "Use a different address". Mono,
+   muted, the accent on hover — the .back pill's ink without its pill.
+   The padding gives a 24px+ hit area (PF-117's minimum) without moving
+   the text; the negative margin keeps the row's rhythm. */
+.assist {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-top: -6px;
+}
+
+.assistEnd {
+  justify-content: flex-end;
+}
+
+.textLink {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 6px 0;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color .2s;
+}
+
+.textLink:hover:not(:disabled) {
+  color: var(--acc, #FCA311);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.textLink:disabled {
+  cursor: default;
+}
+
+.textLink:focus-visible {
+  outline: 2px solid var(--acc, #FCA311);
+  outline-offset: 2px;
+}
+
+/* ── "Having trouble?" (PF-125) ──────────────────────────────────────
+   After three failed sign-ins: a line under the banner offering the reset,
+   its link a smaller .back pill. NEVER a password hint (owner, 2026-10-14). */
+.trouble {
+  composes: kf-fadeIn from global;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: -6px 0 18px;
+  color: var(--muted);
+  font-size: 13.5px;
+  animation-duration: .3s;
+  animation-fill-mode: both;
+}
+
 /* ── Google door (PF-119) ───────────────────────────────────────── */
 
 /* Same geometry and type as .submit below — so the two doors read as a
@@ -515,6 +603,16 @@ a.google:hover {
 .back:hover {
   color: var(--acc, #FCA311);
   border-color: var(--acc, #FCA311);
+}
+
+/* PF-125 — the "Having trouble?" link: the .back pill, smaller (owner,
+   2026-10-26) — an offer, not a second primary action. AFTER .back on
+   purpose: same specificity, so source order decides. 6px vertical
+   padding keeps the 24px hit area. */
+.troubleLink {
+  composes: back;
+  font-size: 10px;
+  padding: 6px 12px;
 }
 
 /* ── Dark-theme contrast (PF-91's substitution, applied not re-decided) ──

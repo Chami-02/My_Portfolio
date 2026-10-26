@@ -5,6 +5,7 @@ const About      = require('../models/About');
 const AppError   = require('../utils/AppError');
 const mailer     = require('../services/mailer');
 const { requestLocation } = require('../utils/requestLocation');
+const { escapeHtml }      = require('../utils/escapeHtml');
 
 // ── Validation rules array ────────────────────────────────────────────────────
 // These run BEFORE the controller function.
@@ -63,12 +64,6 @@ const formatSent = (when, timeZone) => {
     time: `${part.hour}:${part.minute} ${part.dayPeriod.toUpperCase()}`,
   };
 };
-
-// Every visitor-written value goes through this before it touches the HTML
-// body, so a message can never become markup or a disguised link.
-const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-}[c]));
 
 const SAVED_NOTE = 'This message is saved in the Messages section of the admin panel.';
 const REPLY_NOTE = 'Please reply within 24 hours!!';

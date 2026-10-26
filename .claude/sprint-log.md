@@ -8960,6 +8960,95 @@ messages are emailed to the owner" — now BUILT.
 - No retry for a failed send: the message is safe in the panel and the log names it.
   Add a retry only if failures are ever seen.
 
+### PF-123 live check (recorded on the PF-125 branch)
+- PR #54 merged as a MERGE COMMIT (8 commits, owner's choice) and deployed 2026-10-21.
+  Live: a message from the live site arrived in Gmail with `From:` "Colombo, Sri Lanka"
+  (owner in Galle — IP geolocation names the ISP's city; explained, accepted). The card's
+  FROM matches. CodeQL `js/bad-tag-filter` on a test regex fixed (`d3cf106`).
+
+## PF-125 — Forgot password + reset by emailed code (2026-10-26, `feat/PF-125-forgot-password`)
+
+Plan approved by the owner in chat, 2026-10-26 (industry standard asked for: OWASP
+Forgot Password Cheat Sheet + NIST SP 800-63B). Owner chose 15-character minimum and the
+leaked-password check.
+- Backend NEW: `models/PasswordReset.js` (one row per user, HMAC of the code keyed with
+  `JWT_SECRET`, `attempts`, TTL), `controllers/passwordResetController.js`,
+  `utils/passwordPolicy.js` (15–64 chars, ≤72 bytes, no composition rules),
+  `services/breachedPasswords.js` (HIBP range API, 5-char SHA-1 prefix, `Add-Padding`,
+  3 s timeout, FAILS OPEN). Routes `POST /api/auth/password/forgot` (forgotLimiter 5/15 min)
+  and `/password/reset` (resetLimiter 10/15 min). `set-admin-password.js` now uses the
+  same policy (its test: `/at least 15/`).
+- forgot: ALWAYS the same 200 body, and ALL account work (lookup, cooldown, row, email)
+  runs in `waitUntil` AFTER the response — same answer AND same timing. 60 s cooldown per
+  account; a new code deletes the old row. Code to the address typed (stored spelling).
+- reset order: length rule (no guess spent) → user → atomic `$inc attempts` with
+  `attempts < 5` in the QUERY (race-safe cap; a row at the cap matches nothing) → expiry,
+  `sentTo`, code (`timingSafeEqual`) → HIBP (only after a right code: strangers never
+  trigger an outbound call; a leaked password leaves the code alive) → `findOneAndDelete`
+  (single use under a race) → `save()` (hash hook) → `revokeAllForUser` → "password
+  changed" email. ONE message for every code failure. No session issued.
+- Frontend NEW: `pages/AdminForgotPasswordPage.jsx` (two steps, reuses
+  `AdminLoginPage.module.css` — new `.notice*`, `.assist`, `.textLink`, `.trouble`),
+  `utils/resetError.js`, route `/admin/forgot-password` (lazy, above `/admin/*`),
+  `authService.requestPasswordReset/resetPassword`. Login page: `Forgot password?` always;
+  "Having trouble? RESET YOUR PASSWORD →" (`.troubleLink` = smaller `.back` pill, 10px /
+  `6px 12px` → 30px tall, owner 2026-10-26) after 3 consecutive 401s (network errors and
+  400s don't count); "Password changed" notice + address prefilled after a reset.
+- Rejected/changed in recheck: (1) the `deleteOne` at the cap hid the `$lt` cap from
+  every test (mutant survived) — deleted; the query cap alone is the guard. (2) HIBP
+  first meant every anonymous wrong-code request called out (and E2E did too) — moved
+  after the code check. (3) `resetError` 429 branch — the limiter's own sentence already
+  reads well; deleted. (4) cooldown test polled a state the failure also satisfied —
+  replaced by a settle window, mutation-tested.
+- Tests: backend NEW `auth.passwordReset.test.js` (30), `passwordPolicy.test.js` (16);
+  frontend NEW `AdminForgotPasswordPage.test.jsx`, `resetError.test.js`, +5 in
+  `AdminLoginPage.test.jsx`; NEW `e2e/forgotPassword.spec.js` (mail is off in E2E — the
+  code can't be read there). Mutants: backend 15/15 killed (cooldown, cap, cap−1, single
+  use, sentTo, expiry, revoke, HIBP removed, HIBP before code, policy, compare, new code
+  cancels…), frontend 3/3 (threshold 2 and 4, any failure counts). One no-op mutant
+  discarded.
+- Gate: backend 931 / 53 suites; frontend 2189 / 95 + lint + build; E2E 80 passed +
+  1 flaky (footer PF-88 layout, unrelated, passed on retry).
+- Browser (local E2E servers): link + 3-failure row dark; forgot page both steps dark +
+  light; 375 px iframe → 0 horizontal overflow. ⚠️ The E2E run spends the authLimiter
+  (10/15 min) — restart the local backend before a manual sign-in probe.
+
+- **Gap 3 fixed here (owner, 2026-10-26): sign-in timing leak.** `authController.login`
+  skipped bcrypt when no user matched, so an unknown address answered faster. Now
+  `spendPasswordCheck` compares against a cost-12 dummy hash (made once). Measured on the
+  local E2E server, 8 alternating samples each: WITHOUT the fix unknown 179 ms vs
+  known-wrong 402 ms (gap 223 ms); WITH it 330 vs 321 ms (gap −9 ms = noise). Test asserts
+  the WORK (a `$2?$12$` compare happens), not a stopwatch; mutants 2/2 (call removed,
+  cost 12 → 4). Gate after: backend 933 / 53, frontend 2189 / 95.
+- The other 4 auth gaps found 2026-10-26 have homes: passkeys PF-140 (after the domain;
+  PF-139 is the owner's new epic), httpOnly cookie (Sprint 16 launch), Mongo-backed rate
+  limiter PF-141 (Sprint 15), alerts/sessions PF-132/133.
+
+- **Owner's manual check (2026-10-27) → three additions:**
+  1. Read-back: step 2's banner says "If **<typed address>** can sign in here, a reset
+     code is on its way…" (bold) so a typo shows; `requestPasswordReset` now resolves to
+     nothing (the page no longer shows the server's sentence).
+  2. NEW `services/alertEmail.js` `renderAlert({ tone, title, intro, highlight, details,
+     note })` → `{ text, html }`: the SECURITY email template (owner asked for a separate,
+     coloured one; the CONTACT email keeps its own). Tables + inline styles, navy
+     `#14213D` header + `#FCA311` rule, tone pill + colour (`info` #B26B00 "SECURITY
+     CODE", `warning` #B4231F "SECURITY ALERT"), code box, details rows, `<meta
+     charset>` (a preview without it showed "â€”" for the dash). `escapeHtml` moved to
+     `utils/escapeHtml.js`, shared with contactController.
+  3. "Password changed" → first built to EVERY login address, then refined by the owner
+     the same day: `[...new Set([user.email, sentTo])]` = the MAIN address + the one
+     used; reset via main = main only. Subject "…changed using <address>". (The owner's
+     "main got nothing" report was a test run before the change landed — the dev User's
+     `updatedAt` predated it — and then the email was found; no bug.) Mutants 3/3 (only
+     the used address, every address, main only).
+  Tests: NEW `alertEmail.test.js` (6); reset suite 31. Mutants 2/2 (one recipient,
+  no escaping). Gate: backend 940 / 54, frontend 2189 / 95. Previewed both emails in
+  Chrome.
+
+### Outstanding work added by PF-125
+- Real-email check (owner's inbox): local first, then live after deploy.
+- PF-124 must use `passwordProblem` + `isBreached` (and `revokeAllForUser`).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

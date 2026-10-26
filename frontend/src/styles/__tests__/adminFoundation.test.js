@@ -49,6 +49,7 @@ describe('no admin file re-introduces a local style constant', () => {
   const files = [
     ...walk(resolve(src, 'components/admin')),
     resolve(src, 'pages/AdminLoginPage.jsx'),
+    resolve(src, 'pages/AdminForgotPasswordPage.jsx'),   // PF-125
     resolve(src, 'pages/AdminPage.jsx'),
   ].filter((f) => f.endsWith('.jsx') && !f.includes('__tests__'));
 

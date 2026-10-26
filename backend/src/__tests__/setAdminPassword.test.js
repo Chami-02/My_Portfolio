@@ -48,9 +48,10 @@ describe('setAdminPassword (PF-120)', () => {
     }
   });
 
-  it('refuses a password shorter than the schema minimum', async () => {
+  // PF-125 — the shared password policy (15+), not the schema's floor of 8.
+  it('refuses a password shorter than the policy minimum', async () => {
     await User.create({ email: 'admin@test.com', password: OLD });
-    await expect(setAdminPassword({ password: 'short' })).rejects.toThrow(/at least 8/);
+    await expect(setAdminPassword({ password: 'fourteen-chars' })).rejects.toThrow(/at least 15/);
     const user = await User.findOne({}).select('+password');
     expect(await user.matchPassword(OLD)).toBe(true);
   });
