@@ -78,5 +78,8 @@
     "mongodbMemoryServer": {
       "version": "7.0.14"
     }
+  },
+  "overrides": {
+    "zod": "^4.6.6"
   }
 }
