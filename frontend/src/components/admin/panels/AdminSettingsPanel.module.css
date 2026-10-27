@@ -1,0 +1,49 @@
+/* PF-131 — the Settings panel. The card, title, labels and badges come from
+   styles/admin.module.css; only the Account card's fact list lives here. */
+
+.facts {
+  display: grid;
+  gap: 18px;
+  margin: 0;
+}
+
+.fact {
+  display: grid;
+  gap: 8px;
+}
+
+.fact dd {
+  margin: 0;
+}
+
+/* Addresses are mono like every other address in the admin (header, footer)
+   and may be long — let them break rather than push the card wider than a
+   320px screen. */
+.value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--strong);
+  overflow-wrap: anywhere;
+}
+
+.addresses {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.address {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.note {
+  margin: 20px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}

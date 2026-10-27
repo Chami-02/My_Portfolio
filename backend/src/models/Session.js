@@ -53,6 +53,13 @@ const sessionSchema = new mongoose.Schema(
     signedInAs: {
       type: String,
     },
+    // PF-131 — HOW this login signed in, shown on the Settings Account card.
+    // Copied forward by every rotation, like `signedInAs`. Absent on sessions
+    // from before it existed; the card then shows no method rather than a guess.
+    signInMethod: {
+      type: String,
+      enum: ['password', 'google'],
+    },
   },
   { timestamps: true }
 );

@@ -190,6 +190,16 @@ test.describe('Admin Authentication Flow', () => {
       .getByRole('button', { name: /Overview/ }).click();
     await page.getByRole('button', { name: 'EDIT PROFILE', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
+
+    // PF-131. Folded into this test, not a new one: every sign-in spends the
+    // authLimiter budget. Settings is reached from the sidebar, and its Account
+    // card names the address this login typed — through the real /auth/me.
+    await page.getByRole('navigation', { name: 'Admin sections' })
+      .getByRole('button', { name: /Settings/ }).click();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+    const account = page.getByRole('region', { name: 'Account', exact: true });
+    await expect(account.getByText('Signed in as', { exact: true }).locator('xpath=following-sibling::dd'))
+      .toHaveText(ADMIN_EMAIL);
   });
 });
 

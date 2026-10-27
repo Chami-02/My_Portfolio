@@ -1,0 +1,88 @@
+// frontend/src/components/admin/panels/AdminSettingsPanel.jsx
+import { useMe } from '../../../hooks/useMe';
+import styles from './AdminSettingsPanel.module.css';
+import a from '../../../styles/admin.module.css';
+
+/**
+ * AdminSettingsPanel — PF-131. The admin's account, security, branding and
+ * data, as opposed to About, which is what the site SAYS (owner, 2026-10-13).
+ * The prototype has no Settings; the layout is owner-approved 2026-10-27.
+ *
+ * ⚠️ ONE card on purpose. Change password (PF-124), sessions (PF-132), sign-in
+ * history (PF-133), logo + favicon (PF-134) and backup (PF-135) each add THEIR
+ * card when they are built. The owner chose this over greyed-out "coming soon"
+ * cards: nothing on screen claims a feature that does not exist yet.
+ *
+ * The Account card is read-only and reads the `/auth/me` entry the shell has
+ * already fetched — no request of its own. That is also why it registers
+ * nothing with the unsaved-changes guard and has no LoadError: there is nothing
+ * to lose, and a failed `/auth/me` ends the session (ProtectedRoute redirects)
+ * rather than leaving a panel up. The first card with a form or its own query
+ * brings both.
+ */
+export function AdminSettingsPanel() {
+  const { data: me } = useMe();
+
+  return (
+    <div className={a.stack}>
+      <section className={a.panel} aria-labelledby="settings-account-title">
+        <h2 className={a.panelTitle} id="settings-account-title">Account</h2>
+        {/* Nothing address-shaped until /auth/me answers — a placeholder
+            address would be the defect the shell's header already avoids. */}
+        {me && <AccountFacts me={me} />}
+      </section>
+    </div>
+  );
+}
+
+const METHOD_LABELS = { password: 'Password', google: 'Google' };
+
+function AccountFacts({ me }) {
+  // `addresses` arrived with PF-131; a backend from before it sends only the
+  // primary, which is still a true (if shorter) answer.
+  const addresses = me.addresses ?? [{ address: me.email, primary: true, google: false }];
+  const methods = ['Password', ...(addresses.some((x) => x.google) ? ['Google'] : [])];
+
+  return (
+    <>
+      <dl className={styles.facts}>
+        <div className={styles.fact}>
+          <dt className={a.labelLead}>Signed in as</dt>
+          <dd className={styles.value}>{me.signedInAs ?? me.email}</dd>
+        </div>
+
+        {/* PF-131 (owner): HOW this login signed in. A session from before the
+            method was recorded says nothing rather than guessing. */}
+        {METHOD_LABELS[me.signedInWith] && (
+          <div className={styles.fact}>
+            <dt className={a.labelLead}>Signed in with</dt>
+            <dd className={styles.value}>{METHOD_LABELS[me.signedInWith]}</dd>
+          </div>
+        )}
+
+        <div className={styles.fact}>
+          <dt className={a.labelLead}>Login addresses</dt>
+          <dd>
+            <ul className={styles.addresses}>
+              {addresses.map(({ address, primary, google }) => (
+                <li key={address} className={styles.address}>
+                  <span className={styles.value}>{address}</span>
+                  {primary && <span className={a.badge}>PRIMARY</span>}
+                  {google && <span className={a.badgeOk}>GOOGLE LINKED</span>}
+                </li>
+              ))}
+            </ul>
+          </dd>
+        </div>
+
+        <div className={styles.fact}>
+          <dt className={a.labelLead}>Sign-in methods</dt>
+          <dd className={styles.value}>{methods.join(' · ')}</dd>
+        </div>
+      </dl>
+      <p className={styles.note}>
+        Every address signs in to this one account, with the same password.
+      </p>
+    </>
+  );
+}

@@ -75,3 +75,71 @@ describe('GET /api/auth/me — signedInAs', () => {
     expect((await me(session.accessToken)).body.data.signedInAs).toBe(PRIMARY);
   });
 });
+
+/*
+ * PF-131 — the Settings panel's Account card. Every address that signs in,
+ * which one is primary, and whether Google is bound to it. Sessions are minted
+ * with issueSession, so none of these spend the authLimiter's budget.
+ */
+describe('GET /api/auth/me — addresses', () => {
+  const addressesOf = async () => {
+    const session = await issueSession(user);
+    return (await me(session.accessToken)).body.data.addresses;
+  };
+
+  it('lists the primary first, then every login address — none Google-bound yet', async () => {
+    expect(await addressesOf()).toEqual([
+      { address: PRIMARY, primary: true,  google: false },
+      { address: SECOND,  primary: false, google: false },
+    ]);
+  });
+
+  it('flags Google only on the address that has a bound account', async () => {
+    await User.updateOne({ _id: user._id },
+      { $set: { googleIdentities: [{ sub: 'google-sub-123', email: SECOND }] } });
+    expect(await addressesOf()).toEqual([
+      { address: PRIMARY, primary: true,  google: false },
+      { address: SECOND,  primary: false, google: true  },
+    ]);
+  });
+
+  it('never sends the Google account id', async () => {
+    await User.updateOne({ _id: user._id },
+      { $set: { googleIdentities: [{ sub: 'google-sub-123', email: PRIMARY }] } });
+    const session = await issueSession(user);
+    const res = await me(session.accessToken);
+    expect(JSON.stringify(res.body)).not.toContain('google-sub-123');
+    expect(res.body.data).not.toHaveProperty('googleIdentities');
+  });
+
+  it('lists only the primary when the account has no other address', async () => {
+    await User.updateOne({ _id: user._id }, { $set: { loginEmails: [] } });
+    expect(await addressesOf()).toEqual([
+      { address: PRIMARY, primary: true, google: false },
+    ]);
+  });
+});
+
+/*
+ * PF-131 (owner, 2026-10-27) — the Account card also names HOW this login
+ * signed in. The Google door's half is in google.auth.test.js. Two logins
+ * here; the authLimiter budget for this file stays under 10.
+ */
+describe('GET /api/auth/me — signedInWith', () => {
+  it('names the password door after a password sign-in', async () => {
+    expect((await meAfterLogin(PRIMARY)).signedInWith).toBe('password');
+  });
+
+  it('keeps naming it after a refresh rotates the session', async () => {
+    const first = await login(SECOND);
+    const next  = await request(app).post('/api/auth/refresh')
+      .send({ refreshToken: first.body.refreshToken });
+    expect(next.status).toBe(200);
+    expect((await me(next.body.accessToken)).body.data.signedInWith).toBe('password');
+  });
+
+  it('says null — never a guess — for a session that recorded no method', async () => {
+    const session = await issueSession(user);
+    expect((await me(session.accessToken)).body.data.signedInWith).toBeNull();
+  });
+});

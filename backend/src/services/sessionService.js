@@ -46,9 +46,10 @@ const SESSION_ENDED = 'Your session has ended. Please log in again.';
  * Create a fresh refresh-token row for `user` and sign an access token that
  * names its family. `family` is only passed by `rotateSession`; a login
  * starts a new one. `signedInAs` is the address the login used (PF-119
- * follow-up) — a login names it, a rotation copies it forward.
+ * follow-up) — a login names it, a rotation copies it forward. `signInMethod`
+ * (PF-131, 'password' | 'google') travels the same way.
  */
-const issueSession = async (user, family = crypto.randomUUID(), signedInAs) => {
+const issueSession = async (user, family = crypto.randomUUID(), signedInAs, signInMethod) => {
   const refreshToken     = crypto.randomBytes(32).toString('base64url');
   const refreshExpiresAt = new Date(Date.now() + refreshTtlMs());
 
@@ -58,6 +59,7 @@ const issueSession = async (user, family = crypto.randomUUID(), signedInAs) => {
     family,
     expiresAt: refreshExpiresAt,
     signedInAs,
+    signInMethod,
   });
 
   const accessToken = jwt.sign(
@@ -132,7 +134,7 @@ const rotateSession = async (refreshToken) => {
     throw new AppError('The user belonging to this session no longer exists.', 401);
   }
 
-  const next = await issueSession(user, session.family, session.signedInAs);
+  const next = await issueSession(user, session.family, session.signedInAs, session.signInMethod);
   claimed.replacedBy = next.sessionId;
   await claimed.save();
 

@@ -127,14 +127,14 @@ something surprises you, search the companions *before* deriving an explanation.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
 | PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→130 + PF-123 merged + live; PF-125 built 2026-10-26 |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→130, PF-123, PF-125 merged + live; PF-131 built 2026-10-27 |
 
 `global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
 PF-127 → PF-128 → PF-129 → PF-130 (merged) → PF-123 mailer (built 2026-10-20) →
-PF-125 forgot password (built 2026-10-26) → PF-131/124… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+PF-125 forgot password (live 2026-10-27) → PF-131 Settings (built 2026-10-27) → PF-124… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -421,6 +421,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-129: bundled hero image never changes (its oval is in its ALPHA); only an UPLOAD gets `.portraitImgUploaded` = measured oval + PF-80's layers.
 - PF-123: contact email sent in the BACKGROUND (`waitUntil`), text + ESCAPED html, 12-hour `YYYY/MM/DD` in About's zone, TO the Gmail account itself, Reply-To the visitor; blank `GMAIL_*` = mail off; no retry queue; `location` from Vercel IP headers ONLY when `VERCEL` is set; card mirrors the email (red reminder unread-only).
 - PF-125: forgot = OWASP — same answer + timing for any address (work after the response), HMAC'd 6-digit code, 5 guesses capped IN the query, no account lockout, reset signs nobody in; HIBP only after a right code, fails open; login runs a dummy bcrypt for an unknown address (timing). Security emails = `services/alertEmail.js` `renderAlert` (contact keeps its own); "changed" alert → the MAIN address + the one used (never a copy to the second when the main reset). Passkeys = PF-140 (after domain), Mongo limiter = PF-141.
+- PF-131: Settings = own ACCOUNT nav group (`⚙︎` + U+FE0E) under MANAGE; ONE real card per ticket, never "coming soon"; `/auth/me` `addresses` sends a Google BOOLEAN, never the `sub`; `Session.signInMethod` → `signedInWith` (rotation copies it).
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
