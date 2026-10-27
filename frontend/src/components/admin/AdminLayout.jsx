@@ -1,5 +1,5 @@
 // frontend/src/components/admin/AdminLayout.jsx
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { authService } from '../../services/authService';
@@ -55,6 +55,17 @@ import a from '../../styles/admin.module.css';
  * Recorded because a fidelity pass diffing against the frozen export will read
  * this as a transcription slip and "restore" it. It is not one.
  */
+/*
+ * PF-131 — Settings, owner-approved 2026-10-27: its own ACCOUNT group under the
+ * six content sections (About = what the site SAYS, Settings = the account).
+ * The prototype has no Settings at all. `group` starts a new labelled group; on
+ * the mobile strip the labels hide (as MANAGE always has) and Settings is
+ * simply the seventh item in the row.
+ *
+ * ⚠️ The icon is U+2699 + U+FE0E. U+2699 alone renders as the COLOUR gear emoji
+ * on Apple systems — the exact mismatch the note above removed for About and
+ * Blog. The variation selector asks for the text glyph.
+ */
 const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: '⊞' },
   { id: 'about',    label: 'About',    icon: '◐' },
@@ -62,6 +73,7 @@ const NAV_ITEMS = [
   { id: 'projects', label: 'Projects', icon: '◈' },
   { id: 'blog',     label: 'Blog',     icon: '✎' },
   { id: 'messages', label: 'Messages', icon: '✉' },
+  { id: 'settings', label: 'Settings', icon: '\u2699\uFE0E', group: 'ACCOUNT' },
 ];
 
 export function AdminLayout({ children, activeTab, onTabChange }) {
@@ -148,6 +160,7 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
   const TAB_META = {
     overview: 'DASHBOARD',
     about:    'PROFILE',
+    settings: 'ACCOUNT',
     ...(counts && {
       projects: `${counts.projects} ITEMS`,
       skills:   `${counts.skills} ITEMS`,
@@ -248,26 +261,28 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
             <p className={styles.manage}>MANAGE</p>
 
             <nav className={styles.nav} aria-label="Admin sections">
-              {NAV_ITEMS.map(({ id, label, icon }) => {
+              {NAV_ITEMS.map(({ id, label, icon, group }) => {
                 const isActive = activeTab === id;
                 return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => goTo(id)}
-                    className={styles.navItem}
-                    /* aria-current drives BOTH the active styling and the
-                       screen-reader announcement, so the two cannot drift
-                       apart the way a separate isActive class would let
-                       them. The Phase 1 shell had no aria-current at all. */
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    <span aria-hidden="true" className={styles.navIcon}>{icon}</span>
-                    {label}
-                    {NAV_COUNTS[id] && (
-                      <span className={styles.navCount}>{NAV_COUNTS[id]}</span>
-                    )}
-                  </button>
+                  <Fragment key={id}>
+                    {group && <p className={styles.navGroup}>{group}</p>}
+                    <button
+                      type="button"
+                      onClick={() => goTo(id)}
+                      className={styles.navItem}
+                      /* aria-current drives BOTH the active styling and the
+                         screen-reader announcement, so the two cannot drift
+                         apart the way a separate isActive class would let
+                         them. The Phase 1 shell had no aria-current at all. */
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <span aria-hidden="true" className={styles.navIcon}>{icon}</span>
+                      {label}
+                      {NAV_COUNTS[id] && (
+                        <span className={styles.navCount}>{NAV_COUNTS[id]}</span>
+                      )}
+                    </button>
+                  </Fragment>
                 );
               })}
             </nav>

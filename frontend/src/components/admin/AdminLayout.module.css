@@ -280,6 +280,15 @@
   color: var(--faint);
 }
 
+/* PF-131 — the ACCOUNT label above Settings. Composes `.manage`, so the dark
+   colour fix and the strip's `display: none` below reach it too. The margin
+   is the gap between the two groups: the nav's own 6px gap, plus enough to
+   read as a break rather than as one more item. */
+.navGroup {
+  composes: manage;
+  margin: 14px 0 2px 10px;
+}
+
 .nav {
   display: flex;
   flex-direction: column;

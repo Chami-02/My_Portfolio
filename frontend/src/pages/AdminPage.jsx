@@ -8,6 +8,7 @@ import { AdminSkillsPanel }      from '../components/admin/panels/AdminSkillsPan
 import { AdminAboutPanel }       from '../components/admin/panels/AdminAboutPanel';
 import { AdminBlogPanel }        from '../components/admin/panels/AdminBlogPanel';
 import { AdminMessagesPanel }    from '../components/admin/panels/AdminMessagesPanel';
+import { AdminSettingsPanel }    from '../components/admin/panels/AdminSettingsPanel';
 
 const PANELS = {
   overview:  AdminOverviewPanel,
@@ -16,6 +17,7 @@ const PANELS = {
   about:     AdminAboutPanel,
   blog:      AdminBlogPanel,
   messages:  AdminMessagesPanel,
+  settings:  AdminSettingsPanel,
 };
 
 export function AdminPage() {

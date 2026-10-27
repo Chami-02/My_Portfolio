@@ -87,7 +87,7 @@ describe('AdminLayout — navigation', () => {
   // The export has Overview · Projects · Skills · About · Blog · Messages; About
   // was moved to second. Asserted here so the deviation is deliberate and
   // visible rather than something a fidelity pass quietly reverts.
-  it('renders all six sections, in the owner-requested order', () => {
+  it('renders all seven sections, in the owner-requested order', () => {
     renderShell();
     const labels = within(nav())
       .getAllByRole('button')
@@ -97,8 +97,22 @@ describe('AdminLayout — navigation', () => {
     // breaks under a name pointing at the wrong cause the moment an
     // unrelated control joins the landmark.
     expect(labels).toEqual([
-      'Overview', 'About', 'Skills', 'Projects', 'Blog', 'Messages',
+      'Overview', 'About', 'Skills', 'Projects', 'Blog', 'Messages', 'Settings',
     ]);
+  });
+
+  // PF-131 (owner, 2026-10-27): Settings is its own group, under its own
+  // label, AFTER the six content sections — not a seventh content item.
+  it('puts Settings in its own ACCOUNT group, after the content sections', () => {
+    renderShell();
+    const label = within(nav()).getByText('ACCOUNT');
+    const settings = within(nav()).getByRole('button', { name: /Settings/ });
+    const messages = within(nav()).getByRole('button', { name: /Messages/ });
+
+    // DOCUMENT_POSITION_FOLLOWING: the label comes after Messages and
+    // directly before Settings.
+    expect(messages.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(label.nextElementSibling).toBe(settings);
   });
 
   it('uses the prototype glyphs, not the emoji they replaced', () => {
@@ -107,6 +121,9 @@ describe('AdminLayout — navigation', () => {
     for (const glyph of ['⊞', '◈', '{ }', '◐', '✎', '✉']) {
       expect(text).toContain(glyph);
     }
+    // PF-131: the gear carries U+FE0E (text presentation). U+2699 bare is
+    // the colour gear emoji on Apple systems.
+    expect(text).toContain('\u2699\uFE0E');
     // The two that were colour emoji before PF-107. They render at a
     // different weight and baseline from the glyphs beside them.
     expect(text).not.toContain('👤');
@@ -145,6 +162,7 @@ describe('AdminLayout — navigation', () => {
     // renders an empty badge for both, so nothing must appear.
     expect(digits('Overview')).toBe('');
     expect(digits('About')).toBe('');
+    expect(digits('Settings')).toBe('');
   });
 
   // PF-107 defaulted each list to [] and so painted `0` beside every
@@ -177,10 +195,13 @@ describe('AdminLayout — title and meta', () => {
     ['about',    'About',    'PROFILE'],
     ['blog',     'Blog',     '2 PUBLISHED · 1 DRAFT'],
     ['messages', 'Messages', '2 UNREAD · 3 TOTAL'],
+    ['settings', 'Settings', 'ACCOUNT'],
   ])('%s renders its own title and meta line', (tab, title, meta) => {
     renderShell({ activeTab: tab });
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(title);
-    expect(screen.getByText(meta)).toBeInTheDocument();
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading).toHaveTextContent(title);
+    // Scoped to the title row: PF-131's ACCOUNT is also the nav group label.
+    expect(within(heading.parentElement).getByText(meta)).toBeInTheDocument();
   });
 
   it('falls back rather than rendering an empty heading for an unknown tab', () => {
@@ -394,7 +415,7 @@ describe('the sidebar rail runs the full depth of the panel', () => {
 
     expect(within(rail).getByText('MANAGE')).toBeInTheDocument();
     expect(within(rail).getByText('SESSION')).toBeInTheDocument();
-    expect(within(rail).getAllByRole('button').length).toBe(6);
+    expect(within(rail).getAllByRole('button').length).toBe(7);
   });
 });
 
@@ -511,6 +532,18 @@ describe('AdminLayout — sidebar and SIGN OUT ask before unsaved work is lost',
 
     await userEvent.click(leaveBtn('DISCARD & LEAVE'));
     expect(onTabChange).toHaveBeenCalledWith('skills');
+  });
+
+  // PF-131: Settings goes through the same `goTo` as every other section.
+  it('Settings asks too — its own group is not a way round the guard', async () => {
+    const { onTabChange } = renderGuarded();
+    await userEvent.click(within(nav()).getByRole('button', { name: /Settings/ }));
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('Your profile has changes');
+    expect(onTabChange).not.toHaveBeenCalled();
+
+    await userEvent.click(leaveBtn('DISCARD & LEAVE'));
+    expect(onTabChange).toHaveBeenCalledWith('settings');
   });
 
   it('re-clicking the panel you are on never asks — nothing is lost', async () => {
