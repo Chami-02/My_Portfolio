@@ -74,3 +74,46 @@ describe('isBreached — Have I Been Pwned range API', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/skipped/));
   });
 });
+
+// ── PF-124 follow-up: strength — context words + zxcvbn 4 of 4 ─────────────
+const { contextWords, strengthProblem } = require('../utils/passwordPolicy');
+
+describe('contextWords', () => {
+  it("takes each address's name part, the owner's name words and the site name", () => {
+    expect(contextWords({
+      addresses: ['pcgallege@gmail.com', 'parindrachameekara@gmail.com'],
+      name: 'Parindra Chameekara Gallage',
+    })).toEqual(['pcgallege', 'parindrachameekara', 'parindra', 'chameekara', 'gallage', 'portfolio']);
+  });
+
+  it('drops words under 4 letters', () => {
+    expect(contextWords({ addresses: ['pc@x.com'], name: 'Al Bo' })).toEqual(['portfolio']);
+  });
+});
+
+describe('strengthProblem', () => {
+  const words = contextWords({ addresses: ['pcgallege@gmail.com'], name: 'Parindra Gallage' });
+
+  it.each([
+    ['the owner name', 'parindra sunset lamp river'],
+    ['a look-alike of it', 'P4rindr@ sunset lamp river'],
+    ['the address name', 'my pcgallege account key'],
+    ['the site name', 'my portfolio site rocks'],
+  ])('refuses %s — context words (NIST blocklist)', (_name, password) => {
+    expect(strengthProblem(password, words)).toMatch(/your name, your email address or the site's name/);
+  });
+
+  it.each([
+    ['repeated characters', 'aaaaaaaaaaaaaaa'],
+    ['a keyboard run', 'qwertyuiopasdfg'],
+    ['a doubled common word (score 3)', 'password password'],
+  ])('refuses %s — zxcvbn under 4', (_name, password) => {
+    expect(strengthProblem(password, words)).toEqual(expect.any(String));
+  });
+
+  it.each([
+    'a long new pass phrase', 'tea leaf hill road', 'my dog loves rice', 'badminton court sunday',
+  ])('accepts an ordinary passphrase %j', (password) => {
+    expect(strengthProblem(password, words)).toBeNull();
+  });
+});

@@ -3,7 +3,7 @@
 // PF-125 — /admin/forgot-password. `authService` is mocked at the service
 // boundary; the real `resetErrorMessage` runs, because which sentence the
 // reader sees is the thing under test.
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -103,6 +103,28 @@ describe('AdminForgotPasswordPage — step 1, the address', () => {
 });
 
 describe('AdminForgotPasswordPage — step 2, the code and the new password', () => {
+  // PF-124 follow-up — the strength meter and its refusal (the server checks too).
+  it('shows the live strength, and refuses a weak password with no request', async () => {
+    const user = userEvent.setup();
+    renderAt();
+    await toCodeStep(user);
+    await user.type(screen.getByLabelText(/^New password/), 'qwertyuiopasdfg');
+    expect(await screen.findByText(/Strength: Weak\./)).toBeInTheDocument();
+    await fillReset(user, { password: '', confirm: 'qwertyuiopasdfg' });
+    expect(screen.getByRole('alert')).toHaveTextContent(/commonly used password|easy to guess/);
+    expect(resetPassword).not.toHaveBeenCalled();
+  });
+
+  it("refuses a password built from the typed address's name", async () => {
+    const user = userEvent.setup();
+    renderAt();
+    await toCodeStep(user, 'sunsetrider@example.com');
+    await user.type(screen.getByLabelText(/^New password/), 'sunsetrider lamp hill road');
+    // The METER's own line, so the assertion is about the rule, not any text on the page.
+    await waitFor(() => expect(document.getElementById('reset-strength'))
+      .toHaveTextContent(/Strength: Weak\..*your name, your email address/));
+  });
+
   it('the code field is built for a one-time code', async () => {
     const user = userEvent.setup();
     renderAt();

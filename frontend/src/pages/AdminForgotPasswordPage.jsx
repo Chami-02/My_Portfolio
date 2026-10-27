@@ -28,15 +28,11 @@ import {
   GrainOverlay,
 } from '../components/ambient';
 import { BrandMark }       from '../components/common/BrandMark';
+import { MIN_LENGTH, RESEND_SECS, lengthOf } from '../utils/passwordRules';
+import { contextWords }        from '../utils/passwordStrength';
+import { usePasswordStrength } from '../hooks/usePasswordStrength';
+import { PasswordStrength }    from '../components/admin/PasswordStrength';
 import styles from './AdminLoginPage.module.css';
-
-// Mirrors the server: backend/src/utils/passwordPolicy.js (MIN_LENGTH) and
-// the per-account resend cooldown in passwordResetController.js.
-const MIN_LENGTH  = 15;
-const RESEND_SECS = 60;
-
-/** Characters as the reader sees them — an emoji is one, as on the server. */
-const lengthOf = (text) => [...text].length;
 
 export function AdminForgotPasswordPage() {
   const navigate = useNavigate();
@@ -93,6 +89,11 @@ export function AdminForgotPasswordPage() {
   const handleChange = (e) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
+  // PF-124 follow-up — the live strength meter. Signed out, the page knows
+  // only the typed address; the server also checks the owner's name, after
+  // the code (it would otherwise reveal which addresses are real).
+  const strength = usePasswordStrength(form.password, contextWords({ addresses: [email] }));
+
   const handleResetSubmit = async (e) => {
     e.preventDefault();
     const code = form.code.trim();
@@ -102,6 +103,10 @@ export function AdminForgotPasswordPage() {
     }
     if (lengthOf(form.password) < MIN_LENGTH) {
       setError(`The new password must be at least ${MIN_LENGTH} characters.`);
+      return;
+    }
+    if (strength?.problem) {
+      setError(strength.problem);
       return;
     }
     if (form.password !== form.confirm) {
@@ -233,7 +238,7 @@ export function AdminForgotPasswordPage() {
                     spellCheck={false}
                     value={form.password}
                     onChange={handleChange}
-                    className={`${styles.input} ${styles.inputWithToggle}`}
+                    className={styles.input}
                   />
                   <button
                     type="button"
@@ -246,6 +251,7 @@ export function AdminForgotPasswordPage() {
                     {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
                   </button>
                 </div>
+                <PasswordStrength result={strength} id="reset-strength" />
               </div>
 
               <div className={`${styles.field} ${styles.fieldPassword}`}>

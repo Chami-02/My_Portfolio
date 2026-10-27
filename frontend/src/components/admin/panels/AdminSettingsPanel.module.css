@@ -47,3 +47,101 @@
   line-height: 1.6;
   color: var(--muted);
 }
+
+/* ── Password card (PF-124) ─────────────────────────────────────────────── */
+
+.lede {
+  margin: 0 0 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.hint {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* Six digits do not need a full-width field; 100% still caps it on a phone. */
+.codeField {
+  width: 220px;
+  max-width: 100%;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* ── The Password card's fold (owner, 2026-10-27) ──────────────────────────
+   One line until opened. The button's ::after stretches over the whole row,
+   so the title is a click target too while the button stays the one control
+   a keyboard or screen reader meets. */
+.disclosureHead {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+/* (0,1,1) — beats `.panelTitle`'s 20px bottom margin whichever sheet loads first. */
+.disclosureHead > h2 {
+  margin: 0;
+}
+
+.disclosure {
+  composes: btnGhost from '../../../styles/admin.module.css';
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.disclosure::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+.chevron {
+  display: inline-block;
+  transition: transform .3s ease;
+}
+
+.disclosure[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
+}
+
+/* The slide: a one-row grid whose row animates 0fr → 1fr, so the height is
+   the content's own — no measured pixels, no animation library (locked).
+   Reduced motion: motion.css already cuts every transition to 0.01ms. */
+.collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows .35s ease;
+}
+
+.collapseOpen {
+  grid-template-rows: 1fr;
+}
+
+/* `min-height: 0` lets the row reach 0. The padding + matching negative
+   margin give the fields' rings and the primary button's glow room inside
+   the clip. */
+.collapseInner {
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 6px 8px;
+  margin: 0 -6px -8px;
+}
+
+.collapseInner > .lede {
+  margin-top: 18px;
+}

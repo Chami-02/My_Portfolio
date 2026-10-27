@@ -4466,6 +4466,82 @@ owner before it was built.
 - **No unsaved-changes registration / LoadError yet** — nothing to lose, and a failed
   `/auth/me` ends the session. The first card with a form or its own query brings both.
 
+## PF-124 — Change password: proved twice, this device stays (owner 2026-10-27)
+
+Plan approved in chat; the owner asked whether it is the industry's way, and each step
+was matched to a standard before building.
+
+- **Two steps, one card.** Step 1 takes current + new + repeat and sends the code; step 2
+  takes the code. New password BEFORE the code (Microsoft's order, not Amazon's), so a
+  short / leaked / unchanged password is refused before anyone waits on an inbox. The
+  server keeps nothing between steps but the code — step 2 re-checks every field.
+- **Current password first** (OWASP: re-authenticate before a password change). **New ≠
+  current** (added after the industry check). `passwordProblem` + `isBreached` as PF-125.
+- **Code to `signedInAs`** — the inbox THIS login used, not "either address".
+- **400, never 401, for every refusal** — `api.js` treats a 401 as the end of the session.
+  Mail off = 503 (says to use `admin:password`), cooldown = 429, failed send = 502 and no
+  cooldown. Signed-in routes hide nothing: each refusal says exactly what is wrong.
+- **THIS device stays signed in; every other session is revoked** (OWASP; Google and GitHub
+  do the same) — `revokeAllForUser(id, { except: family })`. No new tokens are issued.
+- **Alert** = `renderAlert` warning to the main address + `signedInAs` (the reset's pair).
+- **Own collection `PasswordChange`** (same schema as `PasswordReset`), NOT a `purpose`
+  field on one collection (the approved plan said `purpose`; changed while building): the
+  forgot form is public and `PasswordReset.user` is unique, so a shared row would let a
+  stranger delete a pending change code and hold its cooldown. Also no migration.
+- **Not a staged panel** — nothing public, no REVERT. It joins the unsaved-changes guard
+  with NO save (Keep / Discard): saving a half-typed password change means nothing.
+- **Two eyes** (current; new + repeat together, the forgot page's pairing) — the plan said
+  one; a single eye inside the first field toggling all three reads as a bug.
+- **Eye CSS lives in `admin.module.css`**; the login module composes it (third user).
+- **The card FOLDS** (owner, same day — the owner's idea, agreed in chat): one line `Password ·
+  CHANGE PASSWORD ▾` slides the form open. Disclosure button + `inert` body; focus to
+  Current password on open, back to the button on fold; a dirty fold asks (Keep /
+  Discard); success folds. CSS grid-rows 0fr → 1fr, no library. The submit is
+  `SAVE NEW PASSWORD` so the two labels never collide.
+
+### PF-124 follow-up — speed, strength, reuse, code life (owner 2026-10-27)
+The owner raised three points before committing; each was answered against a standard.
+- **No forced character mix.** NIST SP 800-63B-4 says verifiers SHALL NOT impose
+  composition rules (they breed `Password1!`); OWASP and the UK NCSC agree. Owner chose,
+  over "strength + forced mix" and "forced mix only": length ≥15 + leak check +
+  **zxcvbn score 4 of 4** + a live meter.
+- **Context words are their OWN rule**, not just zxcvbn `userInputs`: measured, zxcvbn
+  multiplies guesses per piece, so "gallage parindra 1" scored 4. NIST's blocklist names
+  "the name of the service, the username" — and Microsoft's rules refuse the account name
+  and full-name parts — so: no owner-name word, address name part or `portfolio`, with
+  look-alikes undone (`p4rindr@`). Words < 4 letters dropped.
+- **Score 4, not 3** (the plan said 3): at 3, "password password" and "parindra portfolio"
+  pass; every ordinary 15+ passphrase measured scored 4.
+- **No reuse of the last 5** (owner chose over 10 / 24): current + 4 previous
+  (`User.passwordHistory`, bcrypt hashes only, `select: false`). PCI DSS v4.0 §8.3.7 asks
+  for 4. `User.setPassword` is the ONLY writer and THROWS on a document loaded without
+  `+password +passwordHistory` (it would wipe the history silently).
+- **One `newPasswordProblem` for all three doors** (change, reset, `admin:password`): strength
+  → reuse → leak, reuse and leak in parallel. In RESET it runs only AFTER a right code —
+  the words and the history belong to a real account, so an earlier refusal is an oracle.
+- **Speed: do less, not faster.** Measured: bcrypt 200 ms per run, leak check 160 ms, Gmail
+  connect+TLS 1.1 s, all serial. Native `bcrypt` was planned and REJECTED after measuring:
+  the same 200 ms per run, and its only gain (thread-pool parallelism) is nothing on Vercel's
+  1 vCPU. Instead: the email AND the new password's hash go in the background (`waitUntil`;
+  REVERSES the same-day "awaited send, 502"); "new = current" compares TEXT (just proved);
+  the leak check overlaps bcrypt; step 2 takes **only the code** — step 1 parks the new
+  password's bcrypt hash on the code row (pending-change pattern), bound to the session
+  family. Measured SEND CODE: 0.67 s with no history, 1.15 s with a full history (was
+  ≈2.1 s + Gmail); step 2: ~30 ms. What remains is bcrypt per remembered password —
+  the cost of "last 5" at cost 12, kept rather than weakening storage.
+- **Any password change voids every pending code** (`dropAllCodes`), by every door.
+- **Codes stay valid 10 minutes.** Owner asked "isn't it too long? sites use 2–3" — NIST
+  SP 800-63B-4 sets 10 minutes as the MAXIMUM for an emailed code; 2–3 is bank-SMS; the
+  5-guess cap, not the clock, stops guessing. Owner chose to keep 10. ("Resend" in Sprint
+  16 is the email provider, not the RESEND CODE button, which already exists.)
+- **Forgot page = the same rules** (owner asked): all enforced in `resetPassword`; its meter
+  knows only the TYPED address (signed out), and the owner's name + password history are
+  checked only after a right code — earlier would reveal whether an address is real (OWASP
+  Forgot Password). **NO hint text on the forgot page** (owner, 2026-10-27) — the meter's
+  own line is the only guidance there; the Settings card keeps its hint.
+- **zxcvbn's dictionaries are lazy chunks** (~830 KB gz) fetched on the first keystroke in a
+  new-password field; home and login never load them (build + browser measured).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

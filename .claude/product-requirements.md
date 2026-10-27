@@ -40,10 +40,18 @@ capability at all.
 
 **Owner requirement, 2026-10-13 (raised in PF-120). Built in Sprint 15 by
 REWRITTEN PF-123 / PF-124 / PF-125 — Forgot BUILT 2026-10-26 (PF-125); Change
-(PF-124) NOT built yet.**
+BUILT 2026-10-27 (PF-124).**
 
 - **Change (signed in):** current password **AND** a one-time code emailed to the
-  address signed in with (`signedInAs`).
+  address signed in with (`signedInAs`). ✅ BUILT (PF-124): Settings → Password card;
+  THIS device stays signed in, every other one is signed out; alert to the main
+  address + the one signed in with.
+- **Every NEW password (owner, 2026-10-27), at all three doors** (Settings change, forgot
+  reset, `admin:password`): ≥15 characters; **no forced capitals / digits / symbols**
+  (NIST SP 800-63B-4 forbids them); not built from the owner's name, an address name or
+  the site name; zxcvbn strength 4 of 4 with a live meter; **not the current password or
+  one of the 4 before it** (PCI DSS v4.0 §8.3.7 asks for 4); not in a known leak. Codes
+  stay valid **10 minutes** (NIST's maximum — owner asked, chose to keep it).
 - **Forgot (signed out):** type either login address → the SAME 200 whether it
   exists or not → a one-time code to that address → a new password. ✅ BUILT
   (PF-125): 6 digits, 10 min, 5 guesses, single use; new password ≥15 characters

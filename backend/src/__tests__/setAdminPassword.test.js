@@ -1,5 +1,7 @@
 // PF-120 — the break-glass password script (`npm run admin:password`).
 // Only its core is tested here; the prompt wrapper is a terminal concern.
+// PF-124: the leak check is mocked — no network from a unit suite.
+jest.mock('../services/breachedPasswords', () => ({ isBreached: jest.fn().mockResolvedValue(false) }));
 const bcrypt   = require('bcryptjs');
 const mongoose = require('mongoose');
 const User     = require('../models/User');
@@ -58,9 +60,10 @@ describe('setAdminPassword (PF-120)', () => {
 
   // Production still runs master's schema: no loginEmails, no googleIdentities.
   // save() also writes the schema's default `loginEmails: []` — measured, and
-  // harmless: migration 009 `$set`s loginEmails unconditionally. Pinned exactly,
-  // so anything ELSE leaking into a production document fails here.
-  it('on a pre-009 document, changes only password and updatedAt (+ the empty loginEmails default and __v)', async () => {
+  // harmless: migration 009 `$set`s loginEmails unconditionally. PF-124 adds
+  // the two password-history fields, on purpose. Pinned exactly, so anything
+  // ELSE leaking into a production document fails here.
+  it('on a pre-009 document, changes only password, its history and updatedAt (+ loginEmails default and __v)', async () => {
     const users = mongoose.connection.collection('users');
     const createdAt = new Date('2026-01-01T00:00:00Z');
     await users.insertOne({
@@ -74,11 +77,28 @@ describe('setAdminPassword (PF-120)', () => {
     const after = await users.findOne({});
     expect(after.loginEmails).toEqual([]);
     delete after.loginEmails;
+    // The old hash is kept for the reuse check (PCI DSS: not one of the last 4).
+    expect(after.passwordHistory).toEqual([{ hash: before.password, changedAt: createdAt }]);
+    expect(after.passwordChangedAt).toBeInstanceOf(Date);
+    delete after.passwordHistory;
+    delete after.passwordChangedAt;
     expect(Object.keys(after).sort()).toEqual(Object.keys(before).sort());
     const changed = Object.keys(after).filter(
       (k) => JSON.stringify(after[k]) !== JSON.stringify(before[k])
     );
     // `__v` too: writing an array path bumps Mongoose's version key (measured).
     expect(changed.sort()).toEqual(['__v', 'password', 'updatedAt']);
+  });
+
+  // PF-124 — the break-glass door follows every rule the other two do.
+  it('refuses a password built from the site name, and changes nothing', async () => {
+    await User.create({ email: 'a@test.com', password: OLD });
+    await expect(setAdminPassword({ password: 'my portfolio password 1' })).rejects.toThrow(/site's name.*Nothing changed/);
+    expect(await (await User.findOne({}).select('+password')).matchPassword(OLD)).toBe(true);
+  });
+
+  it('refuses the current password, and changes nothing', async () => {
+    await User.create({ email: 'a@test.com', password: NEW });
+    await expect(setAdminPassword({ password: NEW })).rejects.toThrow(/used this password recently/);
   });
 });

@@ -186,4 +186,23 @@ const resetLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter };
+/**
+ * Limiter for the signed-in password change (PF-124), shared by its two
+ * routes (`/password/change/code` and `/password/change`). Both are behind
+ * `protect`, so this is not about strangers: it bounds guesses at the CURRENT
+ * password by someone holding a stolen session, and the code emails a
+ * session can trigger. One change takes two requests; 10 per 15 minutes
+ * leaves room for typos and a resend.
+ */
+const changeLimiter = rateLimit({
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many password change attempts. Please wait 15 minutes before trying again.',
+  },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter };

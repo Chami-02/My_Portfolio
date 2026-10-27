@@ -1,5 +1,6 @@
 // frontend/src/components/admin/panels/AdminSettingsPanel.jsx
 import { useMe } from '../../../hooks/useMe';
+import { SettingsPasswordCard } from './SettingsPasswordCard';
 import styles from './AdminSettingsPanel.module.css';
 import a from '../../../styles/admin.module.css';
 
@@ -8,17 +9,16 @@ import a from '../../../styles/admin.module.css';
  * data, as opposed to About, which is what the site SAYS (owner, 2026-10-13).
  * The prototype has no Settings; the layout is owner-approved 2026-10-27.
  *
- * ⚠️ ONE card on purpose. Change password (PF-124), sessions (PF-132), sign-in
- * history (PF-133), logo + favicon (PF-134) and backup (PF-135) each add THEIR
- * card when they are built. The owner chose this over greyed-out "coming soon"
- * cards: nothing on screen claims a feature that does not exist yet.
+ * ⚠️ Only BUILT cards. Sessions (PF-132), sign-in history (PF-133), logo +
+ * favicon (PF-134) and backup (PF-135) each add THEIR card when they are
+ * built. The owner chose this over greyed-out "coming soon" cards: nothing on
+ * screen claims a feature that does not exist yet.
  *
  * The Account card is read-only and reads the `/auth/me` entry the shell has
- * already fetched — no request of its own. That is also why it registers
- * nothing with the unsaved-changes guard and has no LoadError: there is nothing
- * to lose, and a failed `/auth/me` ends the session (ProtectedRoute redirects)
- * rather than leaving a panel up. The first card with a form or its own query
- * brings both.
+ * already fetched — no request of its own, so nothing to lose and no
+ * LoadError: a failed `/auth/me` ends the session (ProtectedRoute redirects)
+ * rather than leaving a panel up. The Password card (PF-124) is the first
+ * with a form, and registers with the unsaved-changes guard itself.
  */
 export function AdminSettingsPanel() {
   const { data: me } = useMe();
@@ -31,6 +31,8 @@ export function AdminSettingsPanel() {
             address would be the defect the shell's header already avoids. */}
         {me && <AccountFacts me={me} />}
       </section>
+
+      <SettingsPasswordCard />
     </div>
   );
 }

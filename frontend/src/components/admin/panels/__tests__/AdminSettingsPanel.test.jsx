@@ -9,6 +9,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const useMe = vi.hoisted(() => vi.fn());
 vi.mock('../../../../hooks/useMe', () => ({ useMe }));
+// PF-124 follow-up: the Password card reads the About name for its strength words.
+vi.mock('../../../../hooks/useAbout', () => ({ useAbout: () => ({ data: { name: 'Parindra Gallage' } }) }));
 
 const { AdminSettingsPanel } = await import('../AdminSettingsPanel');
 
@@ -38,10 +40,10 @@ beforeEach(() => {
 });
 
 describe('AdminSettingsPanel — Account card', () => {
-  it('renders ONE card, titled Account — no placeholders for later tickets', () => {
+  it('renders only the BUILT cards — Account, then Password — no placeholders', () => {
     render(<AdminSettingsPanel />);
     expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-labelledby')))
-      .toEqual(['settings-account-title']);
+      .toEqual(['settings-account-title', 'settings-password-title']);
     expect(card()).toBeInTheDocument();
     expect(screen.queryByText(/coming soon/i)).toBeNull();
   });

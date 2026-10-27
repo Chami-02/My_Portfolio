@@ -160,12 +160,13 @@ const revokeSession = async (refreshToken) => {
 };
 
 /**
- * Every session for a user, on every device. This is what a password change
- * (PF-124) calls so that older sessions die at once.
+ * Every session for a user, on every device — so older sessions die at once
+ * after a password reset (PF-125). `except` spares one family: the signed-in
+ * change (PF-124) keeps the device that made it.
  */
-const revokeAllForUser = async (userId) => {
+const revokeAllForUser = async (userId, { except } = {}) => {
   await Session.updateMany(
-    { user: userId, revokedAt: null },
+    { user: userId, revokedAt: null, ...(except && { family: { $ne: except } }) },
     { $set: { revokedAt: new Date() } }
   );
 };
