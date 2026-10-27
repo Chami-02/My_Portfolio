@@ -84,7 +84,7 @@ const login = async (req, res, next) => {
     // raw input (Mongoose's setters normalised the query, not `email`).
     const typed = email.trim().toLowerCase();
     const signedInAs = [user.email, ...user.loginEmails].find((a) => a === typed);
-    const session = await issueSession(user, undefined, signedInAs);
+    const session = await issueSession(user, undefined, signedInAs, 'password');
     res.json(sessionPayload(session, user));
   } catch (err) {
     next(err);
@@ -124,12 +124,22 @@ const logout = async (req, res, next) => {
 // shows it; `email` stays the account's primary. Shown only while it is still
 // one of the account's addresses, else the primary — a label never outlives
 // the address it names.
+//
+// PF-131: `addresses` feeds the Settings panel's Account card — every address
+// that signs in, which one is primary, and whether Google has been bound to it.
+// Only the BOOLEAN leaves the server: a Google `sub` is an account id and
+// never goes to the browser. `googleIdentities` is `select: false`, so
+// `req.user` does not carry it; it is read beside the session.
 const getMe = async (req, res, next) => {
   try {
-    const session = await Session.findOne({ family: req.auth.family, revokedAt: null })
-      .select('signedInAs');
+    const [session, identities] = await Promise.all([
+      Session.findOne({ family: req.auth.family, revokedAt: null })
+        .select('signedInAs signInMethod'),
+      User.findById(req.user._id).select('googleIdentities').lean(),
+    ]);
     const used = session?.signedInAs;
     const addresses = [req.user.email, ...req.user.loginEmails];
+    const bound = new Set((identities?.googleIdentities ?? []).map((i) => i.email));
     res.json({
       status: 'success',
       sessionExpiresAt: new Date(req.auth.exp * 1000).toISOString(),
@@ -137,7 +147,14 @@ const getMe = async (req, res, next) => {
         id:         req.user._id,
         email:      req.user.email,
         signedInAs: addresses.includes(used) ? used : req.user.email,
+        // PF-131: null for a session from before the method was recorded.
+        signedInWith: session?.signInMethod ?? null,
         role:       req.user.role,
+        addresses:  addresses.map((address) => ({
+          address,
+          primary: address === req.user.email,
+          google:  bound.has(address),
+        })),
       },
     });
   } catch (err) {
@@ -337,7 +354,7 @@ const googleExchange = async (req, res, next) => {
       return next(new AppError('This sign-in has expired. Please sign in again.', 401));
     }
 
-    const session = await issueSession(user, undefined, handoff.signedInAs);
+    const session = await issueSession(user, undefined, handoff.signedInAs, 'google');
     res.json({ ...sessionPayload(session, user), returnTo: safeReturnTo(handoff.returnTo) });
   } catch (err) {
     next(err);

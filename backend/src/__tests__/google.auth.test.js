@@ -263,6 +263,8 @@ describe('the panel names the Google address used (PF-119 follow-up)', () => {
     const me = await request(app).get('/api/auth/me')
       .set('Authorization', `Bearer ${res.body.accessToken}`);
     expect(me.body.data.signedInAs).toBe(SECOND);
+    // PF-131: and HOW — the Settings card names the Google door.
+    expect(me.body.data.signedInWith).toBe('google');
     expect(me.body.data.email).toBe(PRIMARY);
   });
 });
