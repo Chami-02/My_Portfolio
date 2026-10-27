@@ -86,4 +86,20 @@ export const authService = {
    */
   resetPassword: ({ email, code, password }) =>
     api.post('/auth/password/reset', { email, code, password }).then((r) => r.data.message),
+
+  /**
+   * PF-124 — the signed-in change, step one: the server checks the current
+   * password and the new one, then emails a code to the address this login
+   * used. Resolves with that address, to read back on screen.
+   */
+  requestPasswordChangeCode: ({ currentPassword, password }) =>
+    api.post('/auth/password/change/code', { currentPassword, password }).then((r) => r.data.sentTo),
+
+  /**
+   * PF-124 — step two: just the code. Step one's checks passed and the
+   * server keeps the new password's hash beside the code. No token handling:
+   * the server signs every OTHER device out and this session lives on.
+   */
+  changePassword: ({ code }) =>
+    api.post('/auth/password/change', { code }).then((r) => r.data.message),
 };

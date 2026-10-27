@@ -200,6 +200,18 @@ test.describe('Admin Authentication Flow', () => {
     const account = page.getByRole('region', { name: 'Account', exact: true });
     await expect(account.getByText('Signed in as', { exact: true }).locator('xpath=following-sibling::dd'))
       .toHaveText(ADMIN_EMAIL);
+
+    // PF-124. A wrong current password, through the real server: refused
+    // with its own sentence (a 400, never a 401) and the session survives.
+    // Nothing is changed — the e2e password stays the seed's.
+    const password = page.getByRole('region', { name: 'Password', exact: true });
+    await password.getByRole('button', { name: /CHANGE PASSWORD/ }).click();   // the fold
+    await password.getByLabel('Current password', { exact: true }).fill('not the password');
+    await password.getByLabel('New password', { exact: true }).fill('a long new pass phrase');
+    await password.getByLabel('Repeat new password', { exact: true }).fill('a long new pass phrase');
+    await password.getByRole('button', { name: 'SEND CODE', exact: true }).click();
+    await expect(password.getByText('Your current password is wrong.', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   });
 });
 

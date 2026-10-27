@@ -287,7 +287,7 @@ export function AdminLoginPage() {
                   placeholder="••••••••"
                   value={form.password}
                   onChange={handleChange}
-                  className={`${styles.input} ${styles.inputWithToggle}`}
+                  className={styles.input}
                 />
                 <button
                   type="button"
