@@ -9107,6 +9107,118 @@ MANAGE. Full reasoning: locked-decisions "PF-131". Report:
 ### Outstanding work added by PF-131
 - None new. Settings cards arrive with PF-124 / 132 / 133 / 134 / 135.
 
+### PF-131 live check (recorded on the PF-124 branch)
+- PR #63 merged as a MERGE COMMIT (`35d44e2`, 3 commits) and deployed 2026-10-27.
+  Live: `/api/health` ok; `/auth/me` 401 + `no-store` without a token and with a bad one;
+  `/admin` 200; the live AdminPage chunk contains the Settings panel. The owner signed
+  out and in and confirmed Settings (and "Signed in with") on the live site.
+
+## PF-124 — Change password in Settings: current password + emailed code (2026-10-27, `feat/PF-124-change-password`)
+
+Plan approved in chat 2026-10-27 (owner asked "is this how industry does it?" → OWASP
+re-authentication + step-up code, NIST 800-63B rules + change notice, OWASP sessions;
+"new ≠ current" added from that check). Full reasoning: locked-decisions "PF-124".
+Report: `new mds/Sprint 15/PF-124-change-password.md`.
+
+- Backend: `POST /api/auth/password/change/code` `{ currentPassword, password }` and
+  `POST /api/auth/password/change` `{ currentPassword, password, code }`, both
+  `protect` → NEW `changeLimiter` (10 / 15 min, shared) → rules (`isString().bail()`) →
+  handler, in `passwordResetController.js`. Order: current password (`proveAndCheck`) →
+  `passwordProblem` → new ≠ current → (code step) `isBreached` → mail off = **503** →
+  cooldown = **429** → code to `signedInAs` (session row; same "still an address" rule as
+  `/auth/me`) → AWAITED send (a failure = **502**, row deleted so no cooldown). Change:
+  the same checks again → `checkCode` → `isBreached` again → `claimCode` → `save()` →
+  `revokeAllForUser(id, { except: req.auth.family })` → background alert to primary +
+  `signedInAs`. Every refusal is **400, never 401** (api.js would end the session).
+- NEW `services/passwordCodes.js` (`coolingDown`, `issueCode`, `checkCode`, `claimCode`,
+  `MAX_ATTEMPTS`): the HMAC / guess cap / single use moved out of the reset controller,
+  which now calls it (its suite passes unchanged).
+- NEW `models/PasswordChange.js` = `PasswordReset.schema.clone()` — its OWN collection.
+  ⚠️ Deviation from the plan's `purpose` field: with one row per user (`user` unique),
+  the PUBLIC forgot form would delete a pending change code and start its cooldown; two
+  collections make that impossible and need no index change or migration.
+- Frontend: NEW `SettingsPasswordCard.jsx` (second Settings card). Step `passwords`
+  (current + new + repeat, two eyes: current / new pair) → SEND CODE; step `code` →
+  CHANGE PASSWORD, RESEND (60 s countdown, derived), CANCEL (back, passwords kept).
+  `noValidate` + `useFormGuard` + `fieldProps`, banner `CHECK THE CHANGES AGAIN…`;
+  server refusals in their own `bannerError` (`resetErrorMessage`); success →
+  `showFlash(server message)` + form emptied. `useUnsavedChanges({ dirty, what: 'the
+  password form' })` with NO save → Keep / Discard only. `authService`:
+  `requestPasswordChangeCode`, `changePassword` (no token handling — this session lives).
+- Shared, not a third copy: NEW `utils/passwordRules.js` (`MIN_LENGTH`, `RESEND_SECS`,
+  `lengthOf`, `passwordChangeErrors`, `EMPTY_CHANGE`) — the forgot page imports it. The
+  eye's CSS moved to `admin.module.css` (`.passwordWrap`, `.reveal`); the login module
+  composes it; `.inputWithToggle` replaced by `.passwordWrap > input` (0,1,1), which
+  wins over any sheet's `.input` whatever the load order (measured: login 52px, eye 40×40).
+- **Owner addition (same day): the card FOLDS.** One line — `Password` · `CHANGE PASSWORD ▾`
+  — that slides the form open (GitHub / Google settings pattern). WAI-ARIA disclosure:
+  a real `<button aria-expanded aria-controls>` (its `::after` stretches over the row),
+  the folded body `inert`; open → focus to Current password, fold → focus back to the
+  button (only after the owner moved it, never on load). Folding a dirty form goes
+  through `requestLeave` (Keep / Discard); success folds it. Slide = a one-row grid,
+  `grid-template-rows: 0fr → 1fr` (.35s), no measured heights, no library; reduced
+  motion via motion.css. Step 2's submit renamed **SAVE NEW PASSWORD** (the toggle owns
+  "CHANGE PASSWORD"). Measured: body 0 → 174 (120 ms) → 302 px; reduced motion = 302 px
+  at 40 ms. A surviving mutant (focus not returned on fold) → the success test now
+  asserts focus lands on the toggle (focus was on the submit, inside the inert body).
+- Recheck (screenshots): the length error repeated the hint → "Too short — at least 15
+  characters."; the 503 sentence showed literal backticks → removed; the leave dialog
+  read "Your password change has changes" → `what: 'the password form'`.
+- Tests: NEW `auth.passwordChange.test.js` (31); NEW `SettingsPasswordCard.test.jsx`
+  (19, 4 of them the fold) + `passwordRules.test.js` (11); `REBUILT_JSX` +1 (`SettingsPasswordCard.jsx`); Settings "only BUILT cards" test updated; E2E step
+  folded into the Settings quick-action test (wrong current password → its sentence,
+  still on Settings — no extra sign-in, nothing written).
+- Browser (Playwright, `portfolio_e2e`): dark + light × 1280 + 375; real 400 (still
+  signed in) and real 503 (mail off in e2e); step 2 via a routed answer only (the e2e
+  password was never changed); 0px overflow; leave dialog Keep / Discard.
+
+- Gate (first build): frontend 2240 / 98, backend 979 / 55; mutants backend 18/18, frontend
+  13/13 + fold 7/7.
+- **Gate (final, after the follow-up):** frontend lint 0, **2274 / 100**, coverage 95.08 /
+  91.7 / 90.14 / 96.49, build OK; backend **1011 / 56**, coverage 84.65 / 76.07 / 88.07 /
+  85.32. E2E admin + forgot **14 / 14**. Follow-up mutants: backend **23/23** (one survived
+  first — "reset keeps other codes": the test re-signed-in, and a new session family is
+  refused anyway → now asserts the row count), frontend **13/13** + forgot context 1/1.
+
+- **Follow-up (owner, same day, before committing): speed, strength, reuse, code life.**
+  Full reasoning: locked-decisions "PF-124 follow-up".
+  - Backend: NEW `services/newPassword.js` `newPasswordProblem` (strength → reuse → leak;
+    reuse ‖ leak) used by change, reset (after the code) and `admin:password`;
+    `passwordPolicy.js` `contextWords` + `strengthProblem` (context rule, zxcvbn ≥ 4, lazy
+    factory); `User.passwordHistory` / `passwordChangedAt`, `setPassword` (throws without
+    the fields), `usedRecently` (text compare for a proved current), `hashPassword`,
+    `$locals.passwordIsHash`; `PasswordReset` schema + `pendingHash` / `family`;
+    `passwordCodes.dropAllCodes` + `issueCode(extra)`; change/code answers after the row,
+    hash + email in `waitUntil` (failure deletes the row); change = `{ code }` only,
+    family-bound. `bcryptjs` stays (native `bcrypt` measured: no gain on 1 vCPU).
+  - Frontend: NEW `utils/passwordStrength.js` (lazy zxcvbn, same words/rule),
+    `hooks/usePasswordStrength.js` (derived in render), `components/admin/PasswordStrength`
+    (4 steps, `aria-live`); meter on the card and the forgot page; validator refuses
+    `strength.problem`; step 2 sends `{ code }`. Guard lists +2.
+  - Measured: SEND CODE 0.67 s (no history) / 1.15 s (full) vs ≈2.1 s + Gmail; step 2
+    ~30 ms. zxcvbn = 3 lazy chunks (601 + 219 + 10 KB gz), 0 requests before typing.
+  - Recheck: six `sendMail not called` assertions became vacuous with a background send →
+    each now also asserts NO code row (the send cannot start without one); a context-word
+    test and browser wait matched the HINT text, not the meter → both read
+    `#settings-password-strength`; the browser's context case used a word not in the e2e
+    About name → `parindra`. Doors voiding codes were only tested via the helper → two
+    real-flow tests (reset voids change; change voids reset).
+  - Owner: "same strategy for the login page's forgot password" — already true server-side
+    (all rules in `resetPassword` via `newPasswordProblem`; email was always background) +
+    the meter. **No hint text on the forgot page** (owner: "dont create any hints" there —
+    a hint was added, then removed). Its context test reads `#reset-strength` (mutant
+    "context rule off" fails it). Deliberate difference: signed out, the meter knows only
+    the typed address; name + history are checked after the right code (no account oracle).
+
+### Outstanding work added by PF-124
+- **→ PF-133 (owner, 2026-10-27, folded in, no new ticket):** "Last changed" line on the Password
+  card (`passwordChangedAt` exists) + HIBP leak check at sign-in that asks for a change if the
+  current password appears in a new leak. Owner asked about bank-style rotation: NO rotation
+  period (NIST SP 800-63B-4 forbids scheduled expiry; PCI DSS §8.3.9 only for password-only).
+- Real-email check: ✅ **LOCAL passed 2026-10-27** (owner: the code arrived as planned and the
+  password was changed with it). Still to do LIVE after deploy — code to the signed-in
+  address, other device signed out, alert to the right pair.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
