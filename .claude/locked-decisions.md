@@ -4281,7 +4281,8 @@ reports a failure; /blog's reports an absence). Measured dark/light: heading
   OAuth `code`/`state` in morgan's access log (single-use, PKCE-bound, needs the
   secret); login timing difference (both addresses are public); in-memory
   rate-limit store is per serverless instance (a Mongo store = a write per request
-  on M0; bcrypt cost 12 + password + Google bound brute force); `publicId` in
+  on M0; bcrypt cost 12 + password + Google bound brute force) — **RESOLVED by PF-141
+  (2026-10-27): every limiter counts in MongoDB**; `publicId` in
   public responses (derivable from the delivery URL); blog raw-body writes
   (owner-only); `/api/health` shows `env` + DB name (health-check.yml asserts it).
 - **Password change / reset / forgot → Sprint 15** (see product-requirements):
@@ -4541,6 +4542,24 @@ The owner raised three points before committing; each was answered against a sta
   own line is the only guidance there; the Settings card keeps its hint.
 - **zxcvbn's dictionaries are lazy chunks** (~830 KB gz) fetched on the first keystroke in a
   new-password field; home and login never load them (build + browser measured).
+
+## PF-141 — every rate limiter counts in MongoDB (owner 2026-10-27)
+
+Owner chose all 9 limiters (the recommended option) and MongoDB over Upstash (2026-10-26,
+free and already ours). Reverses PF-120's accepted risk "in-memory store is per instance".
+
+- **One store, `middleware/mongoRateLimitStore.js`, one INSTANCE per limiter** with its own
+  prefix (`global`, `auth`, `refresh`, `google`, `contact`, `forgot`, `reset`, `change`,
+  `view`). Never share an instance (express-rate-limit refuses it), never drop the prefix.
+- **One atomic upsert per counted request**, window by the DB clock (`$$NOW`). Never a
+  read-then-write (two instances would both write count + 1).
+- **`globalLimiter` fails OPEN** (`passOnStoreError`) — `/api/health` must answer during an
+  outage. **Route limiters fail CLOSED** — their routes need the database anyway.
+- **The store calls `connectDB()` itself** — `globalLimiter` runs before the connectDB
+  middleware. Do not move `globalLimiter` after it (health would lose its limit).
+- **Caps, windows and messages unchanged.** No dependency added (`rate-limit-mongo` brings
+  its own `mongodb` driver). A new limiter gets `store: new MongoStore('<name>')` AND a
+  row in the fail-closed `it.each` in `mongoRateLimitStore.test.js`.
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 

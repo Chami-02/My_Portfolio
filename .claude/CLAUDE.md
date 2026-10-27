@@ -127,14 +127,14 @@ something surprises you, search the companions *before* deriving an explanation.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
 | PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→130, PF-123, PF-125, PF-131 merged + live; PF-124 built 2026-10-27 |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→130, PF-123, PF-125, PF-131 merged + live; PF-124 merged + live; PF-141 built 2026-10-27 |
 
 `global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
 PF-127 → PF-128 → PF-129 → PF-130 (merged) → PF-123 mailer (built 2026-10-20) →
-PF-125 forgot password (live 2026-10-27) → PF-131 Settings (live 2026-10-27) → PF-124 change password (built 2026-10-27) → PF-132… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+PF-125 forgot password (live 2026-10-27) → PF-131 Settings (live 2026-10-27) → PF-124 change password (live 2026-10-27) → PF-141 shared limiter (built 2026-10-27) → PF-132… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -322,7 +322,7 @@ Where a mistake would be silent, add a test that would catch it.
 - `npm run preview` uses `.env.production` = the PRODUCTION API — grep the built bundle instead.
 - Duplicated anchors (footer) → strict-mode throws; `getByText` ignores `aria-hidden`.
 - `flaky` is a separate bucket; the rate limiter (100/15 min) bites browser probes, not E2E.
-- E2E sign-ins are a budget (authLimiter 10/15 min per run); never share storageState (refresh token rotates → reuse detection). Back after `page.goto` crosses documents — build in-app history to test the dialog.
+- E2E sign-ins are a budget (authLimiter 10/15 min; one run spends 9, counts SURVIVE a restart since PF-141 — reseed clears them); never share storageState (refresh token rotates → reuse detection). Back after `page.goto` crosses documents — build in-app history to test the dialog.
 
 **Backend / environment**
 - An array bypasses `typeof x === 'string'` — always assert a ZERO case. express-validator `isLength` passes arrays too → `isString().bail()` first.
@@ -415,7 +415,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-119: auth code + PKCE, backend exchange, 60 s FRAGMENT handoff → `issueSession`; site-styled Google button ABOVE the form; Google binds address→first `sub`, never creates a User; `googleLimiter` 30. Prototype is stale (owner) — its emails aren't targets.
 - PF-118 b2: timezone = IANA place (`Asia/Colombo`) shown as its live offset; App uses a DATA router (`createBrowserRouter`, one catch-all) for `useBlocker` — keep the three `<Routes>` as they are.
 - PF-118: footer band follows availability (two call sites, 70.7s / 67.1s = equal 50 px/s); Contact intro leads with the note; `timezone` / `heroIntro` / `footerBio` fields ("Site copy" card); three-letter months (`SEP`); no `publishedAt` control.
-- PF-120: SPA CSP in `frontend/vercel.json` (scripts by hash only, `frame-ancestors 'none'`); deleted `POST /api/upload`, `PATCH /about/availability`, `/uploads`; `contactLimiter` 5 stored/h; accepted risks (role unread, OAuth code in logs, per-instance limiter…) in locked-decisions.
+- PF-120: SPA CSP in `frontend/vercel.json` (scripts by hash only, `frame-ancestors 'none'`); deleted `POST /api/upload`, `PATCH /about/availability`, `/uploads`; `contactLimiter` 5 stored/h; accepted risks (role unread, OAuth code in logs…) in locked-decisions.
 - Leftovers 2026-10-14: hero cut-out uploadable (`imageSlot` + `imageSlotHandlers` shared with the portrait — never fork), bundled hero is WebP, `↺ MARK UNREAD` (explicit `{ read }`), project row PUBLISH/UNPUBLISH (Blog's rule), backend `GET /`, `og:` tags (url/image only WITH the domain), dates stay reader-local, nginx mirrors vercel.json headers.
 - PF-128: API in `bom1` (Atlas Mumbai); public GETs CDN-cached (tag `public-data`), a signed-in write DELETES the tag (SAVE is instant); everything else `no-store`.
 - PF-129: bundled hero image never changes (its oval is in its ALPHA); only an UPLOAD gets `.portraitImgUploaded` = measured oval + PF-80's layers.
@@ -423,6 +423,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-125: forgot = OWASP — same answer + timing for any address (work after the response), HMAC'd 6-digit code, 5 guesses capped IN the query, no account lockout, reset signs nobody in; HIBP only after a right code, fails open; login runs a dummy bcrypt for an unknown address (timing). Security emails = `services/alertEmail.js` `renderAlert` (contact keeps its own); "changed" alert → the MAIN address + the one used (never a copy to the second when the main reset). Passkeys = PF-140 (after domain), Mongo limiter = PF-141.
 - PF-131: Settings = own ACCOUNT nav group (`⚙︎` + U+FE0E) under MANAGE; ONE real card per ticket, never "coming soon"; `/auth/me` `addresses` sends a Google BOOLEAN, never the `sub`; `Session.signInMethod` → `signedInWith` (rotation copies it).
 - PF-124: change = current password + code to `signedInAs`, every check BEFORE the code; step 2 = code ONLY (new pw's bcrypt hash parked on the row, session-bound); email + hash in the BACKGROUND; refusals 400 never 401; THIS device stays (`except: family`); codes in OWN `PasswordChange` collection; any change voids all codes; codes live 10 min (NIST max, owner); card FOLDS and joins the guard with NO save.
+- PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 

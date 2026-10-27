@@ -3684,6 +3684,24 @@ suite reached smtp.gmail.com and logged `EAUTH 535` — green tests, real networ
   overwrites a key that exists, even as `''` (measured with a control).
 - Any future secret that triggers an outward action needs the same treatment.
 
+## PF-141 (2026-10-27) — rate-limit counts now SURVIVE a restart
+
+Since PF-141 every limiter counts in the `ratelimits` collection. Older entries that say
+"restarting the backend clears it" (express-rate-limit's memory store) are no longer true.
+- **One E2E run spends 9 of authLimiter's 10** (measured on portfolio_e2e). A local re-run
+  inside 15 minutes WITHOUT a reseed 429s the sign-ins — and a 429 can read like an auth
+  regression. `seed.js` wipes `RateLimit`; CI uses a fresh database each run.
+- **Browser probes against a dev server keep their spent budget across restarts** too —
+  use a fake client IP (`X-Forwarded-For`, `trust proxy 1`) or delete the row.
+- **A store that skips `connectDB()` fails only on a COLD instance** — every warm test
+  already has a connection. The test resets `global._mongooseConnection` to simulate one;
+  a bare `mongoose.disconnect()` does not (connectDB's cache still holds the old conn).
+- **A missing `store:` on a limiter is invisible** — it silently counts in memory again.
+  Guarded: the fail-closed `it.each` makes the store throw and expects a 500.
+- **Mongoose 9 refuses an update pipeline (array) without `updatePipeline: true`.**
+- **Two back-to-back hits can share a millisecond** — "the window end did not move"
+  passed with the end moving; test with a window opened minutes earlier.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

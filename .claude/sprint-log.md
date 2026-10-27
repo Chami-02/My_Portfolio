@@ -9219,6 +9219,75 @@ Report: `new mds/Sprint 15/PF-124-change-password.md`.
   password was changed with it). Still to do LIVE after deploy — code to the signed-in
   address, other device signed out, alert to the right pair.
 
+### PF-124 live check (recorded on the PF-141 branch)
+- PR #64 merged as a MERGE COMMIT (`ea836bf`, 3 commits) and deployed 2026-10-27 (deploy run
+  40503141305, all four steps green). Live: `/api/health` ok (`portfolio_prod`);
+  `/password/change/code` + `/password/change` → 401 + `no-store` without a token and with a
+  bad one; forgot 200, same body; reset with an array → 400; an unknown address + a
+  name-word password → the generic BAD_CODE (no account oracle); the live AdminPage chunk
+  has `SAVE NEW PASSWORD` + `CHANGE PASSWORD`; index.html preloads no zxcvbn; the zxcvbn
+  chunk is `immutable`. Local real-email check passed (owner). The LIVE real-email change
+  was WAIVED by the owner (2026-10-27: "if it is working no need to test it again" — inbox
+  full of test mail).
+
+## PF-141 — Shared rate-limit counter in MongoDB (2026-10-27, `feat/PF-141-shared-rate-limit`)
+
+Plan approved in chat; owner chose **all 9 limiters** (the recommended option) and asked
+for a full explanation in the report + Handbook. Closes auth gap #4 and PF-120's accepted
+risk "in-memory rate-limit store is per serverless instance".
+
+- **Why:** express-rate-limit's default store counts in the memory of ONE instance. Vercel
+  runs several, and a cold start empties memory, so "10 sign-ins / 15 min" was "10 per
+  instance, per restart". Standards: OWASP API4:2023, OWASP Authentication Cheat Sheet,
+  NIST SP 800-63B-4 §3.2.2 (limit failed attempts).
+- **NEW `models/RateLimit.js`** — `{ _id: '<prefix>:<key>', hits, resetAt }`, TTL index on
+  `resetAt` (GC only; the store compares `resetAt` itself). New collection → no migration;
+  Mongoose `autoIndex` builds the TTL index like Session's (measured on portfolio_dev).
+- **NEW `middleware/mongoRateLimitStore.js`** — express-rate-limit v8 Store (`init`, `get`,
+  `increment`, `decrement`, `resetKey`, `localKeys: false`, `prefix`). `increment` = ONE
+  atomic `findOneAndUpdate` upsert with an update PIPELINE (`updatePipeline: true` —
+  Mongoose 9 refuses arrays without it); the window is decided by the DB clock `$$NOW`; a
+  duplicate-key race on the first insert retries once. It calls `connectDB()` itself:
+  `globalLimiter` runs before app.js's `connectDB()` middleware and connections use
+  `bufferCommands: false`. Rejected `rate-limit-mongo` (brings its own `mongodb` driver;
+  ours is held at ~7.5.0).
+- **Wiring:** `store: new MongoStore('<name>')` on all 8 limiters in `rateLimiter.js` +
+  `viewLimiter` in `blogRoutes.js`; one store instance per limiter (ERR_ERL_STORE_REUSE),
+  unique prefix (ERR_ERL_DOUBLE_COUNT). Caps, windows, messages unchanged.
+  `globalLimiter` → `passOnStoreError: true` (FAILS OPEN, so `/api/health` still answers
+  during an outage); the 8 route limiters fail CLOSED (default).
+- **`seed.js` also wipes `RateLimit`** — counts now survive a backend restart; one E2E run
+  spends 9 of authLimiter's 10 (measured), so a local re-run without a reseed would 429.
+- **Tests:** NEW `mongoRateLimitStore.test.js` (23): two separate limiter instances share
+  one cap of 10 (6 + 4 → the 11th is 429 on BOTH) with a memory-store CONTROL (20 pass);
+  20 concurrent increments = 20; window open / closed / end never moves; get; prefixes;
+  decrement only inside the window; resetKey; dup-key retry; other errors thrown; TTL index;
+  globalLimiter fails open; every route limiter + the blog view counter fail closed (doubles
+  as the wiring guard); a cold instance connects itself. `refreshLimiter` / `googleLimiter`
+  tests now connect + clear the test DB; stale "counter lives on the instance" comments fixed
+  (those two, contactLimiter, auth.loginShape).
+- **Mutants 12/12 killed** (scratch copy, `cmp`-checked): window check inverted, +1→+0, no
+  connectDB, no retry, global fails closed, decrement ignores window, get ignores window,
+  no prefix, forgot/view/auth lose their store, window end moves. The last one SURVIVED the
+  first pass — two back-to-back hits share a millisecond — → new test with a window opened
+  5 minutes earlier.
+- **Real server (owner's `npm run dev` on 5050, portfolio_dev, fake IP via XFF):** forgot
+  ×6 → 200 ×5, then 429; restart (watch) → still 429, `RateLimit-Remaining: 0` (a memory
+  store would have reset); rows `forgot:203.0.113.41` + `global:203.0.113.41`, TTL index
+  present. Cost: one increment = one DB round trip — laptop→Atlas 123 ms vs bare ping
+  112 ms (median of 10); production is bom1 → Atlas Mumbai, to be measured live.
+- **Gates:** backend 1034 / 57 suites (was 1011 / 56), coverage 84.83 / 76.19 / 88.28 /
+  85.51, the three new/changed files 100 %; frontend `check` 2274 / 100; E2E admin +
+  forgotPassword + contact **19 / 19** (servers started by hand — `dev:e2e` still broken).
+- **Accepted:** a 429'd request still counts (express-rate-limit's behaviour with any
+  store); IPv6 clients are keyed per /56 (express-rate-limit v8 default, e.g. `auth:::/56`).
+
+### Outstanding work added by PF-141
+- No test pins `seed.js`'s `RateLimit.deleteMany` (seed has no wipe-list test; a removed
+  line shows up as a 429 on a local E2E re-run).
+- Live: health ok + measure the per-request cost only. No forgot ×6 or any other check that
+  could send mail (owner, 2026-10-27: inbox full; the shared count is proven locally).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
