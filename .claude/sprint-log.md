@@ -9049,6 +9049,64 @@ leaked-password check.
 - Real-email check (owner's inbox): local first, then live after deploy.
 - PF-124 must use `passwordProblem` + `isBreached` (and `revokeAllForUser`).
 
+### PF-125 live check (recorded on the PF-131 branch)
+- PR #60 merged as a MERGE COMMIT (`e1fdf81`, 9 commits) and deployed 2026-10-27.
+  Live API: forgot → 200 with the same body for any address; an array body → 400; a wrong
+  code → 400; a short password → 400; `Cache-Control: no-store`. The forgot page renders.
+  The owner also checked the live site by hand: working.
+- Mid-PR the audit job went red from NEW advisories → separate `fix/audit-2026-10-27`
+  (PR #61, `422f700`: backend `overrides` zod ^4.6.6 — remove once @vercel/cli-config
+  ships zod ≥ 4.6.6). PR checks run on the MERGE REF, so master's fix applied to #60
+  without merging master in.
+- CodeQL `js/insufficient-password-hash` on the HIBP SHA-1: owner dismissed #84 (false
+  positive — SHA-1 is the k-anonymity API's format, not password storage), #83 (tests).
+
+## PF-131 — Settings section: ACCOUNT nav group + Account card (2026-10-27, `feat/PF-131-settings`)
+
+Design proposal first (the prototype has no Settings); owner chose in chat 2026-10-27:
+**Account card only** (no "coming soon" cards) and **its own ACCOUNT group** under
+MANAGE. Full reasoning: locked-decisions "PF-131". Report:
+`new mds/Sprint 15/PF-131-settings-section.md`.
+
+- Backend: `getMe` returns `addresses: [{ address, primary, google }]` (primary first).
+  `googleIdentities` is `select: false`, so it is read beside the session
+  (`Promise.all`); only the boolean leaves the server.
+- Frontend: `NAV_ITEMS` item `settings` with `group: 'ACCOUNT'` (label rendered before
+  it, `Fragment` per item); icon `\u2699\uFE0E` (bare U+2699 = colour emoji on Apple);
+  `TAB_META.settings = 'ACCOUNT'`; `.navGroup` `composes: manage` (inherits the dark
+  colour fix and the strip's `display: none`). NEW `AdminSettingsPanel` reads the cached
+  `useMe()` — zero new requests; nothing address-shaped before `/auth/me`; older-backend
+  fallback = primary alone. Methods derived: `Password`, + `Google` once any address is bound.
+- No unsaved-changes registration / LoadError on this panel: read-only, and a failed
+  `/auth/me` ends the session. PF-124 (form) / PF-132 (own query) bring them. Not a URL
+  route — a tab like every panel.
+- Recheck: `.filter((i) => i.sub)` survived mutation and guarded an impossible state
+  (every identity is `$push`ed with its `sub`) → deleted. `<p>` moved out of the `<dl>`.
+  The title/meta test scoped to the title row (ACCOUNT now appears twice).
+- Tests: backend +4 (`auth.signedInAs.test.js`, `issueSession` — no login budget);
+  AdminLayout updated (7 sections, group order, U+FE0E, guard asks for Settings); NEW
+  `AdminSettingsPanel.test.jsx` (8); guard lists +2; E2E folded into "quick actions".
+- Gate: frontend lint 0, **2205 / 96**, coverage 95.03 / 91.52 / 90.39 / 96.41, build OK;
+  backend **945 / 54**, coverage 83.84 / 75.48 / 87.5 / 84.54. E2E `admin.spec.js` 13/13.
+  Mutants: backend 5/5 (scratch copy) + the dead filter; frontend 9/9.
+- Browser (Playwright screenshots, `portfolio_e2e`): dark + light, 1280 + 375; gear is a
+  text glyph (24px); strip auto-scrolls Settings into view; 0px overflow at 375.
+- ⚠️ Measurement note: a browser probe's failed sign-ins spend `authLimiter` (in-memory,
+  per process) — restart the local E2E backend to reset it, never wait 15 min.
+
+- **Owner addition (same day): "Signed in with".** "Sign-in methods" lists what the
+  account CAN use; the owner asked to see what THIS session used. `Session.signInMethod`
+  (enum, optional — expand-only, no migration), passed by both doors (`'password'` at
+  login, `'google'` at the exchange), copied by `rotateSession`; `getMe` selects it and
+  returns `signedInWith` (null for older sessions → the card shows no line). Tests: backend
+  +3 (`auth.signedInAs.test.js`) + 1 assertion in `google.auth.test.js`; panel +5.
+  Mutants 8/8 (each door swapped, rotation drops it, `/me` ignores / guesses it, select
+  drops it, wrong label, line always shown). Gate: frontend 2210 / 96, backend 948 / 54. Screenshot: line shows.
+  ⚠️ The owner's CURRENT live session predates the field → no line until the next sign-in.
+
+### Outstanding work added by PF-131
+- None new. Settings cards arrive with PF-124 / 132 / 133 / 134 / 135.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

@@ -4440,6 +4440,32 @@ Owner asked for "the industry standard"; plan approved in chat 2026-10-26.
   always visible; never a hint. The page is the sign-in card (owner approved "the login
   card's look"); success banner is `.error`'s shape in `--ok`.
 
+## PF-131 — Settings: its own nav group, one real card per ticket (owner 2026-10-27)
+
+The prototype has no Settings, so the layout was proposed in chat and chosen by the
+owner before it was built.
+
+- **Nav:** a second group label **ACCOUNT** under MANAGE's six content sections, with
+  **Settings** (`⚙︎`, U+2699 + U+FE0E) beneath it — About = what the site SAYS,
+  Settings = the account. Chosen over "a seventh item under MANAGE". On the ≤899px
+  strip both labels hide (as MANAGE always did) and Settings is the seventh item.
+  Meta line `ACCOUNT`, no count badge.
+- **Contents:** ONE read-only **Account** card (signed in as · login addresses with
+  PRIMARY / GOOGLE LINKED · sign-in methods). Chosen over greyed-out "coming soon"
+  cards: nothing on screen claims a feature that does not exist. PF-124 (password),
+  PF-132 (sessions), PF-133 (history), PF-134 (branding), PF-135 (backup) each add
+  THEIR card when built.
+- **Signed in with** (owner, same day): the card also names HOW this session signed in —
+  `Session.signInMethod` ('password' | 'google'), set by each door, copied forward by every
+  rotation like `signedInAs`; `/auth/me` → `signedInWith` (null for older sessions → no
+  line, never a guess). "Sign-in methods" stays the list of what the ACCOUNT can use.
+- **Methods are derived, not listed:** `Password` always; `Google` once any address
+  has a bound Google account. A Google `sub` never leaves the server — `/auth/me`
+  sends a boolean per address.
+- **Not a URL route** — a tab in `AdminPage` state like every other panel.
+- **No unsaved-changes registration / LoadError yet** — nothing to lose, and a failed
+  `/auth/me` ends the session. The first card with a form or its own query brings both.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
