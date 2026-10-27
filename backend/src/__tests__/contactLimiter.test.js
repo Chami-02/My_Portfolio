@@ -1,9 +1,10 @@
 /**
  * PF-120 — `contactLimiter`: 5 STORED messages per hour per IP.
  *
- * Its own file for refreshLimiter.test.js's reason — the counter lives on the
- * limiter instance and a fresh file is a fresh instance, so the numbers are
- * exact. Through the REAL app, so the route wiring is under test too.
+ * Its own file for refreshLimiter.test.js's reason — the count lives in the
+ * test database (PF-141), so the numbers are exact. Through the REAL app, so
+ * the route wiring is under test too — including `skipFailedRequests`, which
+ * goes through the store's `decrement`.
  */
 const request = require('supertest');
 const app     = require('../app');

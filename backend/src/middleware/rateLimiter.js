@@ -1,4 +1,10 @@
 const rateLimit = require('express-rate-limit');
+const MongoStore = require('./mongoRateLimitStore');
+
+// PF-141 — every limiter counts in MongoDB (`new MongoStore('<name>')`), not
+// in this instance's memory: Vercel runs several instances and a cold start
+// forgets, so a memory cap was a per-instance, per-restart cap. Each limiter
+// needs its OWN store instance (express-rate-limit refuses a shared one).
 
 /**
  * Applied to ALL routes in app.js.
@@ -44,11 +50,17 @@ const rateLimit = require('express-rate-limit');
  * rather than going through `app`.
  */
 const globalLimiter = rateLimit({
+  store:          new MongoStore('global'),
   windowMs:       15 * 60 * 1000,  // 15 minutes in milliseconds
   max:            100,              // Max requests per IP per window
   standardHeaders: true,           // Send RateLimit-* headers to client
   legacyHeaders:  false,
   skip:           () => process.env.NODE_ENV === 'test',
+  // PF-141 — FAILS OPEN. This limiter runs before `/api/health`, which must
+  // still answer 200 with `database: null` during an outage (health-check.yml
+  // reads it). The per-route limiters keep the default and fail closed: their
+  // routes need the database anyway.
+  passOnStoreError: true,
   message: {
     status:  'fail',
     message: 'Too many requests from this IP. Please try again in 15 minutes.',
@@ -66,6 +78,7 @@ const globalLimiter = rateLimit({
  * the one suite that drives the real login form.
  */
 const authLimiter = rateLimit({
+  store:    new MongoStore('auth'),
   windowMs: 15 * 60 * 1000,
   max:      10,
   message: {
@@ -89,6 +102,7 @@ const authLimiter = rateLimit({
  * behaviour is asserted directly in the backend suite.
  */
 const refreshLimiter = rateLimit({
+  store:           new MongoStore('refresh'),
   windowMs:        15 * 60 * 1000,
   max:             60,
   standardHeaders: true,
@@ -112,6 +126,7 @@ const refreshLimiter = rateLimit({
  * asserted directly in the backend suite.
  */
 const googleLimiter = rateLimit({
+  store:           new MongoStore('google'),
   windowMs:        15 * 60 * 1000,
   max:             30,
   standardHeaders: true,
@@ -138,6 +153,7 @@ const googleLimiter = rateLimit({
  * stay inside it: contact.test.js stores three messages, E2E stores one.
  */
 const contactLimiter = rateLimit({
+  store:              new MongoStore('contact'),
   windowMs:           60 * 60 * 1000,
   max:                5,
   skipFailedRequests: true,
@@ -165,6 +181,7 @@ const contactLimiter = rateLimit({
  * Both live under `NODE_ENV=test`, asserted directly in the backend suite.
  */
 const forgotLimiter = rateLimit({
+  store:           new MongoStore('forgot'),
   windowMs:        15 * 60 * 1000,
   max:             5,
   standardHeaders: true,
@@ -176,6 +193,7 @@ const forgotLimiter = rateLimit({
 });
 
 const resetLimiter = rateLimit({
+  store:           new MongoStore('reset'),
   windowMs:        15 * 60 * 1000,
   max:             10,
   standardHeaders: true,
@@ -195,6 +213,7 @@ const resetLimiter = rateLimit({
  * leaves room for typos and a resend.
  */
 const changeLimiter = rateLimit({
+  store:           new MongoStore('change'),
   windowMs:        15 * 60 * 1000,
   max:             10,
   standardHeaders: true,

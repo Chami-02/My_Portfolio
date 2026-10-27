@@ -1,5 +1,6 @@
 const router    = require('express').Router();
 const rateLimit = require('express-rate-limit');
+const MongoStore = require('../middleware/mongoRateLimitStore'); // PF-141
 const validate = require('../middleware/validate');
 const { protect } = require('../middleware/auth');
 const { publicCache } = require('../middleware/cache'); // PF-128
@@ -19,6 +20,7 @@ const {
 // add 10,000 views in a minute. 30/minute blocks a script while
 // leaving room for a whole office or campus behind one NAT'd IP.
 const viewLimiter = rateLimit({
+  store:    new MongoStore('view'),
   windowMs: 60 * 1000,        // 1 minute
   max:      30,               // 30 views per IP per window
   message:  { status: 'error', message: 'Too many requests' },

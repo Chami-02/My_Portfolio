@@ -6,9 +6,10 @@
 // 400 message, and a non-string never reaches the user lookup as a Mongo
 // operand.
 //
-// ⚠️ Its OWN file on purpose: authLimiter (10 / 15 min) is live under test and
-// in-memory per module registry. Six more attempts in auth.test.js spent that
-// file's budget and turned its later tests into 429s.
+// ⚠️ Its OWN file on purpose: authLimiter (10 / 15 min) is live under test.
+// Six more attempts in auth.test.js spent that file's budget and turned its
+// later tests into 429s. (Since PF-141 the count is in the test database, so
+// `afterEach(clearDB)` empties it too.)
 const request = require('supertest');
 const app     = require('../app');
 const User    = require('../models/User');
