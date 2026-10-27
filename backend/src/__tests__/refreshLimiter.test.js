@@ -1,18 +1,22 @@
 /**
  * PF-108 — `refreshLimiter` caps POST /api/auth/refresh at 60 per 15 min.
  *
- * ⚠️ Its OWN file on purpose. express-rate-limit keeps its counter on the
- * limiter instance, keyed by IP, and Jest caches modules per test file — so
- * inside session.test.js every real refresh call would count against this
- * budget and the threshold would depend on how many tests ran before it.
- * A fresh file is a fresh instance, and the number below is exact.
+ * ⚠️ Its OWN file on purpose: inside session.test.js every real refresh
+ * call would count against this budget and the threshold would depend on how
+ * many tests ran before it. Since PF-141 the count lives in the test database
+ * (MongoStore), which this file empties before it starts, so the number below
+ * is exact.
  *
- * Mounted on a stub app rather than the real one so no database is needed:
- * what is under test is the limiter's threshold, not the refresh handler.
+ * Mounted on a stub app rather than the real one: what is under test is the
+ * limiter's threshold, not the refresh handler.
  */
 const express = require('express');
 const request = require('supertest');
 const { refreshLimiter } = require('../middleware/rateLimiter');
+const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
+
+beforeAll(async () => { await connectTestDB(); await clearDB(); });
+afterAll(disconnectTestDB);
 
 const app = express();
 app.post('/refresh', refreshLimiter, (_req, res) => res.json({ ok: true }));
