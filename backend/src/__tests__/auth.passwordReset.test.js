@@ -24,6 +24,8 @@ const PRIMARY  = 'owner@example.com';
 const ALIAS    = 'other@example.com';
 const OLD      = 'Old-Password-123';
 const NEW      = 'a long new pass phrase';
+// PF-124: strong enough to pass the strength check, so only REUSE refuses it.
+const OLD_STRONG = 'quiet orange window seat';
 const sendMail = jest.fn();
 
 // forgotLimiter (5) and resetLimiter (10) are live under test — each case
@@ -291,10 +293,43 @@ describe('POST /api/auth/password/reset', () => {
   it('refuses a password found in a data leak — and the code still works after', async () => {
     const code = await codeFor(PRIMARY);
     isBreached.mockResolvedValueOnce(true);
-    const res = await reset({ email: PRIMARY, code, password: 'password password' });
+    // Strong enough for the strength check, so the LEAK check is what refuses.
+    const res = await reset({ email: PRIMARY, code, password: 'tea leaf hill road' });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/data leak/);
     expect((await reset({ email: PRIMARY, code, password: NEW })).status).toBe(200);
+  });
+
+  // ── PF-124: strength and reuse, after the code ────────────────────────────
+  it('refuses a weak password only AFTER a right code — a wrong code says BAD_CODE', async () => {
+    const code = await codeFor(PRIMARY);
+    // "owner" is this account's own address name: refused for strength only
+    // once the code proves the address. Before that, the reply must be the one
+    // an unknown address gets, or it would tell a stranger the address is real.
+    const wrong = await reset({ email: PRIMARY, code: code === '000000' ? '111111' : '000000', password: 'owner sunset lamp river' });
+    expect(wrong.body.message).toMatch(/code is wrong/);
+    const right = await reset({ email: PRIMARY, code, password: 'owner sunset lamp river' });
+    expect(right.status).toBe(400);
+    expect(right.body.message).toMatch(/your name, your email address/);
+    expect((await reset({ email: PRIMARY, code, password: NEW })).status).toBe(200);   // code still alive
+  });
+
+  it('refuses the CURRENT password as the new one (reuse), code still alive', async () => {
+    await User.deleteMany({});
+    await User.create({ email: PRIMARY, loginEmails: [ALIAS], password: OLD_STRONG });
+    const code = await codeFor(PRIMARY);
+    const res  = await reset({ email: PRIMARY, code, password: OLD_STRONG });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/used this password recently/);
+    expect((await reset({ email: PRIMARY, code, password: NEW })).status).toBe(200);
+  });
+
+  it('keeps the old password in the history', async () => {
+    const code = await codeFor(PRIMARY);
+    await reset({ email: PRIMARY, code, password: NEW });
+    const user = await User.findOne({}).select('+password +passwordHistory');
+    expect(user.passwordHistory).toHaveLength(1);
+    expect(await user.usedRecently(OLD)).toBe(true);
   });
 
   it('a wrong code never reaches the leak check — no outbound call', async () => {

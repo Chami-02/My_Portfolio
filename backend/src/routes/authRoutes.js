@@ -7,9 +7,10 @@ const { protect } = require('../middleware/auth');
 const validate    = require('../middleware/validate');
 const {
   forgotRules, forgotPassword, resetRules, resetPassword,
+  changeCodeRules, requestChangeCode, changeRules, changePassword,
 } = require('../controllers/passwordResetController');
 const {
-  authLimiter, refreshLimiter, googleLimiter, forgotLimiter, resetLimiter,
+  authLimiter, refreshLimiter, googleLimiter, forgotLimiter, resetLimiter, changeLimiter,
 } = require('../middleware/rateLimiter');
 
 // Public — rate limited (10 attempts per 15 minutes)
@@ -38,5 +39,10 @@ router.post('/password/reset',  resetLimiter,  resetRules,  validate, resetPassw
 
 // Protected — requires a live session
 router.get('/me', protect, getMe);
+
+// Change password in Settings (PF-124). `protect` first — the limiter then
+// counts only signed-in attempts, never a stranger's 401s.
+router.post('/password/change/code', protect, changeLimiter, changeCodeRules, validate, requestChangeCode);
+router.post('/password/change',      protect, changeLimiter, changeRules,     validate, changePassword);
 
 module.exports = router;

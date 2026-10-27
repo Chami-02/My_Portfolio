@@ -26,6 +26,8 @@ const User     = require('../src/models/User');
 const { assertExplicitDatabase } = require('../src/config/db');
 const { revokeAllForUser }       = require('../src/services/sessionService');
 const { passwordProblem }        = require('../src/utils/passwordPolicy');
+const { newPasswordProblem }     = require('../src/services/newPassword');
+const { dropAllCodes }           = require('../src/services/passwordCodes');
 
 /**
  * The part worth testing. Expects an open mongoose connection.
@@ -37,13 +39,17 @@ async function setAdminPassword({ password }) {
   // PF-125 — the same rule as every other place a password is chosen.
   const problem = passwordProblem(password);
   if (problem) throw new Error(`${problem}. Nothing changed.`);
-  const users = await User.find({});
+  const users = await User.find({}).select('+password +passwordHistory');
   if (users.length !== 1) {
     throw new Error(`Expected exactly one admin user, found ${users.length}. Nothing changed.`);
   }
   const [user] = users;
-  user.password = password;
-  await user.save();               // pre('save') hashes
+  // PF-124 — strength, the last 5, the leak list: the rules every door uses.
+  const weak = await newPasswordProblem(user, password);
+  if (weak) throw new Error(`${weak} Nothing changed.`);
+  user.setPassword(password);      // keeps the history; pre('save') hashes
+  await user.save();
+  await dropAllCodes(user._id);
   await revokeAllForUser(user._id);
   return { email: user.email };
 }
