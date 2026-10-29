@@ -3702,6 +3702,28 @@ Since PF-141 every limiter counts in the `ratelimits` collection. Older entries 
 - **Two back-to-back hits can share a millisecond** — "the window end did not move"
   passed with the end moving; test with a window opened minutes earlier.
 
+## PF-133 (2026-10-29) — two traps found building the history
+
+- **⚠️ run-jest's `delete process.env.GMAIL_*` never worked (PF-123 → PF-133).** app.js runs
+  `require('dotenv').config()` again in every Jest worker, and dotenv re-adds any key that is
+  MISSING — so the deleted keys came back with the REAL Gmail values (`injected env (2)` in the
+  test log was the tell). Every local backend run since PF-123 had mail ON: `contact.test.js`
+  (no nodemailer mock) almost certainly emailed the owner; after PF-133 the sign-ins as
+  `admin@test.com` sent real new-device alerts that BOUNCED (owner saw a "Mail Delivery
+  Subsystem" bounce, 2026-10-29). CI was never affected (no `.env`). Fix: set them to `''`
+  (dotenv never overwrites a set key, even blank — `.env.e2e`'s own reason). Pinned by
+  `mailOffInTests.test.js` (loads app.js, then the keys must still be blank); mutant
+  "back to delete" killed. Proof: delete + reload → set; blank + reload → not set.
+
+- **Every sign-in now calls Have I Been Pwned in the background.** Dozens of suites sign in, so
+  without a stub each run would call api.pwnedpasswords.com from the test machine (and from
+  CI). `src/__tests__/setup/noLeakCheckCalls.js` (Jest `setupFiles`) answers "not leaked" for
+  that host only. A new OUTWARD call made on a common path needs the same treatment.
+- **An HTTP header's trailing space never arrives** — Node trims it. A test sending
+  `Authorization: "Bearer "` to prove "blank secret is refused" passes even with the guard
+  deleted (mutant survived). Pin what CAN arrive (`Bearer`, `Bearer undefined`) and call the
+  guard defence in depth.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

@@ -4602,6 +4602,31 @@ Google sign-in confirms with it too.
   Admin.dc.html:612's 12px 20px / 11.5px → the row buttons' 8px 14px / 11px, 36 px tall
   (still in PF-117's 36–42 px floor). Rules sit under `.actions` (0,2,0). Do not "restore" it.
 
+## PF-133 — Sign-in history, new-device alerts, daily digest, leak check (owner 2026-10-29)
+
+- **History** lives INSIDE the Sessions card as RECENT ACTIVITY (PF-132 decision): every
+  sign-in success AND failure (unknown addresses too, `user: null`), reset requests, resets,
+  changes (OWASP Logging Cheat Sheet / ASVS 5.0 V16). Kept **90 days** (TTL; GitHub's security
+  log). Card shows **10**, SHOW MORE +10 up to the **50** sent, SHOW LESS → 10. Never a password,
+  never the raw User-Agent.
+- **Alert email on a NEW device only** (owner chose over every sign-in): same device label AND
+  place not seen in an OK sign-in in the last **30 days** (owner: 90 too long). To the MAIN
+  address + the one used. Background; a failed send never touches the sign-in.
+- **Daily digest** of FAILED events only, one email to the main address, nothing on a quiet
+  day — never one email per attempt (public addresses → flooding, Gmail quota, alert fatigue).
+  Vercel Cron 02:30 UTC; Bearer `CRON_SECRET` (timing-safe; blank = route off); rows claimed
+  by run id → exactly once; a failed send gives them back.
+- **Leak check at sign-in** (NIST SP 800-63B-4: change on EVIDENCE, no rotation): HIBP in the
+  background after a password sign-in, fails open; `passwordLeakedAt` set only while the hash
+  that signed in is current; cleared by `setPassword`. Shown as a **banner on every admin page**
+  (owner chose over the Password card only) with CHANGE PASSWORD → Settings. Never blocks.
+- **"Last changed"** under the Password card's title, visible while folded.
+- **"NOT YOU? DO THIS NOW"** (owner): numbered steps + OPEN ADMIN button in BOTH emails
+  (`renderAlert` `steps`/`action`, http(s) links only); a one-line "Don't recognise a line?"
+  under the history list.
+- `recordEvent` is AWAITED (reliable log; same one insert on every path, so no timing oracle);
+  the email + leak check are background.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

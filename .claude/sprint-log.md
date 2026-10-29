@@ -9371,6 +9371,74 @@ card later. Half of auth gap #5 (the other half, history + alerts, is PF-133).
 - iPadOS reports a Mac User-Agent → its sessions read "Safari on macOS" (no header says
   otherwise; client hints are Chromium-only).
 
+## PF-133 — Sign-in history + new-device alerts + daily digest + leak check (2026-10-29, `feat/PF-133-sign-in-history`)
+
+Plan approved in chat (plain words after the owner said the first draft was too technical).
+Owner chose: alert email on a NEW device only (30-day window — owner asked if 90 was too long),
+daily digest now (Vercel Cron, owner set `CRON_SECRET` Sensitive/Production 2026-10-29),
+leaked-password warning = a banner on every admin page; history kept 90 days, the card shows
+10 + SHOW MORE / SHOW LESS up to the 50 sent ("what if the card gets full?"). Closes auth gap #5
+and PF-124's fold-in ("Last changed" + leak check at sign-in, no rotation).
+
+- **Trace:** `login` / `googleExchange` / `googleCallback` (not_allowed) / `sendResetCode` /
+  `resetPassword` / `changePassword` are every door; `deviceLabel` + `requestLocation` already
+  made the PF-132 labels; `isBreached` (PF-125) already fails open; `renderAlert` is the template.
+- **Backend:** NEW `models/SignInEvent.js` (kind `sign-in|reset-request|password-reset|password-change`,
+  outcome `ok|failed`, `user` null for an unknown address, TTL 90 d on `createdAt`), NEW
+  `services/signInLog.js` (`recordEvent` AWAITED — one insert on every path alike, never throws;
+  `afterSignIn` in `waitUntil` = new-device email + leak check), NEW `controllers/digestController.js`
+  + `routes/cronRoutes.js` (`GET /api/cron/digest`, Bearer `CRON_SECRET`, timing-safe, blank
+  secret = off, claims failed rows by run id → exactly once, gives them back on a failed send,
+  mail off claims nothing), `GET /api/auth/sign-ins` (own + `user: null` rows, newest 50) in
+  `sessionController.js`. `User.passwordLeakedAt` (setPassword clears it; the flag is written
+  only while the hash that signed in is still current). `/auth/me` + `passwordChangedAt`,
+  `passwordLeaked` (boolean). `vercel.json` `crons` 02:30 UTC (08:00 Colombo). Seed clears
+  the history. run-jest deletes `CRON_SECRET`; `.env.e2e` blanks it.
+- **Deviation from the plan:** the plan put `recordEvent` in the background; it is AWAITED —
+  a security log should be written reliably, and since every path (unknown address, wrong
+  password, success) does the same one insert, the timing still says nothing.
+- **"Not you? Do this now" (owner, after the first build, before any commit):** both emails get
+  a numbered block — change password (Settings → Password), sign out unknown devices (Settings →
+  Sessions), can't sign in → "Forgot password?" — plus an OPEN ADMIN button (`FRONTEND_URL/admin`).
+  `renderAlert` gained `steps` + `action`; the button is dropped unless the url is http(s) (so a
+  blank FRONTEND_URL → no button, steps stay). The history card says "Don't recognise a line?
+  Change your password above, then sign out any device you don't know." under a non-empty list.
+  Mutants 5/6 → the survivor showed `adminAction`'s own blank check duplicated the template's
+  guard → DELETED; card line mutant killed.
+- **⚠️ Found by the owner — tests were sending REAL mail (a bounce from admin@test.com).**
+  `run-jest.js` DELETED `GMAIL_*`; app.js's `dotenv.config()` re-added them in every worker,
+  so local runs had mail on with the real Gmail login since PF-123 (contact tests; now sign-in
+  alerts to the test address). Fix: blank them (+ `CRON_SECRET`). NEW `mailOffInTests.test.js`,
+  mutant "delete" killed. CI never affected (no `.env`).
+- **Test infra:** NEW `setup/noLeakCheckCalls.js` (Jest `setupFiles`): a fetch to
+  api.pwnedpasswords.com answers "not leaked" — every suite that signs in would otherwise call
+  HIBP from the test machine. Other URLs untouched; a test can still spy on `fetch`.
+- **Frontend:** `authService.getSignIns`, `useSignInHistory` + `SIGN_INS_KEY` (in `useSessions.js`),
+  `SettingsSessionsCard` RECENT ACTIVITY (own LoadError, OK/FAILED badge — `.badgeFailed` =
+  the row-danger pair, reader-local `formatSent`, lists `aria-labelledby` their headings),
+  Password card `LAST CHANGED dd MMM yyyy` (visible folded) + invalidates ME + history after a
+  change, NEW `PasswordLeakBanner.jsx` in `AdminLayout` (role=alert, CHANGE PASSWORD → `goTo`,
+  so the unsaved-changes guard still asks). `adminFoundation` REBUILT_JSX + SessionsCard
+  (missed in PF-132) + the banner.
+- **Tests:** backend NEW `signInHistory.test.js` (34) + Google ok/refused rows + reset/change
+  rows; frontend +5 activity, +2 Last changed, +invalidate check, +2 banner.
+- **Mutants:** backend 25/26 (scratch copy). Survivor: `secret.length > 0` removed — EQUIVALENT
+  over HTTP (Node trims a header's trailing space, so "Bearer " + empty secret cannot arrive);
+  kept as defence in depth, test reworded. Frontend 12/12, files `cmp`-restored.
+- **Gates:** frontend `check` 2317 / 102 (was 2298); backend **1124 / 61 suites** (was 1081 / 59), coverage 85.63 / 77.66 / 89.01 / 86.26; E2E admin +
+  forgotPassword + contact 19/19 (servers by hand: `dotenv-cli/cli.js` direct, `CI=1`).
+- **Browser (owner's dev servers, existing session — NO new sign-in, so no email):** 3 failed
+  attempts made by curl (two wrong-password logins, one unknown-address forgot) show as FAILED
+  rows; Last changed shows; dark + light checked. Leak banner not seen live (needs a leaked
+  password) — covered by tests.
+
+### Outstanding work added by PF-133
+- Live: after merge, `/api/auth/sign-ins` + `/api/cron/digest` → 401 unauthenticated (no email).
+  One LOCAL real-email check of the new-device alert by the owner (never repeated live).
+- Accepted risk: a distributed attacker could fill `signinevents` with junk attempts (per-IP
+  limiters only slow it; TTL 90 d bounds it). Revisit if the M0 storage graph moves.
+- Hobby cron runs "within the hour"; a missed day just folds into the next digest.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
