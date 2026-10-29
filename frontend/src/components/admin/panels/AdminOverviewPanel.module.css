@@ -197,3 +197,36 @@
 :global(html[data-theme='dark']) .statLabel {
   color: var(--muted);
 }
+
+/* ⚠️ PF-142 (owner, 2026-10-29) — OVERVIEW ON A PHONE: numbers 2 × 2.
+   At 375px the four stat cards stacked full-width at ~140px each — a long
+   scroll to read four numbers. Two columns, phone padding and a smaller
+   figure put all four on one screen. JUMP BACK IN's buttons become an even
+   two-column grid, so they read centred rather than ragged.
+   LAST in the file (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .statGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .statCard {
+    padding: 16px 14px;
+  }
+
+  .statValue {
+    font-size: 32px;
+  }
+
+  .actionsRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .action {
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 10px;
+  }
+}

@@ -238,10 +238,16 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
             <span className={styles.email} title={shownEmail}>{shownEmail}</span>
           )}
 
-          <Link to="/?nosplash=1" className={styles.homeLink}>↗ HOME</Link>
+          {/* PF-142: on a phone the header is ONE row, so these two show their
+              icon only — the word stays in the DOM, visually hidden. The
+              accessible names stay exactly "↗ HOME" / "⏻ SIGN OUT", as before
+              (the E2E suite and every screen reader already know them). */}
+          <Link to="/?nosplash=1" className={styles.homeLink}>
+            ↗ <span className={styles.headerLabel}>HOME</span>
+          </Link>
 
           <button type="button" onClick={signOut} className={styles.signOut}>
-            ⏻ SIGN OUT
+            ⏻ <span className={styles.headerLabel}>SIGN OUT</span>
           </button>
 
           <span aria-hidden="true" className={styles.divider} />

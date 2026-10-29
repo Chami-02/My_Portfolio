@@ -884,3 +884,24 @@
   color: var(--acc, #FCA311);
   pointer-events: none;
 }
+
+/* ⚠️ PF-142 (owner, 2026-10-29) — PANELS AND BUTTONS ON A PHONE.
+   Cards keep desktop padding (up to 26px) on a 375px screen and squeeze
+   the fields; the owner chose phone padding. The big buttons measured
+   44–46px — capped at exactly 44 with `min-height` and no vertical
+   padding (a padding sum misses by the line box's rounding). Row buttons
+   (`.btnRow*`, 8×14px) are already small and stay.
+   LAST in the file (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .panel {
+    padding: 16px;
+  }
+
+  .btnPrimary,
+  .btnOutline,
+  .btnDanger {
+    min-height: 44px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
