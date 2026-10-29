@@ -9288,6 +9288,76 @@ risk "in-memory rate-limit store is per serverless instance".
 - Live: health ok + measure the per-request cost only. No forgot ×6 or any other check that
   could send mail (owner, 2026-10-27: inbox full; the shared count is proven locally).
 
+### PF-141 live check (recorded on the PF-132 branch)
+- PR #65 merged as a MERGE COMMIT (`545a2f0`, commits `888b42b` + `ff37b6e`) and deployed
+  2026-10-27 (deploy run 40530605142, all four steps green). No email sent.
+- `/api/health` ok (`portfolio_prod`). ~15 requests answered by DIFFERENT instance ids →
+  the global `RateLimit-Remaining` fell by exactly 1 each time (100 → 85 → 84) — one shared
+  count across instances, proven live.
+- `/auth/refresh` with a fake token → 401 + `RateLimit-Remaining` 59/60; `/auth/me` → 401 +
+  `no-store`.
+- Cost: `/api/health` median ~0.30 s (0.24–0.63 s) ≈ PF-128's 0.25 s — the extra Mongo
+  round trip (bom1 → Atlas Mumbai) is lost in the noise.
+- PR body used `.github/pull_request_template.md` verbatim (owner correction).
+
+## PF-132 — Active sessions + sign out everywhere (2026-10-29, `feat/PF-132-active-sessions`)
+
+Plan approved in chat. Owner chose (1) the PASSWORD re-check before ending a session (OWASP
+ASVS 5.0 V7.5.2) over a plain confirm, (2) PF-133's sign-in history to live INSIDE this
+card later. Half of auth gap #5 (the other half, history + alerts, is PF-133).
+
+- **Trace:** a family = one sign-in; rotation leaves exactly ONE live row per family, made
+  at the last refresh → the list needs no new collection. `revokeAllForUser({ except })`
+  (PF-124) already did "every other device"; `protect`'s `isFamilyLive` makes any revoke
+  instant.
+- **Backend:** `Session` + `startedAt` / `device` / `location` (optional, copied by
+  rotation; no migration). NEW `utils/deviceLabel.js` (label only, hand-written — ua-parser
+  v2 is AGPL). `issueSession(user, { … })` options object (3 callers + 2 tests).
+  `listSessions` (live rows, `createdAt` then `_id` — a same-ms tie flaked 1 run in 4
+  before the tiebreak), `revokeFamily` (user-scoped IN the query). NEW
+  `controllers/sessionController.js` + 3 routes in `authRoutes.js`; NEW `sessionsLimiter`
+  (10/15 min, added to the fail-closed `it.each`). Wrong password 400, this device 400,
+  unknown/foreign 404, empty password "required" (skips bcrypt).
+- **Frontend:** `authService.getSessions/endSession/endOtherSessions`, NEW
+  `hooks/useSessions.js` (refetch on SETTLED), NEW `utils/sessionTimes.js` (nothing finer
+  than 15 min), NEW `SettingsSessionsCard.jsx` + CSS in `AdminSettingsPanel.module.css`.
+  `ConfirmDialog` gained `initialFocusRef`.
+- **Tests:** backend NEW `sessions.routes.test.js` (27) + `deviceLabel.test.js` (18);
+  frontend NEW `SettingsSessionsCard.test.jsx` (13, real TanStack, service mocked),
+  `sessionTimes.test.js` (10), +1 ConfirmDialog, panel test lists 3 cards.
+- **Mutants:** backend 16/16 killed (first pass 15/16 — "empty password allowed" survived
+  because bcrypt also refuses '' → test pins the message); frontend 13/13 + 1 dead code
+  found and DELETED (`Math.max(0, …)` in `activeText` — a negative age already lands in
+  the "last 15 min" branch).
+- **Gates:** backend 1080 / 59 suites (was 1034 / 57), coverage 85.1 / 76.85 / 88.66 /
+  85.73; frontend `check` 2298 / 102 (was 2274 / 100); E2E admin + forgotPassword 14 / 14
+  (servers by hand, `dev:e2e` still broken). E2E logins stored `Chrome on Windows` +
+  `startedAt` (Playwright's Desktop Chrome UA), no location off Vercel.
+- **Browser (owner's dev servers, portfolio_dev):** card lists 2 real sessions (both
+  pre-PF-132 → "Unknown device", the current one took its start from its first rotation);
+  dialog focuses the password; dark + light checked; 375 px iframe: page + card overflow 0,
+  SIGN OUT wraps under the text. Nothing was signed out (the owner's real sessions).
+
+- **Fold (owner, after the first build):** the card folds like Password — `MANAGE SESSIONS ▾`,
+  same classes. Measured live: folded height 89 px = Password's 89 px; open slide 107 → 173
+  → 247 → 286 → 304 → 309 px over ~0.35 s; dark + light. +3 fold tests (starts folded +
+  inert, opens/folds with focus on the toggle, shares the classes); fold mutants 3/3.
+
+- **Owner reported "password says wrong"** on sign-out-all: traced, NOT a bug. Dev and prod
+  have separate passwords; the dev one was changed 2026-10-27 11:33 UTC (local PF-124 email
+  test). Proved with a two-browser Playwright probe on the E2E servers: wrong → 400 "Your
+  password is wrong.", right → 200, list → this device only, browser B → `/admin/login`.
+  The owner then signed in by password and the others were gone.
+- **Dialog buttons smaller, EVERY ConfirmDialog** (owner): 12px 20px / 11.5px → 8px 14px /
+  11px, measured 36 px tall live (Projects delete confirm opened and CANCELLED).
+
+### Outstanding work added by PF-132
+- Not tried end-to-end in a browser with TWO real devices (the owner's real sessions were
+  not signed out); the API path is covered by `sessions.routes.test.js`. Owner can try:
+  sign in in a private window → sign it out from Settings → it lands on login.
+- iPadOS reports a Mac User-Agent → its sessions read "Safari on macOS" (no header says
+  otherwise; client hints are Chromium-only).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

@@ -4561,6 +4561,47 @@ free and already ours). Reverses PF-120's accepted risk "in-memory store is per 
   its own `mongodb` driver). A new limiter gets `store: new MongoStore('<name>')` AND a
   row in the fail-closed `it.each` in `mongoRateLimitStore.test.js`.
 
+## PF-132 — Sessions card: see every device, sign any out WITH the password (owner 2026-10-29)
+
+Owner chose (2026-10-29) the password re-check over a plain confirm — OWASP ASVS 5.0
+V7.5.2 ("view and, having authenticated again, terminate any or all active sessions");
+Google/GitHub mostly skip it. Every admin has a password (Google is an extra door), so a
+Google sign-in confirms with it too.
+
+- **A session = a FAMILY; its LIVE row is the device.** `listSessions` = rows with
+  `revokedAt: null` and `expiresAt > now`, newest first (`_id` breaks a same-millisecond
+  tie). "Last active" = that row's `createdAt` = the last refresh → ±15 min, so the card
+  never claims finer than "ACTIVE IN THE LAST 15 MIN". THIS device says "ACTIVE NOW".
+- **`device`, `location`, `startedAt` on `Session`, set at sign-in, COPIED by every
+  rotation** (like `signedInAs`) — the family's first row is GC'd 7 days after login while
+  the family lives on. A pre-PF-132 row takes `startedAt` from its first rotation since.
+  Optional fields → no migration; missing facts are left OUT, never guessed.
+- **Only a short label is stored** ("Chrome on macOS", `utils/deviceLabel.js`), never the
+  raw User-Agent (data minimisation). Hand-written; `ua-parser-js` v2 is AGPL. Order in its
+  lists is the logic (Edge/Opera say Chrome; iPhone says Mac OS X; Android says Linux).
+  iPadOS sends a Mac UA → reads as macOS, accepted.
+- **`issueSession(user, { family, signedInAs, signInMethod, device, location, startedAt })`**
+  — an options object replaced the positional args (PF-108/119/131 kept appending).
+- **Routes:** `GET /auth/sessions` (protect; `id` = family, already in the client's JWT),
+  `POST /auth/sessions/revoke {id,password}`, `POST /auth/sessions/revoke-others {password}`
+  — both `protect` → `sessionsLimiter` (10/15 min, shared, fails closed) → rules → validate.
+  Wrong password **400, never 401** (PF-124 rule); THIS family → 400 (use SIGN OUT, which
+  also clears the browser's tokens); unknown/other user's family → 404 (`revokeFamily`
+  scopes by user IN the query).
+- **Frontend:** `SettingsSessionsCard` under Password; THIS device first, badge, no button;
+  `ConfirmDialog` + password field (`initialFocusRef`, new prop: focus the field, not
+  CANCEL); immediate, not staged, not in the unsaved-changes guard; refetch on SETTLED (a
+  404'd device leaves the list); `LoadError` on a failed load.
+- **PF-133's sign-in history goes INSIDE this card** as a second part (owner 2026-10-29) —
+  no placeholder until it is built.
+- **The card FOLDS like Password** (owner 2026-10-29): one line `Sessions` + `MANAGE SESSIONS ▾`,
+  the SAME `.disclosure` / `.collapse` classes (never a copy); list fetched on mount so the
+  slide never jumps; focus stays on the toggle; the dialog sits OUTSIDE the inert fold.
+- **Every `ConfirmDialog`'s two buttons are SMALLER than the prototype** (owner 2026-10-29,
+  "really big — reduce the size a bit", chose EVERY dialog over the sign-out one only):
+  Admin.dc.html:612's 12px 20px / 11.5px → the row buttons' 8px 14px / 11px, 36 px tall
+  (still in PF-117's 36–42 px floor). Rules sit under `.actions` (0,2,0). Do not "restore" it.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
