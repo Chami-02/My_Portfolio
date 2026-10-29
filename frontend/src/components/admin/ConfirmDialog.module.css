@@ -62,10 +62,15 @@
   gap: 11px;
 }
 
-/* Admin.dc.html:612 — 12px 20px, 11.5px. `.btnDanger` already carries the
- * colours; these are the dialog's own measurements. */
-.yes {
-  font-size: 11.5px;
+/* Admin.dc.html:612 had 12px 20px, 11.5px. ⚠️ SANCTIONED DEVIATION (owner,
+ * 2026-10-29: "really big — reduce the size a bit", every dialog): the row
+ * buttons' size, 8px 14px, 11px. `.btnDanger` / `.btnPrimary` already carry
+ * the colours. Under `.actions` — (0,2,0) beats the shared button classes'
+ * own padding whichever sheet loads first. */
+.actions .yes,
+.actions .no {
+  padding: 8px 14px;
+  font-size: 11px;
   letter-spacing: .1em;
 }
 
@@ -75,6 +80,5 @@
 }
 
 .no {
-  padding: 12px 20px;
   border-color: rgba(var(--ln), .2);
 }

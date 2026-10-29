@@ -1,6 +1,7 @@
 // frontend/src/components/admin/panels/AdminSettingsPanel.jsx
 import { useMe } from '../../../hooks/useMe';
 import { SettingsPasswordCard } from './SettingsPasswordCard';
+import { SettingsSessionsCard } from './SettingsSessionsCard';
 import styles from './AdminSettingsPanel.module.css';
 import a from '../../../styles/admin.module.css';
 
@@ -9,16 +10,17 @@ import a from '../../../styles/admin.module.css';
  * data, as opposed to About, which is what the site SAYS (owner, 2026-10-13).
  * The prototype has no Settings; the layout is owner-approved 2026-10-27.
  *
- * ⚠️ Only BUILT cards. Sessions (PF-132), sign-in history (PF-133), logo +
- * favicon (PF-134) and backup (PF-135) each add THEIR card when they are
- * built. The owner chose this over greyed-out "coming soon" cards: nothing on
+ * ⚠️ Only BUILT cards. Sign-in history (PF-133, a second part INSIDE the
+ * Sessions card — owner, 2026-10-29), logo + favicon (PF-134) and backup
+ * (PF-135) each arrive when they are built. The owner chose this over greyed-out "coming soon" cards: nothing on
  * screen claims a feature that does not exist yet.
  *
  * The Account card is read-only and reads the `/auth/me` entry the shell has
  * already fetched — no request of its own, so nothing to lose and no
  * LoadError: a failed `/auth/me` ends the session (ProtectedRoute redirects)
  * rather than leaving a panel up. The Password card (PF-124) is the first
- * with a form, and registers with the unsaved-changes guard itself.
+ * with a form, and registers with the unsaved-changes guard itself. The
+ * Sessions card (PF-132) fetches its own list and has its own LoadError.
  */
 export function AdminSettingsPanel() {
   const { data: me } = useMe();
@@ -33,6 +35,8 @@ export function AdminSettingsPanel() {
       </section>
 
       <SettingsPasswordCard />
+
+      <SettingsSessionsCard />
     </div>
   );
 }

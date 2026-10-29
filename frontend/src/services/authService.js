@@ -102,4 +102,20 @@ export const authService = {
    */
   changePassword: ({ code }) =>
     api.post('/auth/password/change', { code }).then((r) => r.data.message),
+
+  /**
+   * PF-132 — every device signed in to the admin, this one marked `current`.
+   * `id` is the session family; it is not a credential.
+   */
+  getSessions: () => api.get('/auth/sessions').then((r) => r.data.data),
+
+  /**
+   * PF-132 — sign one OTHER device out, or every other one. Both need the
+   * current password (OWASP ASVS 5.0 V7.5.2). This device is never ended
+   * here: SIGN OUT in the header also clears this browser's tokens.
+   */
+  endSession: ({ id, password }) =>
+    api.post('/auth/sessions/revoke', { id, password }).then(() => undefined),
+  endOtherSessions: ({ password }) =>
+    api.post('/auth/sessions/revoke-others', { password }).then(() => undefined),
 };

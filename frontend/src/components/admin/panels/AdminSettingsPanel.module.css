@@ -78,7 +78,7 @@
   margin-top: 4px;
 }
 
-/* ── The Password card's fold (owner, 2026-10-27) ──────────────────────────
+/* ── The Password card's fold (owner, 2026-10-27; Sessions too, 2026-10-29) ─
    One line until opened. The button's ::after stretches over the whole row,
    so the title is a click target too while the button stays the one control
    a keyboard or screen reader meets. */
@@ -144,4 +144,67 @@
 
 .collapseInner > .lede {
   margin-top: 18px;
+}
+
+/* ── Sessions card (PF-132) ─────────────────────────────────────────────── */
+
+/* The fold's gap under the header (Password's `.lede` margin). On a wrapper
+   INSIDE `.collapseInner`, so the clip hides it while folded — padding on
+   `.collapseInner` itself would leave an 18px sliver showing. */
+.sessionsBody {
+  padding-top: 18px;
+}
+
+/* "Signed in now" — the card's first part; PF-133's history will be the second. */
+.subhead {
+  margin: 0 0 12px;
+}
+
+.sessions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Text left, SIGN OUT right; on a phone the button drops under the text.
+   The text takes a real basis, never `flex: 1` (basis 0 never wraps). */
+.session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(var(--ln), .1);
+}
+
+.session:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.sessionText {
+  flex: 1 1 260px;
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.sessionDevice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 0;
+}
+
+.sessionMeta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  line-height: 1.6;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
