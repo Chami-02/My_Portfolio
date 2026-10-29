@@ -60,6 +60,23 @@ const sessionSchema = new mongoose.Schema(
       type: String,
       enum: ['password', 'google'],
     },
+    // PF-132 — what the Settings Sessions card shows about this sign-in. All
+    // three are set at login and copied forward by every rotation, like
+    // `signedInAs`: a family's first row is garbage-collected 7 days after the
+    // login while the family lives on, so "first seen" cannot be read off it.
+    // `device` is a short label ("Chrome on macOS"), never the raw User-Agent
+    // — only what the card shows is kept. `location` is approximate and
+    // Vercel-only (utils/requestLocation.js). Absent on sessions from before
+    // PF-132; the card then says less rather than guessing.
+    startedAt: {
+      type: Date,
+    },
+    device: {
+      type: String,
+    },
+    location: {
+      type: String,
+    },
   },
   { timestamps: true }
 );

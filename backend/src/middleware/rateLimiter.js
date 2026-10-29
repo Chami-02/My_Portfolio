@@ -224,4 +224,23 @@ const changeLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter };
+/**
+ * Limiter for signing other devices out (PF-132), shared by
+ * `/sessions/revoke` and `/sessions/revoke-others`. Behind `protect` like
+ * `changeLimiter`, and for the same reason: each request checks the current
+ * password, so this bounds guesses by someone holding a stolen session. The
+ * session LIST (`GET /sessions`) is not limited here — it checks nothing.
+ */
+const sessionsLimiter = rateLimit({
+  store:           new MongoStore('sessions'),
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many sign-out attempts. Please wait 15 minutes before trying again.',
+  },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter };

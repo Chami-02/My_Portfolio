@@ -10,7 +10,11 @@ const {
   changeCodeRules, requestChangeCode, changeRules, changePassword,
 } = require('../controllers/passwordResetController');
 const {
+  getSessions, revokeRules, revokeSessionById, revokeOthersRules, revokeOtherSessions,
+} = require('../controllers/sessionController');
+const {
   authLimiter, refreshLimiter, googleLimiter, forgotLimiter, resetLimiter, changeLimiter,
+  sessionsLimiter,
 } = require('../middleware/rateLimiter');
 
 // Public — rate limited (10 attempts per 15 minutes)
@@ -44,5 +48,11 @@ router.get('/me', protect, getMe);
 // counts only signed-in attempts, never a stranger's 401s.
 router.post('/password/change/code', protect, changeLimiter, changeCodeRules, validate, requestChangeCode);
 router.post('/password/change',      protect, changeLimiter, changeRules,     validate, changePassword);
+
+// Signed-in devices in Settings (PF-132). Signing one out needs the current
+// password (OWASP ASVS 5.0 V7.5.2); `protect` first, as on the change routes.
+router.get('/sessions', protect, getSessions);
+router.post('/sessions/revoke',        protect, sessionsLimiter, revokeRules,       validate, revokeSessionById);
+router.post('/sessions/revoke-others', protect, sessionsLimiter, revokeOthersRules, validate, revokeOtherSessions);
 
 module.exports = router;

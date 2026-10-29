@@ -35,7 +35,7 @@ const nextIp = () => `10.124.${Math.floor(++ip / 250)}.${ip % 250}`;
 let user, me, other, from;
 
 /** A signed-in session for the owner, as a login through `address` makes. */
-const signIn = (address = PRIMARY) => issueSession(user, undefined, address, 'password');
+const signIn = (address = PRIMARY) => issueSession(user, { signedInAs: address, signInMethod: 'password' });
 
 const askCode = (body, session = me) =>
   request(app).post('/api/auth/password/change/code')
