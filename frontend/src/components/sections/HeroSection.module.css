@@ -901,3 +901,31 @@ section.hero {
     left: 0;
   }
 }
+
+/* ⚠️ PF-142 (owner, 2026-10-29) — PHONE CTAs, 44px TALL, ONE LINE.
+   At 375px the two pills measured 52 and 54px tall at the prototype's
+   16px × 26px padding and wrapped onto two lines, pushing the portrait
+   down. The owner chose 44px (Apple HIG's comfortable tap size; WCAG 2.2
+   2.5.8's floor is 24px) with the two side by side.
+
+   `min-height` + no vertical padding, not a smaller padding: a padding sum
+   misses 44 by the line box's rounding (see `.loudCta` above), a
+   min-height cannot. `inline-flex` + `align-items: center` already centre
+   the label. 18px sides + 12px type + a 10px gap fit both pills on one
+   line from 360px up; at 320 the row still wraps (`flex-wrap` unchanged)
+   rather than squeezing.
+
+   LAST in the file on purpose: a media query adds no weight, so a base
+   rule after it would cancel it (styles/__tests__/mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .ctaRow {
+    gap: 10px;
+  }
+
+  .ctaPrimary,
+  .ctaSecondary {
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 12px;
+  }
+}

@@ -297,7 +297,20 @@
   width: 100%;
   height: 2px;
   background: var(--strong);
-  transition: transform .25s ease, opacity .25s ease;
+  transition: transform .25s ease, opacity .25s ease, background .25s ease;
+}
+
+/* PF-142 (owner): the three lines take the accent on hover / tap, the
+   middle one slides — a hint the button does something. */
+.hamburger:hover span,
+.hamburger:active span,
+.hamburger:focus-visible span {
+  background: var(--acc, #FCA311);
+}
+
+.hamburger:hover:not([data-open]) span:nth-child(2),
+.hamburger:active:not([data-open]) span:nth-child(2) {
+  transform: translateX(-6px);
 }
 
 .hamburger[data-open] span:nth-child(1) {
@@ -338,126 +351,264 @@
  * box.
  * ──────────────────────────────────────────────────────────────────── */
 
+/* ⚠️ PF-142 (owner, 2026-10-29) — THE PHONE MENU IS A CARD LIST.
+   Before: five words at 20px, letter-spaced, floating mid-screen, no brand
+   and no sense of place. The owner chose a card list from two drafts:
+   brand + close on top; one glass card, a row per section (accent number,
+   label, arrow), the section being read marked; CONTACT a full-width pill;
+   theme + ADMIN; the availability line from the footer's own field.
+
+   Kept from the overlay it replaces, all for the reasons documented above
+   and in silent-failures: one element is surface AND dismiss target;
+   z-index 80; the header's translucent tone + blur, -webkit- FIRST; the
+   DOM order close → links → CONTACT → toggle → ADMIN (PF-83's focus trap
+   and its tested Tab sequence); 44px tap targets everywhere. */
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 80;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 28px;
-  background: rgba(var(--ftr), .86);
-  /* ⚠️ -webkit- FIRST, standard LAST — order is load-bearing.
-     esbuild's CSS minifier drops whichever of the pair comes first,
-     so `backdrop-filter` before `-webkit-backdrop-filter` shipped
-     webkit-only, and Chrome no longer honours the prefixed form —
-     the blur silently did not render at all. PF-90. */
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  gap: 18px;
+  padding: 18px 18px 28px;
+  overflow-y: auto;
+  background: rgba(var(--ftr), .9);
+  /* -webkit- FIRST, standard LAST — esbuild drops the earlier of the
+     pair, and Chrome no longer honours the prefixed form (PF-90). */
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
 }
 
-/* ⚠️ 44px, not 40 — 2026-08-25 mobile pass. Four pixels short of the
-   touch minimum, and it is the control a visitor reaches for to get OUT
-   of a full-screen overlay. */
+.overlayTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding-right: 52px;   /* the close button sits over this row's right end */
+}
+
+.overlayLogo {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--acc, #FCA311);
+  object-fit: cover;
+}
+
+.overlayBrand {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .12em;
+  color: var(--strong);
+}
+
+.overlayBrandDot {
+  color: var(--acc, #FCA311);
+}
+
+/* 44px — the site's touch minimum; the control a visitor reaches for to
+   get OUT of a full-screen overlay. */
 .overlayClose {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  place-items: center;
   width: 44px;
   height: 44px;
-  font-size: 28px;
+  border-radius: 50%;
+  font-size: 24px;
   line-height: 1;
   color: var(--strong);
-  background: none;
-  border: none;
+  background: rgba(var(--srf), .55);
+  border: 1px solid rgba(var(--ln), .14);
   cursor: pointer;
+  transition: color .25s, background .25s, border-color .25s, transform .3s, box-shadow .25s;
+}
+
+/* PF-142 (owner): the × changes colour — accent ink, accent ring and glow,
+   and a quarter turn. On a phone `:hover` is a tap, so `:active` (while
+   pressed) and `:focus-visible` (keyboard) get the same treatment. */
+.overlayClose:hover,
+.overlayClose:active,
+.overlayClose:focus-visible {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 0 18px rgba(252, 163, 17, .45);
+  transform: rotate(90deg);
 }
 
 .overlayNav {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  /* 8px, not 20. The links' boxes grew from 32px to 44px above, so the
-     gap shrinks by the same 12px and the SPACE BETWEEN LABELS stays at
-     the 20px this was tuned to. Changing one without the other is what
-     turns a tap-target fix into a visible layout change. */
-  gap: 8px;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
 }
 
-/* ⚠️ THE MOST IMPORTANT TOUCH TARGETS ON THE SITE, and they measured
-   32px tall — 2026-08-25 mobile pass.
-   
-   At 20px with no padding the line box is 32px. These are the ONLY way
-   to navigate on a phone, they sit 20px apart, and a missed tap lands on
-   the neighbouring section rather than nothing.
-   
-   ⚠️ They were missed by the first two audit passes because the overlay
-   was CLOSED — an automated sweep over the page never opens it. Every
-   other tap target on the site was already measured and fixed while
-   these, the ones that matter most, were not. Open the menu before
-   trusting a mobile audit.
-   
-   `min-height` plus flex centring rather than padding: the links are
-   centred in a flex column, and vertical padding would push the visual
-   spacing to 20 + 12 + 12 = 44px between labels while the gap already
-   reads correctly at 20. This grows the BOX, not the rhythm. */
+.overlayCard {
+  display: grid;
+  border-radius: 18px;
+  background: rgba(var(--srf), .55);
+  border: 1px solid rgba(var(--ln), .12);
+  overflow: hidden;
+}
+
+/* One row per section. Rises in, one after another (`--i`), through the
+   shared riseIn carrier — reduced motion collapses it (motion.css). */
 .overlayLink {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 20px;
-  letter-spacing: .1em;
-  color: var(--strong);
-  text-decoration: none;
+  composes: kf-riseIn-portfolio from global;
+  animation-duration: .38s;
+  animation-timing-function: cubic-bezier(.2, .7, .2, 1);
+  animation-fill-mode: both;
+  animation-delay: calc(var(--i, 0) * 45ms);
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 44px;
+  gap: 14px;
+  min-height: 52px;
+  padding: 0 18px;
+  border-top: 1px solid rgba(var(--ln), .08);
+  color: var(--strong);
+  text-decoration: none;
+  transition: background .2s;
 }
 
-/* composes: the element carries both classes, and these rules win on
-   source order (equal specificity, defined later). */
+.overlayLink:first-child {
+  border-top: none;
+}
+
+.overlayLink:hover,
+.overlayLink:active,
+.overlayLink:focus-visible,
+.overlayLink[aria-current] {
+  background: rgba(252, 163, 17, .08);
+}
+
+/* PF-142 (owner): a touch of movement on hover / tap — the label slides
+   right and takes the accent, the number brightens. */
+.overlayLabel,
+.overlayNum {
+  transition: transform .2s, color .2s;
+}
+
+.overlayLink:hover .overlayLabel,
+.overlayLink:active .overlayLabel,
+.overlayLink:focus-visible .overlayLabel {
+  transform: translateX(4px);
+  color: var(--acc, #FCA311);
+}
+
+.overlayLink:hover .overlayNum,
+.overlayLink:active .overlayNum {
+  color: var(--strong);
+}
+
+.overlayLink:active {
+  background: rgba(252, 163, 17, .14);
+}
+
+/* The section being read: an accent bar on the leading edge. */
+.overlayLink[aria-current] {
+  box-shadow: inset 3px 0 0 var(--acc, #FCA311);
+}
+
+.overlayNum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--acc, #FCA311);
+}
+
+.overlayLabel {
+  flex: 1 1 auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  letter-spacing: .12em;
+}
+
+.overlayArrow {
+  font-size: 15px;
+  color: var(--muted);
+  transition: transform .2s, color .2s;
+}
+
+.overlayLink:hover .overlayArrow,
+.overlayLink:active .overlayArrow,
+.overlayLink:focus-visible .overlayArrow,
+.overlayLink[aria-current] .overlayArrow {
+  color: var(--acc, #FCA311);
+  transform: translateX(3px);
+}
+
+/* Composes the header's pill (glowpulse and all); full width here. Wins on
+   source order — both rules in this one file. */
 .overlayContactPill {
   composes: contactPill;
-  font-size: 14px;
-  padding: 14px 28px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 48px;
+  font-size: 13px;
+  padding: 0 24px;
 }
 
 .overlayAdminLink {
   composes: adminLink;
-  font-size: 14px;
-  padding: 14px 28px;
-  /* ⚠️ Resets .adminLink's 32px. That margin isolates ADMIN in the
-     DESKTOP header row; inherited here it shoves the overlay's centred
-     [toggle, ADMIN] pair 32px off-centre — a layout bug with nothing
-     wrong in either rule read alone. Wins on source order, which is
-     deterministic because both rules are in this one file (same pattern
-     .overlayContactPill above already uses). */
+  font-size: 12px;
+  padding: 0 22px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  /* adminLink's margin-left belongs to the DESKTOP header row; inherited
+     here it shoves the row off-centre. */
   margin-left: 0;
-}
-
-/* ── Overlay chrome row — owner-requested 2026-08-22 ──────────────────
- *
- * The desktop's three-group rhythm restated vertically: the links and
- * CONTACT stack as before, then a rule, then the toggle and ADMIN
- * side by side as one chrome cluster.
- *
- * ⚠️ DOM order is unchanged — links → CONTACT → toggle → ADMIN, with
- * ADMIN still last. PF-83 specified and verified that Tab sequence,
- * and the focus trap reads document order from
- * `querySelectorAll('a[href], button:not([disabled])')`, so wrapping
- * the last two in a row moves them on screen without moving them in
- * the sequence.
- * ──────────────────────────────────────────────────────────────────── */
-
-.overlayDivider {
-  width: 120px;
-  height: 1px;
-  margin-top: 8px;
-  background: rgba(var(--ln), .16);
 }
 
 .overlayChrome {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 16px;
+}
+
+.overlayStatus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 4px 0 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  color: var(--muted);
+}
+
+.overlayStatus[data-on] {
+  color: var(--ok);
+}
+
+.overlayStatusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.overlayStatus[data-on] .overlayStatusDot {
+  background: var(--ok);
+  box-shadow: 0 0 10px rgba(52, 211, 153, .7);
+}
+
+/* PF-142 (owner): CONTACT and ADMIN answer a tap too — a small press. */
+.overlayContactPill,
+.overlayAdminLink {
+  transition: transform .15s, background .25s, color .25s, border-color .25s;
+}
+
+.overlayContactPill:active,
+.overlayAdminLink:active {
+  transform: scale(.97);
 }

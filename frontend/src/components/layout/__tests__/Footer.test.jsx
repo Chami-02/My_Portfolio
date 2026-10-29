@@ -782,9 +782,10 @@ describe('Footer (PF-88)', () => {
       const { unmount } = renderFooter({ path });
       expect(
         screen.getByText(/ALL RIGHTS RESERVED/),
-      ).toHaveTextContent(
-        '© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM SCRATCH',
-      );
+      // Exact (anchored): a string here is a SUBSTRING match, which the
+      // old "· DESIGNED & BUILT FROM SCRATCH" tail would also satisfy.
+      ).toHaveTextContent(/^© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED$/);
+      expect(screen.queryByText(/FROM SCRATCH/)).toBeNull();   // PF-142, owner
       unmount();
     }
   });

@@ -3702,6 +3702,16 @@ Since PF-141 every limiter counts in the `ratelimits` collection. Older entries 
 - **Two back-to-back hits can share a millisecond** — "the window end did not move"
   passed with the end moving; test with a window opened minutes earlier.
 
+## PF-142 (2026-10-29) — a @media override cancelled by a LATER base rule
+
+- A media query adds NO specificity. Footer.module.css's phone block sat above the base rules it
+  overrode, so 4 declarations never applied for two months (status card right-aligned on phones,
+  the owner's "off-centre"). No error; `mobile.test.js` passed because it reads DECLARATIONS per
+  @media, not the cascade. Guard: `styles/__tests__/mediaOrder.test.js` (every sheet, self-tested).
+- `toHaveTextContent('string')` is a SUBSTRING match — a removed tail still passes. Anchor it.
+- Hiding an icon with `aria-hidden` CHANGES the accessible name ("↗ HOME" → "HOME"); E2E
+  `getByRole({ name, exact })` breaks. Visual-only changes must keep names.
+
 ## PF-133 (2026-10-29) — two traps found building the history
 
 - **⚠️ run-jest's `delete process.env.GMAIL_*` never worked (PF-123 → PF-133).** app.js runs

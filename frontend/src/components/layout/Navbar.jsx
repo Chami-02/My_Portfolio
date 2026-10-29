@@ -4,7 +4,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
 import logo from '../../assets/logo.webp';
 import styles from './Navbar.module.css';
-import { navModel } from '../../utils/nav';
+import { navModel, currentSectionId } from '../../utils/nav';
+import { useAbout } from '../../hooks/useAbout';
 
 /**
  * A hash target on the current page is a plain <a> — the browser's own
@@ -14,7 +15,9 @@ import { navModel } from '../../utils/nav';
  * the two unoptimised hero images (1.4MB + 2.3MB) that a full document
  * load would.
  */
-function NavAnchor({ href, className, onClick, ref, children }) {
+function NavAnchor({ href, className, onClick, ref, children, ...rest }) {
+  // `...rest` (PF-142): the phone menu's rows pass `aria-current` and the
+  // `--i` stagger as `style`; every other caller passes neither.
   // `ref` as an ordinary prop, not forwardRef — React 19 passes it
   // straight through, and react-router v7's <Link> forwards it to the
   // <a> it renders (the same property PF-86 relies on for
@@ -22,13 +25,13 @@ function NavAnchor({ href, className, onClick, ref, children }) {
   // focusable anchor, which is what the overlay's open effect needs.
   if (href.startsWith('#')) {
     return (
-      <a href={href} className={className} onClick={onClick} ref={ref}>
+      <a href={href} className={className} onClick={onClick} ref={ref} {...rest}>
         {children}
       </a>
     );
   }
   return (
-    <Link to={href} className={className} onClick={onClick} ref={ref}>
+    <Link to={href} className={className} onClick={onClick} ref={ref} {...rest}>
       {children}
     </Link>
   );
@@ -209,6 +212,17 @@ function MobileOverlay({ model, onClose }) {
   const firstLinkRef = useRef(null);
   const overlayRef = useRef(null);
   const triggerRef = useRef(null);
+  const { data: about } = useAbout();
+  // PF-142 — the footer's own rule: one field drives every render site.
+  const isAvailable = about?.availableForWork ?? true;
+  // PF-142 — the row for the section the reader is in, read ONCE as the
+  // menu opens (the page cannot scroll behind it: the body is locked).
+  // Only on-page links (`#id`); on /blog every link leaves the page.
+  const [current] = useState(() => currentSectionId(
+    model.links.map((l) => l.href).filter((h) => h.startsWith('#')).map((h) => h.slice(1)),
+    (id) => document.getElementById(id)?.getBoundingClientRect().top,
+    window.innerHeight,
+  ));
 
   useEffect(() => {
     // Captured here rather than as useRef(document.activeElement),
@@ -299,6 +313,14 @@ function MobileOverlay({ model, onClose }) {
       aria-label="Site navigation"
       onClick={onClose}
     >
+      {/* PF-142 — the brand above the card. Not a link: one more focusable
+          would change the overlay's tested Tab sequence (PF-83), and the
+          card's rows already go everywhere it could. */}
+      <div className={styles.overlayTop} aria-hidden="true">
+        <img src={logo} alt="" width="34" height="34" className={styles.overlayLogo} />
+        <span className={styles.overlayBrand}>PARINDRA<span className={styles.overlayBrandDot}>.</span>DEV</span>
+      </div>
+
       <button
         type="button"
         className={styles.overlayClose}
@@ -313,17 +335,32 @@ function MobileOverlay({ model, onClose }) {
           only prevents the theme toggle, and the gaps between items,
           from dismissing the menu. */}
       <nav className={styles.overlayNav} onClick={(e) => e.stopPropagation()}>
-        {model.links.map((link, i) => (
-          <NavAnchor
-            key={link.href}
-            href={link.href}
-            ref={i === 0 ? firstLinkRef : undefined}
-            className={styles.overlayLink}
-            onClick={onClose}
-          >
-            {link.label}
-          </NavAnchor>
-        ))}
+        {/* PF-142 (owner, 2026-10-29) — the CARD LIST: one row per
+            section, a small number and an arrow (both hidden from screen
+            readers, so each link's name stays its label), the reader's
+            current section marked. `--i` staggers the rows' rise. */}
+        <div className={styles.overlayCard}>
+          {model.links.map((link, i) => {
+            const isHere = link.href === `#${current}`;
+            return (
+              <NavAnchor
+                key={link.href}
+                href={link.href}
+                ref={i === 0 ? firstLinkRef : undefined}
+                className={styles.overlayLink}
+                aria-current={isHere ? 'location' : undefined}
+                style={{ '--i': i }}
+                onClick={onClose}
+              >
+                <span aria-hidden="true" className={styles.overlayNum}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className={styles.overlayLabel}>{link.label}</span>
+                <span aria-hidden="true" className={styles.overlayArrow}>→</span>
+              </NavAnchor>
+            );
+          })}
+        </div>
         <NavAnchor
           href={model.pillHref}
           className={styles.overlayContactPill}
@@ -336,7 +373,6 @@ function MobileOverlay({ model, onClose }) {
             ADMIN still last. The wrapper moves the last two onto one
             row on screen; the focus trap reads document order from
             querySelectorAll, so the tested Tab sequence is unaffected. */}
-        <span aria-hidden="true" className={styles.overlayDivider} />
         <div className={styles.overlayChrome}>
           <ThemeToggle />
           <Link
@@ -347,6 +383,12 @@ function MobileOverlay({ model, onClose }) {
             ADMIN
           </Link>
         </div>
+
+        {/* PF-142 — the same two states as the footer's status row. */}
+        <p className={styles.overlayStatus} data-on={isAvailable || undefined}>
+          <span aria-hidden="true" className={styles.overlayStatusDot} />
+          {isAvailable ? 'AVAILABLE FOR WORK' : 'CURRENTLY BUILDING'}
+        </p>
       </nav>
     </div>
   );

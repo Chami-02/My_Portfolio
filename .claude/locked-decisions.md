@@ -4627,6 +4627,21 @@ Google sign-in confirms with it too.
 - `recordEvent` is AWAITED (reliable log; same one insert on every path, so no timing oracle);
   the email + leak check are background.
 
+## PF-142 — Mobile pass (owner 2026-10-29/30) — SANCTIONED DEVIATIONS, phones ≤560px only
+
+- Hero + contact CTAs **44px** tall (were 49–54); hero pair side by side from 360px.
+- Public footer **centred** on phones (identity, pill, link pair as a group, status card);
+  tablet keeps the stacked left-hug. Copyright drops "· DESIGNED & BUILT FROM SCRATCH"
+  (prototype line 600's tail) — now "© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED".
+- Phone menu = **card list** (brand + ×, numbered rows with arrows, current section marked,
+  full-width CONTACT, theme + ADMIN, availability line), hover/tap effects, × turns accent with
+  a quarter turn, hamburger lines turn accent. Replaces PF-79's centred 20px words. "No active-link
+  highlighting" (PF-79 fidelity note) is REVERSED for the phone menu only.
+- Admin on phones: header one row (CMS pill hidden; HOME / SIGN OUT 40px icons, names unchanged);
+  strip pills 40px; overview stats 2×2; panel padding 16px; big buttons exactly 44px; admin footer
+  centred, buttons share the row.
+- Every phone @media block sits LAST in its sheet — `mediaOrder.test.js` enforces it site-wide.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

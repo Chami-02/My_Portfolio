@@ -557,3 +557,69 @@
     display: none;
   }
 }
+
+/* ⚠️ PF-142 (owner, 2026-10-29) — THE ADMIN ON A PHONE (≤560px).
+   Measured at 375px before: the header wrapped to TWO rows (~150px) —
+   logo, CMS, HOME, then SIGN OUT and the sun alone below; the section
+   strip's pills showed 2½ sections at a time. Owner chose: header on ONE
+   row, a smaller strip. Desktop and tablet untouched.
+
+   Header: the CMS pill goes; HOME and SIGN OUT become 40px round icon
+   buttons (PF-117's 36–42px admin rule) whose words stay in the DOM,
+   visually hidden — still each control's name for a screen reader. The
+   home link takes `margin-left: auto`, pushing the three controls right
+   and leaving the brand left: one balanced row.
+
+   LAST in the file: a media query adds no weight, so a base rule after it
+   would cancel it (styles/__tests__/mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .headerInner {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .cmsPill {
+    display: none;
+  }
+
+  .homeLink,
+  .signOut {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    font-size: 15px;
+    letter-spacing: 0;
+  }
+
+  .homeLink {
+    margin-left: auto;
+  }
+
+  .headerLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sidebarInner {
+    padding: 10px 14px;
+    gap: 6px;
+  }
+
+  .nav {
+    gap: 6px;
+  }
+
+  .navItem {
+    min-height: 40px;
+    padding: 8px 12px;
+    gap: 8px;
+    font-size: 13px;
+  }
+}

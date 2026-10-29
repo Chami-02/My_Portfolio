@@ -260,7 +260,7 @@ test.describe('Footer (PF-88)', () => {
       await expect(footer.getByText(heading, { exact: true })).toBeVisible();
     }
     await expect(footer.getByText('AVAILABLE FOR WORK')).toBeVisible();
-    await expect(footer.getByText(/© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM SCRATCH/)).toBeVisible();
+    await expect(footer.getByText('© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED', { exact: true })).toBeVisible();
     await expect(footer.getByRole('link', { name: 'START A PROJECT →' })).toHaveAttribute('href', '#contact');
     // The logo is decorative — the name and role are real text beside it.
     await expect(footer.locator('img')).toHaveAttribute('alt', '');

@@ -596,3 +596,12 @@ describe('AdminLayout — the leaked-password banner', () => {
     expect(onTabChange).toHaveBeenCalledWith('settings');
   });
 });
+
+// PF-142 — on a phone the header shows icons only, but the names stay.
+describe('AdminLayout — header names survive the phone layout', () => {
+  it('keeps the exact names "↗ HOME" and "⏻ SIGN OUT"', () => {
+    renderShell();
+    expect(screen.getByRole('link', { name: '↗ HOME' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '⏻ SIGN OUT' }).length).toBeGreaterThan(0);
+  });
+});

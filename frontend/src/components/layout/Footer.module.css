@@ -181,71 +181,6 @@
   align-items: start;
 }
 
-/* ⚠️ THE THREE-ZONE GRID MUST STACK, and unlike the prototype's it does
-   not do so on its own.
-   
-   `repeat(auto-fit, minmax(min(100%, 210px), 1fr))` drops a column
-   whenever the tracks stop fitting; three explicit tracks never do —
-   they just get narrower. Measured before this rule was added: zone
-   widths went 323/217/320 at 1024px to 116/191/50 at 375px, with the
-   status card crushed to 50px and the outer zones OVERLAPPING below
-   430px. No horizontal scrollbar, nothing in the console — it simply
-   collapsed in on itself.
-   
-   900px is where the three zones stop being comfortable rather than
-   where they break (they break at 430px): at 900 the outer zones are
-   273px and the bio is already wrapping to four lines. */
-@media (max-width: 899px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* ⚠️ 44px TAP TARGETS. At 14px with no padding these links render 22px
-     tall — half the minimum, and they are the densest set of touch
-     targets on the site: ten of them stacked 12px apart, where a missed
-     tap hits the neighbouring link rather than nothing.
-
-     The column's own gap goes to 0 in exchange, so the rhythm stays
-     close to the desktop's 34px per row (22 + 12) rather than jumping to
-     56. The links look identical; only the box around them grows.
-
-     Scoped by WIDTH rather than `(pointer: coarse)` deliberately: it
-     matches the breakpoint this file already stacks at, and it is
-     verifiable in the same measurement pass. A desktop window dragged
-     below 900px gets slightly roomier links, which is harmless. */
-  .column {
-    gap: 0;
-  }
-
-  /* `display: flex` and `align-items: center` used to live here too.
-     They moved to the base rule on 2026-08-29, when the ELSEWHERE links
-     gained brand marks and needed the row at every width — repeating
-     them here would be two inert declarations the next reader treats as
-     load-bearing. Only the tap-target floor is width-scoped. */
-  .link {
-    min-height: 44px;
-  }
-
-  /* Same 44px floor, 2px short of it at the prototype's own padding.
-     `min-height` rather than more padding so the label stays optically
-     centred and the pill's 999px radius is unaffected. */
-  .statusCta {
-    min-height: 44px;
-  }
-
-  /* Everything hugs the left once stacked — a centred link pair and a
-     right-aligned card under a left-aligned identity block reads as
-     three unrelated fragments. */
-  .linkGroup,
-  .status {
-    justify-self: start;
-  }
-
-  .status {
-    max-width: 340px;
-  }
-}
-
 /* The two link columns, grouped and centred between the outer zones.
    Their own gap is wider than the grid's — they are a pair, and at the
    grid's gap they read as two more equal columns. */
@@ -688,4 +623,105 @@
      wraps only where it genuinely cannot. */
   display: inline-block;
   line-height: 1.9;
+}
+
+/* ⚠️ PF-142 (2026-10-29) — THIS BLOCK MUST STAY LAST IN THE FILE.
+   It used to sit straight after `.grid`, ABOVE the base rules for
+   `.linkGroup`, `.column` and `.status`. A media query adds no weight, so
+   at equal specificity the LATER rule wins — and four of its declarations
+   (`.linkGroup` and `.status` justify-self, `.status` max-width, `.column`
+   gap) never applied on a phone. Nothing errored: the status card simply
+   stayed right-aligned (31px gap left, 16px right at 375px — the owner
+   saw it as "off-centre"), the link pair stayed centred and the rows kept
+   their desktop gap. Pinned by styles/__tests__/mediaOrder.test.js. */
+/* ⚠️ THE THREE-ZONE GRID MUST STACK, and unlike the prototype's it does
+   not do so on its own.
+   
+   `repeat(auto-fit, minmax(min(100%, 210px), 1fr))` drops a column
+   whenever the tracks stop fitting; three explicit tracks never do —
+   they just get narrower. Measured before this rule was added: zone
+   widths went 323/217/320 at 1024px to 116/191/50 at 375px, with the
+   status card crushed to 50px and the outer zones OVERLAPPING below
+   430px. No horizontal scrollbar, nothing in the console — it simply
+   collapsed in on itself.
+   
+   900px is where the three zones stop being comfortable rather than
+   where they break (they break at 430px): at 900 the outer zones are
+   273px and the bio is already wrapping to four lines. */
+@media (max-width: 899px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* ⚠️ 44px TAP TARGETS. At 14px with no padding these links render 22px
+     tall — half the minimum, and they are the densest set of touch
+     targets on the site: ten of them stacked 12px apart, where a missed
+     tap hits the neighbouring link rather than nothing.
+
+     The column's own gap goes to 0 in exchange, so the rhythm stays
+     close to the desktop's 34px per row (22 + 12) rather than jumping to
+     56. The links look identical; only the box around them grows.
+
+     Scoped by WIDTH rather than `(pointer: coarse)` deliberately: it
+     matches the breakpoint this file already stacks at, and it is
+     verifiable in the same measurement pass. A desktop window dragged
+     below 900px gets slightly roomier links, which is harmless. */
+  .column {
+    gap: 0;
+  }
+
+  /* `display: flex` and `align-items: center` used to live here too.
+     They moved to the base rule on 2026-08-29, when the ELSEWHERE links
+     gained brand marks and needed the row at every width — repeating
+     them here would be two inert declarations the next reader treats as
+     load-bearing. Only the tap-target floor is width-scoped. */
+  .link {
+    min-height: 44px;
+  }
+
+  /* Same 44px floor, 2px short of it at the prototype's own padding.
+     `min-height` rather than more padding so the label stays optically
+     centred and the pill's 999px radius is unaffected. */
+  .statusCta {
+    min-height: 44px;
+  }
+
+  /* Everything hugs the left once stacked — a centred link pair and a
+     right-aligned card under a left-aligned identity block reads as
+     three unrelated fragments. */
+  .linkGroup,
+  .status {
+    justify-self: start;
+  }
+
+  .status {
+    max-width: 340px;
+  }
+}
+
+/* PF-142 (owner, 2026-10-29) — ON A PHONE THE WHOLE FOOTER IS CENTRED.
+   The stacked layout above hugs everything left, which suits a tablet; on
+   a phone the owner found it "not centralized" (screenshot at ~470px):
+   identity, bio, availability pill and the link pair sat left while the
+   status card sat in the middle. Now one axis: the identity block, its
+   text and pill centre; the link PAIR centres as a group (each column's
+   own labels stay left-aligned, so the two lists still read as lists);
+   the status card centres. Last in the file (mediaOrder). */
+@media (max-width: 560px) {
+  .identity {
+    justify-self: center;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .brandRow {
+    justify-content: center;
+  }
+
+  .availability,
+  .availabilityOff,
+  .linkGroup,
+  .status {
+    justify-self: center;
+  }
 }

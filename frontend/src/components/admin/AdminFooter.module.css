@@ -214,3 +214,52 @@
     justify-content: flex-start;
   }
 }
+
+/* ⚠️ PF-142 (owner, 2026-10-29) — THE ADMIN FOOTER, CENTRED ON A PHONE.
+   Stacked at 375px everything hugged the left and the two buttons sat
+   ragged; the owner asked for it centred. Brand row, text, session lines
+   and buttons centre; the two buttons share the row equally. The legal
+   line gets room under it so the fixed round ↑ button (bottom-right)
+   never sits on top of the © text.
+   LAST in the file (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .inner {
+    text-align: center;
+    justify-items: center;
+  }
+
+  .brandRow,
+  .sessionLine {
+    justify-content: center;
+  }
+
+  .sessionCol {
+    justify-items: center;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  /* Half a 347px row each: tighter tracking keeps BACK TO HOME PAGE on
+     one line (it wrapped at the desktop .12em). */
+  .backLink,
+  .signOut {
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 10px;
+    letter-spacing: .05em;
+    white-space: nowrap;
+  }
+
+  .signOut {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .legal {
+    padding-bottom: 64px;
+  }
+}

@@ -475,3 +475,23 @@ section.contact {
   transform: none;
   box-shadow: 0 12px 34px rgba(252, 163, 17, .3);
 }
+
+/* ⚠️ PF-142 (owner, 2026-10-29) — PHONE BUTTONS, 44px TALL.
+   At 375px the email, CV, social and SEND MESSAGE pills measured 49–51px
+   at 15px top and bottom. The owner chose 44px (Apple HIG's comfortable
+   tap size). `min-height` + no vertical padding — exact, where a padding
+   sum is off by the line box's rounding. Widths, type and colours are
+   untouched.
+
+   LAST in the file on purpose: a media query adds no weight, so a base
+   rule after it would cancel it (styles/__tests__/mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .emailLink,
+  .cvLink,
+  .socialLink,
+  .submit {
+    min-height: 44px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}

@@ -2,6 +2,7 @@
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -14,10 +15,17 @@ const navCss = readFileSync(
   'utf8',
 ).replace(/\/\*[\s\S]*?\*\//g, '');
 
+// PF-142: the phone menu reads About's availability (the footer's field),
+// so the Navbar needs the app's QueryClient, as it has in App. Nothing is
+// fetched in these tests: `retry: false` and no About loaded = the footer's
+// "available" default.
+const queryClient = () => new QueryClient({ defaultOptions: { queries: { retry: false, enabled: false } } });
 const withProviders = (ui) => (
-  <MemoryRouter>
-    <ThemeProvider>{ui}</ThemeProvider>
-  </MemoryRouter>
+  <QueryClientProvider client={queryClient()}>
+    <MemoryRouter>
+      <ThemeProvider>{ui}</ThemeProvider>
+    </MemoryRouter>
+  </QueryClientProvider>
 );
 
 /**
@@ -258,7 +266,8 @@ describe('Navbar (PF-79)', () => {
     act(() => {
       screen.getByLabelText('Open menu').click();
     });
-    const links = screen.getAllByText('ABOUT');
+    // PF-142: the overlay's label is a span INSIDE the link now.
+    const links = screen.getAllByText('ABOUT').map((el) => el.closest('a'));
     expect(document.activeElement).toBe(links[links.length - 1]);
   });
 
@@ -441,11 +450,13 @@ describe('Navbar (PF-79)', () => {
 describe('route-awareness (2026-08-22)', () => {
   const at = (path) =>
     render(
-      <MemoryRouter initialEntries={[path]}>
-        <ThemeProvider>
-          <Navbar />
-        </ThemeProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient()}>
+        <MemoryRouter initialEntries={[path]}>
+          <ThemeProvider>
+            <Navbar />
+          </ThemeProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
   const hrefOf = (label) => screen.getByText(label).closest('a').getAttribute('href');
@@ -607,5 +618,41 @@ describe('route-awareness (2026-08-22)', () => {
       const links = screen.getAllByText('ABOUT');
       expect(document.activeElement).toBe(links[links.length - 1].closest('a'));
     });
+  });
+});
+
+// PF-142 (owner, 2026-10-29) — the phone menu's card list.
+describe('the phone menu card list (PF-142)', () => {
+  const open = () => {
+    render(withProviders(<Navbar />));
+    act(() => { screen.getByLabelText('Open menu').click(); });
+    return screen.getByRole('dialog', { name: 'Site navigation' });
+  };
+
+  it('numbers the rows and adds an arrow — neither is part of a link\'s name', () => {
+    const dialog = open();
+    const about = [...dialog.querySelectorAll('a')].find((a) => a.textContent.includes('ABOUT'));
+    expect(about).toHaveTextContent(/^01\s*ABOUT\s*→$/);
+    expect(screen.getAllByRole('link', { name: 'ABOUT' }).at(-1)).toBe(about);
+  });
+
+  it('says whether the owner is available, from the footer\'s own field', () => {
+    const dialog = open();
+    expect(dialog).toHaveTextContent('AVAILABLE FOR WORK');
+  });
+
+  it('shows the brand, but adds no focusable to the trap', () => {
+    const dialog = open();
+    expect(dialog).toHaveTextContent('PARINDRA.DEV');
+    expect(dialog.querySelector('[class*="overlayTop"]').querySelectorAll('a, button')).toHaveLength(0);
+  });
+
+  it('marks the section being read', () => {
+    render(withProviders(<><Navbar /><section id="skills" /></>));
+    document.getElementById('skills').getBoundingClientRect = () => ({ top: 10 });
+    act(() => { screen.getByLabelText('Open menu').click(); });
+    const dialog = screen.getByRole('dialog', { name: 'Site navigation' });
+    const marked = dialog.querySelectorAll('[aria-current="location"]');
+    expect([...marked].map((a) => a.getAttribute('href'))).toEqual(['#skills']);
   });
 });

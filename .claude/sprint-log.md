@@ -9432,12 +9432,76 @@ and PF-124's fold-in ("Last changed" + leak check at sign-in, no rotation).
   rows; Last changed shows; dark + light checked. Leak banner not seen live (needs a leaked
   password) — covered by tests.
 
+### PF-133 live check (2026-10-29, after PR #67 → `698a031`, deploy run 40921777161 success; recorded on the PF-142 branch)
+- `GET /api/health` 200, `database: portfolio_prod`, served from `bom1`.
+- `GET /api/auth/sign-ins` → 401 "not logged in", `Cache-Control: no-store`.
+- `GET /api/cron/digest` → 401 "Not allowed." with NO header, a WRONG secret and a bare
+  `Bearer`; `no-store`. Control `/api/auth/no-such-route` → 404; `/api/auth/me` → 401.
+- No email sent. `CRON_SECRET` set by the owner in Vercel (Production, Sensitive) before merge.
+- Owner after the merge: reset the PRODUCTION admin password (dev and prod differ by design) and
+  put it in `backend/.env` as `Production_PW` → moved to the password manager on advice, the line
+  deleted from `.env` (nothing read it; plain text loaded into every local process).
+- Still to confirm: Vercel → Settings → Cron Jobs lists `/api/cron/digest`; the first digest.
+
 ### Outstanding work added by PF-133
 - Live: after merge, `/api/auth/sign-ins` + `/api/cron/digest` → 401 unauthenticated (no email).
   One LOCAL real-email check of the new-device alert by the owner (never repeated live).
 - Accepted risk: a distributed attacker could fill `signinevents` with junk attempts (per-IP
   limiters only slow it; TTL 90 d bounds it). Revisit if the M0 storage graph moves.
 - Hobby cron runs "within the hour"; a missed day just folds into the next digest.
+
+## PF-142 — Mobile pass (2026-10-29/30, `feat/PF-142-mobile-pass`)
+
+Plan approved in chat (plain words). Owner: most visitors are on phones; buttons too big, footer
+status box off-centre, admin "not friendly". Owner chose 44px buttons, hero pair side by side,
+ticket PF-142; later asked to remove "DESIGNED & BUILT FROM SCRATCH", centre the admin header +
+footer + content, centre the WHOLE public footer (screenshot at ~470px), redesign the phone menu
+(chose "card list" of two drafts), hover/tap effects on the menu and a colour-changing ×.
+
+- **Measured first (375px iframe probe):** hero CTAs 52–54px stacked; contact 49–51px; footer
+  status 31px left / 16px right; admin header two rows (~150px), strip pills 2½ visible, stat cards
+  full-width, 44–46px buttons.
+- **ROOT CAUSE of the off-centre footer — a cascade bug, not a design choice:** Footer.module.css's
+  `@media (max-width: 899px)` block sat ABOVE the base `.linkGroup` / `.column` / `.status` rules;
+  equal specificity → the later base rule wins, so 4 phone declarations never applied since the
+  2026-08 mobile pass (status right-aligned, link pair centred, column gap unchanged). mobile.test.js
+  passed throughout — it reads what a @media DECLARES, not what applies. Block moved to the END
+  (declarations proven identical, postcss diff). NEW `styles/__tests__/mediaOrder.test.js` walks
+  EVERY sheet under src/ (proves it walks >30, self-tests the detector); red on the old footer.
+  Only Footer had the bug.
+- **Public (≤560px, each block LAST in its file):** hero `.ctaPrimary/.ctaSecondary` min-height 44,
+  0 18px, 12px, row gap 10 → one line from 360px (wraps at 320); contact `.emailLink/.cvLink/
+  .socialLink/.submit` 44px; whole footer centred (identity, brand row, pill, link PAIR as a group —
+  columns stay left-aligned inside — status). Copyright → "© 2026 PARINDRA GALLAGE · ALL RIGHTS
+  RESERVED" (unit test now anchored `^…$` — a string `toHaveTextContent` is a SUBSTRING match;
+  E2E `exact: true`).
+- **Phone menu = card list:** brand (not a link — PF-83's focusable count/order unchanged) + ×;
+  one glass card, rows `01 ABOUT →` (number + arrow aria-hidden, link names unchanged), 52px rows,
+  stagger via `kf-riseIn-portfolio` + `--i`; section being read marked `aria-current="location"`
+  (`utils/nav.js currentSectionId`, measured once on open, top ≤ 35% of the screen); CONTACT
+  full-width pill; theme + ADMIN; availability line from `About.availableForWork` (footer's rule).
+  Hover/`:active`/`:focus-visible`: row tints, label slides 4px + accent, arrow nudges; × fills
+  accent + glow + quarter turn; hamburger lines go accent, middle slides; pills press .97.
+  `NavAnchor` passes `...rest`. Navbar tests now render inside a QueryClientProvider.
+- **Admin (≤560px):** header ONE row (67px): CMS pill hidden, HOME / SIGN OUT 40px round icons
+  with the word visually hidden — names stay EXACTLY "↗ HOME" / "⏻ SIGN OUT" (first attempt
+  aria-hid the icon → E2E 4 red, name became "HOME"; reverted + unit test pins the names). Strip
+  pills 40px, 8×12, 13px. Overview stats 2×2, JUMP BACK IN 2-col grid. `.panel` 16px; `.btnPrimary
+  /.btnOutline/.btnDanger` min-height 44 / no vertical padding. Admin footer centred, two buttons
+  share the row (tracking .05em keeps BACK TO HOME PAGE on one line from 320px), legal line gets
+  64px under it so the fixed ↑ never covers the ©.
+- **Gates:** frontend `check` 2327 / 104 (was 2317 / 102); E2E homepage + navigation + footer +
+  admin + contact all green (admin 4/4 after the name fix). Backend untouched.
+- **Browser:** 320/360/375/414/430/470/600/1280px, dark + light; every changed button 44.0px;
+  no page overflow; desktop hero 54px and status card right-aligned unchanged. Tablet (600–899)
+  status now hugs LEFT as originally designed (was right, by the same bug).
+- **Incident (mine):** an E2E-frontend start ran in the wrong directory and launched a second
+  BACKEND on 5050 — it failed on the busy port and idled; killed by PID after proving the owner's
+  server (parent started 11:54) was untouched. Start E2E frontend with `npm --prefix`.
+
+### Outstanding work added by PF-142
+- Owner to check on a real phone (iOS Safari + Android Chrome): menu stagger, × hover = tap state.
+- Tablet 600–899px not reviewed by the owner (only the fixed cascade changed there).
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
