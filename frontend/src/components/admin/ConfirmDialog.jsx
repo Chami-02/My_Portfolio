@@ -39,13 +39,18 @@ import styles from './ConfirmDialog.module.css';
  * PF-118 batch 2 also adds `confirmTone: 'primary'` (a constructive confirm —
  * SAVE — must not look like a delete) and `onConfirm: null`, which renders no
  * confirm button at all (the guard when a panel has no single save to offer).
+ *
+ * @param initialFocusRef  PF-132: a field in `extra` that must be filled
+ *                         before confirming (the Sessions card's password).
+ *                         It gets the first focus instead of CANCEL — an
+ *                         empty field cannot confirm anything by accident.
  */
 export function ConfirmDialog({
   title, children, onConfirm, onCancel,
   confirmLabel = 'YES, DELETE', busyLabel = 'DELETING…',
   busy = false, confirmDisabled = false,
   confirmTone = 'danger', extra = null, secondary = null,
-  cancelLabel = 'CANCEL',
+  cancelLabel = 'CANCEL', initialFocusRef = null,
 }) {
   const toneClass = { danger: a.btnDanger, neutral: a.btnOutline, primary: a.btnPrimary }[confirmTone]
     ?? a.btnDanger;
@@ -57,9 +62,10 @@ export function ConfirmDialog({
   // dropped at the top of the page.
   useEffect(() => {
     const opener = document.activeElement;
-    cancelRef.current?.focus();
+    (initialFocusRef?.current ?? cancelRef.current)?.focus();
     return () => { if (opener instanceof HTMLElement) opener.focus(); };
-  }, []);
+    // A ref object keeps its identity, so this still runs once, on mount.
+  }, [initialFocusRef]);
 
   // Escape cancels. On `document`, because focus may have been moved anywhere
   // inside; ignored while the delete is in flight.

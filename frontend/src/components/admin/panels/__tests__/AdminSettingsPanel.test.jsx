@@ -11,6 +11,11 @@ const useMe = vi.hoisted(() => vi.fn());
 vi.mock('../../../../hooks/useMe', () => ({ useMe }));
 // PF-124 follow-up: the Password card reads the About name for its strength words.
 vi.mock('../../../../hooks/useAbout', () => ({ useAbout: () => ({ data: { name: 'Parindra Gallage' } }) }));
+// PF-132: the Sessions card has its own suite; here it only has to render.
+vi.mock('../../../../hooks/useSessions', () => ({
+  useSessions:    () => ({ isSuccess: true, data: [] }),
+  useEndSessions: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 
 const { AdminSettingsPanel } = await import('../AdminSettingsPanel');
 
@@ -40,10 +45,10 @@ beforeEach(() => {
 });
 
 describe('AdminSettingsPanel — Account card', () => {
-  it('renders only the BUILT cards — Account, then Password — no placeholders', () => {
+  it('renders only the BUILT cards — Account, Password, Sessions — no placeholders', () => {
     render(<AdminSettingsPanel />);
     expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-labelledby')))
-      .toEqual(['settings-account-title', 'settings-password-title']);
+      .toEqual(['settings-account-title', 'settings-password-title', 'settings-sessions-title']);
     expect(card()).toBeInTheDocument();
     expect(screen.queryByText(/coming soon/i)).toBeNull();
   });

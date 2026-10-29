@@ -1,6 +1,7 @@
 // PF-113 — the shared destructive-action confirm.
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useRef } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { ConfirmDialog } from '../ConfirmDialog';
 
@@ -28,6 +29,24 @@ describe('ConfirmDialog', () => {
   it('focuses CANCEL, not the destructive button', () => {
     renderDialog();
     expect(screen.getByRole('button', { name: 'CANCEL' })).toHaveFocus();
+  });
+
+  // PF-132 — the Sessions card's password: a field that must be filled first.
+  it('initialFocusRef focuses that field instead of CANCEL', () => {
+    function WithField() {
+      const ref = useRef(null);
+      return (
+        <ConfirmDialog
+          title="t" onConfirm={() => {}} onCancel={() => {}}
+          initialFocusRef={ref}
+          extra={<input ref={ref} aria-label="Your password" />}
+        >
+          b
+        </ConfirmDialog>
+      );
+    }
+    render(<WithField />);
+    expect(screen.getByLabelText('Your password')).toHaveFocus();
   });
 
   it('returns focus to whatever opened it', () => {

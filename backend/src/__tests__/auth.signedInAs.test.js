@@ -70,7 +70,7 @@ describe('GET /api/auth/me — signedInAs', () => {
   });
 
   it('falls back to the primary once the recorded address is no longer one of the account\'s', async () => {
-    const session = await issueSession(user, undefined, SECOND);
+    const session = await issueSession(user, { signedInAs: SECOND });
     await User.updateOne({ _id: user._id }, { $set: { loginEmails: [] } });
     expect((await me(session.accessToken)).body.data.signedInAs).toBe(PRIMARY);
   });

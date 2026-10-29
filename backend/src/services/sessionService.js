@@ -45,11 +45,21 @@ const SESSION_ENDED = 'Your session has ended. Please log in again.';
 /**
  * Create a fresh refresh-token row for `user` and sign an access token that
  * names its family. `family` is only passed by `rotateSession`; a login
- * starts a new one. `signedInAs` is the address the login used (PF-119
- * follow-up) — a login names it, a rotation copies it forward. `signInMethod`
- * (PF-131, 'password' | 'google') travels the same way.
+ * starts a new one. The rest describes the sign-in and is copied forward by
+ * every rotation:
+ *   - `signedInAs` — the address the login used (PF-119 follow-up);
+ *   - `signInMethod` — 'password' | 'google' (PF-131);
+ *   - `device`, `location`, `startedAt` — the Sessions card (PF-132). A login
+ *     leaves `startedAt` out and gets "now".
  */
-const issueSession = async (user, family = crypto.randomUUID(), signedInAs, signInMethod) => {
+const issueSession = async (user, {
+  family = crypto.randomUUID(),
+  signedInAs,
+  signInMethod,
+  device,
+  location,
+  startedAt = new Date(),
+} = {}) => {
   const refreshToken     = crypto.randomBytes(32).toString('base64url');
   const refreshExpiresAt = new Date(Date.now() + refreshTtlMs());
 
@@ -60,6 +70,9 @@ const issueSession = async (user, family = crypto.randomUUID(), signedInAs, sign
     expiresAt: refreshExpiresAt,
     signedInAs,
     signInMethod,
+    device,
+    location,
+    startedAt,
   });
 
   const accessToken = jwt.sign(
@@ -134,7 +147,16 @@ const rotateSession = async (refreshToken) => {
     throw new AppError('The user belonging to this session no longer exists.', 401);
   }
 
-  const next = await issueSession(user, session.family, session.signedInAs, session.signInMethod);
+  const next = await issueSession(user, {
+    family:       session.family,
+    signedInAs:   session.signedInAs,
+    signInMethod: session.signInMethod,
+    device:       session.device,
+    location:     session.location,
+    // A session from before PF-132 has no start; its first rotation since
+    // then is the earliest moment known, and it is kept from there on.
+    startedAt:    session.startedAt ?? session.createdAt,
+  });
   claimed.replacedBy = next.sessionId;
   await claimed.save();
 
@@ -171,6 +193,37 @@ const revokeAllForUser = async (userId, { except } = {}) => {
   );
 };
 
+/**
+ * PF-132 — one entry per signed-in device: the LIVE row of each family. A
+ * family has exactly one (rotation revokes the old row as it creates the
+ * next), and that row was created at the last refresh — so its `createdAt`
+ * is "last active", to within one access-token life (15 min).
+ */
+const listSessions = (userId) =>
+  Session.find({ user: userId, revokedAt: null, expiresAt: { $gt: new Date() } })
+    // `_id` breaks a tie: two sign-ins in one millisecond share a
+    // `createdAt`, and an ObjectId made later in this process sorts later.
+    .sort({ createdAt: -1, _id: -1 })
+    .select('family signedInAs signInMethod device location startedAt createdAt')
+    .lean();
+
+/**
+ * PF-132 — sign one device out. Scoped to `userId` in the QUERY, so a family
+ * id that belongs to someone else matches nothing rather than being checked
+ * after the fact. Returns whether a live session was ended.
+ *
+ * `$eq` keeps `family` a VALUE even if a caller passes an object: the route
+ * already refuses non-strings, but the query must not rely on that
+ * (`{ $ne: 'x' }` would match every session — CodeQL js/sql-injection).
+ */
+const revokeFamily = async (userId, family) => {
+  const { modifiedCount } = await Session.updateMany(
+    { user: userId, family: { $eq: family }, revokedAt: null },
+    { $set: { revokedAt: new Date() } }
+  );
+  return modifiedCount > 0;
+};
+
 /** Does this family still have a live refresh token? `protect` asks. */
 const isFamilyLive = async (family) =>
   Boolean(await Session.exists({ family, revokedAt: null }));
@@ -180,6 +233,8 @@ module.exports = {
   rotateSession,
   revokeSession,
   revokeAllForUser,
+  listSessions,
+  revokeFamily,
   isFamilyLive,
   hashToken,
 };

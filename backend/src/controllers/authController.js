@@ -13,6 +13,15 @@ const {
   hashToken,
 } = require('../services/sessionService');
 const google    = require('../services/googleAuth');
+const { deviceLabel }     = require('../utils/deviceLabel');
+const { requestLocation } = require('../utils/requestLocation');
+
+// PF-132 — what the Sessions card shows about a new sign-in. Read from the
+// request that signs in; every rotation copies it forward.
+const signInDetails = (req) => ({
+  device:   deviceLabel(req.get('user-agent')),
+  location: requestLocation(req) ?? undefined,
+});
 
 // One shape for every response that hands the client a session — login and
 // refresh — so the frontend has a single place that stores it.
@@ -84,7 +93,7 @@ const login = async (req, res, next) => {
     // raw input (Mongoose's setters normalised the query, not `email`).
     const typed = email.trim().toLowerCase();
     const signedInAs = [user.email, ...user.loginEmails].find((a) => a === typed);
-    const session = await issueSession(user, undefined, signedInAs, 'password');
+    const session = await issueSession(user, { signedInAs, signInMethod: 'password', ...signInDetails(req) });
     res.json(sessionPayload(session, user));
   } catch (err) {
     next(err);
@@ -354,7 +363,11 @@ const googleExchange = async (req, res, next) => {
       return next(new AppError('This sign-in has expired. Please sign in again.', 401));
     }
 
-    const session = await issueSession(user, undefined, handoff.signedInAs, 'google');
+    const session = await issueSession(user, {
+      signedInAs:   handoff.signedInAs,
+      signInMethod: 'google',
+      ...signInDetails(req),
+    });
     res.json({ ...sessionPayload(session, user), returnTo: safeReturnTo(handoff.returnTo) });
   } catch (err) {
     next(err);
