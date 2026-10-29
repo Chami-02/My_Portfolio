@@ -5,8 +5,18 @@ process.env.NODE_ENV = 'test';
 // PF-123: the line above loaded backend/.env, which holds the REAL Gmail app
 // password once mail is set up. Without this, every contact test would send a
 // real email. Tests that need the mailer configure (and mock) it themselves.
-delete process.env.GMAIL_USER;
-delete process.env.GMAIL_APP_PASSWORD;
+//
+// ⚠️ BLANK, never `delete` (PF-133). app.js runs `require('dotenv').config()`
+// again in every test worker, and dotenv re-adds a key that is MISSING — so a
+// deleted key came straight back with the real value, and from PF-123 to
+// PF-133 local runs sent real mail (contact tests; then sign-in alerts to
+// admin@test.com, which bounced). dotenv never overwrites a key that is set,
+// even to '' — the same reason .env.e2e lists them blank. Pinned by
+// mailer.test.js ("the test runner leaves mail OFF").
+process.env.GMAIL_USER         = '';
+process.env.GMAIL_APP_PASSWORD = '';
+// PF-133: the daily digest's cron secret — tests set their own.
+process.env.CRON_SECRET        = '';
 
 // ── Where the tests' database is ─────────────────────────────────────────────
 // DEFAULT (since the faster-tests change): an IN-MEMORY MongoDB that Jest's
