@@ -81,8 +81,10 @@ const NAV_LINKS = [
  * rows come from. The trailing "↗" is the prototype's and is applied at render.
  */
 
-const COPYRIGHT =
-  '© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED · DESIGNED & BUILT FROM SCRATCH';
+// PF-142 (owner, 2026-10-29): "DESIGNED & BUILT FROM SCRATCH" removed —
+// the prototype's tail (Portfolio Revolution.dc.html:600); ALL RIGHTS
+// RESERVED (the site's own addition) stays.
+const COPYRIGHT = '© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED';
 
 export function Footer() {
   // Shared cache entry with ContactSection's useAbout() — no extra request.

@@ -126,3 +126,22 @@ export function navModel(pathname) {
     pillLabel: 'CONTACT',
   };
 }
+
+/**
+ * PF-142 — which section is the reader in when they open the phone menu?
+ * The last one whose top has passed the upper third of the screen; `null`
+ * above the first (the hero) or when nothing is measured.
+ *
+ * React-free so it is unit-testable; the caller supplies the measuring.
+ * @param {string[]} ids        section ids, in page order
+ * @param {(id: string) => number | undefined} topOf  viewport top of each
+ * @param {number} viewportHeight
+ */
+export function currentSectionId(ids, topOf, viewportHeight) {
+  let current = null;
+  for (const id of ids) {
+    const top = topOf(id);
+    if (typeof top === 'number' && top <= viewportHeight * 0.35) current = id;
+  }
+  return current;
+}
