@@ -9350,6 +9350,11 @@ card later. Half of auth gap #5 (the other half, history + alerts, is PF-133).
   The owner then signed in by password and the others were gone.
 - **Dialog buttons smaller, EVERY ConfirmDialog** (owner): 12px 20px / 11.5px → 8px 14px /
   11px, measured 36 px tall live (Projects delete confirm opened and CANCELLED).
+- **CodeQL on PR #66: `js/sql-injection` (high) on `revokeFamily`** — `req.body.id` went
+  into the filter as-is. Not reachable (the route's `isString().bail()` 400s an object;
+  "an operator id" test), but the query must not lean on the route → `family: { $eq: family }`
+  (Mongoose then throws CastError on an object). New service-level test calls `revokeFamily`
+  with `{ $ne: 'x' }`; mutant without `$eq` ends every session → killed. Backend 1081/59.
 
 ### Outstanding work added by PF-132
 - Not tried end-to-end in a browser with TWO real devices (the owner's real sessions were

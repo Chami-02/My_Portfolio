@@ -5,7 +5,7 @@ const request = require('supertest');
 const app     = require('../app');
 const User    = require('../models/User');
 const Session = require('../models/Session');
-const { issueSession, rotateSession, isFamilyLive } = require('../services/sessionService');
+const { issueSession, rotateSession, isFamilyLive, revokeFamily } = require('../services/sessionService');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 
 const PASSWORD = 'Owner-Password-123';
@@ -205,6 +205,16 @@ describe('POST /api/auth/sessions/revoke', () => {
     const res  = await revoke(sent);
 
     expect(res.status).toBe(400);
+    expect(await Session.countDocuments({ revokedAt: { $ne: null } })).toBe(0);
+  });
+
+  // The query is safe on its own, not only behind the route's rule.
+  // With `$eq` Mongoose refuses the object (CastError); without it, `$ne`
+  // matched — and ended — every one of this user's sessions.
+  it('revokeFamily never reads an operator object as a query — it ends nothing', async () => {
+    const ended = await revokeFamily(user._id, { $ne: 'x' }).catch(() => false);
+
+    expect(ended).toBe(false);
     expect(await Session.countDocuments({ revokedAt: { $ne: null } })).toBe(0);
   });
 });

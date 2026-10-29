@@ -211,10 +211,14 @@ const listSessions = (userId) =>
  * PF-132 — sign one device out. Scoped to `userId` in the QUERY, so a family
  * id that belongs to someone else matches nothing rather than being checked
  * after the fact. Returns whether a live session was ended.
+ *
+ * `$eq` keeps `family` a VALUE even if a caller passes an object: the route
+ * already refuses non-strings, but the query must not rely on that
+ * (`{ $ne: 'x' }` would match every session — CodeQL js/sql-injection).
  */
 const revokeFamily = async (userId, family) => {
   const { modifiedCount } = await Session.updateMany(
-    { user: userId, family, revokedAt: null },
+    { user: userId, family: { $eq: family }, revokedAt: null },
     { $set: { revokedAt: new Date() } }
   );
   return modifiedCount > 0;
