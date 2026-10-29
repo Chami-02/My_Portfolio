@@ -4,7 +4,8 @@
 // entry and nothing else, so the hook is mocked (same pattern as
 // AdminLayout.test.jsx: Vite's SSR transform makes exports getter-only, which
 // vi.spyOn cannot redefine).
-import { render, screen, within } from '@testing-library/react';
+import { render as rtlRender, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const useMe = vi.hoisted(() => vi.fn());
@@ -15,9 +16,15 @@ vi.mock('../../../../hooks/useAbout', () => ({ useAbout: () => ({ data: { name: 
 vi.mock('../../../../hooks/useSessions', () => ({
   useSessions:    () => ({ isSuccess: true, data: [] }),
   useEndSessions: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSignInHistory: () => ({ isSuccess: true, data: [] }),   // PF-133
+  SIGN_INS_KEY: ['auth', 'sign-ins'],
 }));
 
 const { AdminSettingsPanel } = await import('../AdminSettingsPanel');
+
+// PF-133: the Password card holds the QueryClient (it refreshes /auth/me and
+// the history after a change).
+const render = (ui) => rtlRender(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 
 const PRIMARY = 'pcgallege@gmail.com';
 const SECOND  = 'parindrachameekara@gmail.com';

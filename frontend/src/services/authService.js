@@ -110,6 +110,13 @@ export const authService = {
   getSessions: () => api.get('/auth/sessions').then((r) => r.data.data),
 
   /**
+   * PF-133 — the sign-in history: this account's sign-ins, failed attempts
+   * (also for addresses that match no account), reset requests, resets and
+   * changes. The newest 50.
+   */
+  getSignIns: () => api.get('/auth/sign-ins').then((r) => r.data.data),
+
+  /**
    * PF-132 — sign one OTHER device out, or every other one. Both need the
    * current password (OWASP ASVS 5.0 V7.5.2). This device is never ended
    * here: SIGN OUT in the header also clears this browser's tokens.

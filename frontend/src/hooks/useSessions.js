@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authService } from '../services/authService';
 
 export const SESSIONS_KEY = ['auth', 'sessions'];
+export const SIGN_INS_KEY = ['auth', 'sign-ins'];
 
 /**
  * PF-132 — the Settings Sessions card's list. No `data = []` default: a
@@ -10,6 +11,13 @@ export const SESSIONS_KEY = ['auth', 'sessions'];
  */
 export const useSessions = () =>
   useQuery({ queryKey: SESSIONS_KEY, queryFn: authService.getSessions });
+
+/**
+ * PF-133 — the same card's "Recent activity". Its own query and its own
+ * LoadError: a history that failed to load must not hide the device list.
+ */
+export const useSignInHistory = () =>
+  useQuery({ queryKey: SIGN_INS_KEY, queryFn: authService.getSignIns });
 
 /**
  * Sign devices out. Called as `mutate({ id, password })` for one device, or

@@ -577,3 +577,22 @@ describe('AdminLayout — sidebar and SIGN OUT ask before unsaved work is lost',
     expect(navigate).toHaveBeenCalledWith('/admin/login');
   });
 });
+
+// PF-133 — the current password turned up in a known leak (checked at
+// sign-in): a banner on every admin page until it is changed.
+describe('AdminLayout — the leaked-password banner', () => {
+  it('shows nothing while the password is not known to be leaked', () => {
+    renderShell();
+    expect(screen.queryByText(/DATA LEAK/)).toBeNull();
+  });
+
+  it('warns on any panel, and CHANGE PASSWORD goes to Settings', async () => {
+    const user = userEvent.setup();
+    useMe.mockReturnValue({ data: { email: 'owner@example.com', role: 'admin', passwordLeaked: true } });
+    const { onTabChange } = renderShell({ activeTab: 'blog' });
+
+    expect(screen.getByRole('alert')).toHaveTextContent('YOUR PASSWORD APPEARED IN A KNOWN DATA LEAK. CHANGE IT NOW.');
+    await user.click(screen.getByRole('button', { name: 'CHANGE PASSWORD' }));
+    expect(onTabChange).toHaveBeenCalledWith('settings');
+  });
+});

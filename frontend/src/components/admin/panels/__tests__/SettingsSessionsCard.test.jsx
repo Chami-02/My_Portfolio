@@ -10,6 +10,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   getSessions:      vi.fn(),
+  getSignIns:       vi.fn(),
   endSession:       vi.fn(),
   endOtherSessions: vi.fn(),
   showFlash:        vi.fn(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../../../services/authService', () => ({
   authService: {
     getSessions:      mocks.getSessions,
+    getSignIns:       mocks.getSignIns,
     endSession:       mocks.endSession,
     endOtherSessions: mocks.endOtherSessions,
   },
@@ -64,13 +66,14 @@ const unfold  = async (user) => {
   await screen.findByText('Chrome on macOS');
   await user.click(toggle());
 };
-const rows    = () => within(screen.getByRole('list')).getAllByRole('listitem');
+const rows    = () => within(screen.getByRole('list', { name: 'Signed in now' })).getAllByRole('listitem');
 const dialog  = () => screen.getByRole('dialog');
 const pwField = () => within(dialog()).getByLabelText('Your password');
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getSessions.mockResolvedValue([LAPTOP, ME, OLD]);
+  mocks.getSignIns.mockResolvedValue([]);
   mocks.endSession.mockResolvedValue(undefined);
   mocks.endOtherSessions.mockResolvedValue(undefined);
 });
@@ -160,6 +163,7 @@ describe('SettingsSessionsCard — the list', () => {
 
   it('paints nothing list-shaped while loading', () => {
     mocks.getSessions.mockReturnValue(new Promise(() => {}));
+    mocks.getSignIns.mockReturnValue(new Promise(() => {}));
     renderCard();
     expect(screen.queryByRole('list')).toBeNull();
     expect(screen.queryByText('No other device is signed in.')).toBeNull();
@@ -263,5 +267,85 @@ describe('SettingsSessionsCard — signing out needs the password', () => {
     await unfold(user);
     await user.click(await screen.findByRole('button', { name: 'SIGN OUT ALL OTHER SESSIONS' }));
     for (const b of screen.getAllByRole('button')) expect(b).toHaveAttribute('type', 'button');
+  });
+});
+
+// PF-133 — the card's second part: every sign-in attempt, reset and change.
+describe('SettingsSessionsCard — recent activity', () => {
+  const event = (i, over = {}) => ({
+    id: `e${i}`, kind: 'sign-in', outcome: 'ok', method: 'password',
+    address: `n${i}@example.com`, device: 'Chrome on macOS', location: null,
+    at: '2026-10-29T08:05:00.000Z', ...over,
+  });
+  const activity = () => screen.getByRole('list', { name: 'Recent activity' });
+  const items    = () => within(activity()).getAllByRole('listitem');
+
+  it('says what happened, with OK / FAILED, address, device, place and time', async () => {
+    mocks.getSignIns.mockResolvedValue([
+      event(1, { outcome: 'failed', address: 'guess@example.com', device: 'Firefox on Windows', location: 'Lagos, Nigeria' }),
+      event(2, { method: 'google' }),
+      event(3, { kind: 'reset-request', outcome: 'failed', method: null, address: 'nobody@example.com' }),
+      event(4, { kind: 'password-change', method: null }),
+    ]);
+    renderCard();
+    await screen.findByText('Failed sign-in · Password');
+
+    const [failed, ok, reset, change] = items();
+    expect(within(failed).getByText('FAILED')).toBeInTheDocument();
+    expect(failed).toHaveTextContent('guess@example.com · Firefox on Windows · Lagos, Nigeria ·');
+    expect(within(ok).getByText('OK')).toBeInTheDocument();
+    expect(ok).toHaveTextContent('Signed in · Google');
+    expect(reset).toHaveTextContent('Reset requested — unknown address');
+    expect(change).toHaveTextContent('Password changed');
+    expect(change).not.toHaveTextContent('Password changed ·');   // no method on a change
+    // The reader's own clock, the Messages panel's form.
+    expect(ok).toHaveTextContent(/2026\/10\/29 \d{1,2}:\d{2} (AM|PM)$/);
+  });
+
+  it('shows 10; SHOW MORE adds 10 up to all sent; SHOW LESS goes back', async () => {
+    const user = userEvent.setup();
+    mocks.getSignIns.mockResolvedValue(Array.from({ length: 25 }, (_, i) => event(i)));
+    renderCard();
+    await unfold(user);
+    await screen.findByText('n0@example.com', { exact: false });
+
+    expect(items()).toHaveLength(10);
+    expect(screen.queryByRole('button', { name: 'SHOW LESS' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'SHOW MORE' }));
+    expect(items()).toHaveLength(20);
+    await user.click(screen.getByRole('button', { name: 'SHOW MORE' }));
+    expect(items()).toHaveLength(25);
+    expect(screen.queryByRole('button', { name: 'SHOW MORE' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'SHOW LESS' }));
+    expect(items()).toHaveLength(10);
+  });
+
+  it('no SHOW MORE / LESS for 10 or fewer', async () => {
+    mocks.getSignIns.mockResolvedValue(Array.from({ length: 10 }, (_, i) => event(i)));
+    renderCard();
+    await screen.findByText('n9@example.com', { exact: false });
+    expect(screen.queryByRole('button', { name: /SHOW (MORE|LESS)/ })).toBeNull();
+  });
+
+  it("says what to do about a line you don't recognise — only under a list", async () => {
+    mocks.getSignIns.mockResolvedValue([event(1)]);
+    renderCard();
+    expect(await screen.findByText(
+      "Don't recognise a line? Change your password above, then sign out any device you don't know.",
+    )).toBeInTheDocument();
+  });
+
+  it('an empty history says so', async () => {
+    renderCard();
+    expect(await screen.findByText(/Nothing yet\. Sign-ins and failed attempts show here for 90 days\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Don't recognise a line/)).toBeNull();
+  });
+
+  it('a failed load shows its OWN LoadError — the device list stays', async () => {
+    mocks.getSignIns.mockRejectedValue(new Error('Network Error'));
+    renderCard();
+    expect(await screen.findByText('COULDN’T LOAD SIGN-IN HISTORY')).toBeInTheDocument();
+    expect(screen.getByText('Chrome on macOS')).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing yet/)).toBeNull();
   });
 });

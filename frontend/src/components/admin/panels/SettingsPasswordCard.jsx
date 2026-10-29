@@ -1,11 +1,15 @@
 // frontend/src/components/admin/panels/SettingsPasswordCard.jsx
 import { useEffect, useRef, useState } from 'react';
+import { useQueryClient }     from '@tanstack/react-query';
 import { authService }        from '../../../services/authService';
 import { useAdminFlash }      from '../../../hooks/useAdminFlash';
 import { useFormGuard }       from '../../../hooks/useFormGuard';
 import { useUnsavedChanges }  from '../../../hooks/useUnsavedChanges';
 import { usePasswordStrength } from '../../../hooks/usePasswordStrength';
 import { useMe }              from '../../../hooks/useMe';
+import { ME_KEY }             from '../../../services/session';
+import { SIGN_INS_KEY }       from '../../../hooks/useSessions';
+import { formatDate }         from '../../../utils/blogMeta';
 import { useAbout }           from '../../../hooks/useAbout';
 import { contextWords }       from '../../../utils/passwordStrength';
 import { PasswordStrength }   from '../PasswordStrength';
@@ -78,6 +82,7 @@ export function SettingsPasswordCard() {
   }, [resendAt]);
 
   // The words a password may not be built from — the server's own list.
+  const qc = useQueryClient();
   const { data: me }    = useMe();
   const { data: about } = useAbout();
   const words = contextWords({
@@ -163,6 +168,10 @@ export function SettingsPasswordCard() {
       const message = await authService.changePassword({ code: form.code.trim() });
       fold();
       showFlash(message);
+      // PF-133: "Last changed", the leaked-password banner and the history
+      // all read what just changed.
+      qc.invalidateQueries({ queryKey: ME_KEY });
+      qc.invalidateQueries({ queryKey: SIGN_INS_KEY });
     } catch (err) {
       setError(resetErrorMessage(err));
     } finally {
@@ -226,6 +235,12 @@ export function SettingsPasswordCard() {
           <span className={styles.chevron} aria-hidden="true">▾</span>
         </button>
       </div>
+
+      {/* PF-133: when it last changed (NIST: change on evidence, never on a
+          schedule). Nothing for a password set before PF-124 stamped it. */}
+      {me?.passwordChangedAt && (
+        <p className={styles.lastChanged}>LAST CHANGED {formatDate(me.passwordChangedAt)}</p>
+      )}
 
       <div
         id={`${FID}-body`}

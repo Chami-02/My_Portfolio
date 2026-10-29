@@ -7,12 +7,14 @@
 import { screen, within, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderWithGuard } from '../../../../test/renderWithGuard';
 
 const mocks = vi.hoisted(() => ({
   requestPasswordChangeCode: vi.fn(),
   changePassword: vi.fn(),
   showFlash: vi.fn(),
+  me: null,
 }));
 vi.mock('../../../../services/authService', () => ({
   authService: {
@@ -25,7 +27,7 @@ vi.mock('../../../../hooks/useAdminFlash', () => ({
 }));
 // The strength words: this account's addresses and the About name.
 vi.mock('../../../../hooks/useMe', () => ({
-  useMe: () => ({ data: { email: 'pcgallege@gmail.com', addresses: [{ address: 'pcgallege@gmail.com' }] } }),
+  useMe: () => ({ data: mocks.me }),
 }));
 vi.mock('../../../../hooks/useAbout', () => ({ useAbout: () => ({ data: { name: 'Parindra Gallage' } }) }));
 
@@ -49,22 +51,31 @@ async function fillPasswords(user, { current = CURRENT, password = NEW, confirm 
 
 const toggle = () => screen.getByRole('button', { name: /CHANGE PASSWORD/ });
 
+// A real QueryClient: a finished change invalidates `/auth/me` and the
+// sign-in history (PF-133) — the spy proves which.
+let qc;
+const renderCard = () => renderWithGuard(
+  <QueryClientProvider client={qc}><SettingsPasswordCard /></QueryClientProvider>,
+);
+
 /** Render inside the leave guard and open the fold, as the owner would. */
 async function renderOpen(user) {
-  const rendered = renderWithGuard(<SettingsPasswordCard />);
+  const rendered = renderCard();
   await user.click(toggle());
   return rendered;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  qc = new QueryClient();
+  mocks.me = { email: 'pcgallege@gmail.com', addresses: [{ address: 'pcgallege@gmail.com' }] };
   mocks.requestPasswordChangeCode.mockResolvedValue(SENT_TO);
   mocks.changePassword.mockResolvedValue('Password changed. Every other device was signed out.');
 });
 
 describe('SettingsPasswordCard — the fold (owner, 2026-10-27)', () => {
   it('starts folded: one line, the form inert, nothing focused', () => {
-    renderWithGuard(<SettingsPasswordCard />);
+    renderCard();
     expect(toggle()).toHaveAttribute('aria-expanded', 'false');
     const body = document.getElementById(toggle().getAttribute('aria-controls'));
     expect(body).toHaveAttribute('inert');
@@ -224,6 +235,7 @@ describe('SettingsPasswordCard — step two', () => {
 
   it('sends only the code, then empties the form, folds and flashes', async () => {
     const user = userEvent.setup();
+    const invalidate = vi.spyOn(qc, 'invalidateQueries');
     await toCodeStep(user);
     await user.type(screen.getByLabelText('6-digit code'), '123456');
     await user.click(button('SAVE NEW PASSWORD'));
@@ -239,6 +251,9 @@ describe('SettingsPasswordCard — step two', () => {
     // Focus was on the submit button, now inside the inert fold — it must
     // land on the toggle, not be lost to <body>.
     await waitFor(() => expect(toggle()).toHaveFocus());
+    // PF-133: "Last changed", the leak banner and the history re-read.
+    expect(invalidate.mock.calls.map(([f]) => f.queryKey))
+      .toEqual([['auth', 'me'], ['auth', 'sign-ins']]);
   });
 
   it('refuses a code that is not 6 digits — no request', async () => {
@@ -293,9 +308,23 @@ describe('SettingsPasswordCard — leaving with a half-typed change asks first',
   });
 
   it('an untouched card lets you leave without asking', async () => {
-    const { router } = renderWithGuard(<SettingsPasswordCard />);
+    const { router } = renderCard();
     await act(() => router.navigate('/elsewhere'));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(router.state.location.pathname).toBe('/elsewhere');
+  });
+});
+
+describe('Last changed (PF-133)', () => {
+  it('shows when the password last changed — visible while folded', () => {
+    mocks.me = { ...mocks.me, passwordChangedAt: '2026-10-27T11:33:00.000Z' };
+    renderCard();
+    expect(screen.getByText('LAST CHANGED 27 OCT 2026')).toBeVisible();
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('says nothing for a password set before it was recorded', () => {
+    renderCard();
+    expect(screen.queryByText(/LAST CHANGED/)).toBeNull();
   });
 });
