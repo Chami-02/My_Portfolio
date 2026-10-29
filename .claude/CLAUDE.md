@@ -127,14 +127,14 @@ something surprises you, search the companions *before* deriving an explanation.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
 | PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→130, PF-123, PF-125, PF-131 merged + live; PF-124, PF-141 merged + live; PF-132 built 2026-10-29 |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→130, PF-123, PF-125, PF-131 merged + live; PF-124, PF-141 merged + live; PF-132 merged + live 2026-10-29; PF-133 built |
 
 `global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
 PF-127 → PF-128 → PF-129 → PF-130 (merged) → PF-123 mailer (built 2026-10-20) →
-PF-125 forgot password (live 2026-10-27) → PF-131 Settings (live 2026-10-27) → PF-124 change password (live 2026-10-27) → PF-141 shared limiter (live 2026-10-27) → PF-132 sessions (built 2026-10-29) → PF-133… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+PF-125 forgot password (live 2026-10-27) → PF-131 Settings (live 2026-10-27) → PF-124 change password (live 2026-10-27) → PF-141 shared limiter (live 2026-10-27) → PF-132 sessions (live 2026-10-29) → PF-133 history (built) → PF-134… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -302,7 +302,7 @@ Where a mistake would be silent, add a test that would catch it.
 
 **Tooling and gates**
 - `npm test` does not run E2E; unit green + E2E red = removed feature, stale tests.
-- run-jest AND `dev:e2e` load the REAL `backend/.env` → a new outward secret must be stripped there (PF-123: run-jest deletes `GMAIL_*`, `.env.e2e` blanks them) or tests send real mail.
+- run-jest AND `dev:e2e` load the REAL `backend/.env` → a new outward secret must be stripped there (BLANK them, never `delete` — app.js's dotenv re-adds a missing key; PF-133 found real mail sent since PF-123) or tests send real mail.
 - dotenv 18 ships a `dotenv` bin that shadows `dotenv-cli`'s → `npm run dev:e2e` broken locally (CI unaffected); see Outstanding work PF-127.
 - `mongodb` ≥ 7.6 HANGS every DB test under Jest (NODE-7832) — held at `~7.5.0` + Dependabot ignore; lift steps in `dependabot.yml`.
 - `cookie` 2.x is ESM-only → Jest cannot load it (every backend suite fails); majors ignored in `dependabot.yml` (#39).
@@ -340,6 +340,7 @@ Where a mistake would be silent, add a test that would catch it.
 - A Vercel SENSITIVE var pulls as `[SENSITIVE]` and beats `.env.production` in a CLI build — `deploy.yml` greps the built bundle before deploying (PF-126 follow-up).
 - A Vercel production alias serves the production BRANCH; rewrites drop `Set-Cookie`.
 - `authLimiter` is live under test — mint via `issueSession`.
+- Sign-in calls HIBP → tests stub it (`setup/noLeakCheckCalls.js`); Node trims a header's trailing space.
 - Deleting a refresh token does not end a session for 15 min.
 
 **Prototype-specific**
@@ -424,6 +425,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-131: Settings = own ACCOUNT nav group (`⚙︎` + U+FE0E) under MANAGE; ONE real card per ticket, never "coming soon"; `/auth/me` `addresses` sends a Google BOOLEAN, never the `sub`; `Session.signInMethod` → `signedInWith` (rotation copies it).
 - PF-124: change = current password + code to `signedInAs`, every check BEFORE the code; step 2 = code ONLY (new pw's bcrypt hash parked on the row, session-bound); email + hash in the BACKGROUND; refusals 400 never 401; THIS device stays (`except: family`); codes in OWN `PasswordChange` collection; any change voids all codes; codes live 10 min (NIST max, owner); card FOLDS and joins the guard with NO save.
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
+- PF-133: history in Sessions card (90 d, 10 + SHOW MORE ≤50); alert on NEW device only (30 d); daily digest of failures (Cron + `CRON_SECRET`); leak check at sign-in → banner on every admin page.
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.

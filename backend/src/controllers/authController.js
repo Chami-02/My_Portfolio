@@ -2,6 +2,7 @@ const crypto    = require('crypto');
 const bcrypt    = require('bcryptjs');
 const { body }  = require('express-validator');
 const { parse: parseCookies } = require('cookie');
+const { waitUntil } = require('@vercel/functions');
 const User      = require('../models/User');
 const Session   = require('../models/Session');
 const OAuthFlow = require('../models/OAuthFlow');
@@ -15,6 +16,7 @@ const {
 const google    = require('../services/googleAuth');
 const { deviceLabel }     = require('../utils/deviceLabel');
 const { requestLocation } = require('../utils/requestLocation');
+const { recordEvent, afterSignIn } = require('../services/signInLog');
 
 // PF-132 — what the Sessions card shows about a new sign-in. Read from the
 // request that signs in; every rotation copies it forward.
@@ -79,11 +81,15 @@ const login = async (req, res, next) => {
     // 3. Check user exists AND password matches — one message for both, so
     // the answer never says which was wrong; and (PF-125) the same bcrypt
     // work for both, so the TIME never says it either.
+    // PF-133: both failures are logged the same way — the unknown address
+    // too (no `user`), so the owner sees someone trying addresses.
     if (!user) {
       await spendPasswordCheck(password);
+      await recordEvent(req, { kind: 'sign-in', outcome: 'failed', method: 'password', address: email });
       return next(new AppError('Invalid email or password', 401));
     }
     if (!(await user.matchPassword(password))) {
+      await recordEvent(req, { user, kind: 'sign-in', outcome: 'failed', method: 'password', address: email });
       return next(new AppError('Invalid email or password', 401));
     }
 
@@ -94,6 +100,9 @@ const login = async (req, res, next) => {
     const typed = email.trim().toLowerCase();
     const signedInAs = [user.email, ...user.loginEmails].find((a) => a === typed);
     const session = await issueSession(user, { signedInAs, signInMethod: 'password', ...signInDetails(req) });
+    const event = await recordEvent(req, { user, kind: 'sign-in', outcome: 'ok', method: 'password', address: signedInAs });
+    // PF-133: the new-device email and the leak check, after the response.
+    waitUntil(afterSignIn(user, event, { password }));
     res.json(sessionPayload(session, user));
   } catch (err) {
     next(err);
@@ -164,6 +173,11 @@ const getMe = async (req, res, next) => {
           primary: address === req.user.email,
           google:  bound.has(address),
         })),
+        // PF-133: the Password card's "Last changed" (null before PF-124
+        // stamped it) and the admin's leaked-password banner — a boolean
+        // only; when it was found says nothing the owner can act on.
+        passwordChangedAt: req.user.passwordChangedAt ?? null,
+        passwordLeaked:    Boolean(req.user.passwordLeakedAt),
       },
     });
   } catch (err) {
@@ -325,7 +339,11 @@ const googleCallback = async (req, res, next) => {
     }
 
     const user = await resolveGoogleUser(identity);
-    if (!user) return failTo(res, 'not_allowed');
+    if (!user) {
+      // PF-133: a verified Google address this admin does not accept.
+      await recordEvent(req, { kind: 'sign-in', outcome: 'failed', method: 'google', address: identity.email });
+      return failTo(res, 'not_allowed');
+    }
 
     const handoff = randomToken();
     await OAuthFlow.create({
@@ -368,6 +386,10 @@ const googleExchange = async (req, res, next) => {
       signInMethod: 'google',
       ...signInDetails(req),
     });
+    const event = await recordEvent(req, {
+      user, kind: 'sign-in', outcome: 'ok', method: 'google', address: handoff.signedInAs,
+    });
+    waitUntil(afterSignIn(user, event));
     res.json({ ...sessionPayload(session, user), returnTo: safeReturnTo(handoff.returnTo) });
   } catch (err) {
     next(err);

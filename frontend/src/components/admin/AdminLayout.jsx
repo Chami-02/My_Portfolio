@@ -9,6 +9,7 @@ import { useDashboardStats } from '../../hooks/useDashboardStats';
 import { useAdminFlash } from '../../hooks/useAdminFlash';
 import { AdminFooter } from './AdminFooter';
 import { SessionExpiryBanner } from './SessionExpiryBanner';
+import { PasswordLeakBanner }  from './PasswordLeakBanner';
 import { useRequestLeave } from '../../hooks/useUnsavedChanges';
 import { StarfieldCanvas, CursorGlow, GrainOverlay } from '../ambient';
 import logo from '../../assets/logo.webp';
@@ -321,6 +322,13 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
               useAdminFlash — that holds ONE message and belongs to
               panel saves. */}
           <SessionExpiryBanner className={styles.flashRow} />
+
+          {/* PF-133. Nothing unless the password signed in with is in a
+              known leak; stays until it is changed. */}
+          <PasswordLeakBanner
+            className={styles.flashRow}
+            onChangePassword={() => goTo('settings')}
+          />
 
           {flash && (
             /* role="status" — a save confirmation is polite news, not an

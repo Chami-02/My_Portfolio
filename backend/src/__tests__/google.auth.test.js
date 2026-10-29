@@ -28,6 +28,7 @@ const request = require('supertest');
 const app     = require('../app');
 const User      = require('../models/User');
 const OAuthFlow = require('../models/OAuthFlow');
+const SignInEvent = require('../models/SignInEvent');
 const google    = require('../services/googleAuth');
 const { safeReturnTo } = require('../controllers/authController');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
@@ -213,6 +214,14 @@ describe('a complete sign-in', () => {
     expect(me.body.data.email).toBe(PRIMARY);
   });
 
+  it('records the sign-in in the history: ok, by Google, the address used (PF-133)', async () => {
+    const res = await signIn({ sub: 'google-sub-second', email: SECOND });
+    expect(res.status).toBe(200);
+    expect(await SignInEvent.find({}, '-_id user kind outcome method address').lean()).toEqual([
+      { user: expect.anything(), kind: 'sign-in', outcome: 'ok', method: 'google', address: SECOND },
+    ]);
+  });
+
   it('works from the SECOND address too, as the same account', async () => {
     const a = await signIn();
     const b = await signIn({ sub: 'google-sub-second', email: SECOND });
@@ -285,6 +294,10 @@ describe('who may sign in — the allowlist', () => {
     expect(await OAuthFlow.countDocuments()).toBe(0);
     // …and the operator is told where to look.
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/migration 009/));
+    // PF-133: the refusal is in the owner's sign-in history, with no account.
+    expect(await SignInEvent.find({}, '-_id user kind outcome method address').lean()).toEqual([
+      { user: null, kind: 'sign-in', outcome: 'failed', method: 'google', address: 'stranger@gmail.com' },
+    ]);
   });
 
   it('refuses an UNVERIFIED address even when it is the admin\'s', async () => {

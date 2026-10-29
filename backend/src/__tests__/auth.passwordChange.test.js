@@ -13,6 +13,7 @@ const app        = require('../app');
 const User           = require('../models/User');
 const PasswordChange = require('../models/PasswordChange');
 const PasswordReset  = require('../models/PasswordReset');
+const SignInEvent = require('../models/SignInEvent');
 const { isBreached } = require('../services/breachedPasswords');
 const { issueSession, isFamilyLive } = require('../services/sessionService');
 const { MAX_ATTEMPTS } = require('../services/passwordCodes');
@@ -261,6 +262,8 @@ describe('POST /api/auth/password/change', () => {
     // This device's token still works on a protected route.
     const meRes = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${me.accessToken}`);
     expect(meRes.status).toBe(200);
+    // PF-133: the change is in the sign-in history.
+    expect(await SignInEvent.exists({ kind: 'password-change', outcome: 'ok', address: PRIMARY })).toBeTruthy();
   });
 
   it('alerts the main address only, after a change signed in with it', async () => {

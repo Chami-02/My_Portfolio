@@ -1,5 +1,6 @@
 const { body }   = require('express-validator');
 const User       = require('../models/User');
+const SignInEvent = require('../models/SignInEvent');
 const AppError   = require('../utils/AppError');
 const {
   listSessions, revokeFamily, revokeAllForUser,
@@ -66,6 +67,37 @@ const getSessions = async (req, res, next) => {
   }
 };
 
+// ── GET /api/auth/sign-ins ────────────────────────────────────────────────────
+// PF-133 — the card's "Recent activity": this account's events AND the ones
+// that matched no account (`user: null` — a stranger trying addresses), the
+// newest 50. Another account's rows are never included.
+const HISTORY_LIMIT = 50;
+
+const getSignIns = async (req, res, next) => {
+  try {
+    const rows = await SignInEvent.find({ user: { $in: [req.user._id, null] } })
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(HISTORY_LIMIT)
+      .select('kind outcome method address device location createdAt')
+      .lean();
+    res.json({
+      status: 'success',
+      data: rows.map((row) => ({
+        id:       row._id,
+        kind:     row.kind,
+        outcome:  row.outcome,
+        method:   row.method ?? null,
+        address:  row.address ?? null,
+        device:   row.device ?? null,
+        location: row.location ?? null,
+        at:       row.createdAt,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // ── POST /api/auth/sessions/revoke ───────────────────────────────────────────
 // One other device. THIS device signs out with the normal Sign out, which
 // also clears this browser's tokens; ending it here would leave them behind.
@@ -97,6 +129,7 @@ const revokeOtherSessions = async (req, res, next) => {
 
 module.exports = {
   getSessions,
+  getSignIns,
   revokeRules, revokeSessionById,
   revokeOthersRules, revokeOtherSessions,
 };

@@ -1,12 +1,13 @@
 // frontend/src/components/admin/panels/SettingsSessionsCard.jsx
 import { useRef, useState } from 'react';
-import { useSessions, useEndSessions } from '../../../hooks/useSessions';
+import { useSessions, useEndSessions, useSignInHistory } from '../../../hooks/useSessions';
 import { useAdminFlash }  from '../../../hooks/useAdminFlash';
 import { useFormGuard }   from '../../../hooks/useFormGuard';
 import { fieldProps, errorId } from '../../../utils/formErrors';
 import { resetErrorMessage }   from '../../../utils/resetError';
 import { formatDate }     from '../../../utils/blogMeta';
 import { activeText }     from '../../../utils/sessionTimes';
+import { formatSent }     from '../../../utils/messageTime';
 import { ConfirmDialog }  from '../ConfirmDialog';
 import { LoadError }      from '../LoadError';
 import { EyeIcon, EyeOffIcon } from '../../icons/BrandIcons';
@@ -16,6 +17,16 @@ import a from '../../../styles/admin.module.css';
 const FID = 'settings-sessions';
 
 const METHOD_LABELS = { password: 'Password', google: 'Google' };
+
+// PF-133 — what each history row says happened.
+const EVENT_TEXT = {
+  'sign-in':         { ok: 'Signed in', failed: 'Failed sign-in' },
+  'reset-request':   { ok: 'Reset code requested', failed: 'Reset requested — unknown address' },
+  'password-reset':  { ok: 'Password reset', failed: 'Password reset' },
+  'password-change': { ok: 'Password changed', failed: 'Password changed' },
+};
+/** Rows shown at first, and added by each SHOW MORE — the server sends 50. */
+const PAGE = 10;
 
 // Module scope: useFormGuard's `check` is memoised on the validator.
 const passwordErrors = ({ password }) =>
@@ -39,8 +50,8 @@ const passwordErrors = ({ password }) =>
  * THIS device has no button: SIGN OUT in the header ends it and also clears
  * this browser's tokens, which a server-side revoke here could not.
  *
- * PF-133's sign-in history joins this card as its second part (owner,
- * 2026-10-29); until it is built, nothing on screen stands in for it.
+ * PF-133's sign-in history is the card's second part (owner, 2026-10-29):
+ * RECENT ACTIVITY, with its own query and its own LoadError.
  *
  * FOLDS like the Password card (owner, 2026-10-29): one line, MANAGE
  * SESSIONS ▾, sliding open with the same classes — so the two cannot drift.
@@ -117,8 +128,8 @@ export function SettingsSessionsCard() {
 
       {query.isSuccess && (
         <>
-          <h3 className={`${a.labelLead} ${styles.subhead}`}>Signed in now</h3>
-          <ul className={styles.sessions}>
+          <h3 className={`${a.labelLead} ${styles.subhead}`} id={`${FID}-now`}>Signed in now</h3>
+          <ul className={styles.sessions} aria-labelledby={`${FID}-now`}>
             {ordered.map((s) => (
               <li key={s.id} className={styles.session}>
                 <div className={styles.sessionText}>
@@ -161,6 +172,8 @@ export function SettingsSessionsCard() {
           )}
         </>
       )}
+
+      <RecentActivity />
       </div>
       </div>
       </div>
@@ -224,5 +237,77 @@ export function SettingsSessionsCard() {
         </ConfirmDialog>
       )}
     </section>
+  );
+}
+
+/**
+ * PF-133 — every sign-in attempt, reset request, reset and change: the
+ * account's own and those for addresses that match no account (someone
+ * trying addresses). OWASP: log successes AND failures, and let the owner
+ * see them. Kept 90 days on the server; the newest 10 show, SHOW MORE adds
+ * 10 at a time up to the 50 sent, SHOW LESS goes back — the card never
+ * grows without limit (owner, 2026-10-29).
+ *
+ * Times are the READER's own clock (dates stay reader-local), in the
+ * Messages panel's YYYY/MM/DD 12-hour form.
+ */
+function RecentActivity() {
+  const query = useSignInHistory();
+  const [shown, setShown] = useState(PAGE);
+  const events = query.data ?? [];
+
+  return (
+    <div className={styles.activity}>
+      <h3 className={`${a.labelLead} ${styles.subhead}`} id={`${FID}-activity`}>Recent activity</h3>
+      {query.isError && <LoadError what="SIGN-IN HISTORY" query={query} />}
+
+      {query.isSuccess && events.length === 0 && (
+        <p className={styles.note}>Nothing yet. Sign-ins and failed attempts show here for 90 days.</p>
+      )}
+
+      {query.isSuccess && events.length > 0 && (
+        <>
+          <ul className={styles.sessions} aria-labelledby={`${FID}-activity`}>
+            {events.slice(0, shown).map((e) => {
+              const failed = e.outcome === 'failed';
+              const when = formatSent(e.at);
+              return (
+                <li key={e.id} className={styles.session}>
+                  <div className={styles.sessionText}>
+                    <p className={styles.sessionDevice}>
+                      <span className={failed ? styles.badgeFailed : a.badgeOk}>{failed ? 'FAILED' : 'OK'}</span>
+                      <span className={styles.value}>
+                        {[EVENT_TEXT[e.kind]?.[e.outcome] ?? e.kind, METHOD_LABELS[e.method]].filter(Boolean).join(' · ')}
+                      </span>
+                    </p>
+                    <p className={styles.sessionMeta}>
+                      {[e.address, e.device, e.location, `${when.date} ${when.time}`].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {events.length > PAGE && (
+            <div className={styles.actions}>
+              {shown < events.length && (
+                <button type="button" className={a.btnRow} onClick={() => setShown((n) => n + PAGE)}>
+                  SHOW MORE
+                </button>
+              )}
+              {shown > PAGE && (
+                <button type="button" className={a.btnRow} onClick={() => setShown(PAGE)}>
+                  SHOW LESS
+                </button>
+              )}
+            </div>
+          )}
+          {/* Owner, 2026-10-29: a line you don't recognise says what to do. */}
+          <p className={styles.note}>
+            Don&apos;t recognise a line? Change your password above, then sign out any device you don&apos;t know.
+          </p>
+        </>
+      )}
+    </div>
   );
 }

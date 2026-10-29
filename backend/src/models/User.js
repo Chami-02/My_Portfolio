@@ -48,6 +48,10 @@ const userSchema = new mongoose.Schema(
       select:  false,
     },
     passwordChangedAt: { type: Date },
+    // PF-133 — set when the CURRENT password turned up in a known data leak
+    // at sign-in (services/signInLog.js). The admin shows a banner until the
+    // password changes; setPassword() clears it.
+    passwordLeakedAt: { type: Date },
   },
   { timestamps: true }
 );
@@ -119,6 +123,7 @@ userSchema.methods.setPassword = function (password, { hashed = false } = {}) {
   }
   this.password = password;
   this.passwordChangedAt = new Date();
+  this.passwordLeakedAt = undefined;
   this.$locals.passwordIsHash = hashed;
 };
 

@@ -11,6 +11,7 @@ const User    = require('./models/User');
 const Vocabulary = require('./models/Vocabulary');
 const SkillCategory = require('./models/SkillCategory');
 const RateLimit = require('./models/RateLimit');
+const SignInEvent = require('./models/SignInEvent');
 const { DEFAULT_CATEGORIES } = require('./controllers/skillCategoryController');
 
 // ── Seed data ──────────────────────────────────────────────────────────────
@@ -495,6 +496,8 @@ async function seed() {
       // PF-141 — limiter counts live in the database now and survive a
       // backend restart; a reseed (before a local E2E run) starts them fresh.
       RateLimit.deleteMany({}),
+      // PF-133 — the sign-in history belongs to the users just deleted.
+      SignInEvent.deleteMany({}),
     ]);
     console.log('🗑  Cleared existing data');
 

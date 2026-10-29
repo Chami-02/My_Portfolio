@@ -155,7 +155,7 @@
   padding-top: 18px;
 }
 
-/* "Signed in now" — the card's first part; PF-133's history will be the second. */
+/* "Signed in now" — the card's first part; PF-133's "Recent activity" the second. */
 .subhead {
   margin: 0 0 12px;
 }
@@ -207,4 +207,31 @@
   line-height: 1.6;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+
+/* ── Recent activity (PF-133) — the Sessions card's second part ─────────── */
+
+.activity {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(var(--ln), .1);
+}
+
+/* FAILED: the row-danger red pair (the prototype's literal, both themes) with
+   the ink flipping through var(--danger) — the .btnRowDanger rule. */
+.badgeFailed {
+  composes: badge from '../../../styles/admin.module.css';
+  border-color: rgba(180, 35, 31, .35);
+  background: rgba(180, 35, 31, .08);
+  color: var(--danger);
+}
+
+/* Password card (PF-133): when it last changed, under the header — visible
+   folded too. */
+.lastChanged {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--muted);
 }
