@@ -30,7 +30,8 @@
     "globalSetup": "<rootDir>/src/__tests__/setup/globalSetup.js",
     "globalTeardown": "<rootDir>/src/__tests__/setup/globalTeardown.js",
     "setupFiles": [
-      "<rootDir>/src/__tests__/setup/perWorkerDatabase.js"
+      "<rootDir>/src/__tests__/setup/perWorkerDatabase.js",
+      "<rootDir>/src/__tests__/setup/noLeakCheckCalls.js"
     ],
     "coverageThreshold": {
       "global": {

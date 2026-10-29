@@ -14,6 +14,7 @@ const {
   coolingDown, issueCode, checkCode, claimCode, dropAllCodes, MAX_ATTEMPTS,
 } = require('../services/passwordCodes');
 const { requestLocation }   = require('../utils/requestLocation');
+const { recordEvent }       = require('../services/signInLog');
 
 // ══ Forgot password (PF-125) ═════════════════════════════════════════════════
 //
@@ -69,9 +70,16 @@ const detailsFor = (address, where) => [
  * Everything that differs between a known and an unknown address happens
  * HERE, after the response — so the response cannot tell them apart.
  */
-const sendResetCode = async (email, where) => {
+const sendResetCode = async (req) => {
+  const { email } = req.body;
   try {
     const user = await User.findByLoginEmail(email);
+    // PF-133: every request is logged — one for an unknown address as
+    // `failed`, so the owner sees someone trying addresses. Here, after the
+    // response, like everything else that tells the two apart.
+    await recordEvent(req, {
+      user, kind: 'reset-request', outcome: user ? 'ok' : 'failed', address: email,
+    });
     if (!user) return;
 
     // The address exactly as stored — never the typed spelling.
@@ -95,7 +103,7 @@ const sendResetCode = async (email, where) => {
         title:     'Your password reset code',
         intro:     'Enter this code on the reset page to choose a new admin password. It expires in 10 minutes and works once.',
         highlight: code,
-        details:   detailsFor(sentTo, where),
+        details:   detailsFor(sentTo, requestLocation(req)),
         note:      "If this wasn't you, ignore this email — your password has not changed.",
       }),
     });
@@ -134,7 +142,7 @@ const notifyChanged = async (user, sentTo, where) => {
 const forgotPassword = (req, res) => {
   // In the background: Vercel keeps the function alive until it settles,
   // and off Vercel it just runs. The visitor's answer never waits for it.
-  waitUntil(sendResetCode(req.body.email, requestLocation(req)));
+  waitUntil(sendResetCode(req));
   res.json({ status: 'success', message: FORGOT_MESSAGE });
 };
 
@@ -170,6 +178,7 @@ const resetPassword = async (req, res, next) => {
     await account.save();
     await dropAllCodes(user._id);
     await revokeAllForUser(user._id);
+    await recordEvent(req, { user, kind: 'password-reset', outcome: 'ok', address: row.sentTo });
 
     waitUntil(notifyChanged(account, row.sentTo, requestLocation(req)));
     res.json({ status: 'success', message: 'Password changed. Sign in with your new password.' });
@@ -332,6 +341,7 @@ const changePassword = async (req, res, next) => {
     await dropAllCodes(req.user._id);
     // Every OTHER device signs out; this one keeps its session (OWASP).
     await revokeAllForUser(req.user._id, { except: req.auth.family });
+    await recordEvent(req, { user: req.user, kind: 'password-change', outcome: 'ok', address: sentTo });
 
     waitUntil(notifyChangedInSettings(account, sentTo, requestLocation(req)));
     res.json({ status: 'success', message: 'Password changed. Every other device was signed out.' });

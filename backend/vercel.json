@@ -1,5 +1,6 @@
 {
   "git": { "deploymentEnabled": { "master": false } },
   "regions": ["bom1"],
+  "crons": [{ "path": "/api/cron/digest", "schedule": "30 2 * * *" }],
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }

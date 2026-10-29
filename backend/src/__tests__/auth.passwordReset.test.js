@@ -16,6 +16,7 @@ const PasswordReset = require('../models/PasswordReset');
 const { isBreached }   = require('../services/breachedPasswords');
 const { issueSession, isFamilyLive } = require('../services/sessionService');
 const Session = require('../models/Session');
+const SignInEvent = require('../models/SignInEvent');
 const { MAX_ATTEMPTS } = require('../controllers/passwordResetController');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 
@@ -190,6 +191,8 @@ describe('POST /api/auth/password/reset', () => {
     expect(await signsIn(OLD)).toBe(false);
     const stored = (await User.findOne({}).select('+password')).password;
     expect(stored).not.toBe(NEW);
+    // PF-133: the reset is in the sign-in history.
+    expect(await SignInEvent.exists({ kind: 'password-reset', outcome: 'ok', address: PRIMARY })).toBeTruthy();
   });
 
   it('signs out every existing session, and signs nobody in', async () => {

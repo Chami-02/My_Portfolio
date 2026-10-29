@@ -10,7 +10,7 @@ const {
   changeCodeRules, requestChangeCode, changeRules, changePassword,
 } = require('../controllers/passwordResetController');
 const {
-  getSessions, revokeRules, revokeSessionById, revokeOthersRules, revokeOtherSessions,
+  getSessions, getSignIns, revokeRules, revokeSessionById, revokeOthersRules, revokeOtherSessions,
 } = require('../controllers/sessionController');
 const {
   authLimiter, refreshLimiter, googleLimiter, forgotLimiter, resetLimiter, changeLimiter,
@@ -52,6 +52,8 @@ router.post('/password/change',      protect, changeLimiter, changeRules,     va
 // Signed-in devices in Settings (PF-132). Signing one out needs the current
 // password (OWASP ASVS 5.0 V7.5.2); `protect` first, as on the change routes.
 router.get('/sessions', protect, getSessions);
+// Sign-in history in the same card (PF-133).
+router.get('/sign-ins', protect, getSignIns);
 router.post('/sessions/revoke',        protect, sessionsLimiter, revokeRules,       validate, revokeSessionById);
 router.post('/sessions/revoke-others', protect, sessionsLimiter, revokeOthersRules, validate, revokeOtherSessions);
 

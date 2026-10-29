@@ -51,4 +51,32 @@ describe('renderAlert', () => {
     expect(html).not.toContain('letter-spacing:10px');   // the code box
     expect(html).not.toContain('text-transform:uppercase;color:#5b6270;width:110px'); // a row
   });
+
+  // PF-133 (owner, 2026-10-29): "if it is not you" must say WHAT to do.
+  it('numbers the NOT YOU steps in both versions, escaped', () => {
+    const { text, html } = renderAlert({ ...BASE, steps: ['Change it', 'Sign out <b>them</b>'] });
+    expect(text).toContain('NOT YOU? DO THIS NOW\n1. Change it\n2. Sign out <b>them</b>');
+    expect(html).toContain('NOT YOU? DO THIS NOW');
+    expect(html).toContain('<li>Change it</li><li>Sign out &lt;b&gt;them&lt;/b&gt;</li>');
+  });
+
+  it('a button to a web address, in both versions', () => {
+    const { text, html } = renderAlert({ ...BASE, action: { label: 'OPEN ADMIN', url: 'https://site.example/admin?a=1&b=2' } });
+    expect(html).toContain('<a href="https://site.example/admin?a=1&amp;b=2"');
+    expect(html).toContain('>OPEN ADMIN</a>');
+    expect(text).toContain('OPEN ADMIN: https://site.example/admin?a=1&b=2');
+  });
+
+  it.each(['javascript:alert(1)', '//evil.example', ''])('never links to %j', (url) => {
+    const { text, html } = renderAlert({ ...BASE, action: { label: 'OPEN ADMIN', url } });
+    expect(html).not.toContain('<a ');
+    expect(text).not.toContain('OPEN ADMIN');
+  });
+
+  it('no steps block and no button when none are given', () => {
+    const { text, html } = renderAlert(BASE);
+    expect(text).not.toContain('NOT YOU');
+    expect(html).not.toContain('NOT YOU');
+    expect(html).not.toContain('<a ');
+  });
 });

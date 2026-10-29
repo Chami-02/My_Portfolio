@@ -40,12 +40,17 @@ const MONO = "'SFMono-Regular',Menlo,Consolas,'Courier New',monospace";
  *   highlight?: string,            shown huge and spaced — a one-time code
  *   details?: Array<[string, string]>,
  *   note?: string,                 the "if this wasn't you" line
+ *   steps?: string[],              PF-133: "NOT YOU? DO THIS NOW", numbered
+ *   action?: { label, url },       PF-133: one button (http/https only)
  * }} alert
  * @returns {{ text: string, html: string }}
  */
-const renderAlert = ({ tone, title, intro, highlight, details = [], note }) => {
+const renderAlert = ({ tone, title, intro, highlight, details = [], note, steps = [], action }) => {
   const t = TONES[tone];
   const e = escapeHtml;
+  // A link only to a web address — never `javascript:` or anything else a
+  // misconfigured FRONTEND_URL could smuggle into an href.
+  const button = action && /^https?:\/\//i.test(action.url) ? action : null;
 
   const text = [
     title,
@@ -54,6 +59,8 @@ const renderAlert = ({ tone, title, intro, highlight, details = [], note }) => {
     ...(highlight ? ['', `    ${highlight}`, ''] : []),
     ...details.map(([label, value]) => `${label}: ${value}`),
     ...(note ? ['', note] : []),
+    ...(steps.length ? ['', 'NOT YOU? DO THIS NOW', ...steps.map((step, i) => `${i + 1}. ${step}`)] : []),
+    ...(button ? ['', `${button.label}: ${button.url}`] : []),
     '',
     '— PARINDRA.DEV · Portfolio CMS security',
   ].join('\n');
@@ -94,6 +101,17 @@ ${rows ? `
 ${note ? `
 <tr><td style="padding:14px 28px 4px">
 <p style="margin:0;font-family:${SANS};font-size:13.5px;line-height:1.6;color:${t.colour};font-weight:bold">${e(note)}</p>
+</td></tr>` : ''}
+${steps.length ? `
+<tr><td style="padding:16px 28px 4px">
+<div style="background:${t.tint};border-left:4px solid ${t.colour};border-radius:10px;padding:14px 18px">
+<p style="margin:0 0 8px;font-family:${MONO};font-size:11px;font-weight:bold;letter-spacing:2px;color:${t.colour}">NOT YOU? DO THIS NOW</p>
+<ol style="margin:0;padding-left:20px;font-family:${SANS};font-size:14px;line-height:1.7;color:${INK}">${steps.map((step) => `<li>${e(step)}</li>`).join('')}</ol>
+</div>
+</td></tr>` : ''}
+${button ? `
+<tr><td style="padding:18px 28px 4px">
+<a href="${e(button.url)}" style="display:inline-block;background:${NAVY};color:#FFFFFF;font-family:${MONO};font-size:12px;font-weight:bold;letter-spacing:2px;text-decoration:none;border-radius:999px;padding:12px 22px">${e(button.label)}</a>
 </td></tr>` : ''}
 
 <tr><td style="padding:24px 28px 26px">
