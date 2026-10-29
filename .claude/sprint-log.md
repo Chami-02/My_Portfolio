@@ -9356,6 +9356,14 @@ card later. Half of auth gap #5 (the other half, history + alerts, is PF-133).
   (Mongoose then throws CastError on an object). New service-level test calls `revokeFamily`
   with `{ $ne: 'x' }`; mutant without `$eq` ends every session → killed. Backend 1081/59.
 
+### PF-132 live check (2026-10-29, after PR #66 → `9ee8b90`, deploy.yml success)
+- `GET /api/health` 200, `database: portfolio_prod`. `GET /auth/sessions`, `POST
+  /auth/sessions/revoke` and `/revoke-others` → 401 "not logged in" (routes live AND
+  protected); control `GET /auth/no-such-route` → 404. No email sent. CodeQL alert #85
+  closed by the `$eq` fix (`8df3f7d`).
+- Signed-in card on prod: owner to open Settings → Sessions (read only; nothing signed out).
+
+
 ### Outstanding work added by PF-132
 - Not tried end-to-end in a browser with TWO real devices (the owner's real sessions were
   not signed out); the API path is covered by `sessions.routes.test.js`. Owner can try:
