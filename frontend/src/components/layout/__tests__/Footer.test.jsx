@@ -24,6 +24,7 @@ const useAbout = vi.hoisted(() => vi.fn());
 vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
 import { Footer } from '../Footer';
 import { MotionProvider } from '../../../providers/MotionProvider';
+import { ThemeProvider } from '../../../providers/ThemeProvider';
 import { leadsWithIcon } from '../../../test/leadsWithIcon';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -106,9 +107,11 @@ const pick = (root, name) => pickAll(root, name)[0] ?? null;
 function renderFooter({ path = '/' } = {}) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <MotionProvider>
-        <Footer />
-      </MotionProvider>
+      <ThemeProvider>
+        <MotionProvider>
+          <Footer />
+        </MotionProvider>
+      </ThemeProvider>
     </MemoryRouter>,
   );
 }

@@ -53,14 +53,21 @@ export function readAppliedTheme() {
 /**
  * Apply a theme to the document.
  *
- * ⚠️ Sets ONE attribute and nothing else. Never write --acc or any
- * other custom property inline on <html> — an inline value beats the
- * theme block in tokens.css and turns every future token edit into
- * dead code. See the note at the bottom of tokens.css.
+ * ⚠️ Sets ONE attribute on <html> and nothing else there. Never write
+ * --acc or any other custom property inline on <html> — an inline value
+ * beats the theme block in tokens.css and turns every future token edit
+ * into dead code. See the note at the bottom of tokens.css.
+ *
+ * PF-134 (owner): the browser-tab icon follows the site's theme too, not
+ * the OS's. index.html links the dark file (the default theme); this runs
+ * on mount, on the toggle and on another tab's change, so it is the one
+ * place the tab icon is switched. The .ico fallback stays dark.
  */
 export function applyTheme(theme) {
   const next = normalise(theme);
   document.documentElement.setAttribute('data-theme', next);
+  document.querySelector('link[rel="icon"][type="image/svg+xml"]')
+    ?.setAttribute('href', `/favicon-${next}.svg`);
   return next;
 }
 

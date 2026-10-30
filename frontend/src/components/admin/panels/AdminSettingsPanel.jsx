@@ -11,9 +11,10 @@ import a from '../../../styles/admin.module.css';
  * The prototype has no Settings; the layout is owner-approved 2026-10-27.
  *
  * ⚠️ Only BUILT cards. Sign-in history (PF-133, a second part INSIDE the
- * Sessions card — owner, 2026-10-29), logo + favicon (PF-134) and backup
- * (PF-135) each arrive when they are built. The owner chose this over greyed-out "coming soon" cards: nothing on
- * screen claims a feature that does not exist yet.
+ * Sessions card — owner, 2026-10-29) is built; backup (PF-135) arrives when
+ * it is. The owner chose this over greyed-out "coming soon" cards: nothing on
+ * screen claims a feature that does not exist yet. There is no logo card:
+ * PF-134 ships the logo as files, not an upload (owner, 2026-10-30).
  *
  * The Account card is read-only and reads the `/auth/me` entry the shell has
  * already fetched — no request of its own, so nothing to lose and no

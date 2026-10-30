@@ -83,6 +83,40 @@ describe('theme utilities (PF-72)', () => {
       expect(document.documentElement.getAttribute('style')).toBeNull();
       expect(document.documentElement.style.getPropertyValue('--acc')).toBe('');
     });
+
+    // PF-134 — the tab icon follows the SITE's theme, both ways.
+    describe('the browser-tab icon', () => {
+      let svgIcon, icoIcon;
+      beforeEach(() => {
+        icoIcon = Object.assign(document.createElement('link'), { rel: 'icon' });
+        icoIcon.setAttribute('href', '/favicon.ico');
+        svgIcon = Object.assign(document.createElement('link'), { rel: 'icon', type: 'image/svg+xml' });
+        svgIcon.setAttribute('href', '/favicon-dark.svg');
+        document.head.append(icoIcon, svgIcon);
+      });
+      afterEach(() => { icoIcon.remove(); svgIcon.remove(); });
+
+      it('switches to the light icon and back', () => {
+        applyTheme('light');
+        expect(svgIcon.getAttribute('href')).toBe('/favicon-light.svg');
+        applyTheme('dark');
+        expect(svgIcon.getAttribute('href')).toBe('/favicon-dark.svg');
+      });
+
+      it('never points at a file that does not exist', () => {
+        applyTheme('banana');
+        expect(svgIcon.getAttribute('href')).toBe(`/favicon-${DEFAULT_THEME}.svg`);
+      });
+
+      it('leaves the .ico fallback alone', () => {
+        applyTheme('light');
+        expect(icoIcon.getAttribute('href')).toBe('/favicon.ico');
+      });
+    });
+
+    it('does not throw when the page has no SVG icon link', () => {
+      expect(() => applyTheme('light')).not.toThrow();
+    });
   });
 
   describe('readAppliedTheme', () => {

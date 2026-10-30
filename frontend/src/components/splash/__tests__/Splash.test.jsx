@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Splash from '../Splash';
 import * as splashUtils from '../../../utils/splash';
 import { SplashProvider } from '../../../providers/SplashProvider';
+import { ThemeProvider } from '../../../providers/ThemeProvider';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { useSplashReady } from '../../../hooks/useSplashReady';
 import Reveal from '../../motion/Reveal';
@@ -17,10 +18,12 @@ function ReadyProbe() {
 
 /** Exactly how HomePage mounts it: ready already false before first paint. */
 const withSplash = (ui) => (
-  <SplashProvider initialReady={false}>
-    {ui}
-    <ReadyProbe />
-  </SplashProvider>
+  <ThemeProvider>
+    <SplashProvider initialReady={false}>
+      {ui}
+      <ReadyProbe />
+    </SplashProvider>
+  </ThemeProvider>
 );
 
 const advance = (ms) => act(() => { vi.advanceTimersByTime(ms); });
@@ -76,10 +79,10 @@ describe('Splash (PF-78)', () => {
     // Queried by tag, not by alt text: PF-83 emptied this image's alt (see
     // the next test), so there is no accessible name left to find it by.
     const img = container.querySelector('img');
-    // Imported through Vite rather than referenced as /assets/logo.webp:
+    // Imported through Vite rather than referenced as /assets/logo-dark.svg:
     // a missing import fails the build, a missing public path 404s in
-    // silence.
-    expect(img.getAttribute('src')).toMatch(/logo\.webp/);
+    // silence. (PF-134: the theme picks the file; dark is the default.)
+    expect(img.getAttribute('src')).toMatch(/logo-dark\.svg/);
   });
 
   it('treats the logo as decorative rather than announcing the name twice', () => {
