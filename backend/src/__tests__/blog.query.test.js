@@ -184,7 +184,7 @@ describe('GET /api/blog — ordering', () => {
     const res = await request(app).get('/api/blog');
 
     expect(names(res)).toEqual(PUBLISHED_ORDER);
-    expect(res.body.data.every((p) => p.content === undefined)).toBe(true);
+    expect(res.body.data.every((p) => p.sections === undefined)).toBe(true);
   });
 
   it('does not leak the internal sort key into the response', async () => {
@@ -264,23 +264,6 @@ describe('GET /api/blog?q= — search', () => {
     // every assertion above and be just as broken as one matching nothing.
     await seedPosts();
     const res = await request(app).get('/api/blog?q=nonexistentterm');
-    expect(res.body.data).toHaveLength(0);
-  });
-
-  it('does not search the deprecated content field', async () => {
-    // Deliberate omission, not an oversight: no row has ever carried a
-    // `content` string, so an $or arm for it would be dead weight.
-    await seedPosts([{
-      title:       'Foxtrot post',
-      excerpt:     'An excerpt.',
-      tags:        [],
-      published:   true,
-      publishedAt: new Date('2026-01-02T09:00:00.000Z'),
-      content:     'legacy markdown mentioning zzuniquezz',
-      sections:    [{ heading: 'Foxtrot heading', body: ['Body.'], bullets: [] }],
-    }]);
-
-    const res = await request(app).get('/api/blog?q=zzuniquezz');
     expect(res.body.data).toHaveLength(0);
   });
 

@@ -35,9 +35,7 @@ const blogRules = [
   // a post at all.
   //
   // The rule is now "a post needs A body", not "a post needs THAT field".
-  // `content` still satisfies it because the column still exists
-  // (`models/Blog.js` marks it DEPRECATED, awaiting its own removal ticket)
-  // and legacy rows may still carry it.
+  // PF-137 removed `content` itself (migration 011), so only sections count.
   //
   // ⚠️ Hung off `sections` rather than a bare `body()` because a custom
   // validator on a named field runs even when that field is ABSENT —
@@ -54,10 +52,7 @@ const blogRules = [
   // source of truth for it.
   body('sections').custom((sections, { req }) => {
     if (!isPublishing(sections, { req })) return true;   // PF-115: drafts
-    const hasSections = Array.isArray(sections) && sections.length > 0;
-    const hasContent  = typeof req.body.content === 'string' && req.body.content.trim() !== '';
-
-    if (!hasSections && !hasContent) {
+    if (!Array.isArray(sections) || sections.length === 0) {
       throw new Error('A post needs a body — add at least one section');
     }
     return true;
@@ -93,11 +88,11 @@ const getAllPosts = async (req, res, next) => {
     const posts = await Blog.aggregate(
       sortedPipeline({
         match:   buildMatch({ publishedOnly: true, q: req.query.q, tag: req.query.tag }),
-        // The body is dead weight in a list view: the deprecated `content`
-        // and `sections[]` both. No public list consumer reads `sections`;
-        // the reading view fetches its post by slug. The ADMIN list below
-        // keeps `sections` (its edit form is built from list rows).
-        project: { content: 0, sections: 0 },
+        // The body is dead weight in a list view. No public list consumer
+        // reads `sections`; the reading view fetches its post by slug. The
+        // ADMIN list below keeps `sections` (its edit form is built from
+        // list rows).
+        project: { sections: 0 },
       })
     );
     res.json({ status: 'success', data: posts });
@@ -115,7 +110,6 @@ const getAllPostsAdmin = async (req, res, next) => {
     const posts = await Blog.aggregate(
       sortedPipeline({
         match:   buildMatch({ publishedOnly: false, q: req.query.q, tag: req.query.tag }),
-        project: { content: 0 },
       })
     );
     res.json({ status: 'success', data: posts });
@@ -127,13 +121,10 @@ const getAllPostsAdmin = async (req, res, next) => {
 // e.g. /api/blog/how-i-built-my-mern-portfolio
 const getPostBySlug = async (req, res, next) => {
   try {
-    // `content` is deprecated (PF-59) and no client reads it — dropped
-    // from the response like the lists drop it. The schema path stays
-    // until a contract migration removes it.
     const post = await Blog.findOne({
       slug:      req.params.slug,
       published: true,
-    }).select('-content');
+    });
 
     if (!post) return next(new AppError('Blog post not found', 404));
 
