@@ -10499,6 +10499,12 @@ landed because the command exited cleanly — that is exactly how PF-75 reached
 should offer this check when asked whether one landed.
 
 
+### PF-136 live check (2026-10-30, after PR #71 → squash `07a4d36`; recorded on the PF-137 branch)
+- master code scanning: **0 open** (65 fixed, 6 dismissed); CodeQL + deploy runs success.
+- Owner dismissed CodeQL #66–69 (`StorageEvent` false positives) and Dependabot #62 `deepmerge`
+  (low, dev-only via jest → jest-config, no patched version; `npm audit --omit=dev` = 0) as
+  tolerable risk → **Security tab all zero** (Dependabot / code scanning / secret scanning).
+
 ## PF-137 — Blog `content` removal (contract migration 011) + auth & security post (012) (2026-10-30, `feat/PF-137-blog-content-removal`)
 
 **What:** the CONTRACT half of PF-59. `Blog.content` (Phase 1's single Markdown string) leaves the
