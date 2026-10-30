@@ -348,4 +348,4 @@ module.exports = {
   togglePublish,
   deletePost,
   incrementViews,
-}
+};
