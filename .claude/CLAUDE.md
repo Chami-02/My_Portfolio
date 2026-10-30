@@ -127,13 +127,13 @@ something surprises you, search the companions *before* deriving an explanation.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
 | PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — everything up to PF-135 merged + live (list below); PF-136 code-scanning built |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — up to PF-136 merged + live; PF-137 built (migrations 011 + 012) |
 
 `global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
-PF-127→130, 123, 125, 131, 124, 141, 132, 133, 142, 134, 135 all live (dates in sprint-log) → PF-136 code scanning (built) → PF-137 → PF-143 → PF-138 (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+PF-127→130, 123, 125, 131, 124, 141, 132, 133, 142, 134, 135, 136 all live (dates in sprint-log) → PF-137 (built) → PF-143 → PF-138 (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?

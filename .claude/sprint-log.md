@@ -10498,3 +10498,45 @@ landed because the command exited cleanly — that is exactly how PF-75 reached
 `master` unnoticed. Claude does not run the push (see Working agreement), but
 should offer this check when asked whether one landed.
 
+
+## PF-137 — Blog `content` removal (contract migration 011) + auth & security post (012) (2026-10-30, `feat/PF-137-blog-content-removal`)
+
+**What:** the CONTRACT half of PF-59. `Blog.content` (Phase 1's single Markdown string) leaves the
+schema, the code and the data. Owner added mid-ticket: a full "Authentication and Security" blog
+post, delivered by its OWN migration 012 (owner chose separate file + DRAFT).
+
+- `migrations/011-blog-content-removal.js` — raw driver; classify each row OK / UNSET / BLOCKED.
+  ⚠️ BLOCKED = non-blank `content` and no sections (content is the only copy): counted BEFORE any
+  write; any BLOCKED → nothing written, `Refusing:` error, exit 1 (dry run too) → pipeline stops
+  before Deploy. Blank content with no sections is unset (nothing to lose).
+- `migrations/012-blog-post-auth-security.js` — one post, DRAFT (`published: false`,
+  `publishedAt: null`), text INSIDE the file (the checksum covers only this file), slug + reading
+  time (11 min) written as literals; upsert `$setOnInsert` keyed on slug + an existence check →
+  NEVER overwrites a post at that URL (owner edits survive). Tags `Security`, `Authentication`
+  upserted into the tag vocabulary. Every factual claim in the post was checked against the code
+  (one fixed: there is no sign-up route).
+- `models/Blog.js` — `content` path deleted (tombstone comment), fallback removed from reading time,
+  the body validator and `applyDerivedFields`.
+- `controllers/blogController.js` — body rule = sections only; `content: 0` projections and
+  `.select('-content')` deleted (dead once 011 has run; the pipeline migrates before it deploys).
+- `utils/blogQuery.js` — comments only. Not touched: migration 001 (ran in prod), frontend (no reader),
+  `backupFile.js` (strict mode already drops `content` from old files — now pinned by a test).
+- **Safe in one release:** the LIVE code already worked with no `content` on any row, so migrate-then-
+  deploy has no window where old code needs the field.
+
+**Tests:** new `011-…test.js` (11), `012-…test.js` (7); `blog.test.js` (fixtures → sections; content-only
+publish refused AT THE DOOR — `Blog.create` spy, because rules and model give the same 400; a sent
+`content` is never stored, read from the raw collection); `blog.sections-schema.test.js` (no path;
+content is not a body); `blog.query.test.js` (deleted the "does not search content" case; list check →
+`sections`); `backup.restore.test.js` (+1 old file with `content`).
+**Mutation:** 011 — never-block, blank-as-text, refuse-after-write, dry-run-writes, controller accepts
+content (survived until the spy was added), schema path re-added: all killed. 012 — overwrite, published,
+reading-time formula, slug, dry-run writes: killed; `$set` vs `$setOnInsert` SURVIVES (equivalent under
+sequential runs — the existence check runs first; `$setOnInsert` only matters in a race).
+**Gates:** backend 1201 / 65 suites (was 1194 / 64), coverage 87.14 / 79.35 / 90.25 / 87.78; frontend
+`npm run check` 2384 / 108 files, lint 0, build OK (no frontend change).
+**Dev DB:** `migrate:dry` → 4 posts, 0 with content; `migrate` applied 011 + 012; second direct run of
+each: all OK. `migrate:verify` not run locally (needs a throwaway DB — CI's migrations job runs it).
+**E2E:** not run locally (`dev:e2e` broken locally, Outstanding PF-127); CI runs it on push.
+**After merge:** pipeline Migrate shows 011's counts (expect Blocked: 0) — approve; the post appears in
+Admin → Blog as a DRAFT for the owner to read and PUBLISH.
