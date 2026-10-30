@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
-import logo from '../../assets/logo.webp';
+import { useLogo } from '../../hooks/useLogo';
 import styles from './Navbar.module.css';
 import { navModel, currentSectionId } from '../../utils/nav';
 import { useAbout } from '../../hooks/useAbout';
@@ -67,6 +67,7 @@ function NavAnchor({ href, className, onClick, ref, children, ...rest }) {
  * it; dropping it is fidelity, not an omission.
  */
 export function Navbar() {
+  const logo = useLogo();
   const progressRef = useRef(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
@@ -209,6 +210,7 @@ export function Navbar() {
  * close were already correct in PF-79 and are untouched.
  */
 function MobileOverlay({ model, onClose }) {
+  const logo = useLogo();
   const firstLinkRef = useRef(null);
   const overlayRef = useRef(null);
   const triggerRef = useRef(null);

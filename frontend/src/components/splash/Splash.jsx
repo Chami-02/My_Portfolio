@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSplashControls } from '../../hooks/useSplashControls';
 import { markSplashShown } from '../../utils/splash';
-import logo from '../../assets/logo.webp';
+import { useLogo } from '../../hooks/useLogo';
 import styles from './Splash.module.css';
 
 const BOOT_LINES = [
@@ -106,6 +106,7 @@ const BOOT_STEP_MS = Math.round(SPLASH_MS * (820 / PROTOTYPE_SPLASH_MS));
  * once. The two approaches differ because the two jobs differ.
  */
 export default function Splash() {
+  const logo = useLogo();
   const { setReady } = useSplashControls();
   const [exiting, setExiting] = useState(false);
   const [mounted, setMounted] = useState(true);

@@ -117,9 +117,10 @@ describe('Navbar (PF-79)', () => {
     // docs/design/assets/ is not served by anything, and public/ has no
     // logo. A literal "/assets/logo.webp" renders a broken image with no
     // error — the exact silent 404 CLAUDE.md documents. (PF-127: .png → .webp;
-    // the positive match keeps this from passing vacuously on a rename.)
-    expect(src).not.toBe('/assets/logo.webp');
-    expect(src).toMatch(/logo\.webp/);
+    // PF-134: → one SVG per theme. The positive match keeps this from passing
+    // vacuously on a rename.)
+    expect(src).not.toBe('/assets/logo-dark.svg');
+    expect(src).toMatch(/logo-dark\.svg/);
   });
 
   it('reflects scroll position immediately on mount, not just after the first scroll event', () => {

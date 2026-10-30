@@ -1,4 +1,4 @@
-import logo   from '../../assets/logo.webp';
+import { useLogo } from '../../hooks/useLogo';
 import styles from './BrandMark.module.css';
 
 /**
@@ -14,6 +14,7 @@ import styles from './BrandMark.module.css';
  * screen passes "" because its label already says everything.
  */
 export function BrandMark({ alt }) {
+  const logo = useLogo();
   return (
     <span className={styles.wrap}>
       <span aria-hidden="true" className={styles.ring} />

@@ -8,7 +8,7 @@ import { sectionHref } from '../../utils/nav';
 import { socialEntries } from '../../utils/social';
 import { useAbout } from '../../hooks/useAbout';
 import { timezoneLabel } from '../../utils/timezone';
-import logo from '../../assets/logo.webp';
+import { useLogo } from '../../hooks/useLogo';
 import styles from './Footer.module.css';
 
 /**
@@ -87,6 +87,7 @@ const NAV_LINKS = [
 const COPYRIGHT = '© 2026 PARINDRA GALLAGE · ALL RIGHTS RESERVED';
 
 export function Footer() {
+  const logo = useLogo();
   // Shared cache entry with ContactSection's useAbout() — no extra request.
   const { data: about } = useAbout();
   const isAvailable = about?.availableForWork ?? true;

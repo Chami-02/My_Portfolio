@@ -1,6 +1,6 @@
 // frontend/src/components/admin/AdminFooter.jsx
 import { Link } from 'react-router-dom';
-import logo from '../../assets/logo.webp';
+import { useLogo } from '../../hooks/useLogo';
 import styles from './AdminFooter.module.css';
 
 /**
@@ -28,6 +28,7 @@ import styles from './AdminFooter.module.css';
  * `0 PROJECTS · …` for a moment.
  */
 export function AdminFooter({ email, counts, onSignOut }) {
+  const logo = useLogo();
   const footerCounts = counts
     ? [
         `${counts.projects} PROJECTS`,

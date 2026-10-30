@@ -12,7 +12,7 @@ import { SessionExpiryBanner } from './SessionExpiryBanner';
 import { PasswordLeakBanner }  from './PasswordLeakBanner';
 import { useRequestLeave } from '../../hooks/useUnsavedChanges';
 import { StarfieldCanvas, CursorGlow, GrainOverlay } from '../ambient';
-import logo from '../../assets/logo.webp';
+import { useLogo } from '../../hooks/useLogo';
 import styles from './AdminLayout.module.css';
 import a from '../../styles/admin.module.css';
 
@@ -78,6 +78,7 @@ const NAV_ITEMS = [
 ];
 
 export function AdminLayout({ children, activeTab, onTabChange }) {
+  const logo = useLogo();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { flash, dismissFlash } = useAdminFlash();

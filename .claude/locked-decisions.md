@@ -4642,6 +4642,22 @@ Google sign-in confirms with it too.
   centred, buttons share the row.
 - Every phone @media block sits LAST in its sheet — `mediaOrder.test.js` enforces it site-wide.
 
+## PF-134 — The site logo is Orbit PG in the site's sky, shipped as files (owner 2026-10-30)
+
+- **No upload** (owner: "a logo rarely changes") — REVERSES the Sprint 15 plan's upload ticket.
+  Changing it = swap `src/assets/logo-{dark,light}.svg` + the three `public/` favicon files.
+- **The mark** (owner picked concept D, Rubik Dirt, from five): "PG" as Rubik Dirt OUTLINES, P in
+  text colour + G in accent, orbit behind-then-in-front, moon; in the night sky (dark) / paper sky
+  (light). The logo CHANGES with the theme — on purpose, like the background.
+- **The photo logo is retired** (AI image: blurs at 16px, not ownable, face already on the site).
+- **No text/slogan inside the mark** (owner asked; unreadable at 44/16px — "Full-Stack Developer"
+  beside the name is the tagline).
+- **Fonts must allow logo use:** Velric (personal use only) rejected; Rubik Dirt is SIL OFL.
+- **Frames unchanged:** every spot keeps its amber ring + glow and size; the site files carry no rim,
+  the favicon does. One `useLogo()` hook is the only import of the files (guarded).
+- **The tab icon follows the SITE's toggle, not the OS** (owner): `applyTheme()` swaps the SVG
+  icon link; the head script is NOT touched (its CSP hash).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

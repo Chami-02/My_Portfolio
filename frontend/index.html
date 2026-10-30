@@ -2,7 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- PF-134: the site logo. The .ico is for browsers without SVG favicons
+         (sizes="32x32" stops Chrome preferring it over the SVG). The SVG
+         starts dark (the default theme) and applyTheme() in utils/theme.js
+         swaps it to favicon-light.svg with the site's toggle. iOS home
+         screens use the 180px PNG. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Parindra Gallage — Full-Stack Developer</title>
     <meta name="description" content="Full-Stack Developer specializing in the MERN stack. Building clean, containerized web applications." />
