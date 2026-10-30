@@ -9623,11 +9623,15 @@ buttons. Full reasoning + owner choices: locked-decisions "PF-135".
   given 30 s with the reason in a comment; my probes spent the E2E sign-in budget twice →
   reseeded `portfolio_e2e` (the documented fix).
 
-### PF-135 live check — to do after merge
-- Backup routes → 401 unauthenticated, `no-store`; region bom1. No email sent by me.
-- Owner, on the live site: DOWNLOAD BACKUP (the self-check must show no problems on prod data —
-  prod media must sit in prod's `CLOUDINARY_FOLDER`); then RESTORE that same file once → a
-  safety copy appears, the site unchanged, ONE "restored" email (the only email check).
+### PF-135 live check (2026-10-30, after PR #70 → merge `9418f6f`, deploy run 41051256345 success; recorded on the PF-136 branch)
+- PR CI: E2E 81/81 on GitHub; the new replica-set step printed "Replica set primary ready" 13 s
+  after start — its first real run.
+- `GET /api/health` 200, `portfolio_prod`, served from `bom1`. All 5 backup routes → 401 "not
+  logged in", `Cache-Control: no-store`; control `/api/backup/nope` → 404. No email sent by me.
+- Live AdminPage chunk contains BACKUP & RESTORE, RESTORE FROM FILE, VIEW DETAILS, Safety copies.
+- Owner on the live site: DOWNLOAD BACKUP (no "cannot be restored" box → production data passes
+  every check, media in prod's folder), RESTORE of that same file, the one "restored" email —
+  "ok all good". PF-135 DONE.
 
 ### Outstanding work added by PF-135
 - PF-143 (Certificates) must put its model on `BACKED_UP` (+ a restore test) — the allow-list
@@ -9636,6 +9640,25 @@ buttons. Full reasoning + owner choices: locked-decisions "PF-135".
 - `getUTCDate` mutant of the file name survives in a UTC zone (CI) — the test discriminates
   only off UTC.
 - Prod CLOUDINARY_FOLDER ≠ dev's would make a prod backup unrestorable on dev (not a use case).
+
+## PF-136 — Code-scanning cleanup: scan what ships (2026-10-30, `chore/PF-136-code-scanning-cleanup`)
+
+Plan approved in chat (plain words). 59 open CodeQL alerts traced one by one:
+- **54 in `docs/design/`** (the frozen prototype; zero imports from `frontend/src` /
+  `backend/src` — the matches there are comments citing it) → `paths-ignore: docs/design` in
+  `codeql.yml` (inline `config:` on the init step; validated with Ruby's YAML parser). Excluded,
+  not dismissed one by one, so a future scan cannot recreate the noise. The workflow comment
+  forbids adding a path to silence a finding in shipped code.
+- **#65 `js/automatic-semicolon-insertion`** (`blogController.js` `module.exports = {…}`) →
+  fixed: the `;`.
+- **#66–#69 `js/superfluous-trailing-arguments`** (3 test files, `new StorageEvent(type,
+  { key, newValue })`) → FALSE POSITIVE: the HTML standard constructor takes an eventInitDict.
+  Dismissed by the owner in the Security tab, reason "False positive" + that explanation
+  (verified via the API: all 4 `dismissed / false positive`).
+- Standard: OWASP SAST guidance — scan what you ship, fix true findings, dismiss false
+  positives WITH a written reason.
+- Gates: frontend `check` 108 / 2384, backend 63 suites / 1182 — both unchanged, green.
+- After merge: the next master scan closes the 54 + #65 → open alerts 0 (I check via the API).
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 

@@ -69,6 +69,15 @@ jobs:
           # project this size the extra findings are readable rather than
           # overwhelming.
           queries: security-and-quality
+          # PF-136 — scan what SHIPS. `docs/design/` is the frozen Claude
+          # Design prototype: reference HTML, never imported or built (the
+          # site is built from frontend/src and backend/src). Its 54 findings
+          # buried the real ones. Excluded here rather than dismissed one by
+          # one, so a future scan cannot bring the noise back. Anything that
+          # ships stays scanned — never add a path here to silence a finding.
+          config: |
+            paths-ignore:
+              - docs/design
 
       # ⚠️ NO BUILD STEP, and that is correct for JavaScript. CodeQL compiles
       # languages like Java or C# to analyse them; JS/TS is interpreted, so it
