@@ -228,6 +228,19 @@ const revokeFamily = async (userId, family) => {
 const isFamilyLive = async (family) =>
   Boolean(await Session.exists({ family, revokedAt: null }));
 
+/**
+ * The address THIS login used. Same rule as `/auth/me`: a label is trusted
+ * only while it is still one of the account's addresses, else the primary.
+ * PF-124's change code goes ONLY here; PF-135's restore alert goes here and
+ * to the primary. (Moved from passwordResetController in PF-135.)
+ */
+const signedInAddress = async (req) => {
+  const session = await Session.findOne({ family: req.auth.family, revokedAt: null })
+    .select('signedInAs');
+  const used = session?.signedInAs;
+  return [req.user.email, ...req.user.loginEmails].includes(used) ? used : req.user.email;
+};
+
 module.exports = {
   issueSession,
   rotateSession,
@@ -237,4 +250,5 @@ module.exports = {
   revokeFamily,
   isFamilyLive,
   hashToken,
+  signedInAddress,
 };

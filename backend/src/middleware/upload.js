@@ -63,14 +63,33 @@ const upload = multer({
 });
 
 /**
- * Accepts a single file sent as the form field "file".
- *
- * Wrapped rather than exported raw so multer's own errors become AppErrors
- * with sensible status codes. Left unwrapped, an oversized upload surfaces as
- * a generic 500 with the unhelpful message "File too large".
+ * PF-135 — the backup file for a restore. JSON, not an image, so it has its
+ * own courtesy filter: the browser's declared type is trivially spoofed and
+ * some send `application/octet-stream` (or nothing) for a .json file. The
+ * real gate is parsing + validating every row (services/backupFile.js), as
+ * the magic bytes are for images. Same 4 MB ceiling as every upload; the
+ * password travels as a text field beside the file, capped at 1 KB.
  */
-const uploadSingle = (req, res, next) => {
-  upload.single('file')(req, res, (err) => {
+const BACKUP_MIME = ['application/json', 'text/json', 'application/octet-stream', 'text/plain', ''];
+
+const backupFilter = (_req, file, cb) => {
+  if (BACKUP_MIME.includes(file.mimetype) || /\.json$/i.test(file.originalname || '')) return cb(null, true);
+  cb(new AppError('That is not a backup file — choose the .json file DOWNLOAD BACKUP saved.', 415));
+};
+
+const backupUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: backupFilter,
+  limits:  { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 2, fieldSize: 1024 },
+});
+
+/**
+ * Wraps a multer middleware so its own errors become AppErrors with sensible
+ * status codes. Left unwrapped, an oversized upload surfaces as a generic 500
+ * with the unhelpful message "File too large".
+ */
+const translateErrors = (middleware) => (req, res, next) => {
+  middleware(req, res, (err) => {
     if (!err) return next();
 
     // fileFilter already produced a correctly-coded AppError. Without this,
@@ -95,8 +114,15 @@ const uploadSingle = (req, res, next) => {
   });
 };
 
+/** Accepts a single file sent as the form field "file". */
+const uploadSingle = translateErrors(upload.single('file'));
+
+/** PF-135 — the backup JSON, as the form field "file" (plus `password`). */
+const uploadBackup = translateErrors(backupUpload.single('file'));
+
 module.exports = {
   uploadSingle,
+  uploadBackup,
   MAX_UPLOAD_BYTES,
   MAX_IMAGE_BYTES,
   MAX_PDF_BYTES,

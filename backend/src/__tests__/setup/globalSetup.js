@@ -11,12 +11,19 @@
 //
 // Jest runs this ONCE in the parent process. Workers are spawned AFTER it, so
 // the env var set here is inherited by every worker — that is how they find it.
-const { MongoMemoryServer } = require('mongodb-memory-server');
+//
+// ⚠️ A ONE-NODE REPLICA SET, not a plain server (PF-135). Transactions exist
+// only on a replica set; a standalone mongod refuses them ("Transaction
+// numbers are only allowed on a replica set member or mongos"). Atlas — every
+// tier, M0 included — IS a replica set, so this is also the closer copy of
+// production. The backup restore runs in a transaction; on a standalone
+// server its tests could not run at all.
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
 module.exports = async () => {
   if (process.env.TEST_MONGO_URI) return;
 
-  const server = await MongoMemoryServer.create();
+  const server = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
   // Base URI with no database path; perWorkerDatabase.js adds one per worker.
   process.env.MONGO_MEMORY_BASE_URI = server.getUri();
   // globalTeardown runs in this same parent process and stops it.

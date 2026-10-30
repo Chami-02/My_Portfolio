@@ -243,4 +243,21 @@ const sessionsLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter };
+/**
+ * Limiter for the backup download (PF-135). Behind `protect`, like
+ * `sessionsLimiter` and for the same reason: each request checks the current
+ * password, so this bounds guesses by someone holding a stolen session.
+ */
+const backupLimiter = rateLimit({
+  store:           new MongoStore('backup'),
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many backup attempts. Please wait 15 minutes before trying again.',
+  },
+});
+
+module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter, backupLimiter };

@@ -83,6 +83,7 @@ app.use(purgeOnWrite);                           // PF-128 — a signed-in SAVE 
    app.use('/api/resume',   require('./routes/resumeRoutes'));   // PF-60 — public CV download
    app.use('/api/vocabulary', require('./routes/vocabularyRoutes')); 
    app.use('/api/dashboard', require('./routes/dashboardRoutes')); // PF-110 — admin counts, one call
+   app.use('/api/backup',   require('./routes/backupRoutes'));    // PF-135 — the Settings backup download
    app.use('/api/cron',     require('./routes/cronRoutes'));      // PF-133 — the daily digest (Vercel Cron)
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────

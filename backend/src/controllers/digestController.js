@@ -29,8 +29,11 @@ const { NOT_YOU_STEPS, adminAction } = require('../services/signInLog');
 const SHOWN = 10;
 
 const KIND_TEXT = {
-  'sign-in':       'Failed sign-in',
-  'reset-request': 'Reset code requested for an unknown address',
+  'sign-in':         'Failed sign-in',
+  'reset-request':   'Reset code requested for an unknown address',
+  // PF-135 — refused by the password re-check, so someone was SIGNED IN.
+  'backup-download': 'Backup download — wrong password',
+  'backup-restore':  'Backup restore — wrong password',
 };
 
 const sameSecret = (given, expected) => {
@@ -74,7 +77,11 @@ const sendDigest = async (req, res, next) => {
     if (rows.length === 0) return res.json({ status: 'success', sent: false, reason: 'quiet' });
 
     const signIns = rows.filter((r) => r.kind === 'sign-in').length;
-    const resets  = rows.length - signIns;
+    const resets  = rows.filter((r) => r.kind === 'reset-request').length;
+    // PF-135 — a wrong password on a backup route comes from a signed-in
+    // session, so it gets its own sentence rather than hiding in a count.
+    const backups = rows.length - signIns - resets;
+    const backupText = backups === 0 ? '' : ` ${backups} backup download or restore attempt${backups === 1 ? '' : 's'} had the wrong password — someone signed in to your admin tried it.`;
     const details = rows.slice(0, SHOWN).map((row) => [utc(row.createdAt), line(row)]);
     if (rows.length > SHOWN) details.push(['…', `${rows.length - SHOWN} more in Settings → Sessions`]);
 
@@ -85,7 +92,7 @@ const sendDigest = async (req, res, next) => {
         ...renderAlert({
           tone:  'warning',
           title: 'Failed attempts on your admin',
-          intro: `Since the last summary: ${signIns} failed sign-in${signIns === 1 ? '' : 's'} and ${resets} reset request${resets === 1 ? '' : 's'} for unknown addresses. Nobody got in through these — each one was refused.`,
+          intro: `Since the last summary: ${signIns} failed sign-in${signIns === 1 ? '' : 's'} and ${resets} reset request${resets === 1 ? '' : 's'} for unknown addresses. Nobody got in through these — each one was refused.${backupText}`,
           details,
           note:   'A few a day is normal: the addresses are public.',
           steps:  NOT_YOU_STEPS,
