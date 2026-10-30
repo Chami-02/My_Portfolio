@@ -3,12 +3,11 @@ const { waitUntil } = require('@vercel/functions');
 const User          = require('../models/User');
 const PasswordReset  = require('../models/PasswordReset');
 const PasswordChange = require('../models/PasswordChange');
-const Session        = require('../models/Session');
 const AppError      = require('../utils/AppError');
 const mailer        = require('../services/mailer');
 const { renderAlert }       = require('../services/alertEmail');
 const { newPasswordProblem } = require('../services/newPassword');
-const { revokeAllForUser }  = require('../services/sessionService');
+const { revokeAllForUser, signedInAddress } = require('../services/sessionService');
 const { passwordProblem }   = require('../utils/passwordPolicy');
 const {
   coolingDown, issueCode, checkCode, claimCode, dropAllCodes, MAX_ATTEMPTS,
@@ -234,17 +233,6 @@ const changeRules = [
     .matches(/^\d{6}$/).withMessage('The code is the 6 digits from the email'),
 ];
 
-/**
- * The address THIS login used — the code's only destination. Same rule as
- * `/auth/me`: a label is trusted only while it is still one of the account's
- * addresses, else the primary.
- */
-const signedInAddress = async (req) => {
-  const session = await Session.findOne({ family: req.auth.family, revokedAt: null })
-    .select('signedInAs');
-  const used = session?.signedInAs;
-  return [req.user.email, ...req.user.loginEmails].includes(used) ? used : req.user.email;
-};
 
 /**
  * The background half of change/code. Never throws: the 200 has gone.

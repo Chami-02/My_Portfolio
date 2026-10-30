@@ -1,10 +1,10 @@
 const { body }   = require('express-validator');
-const User       = require('../models/User');
 const SignInEvent = require('../models/SignInEvent');
 const AppError   = require('../utils/AppError');
 const {
   listSessions, revokeFamily, revokeAllForUser,
 } = require('../services/sessionService');
+const { WRONG_PASSWORD, passwordRule, checkPassword } = require('../utils/passwordCheck');
 
 // PF-132 — the Settings Sessions card: every device signed in to the admin,
 // and a way to sign any of them out.
@@ -13,7 +13,8 @@ const {
 //   - OWASP ASVS 5.0 V7.5.2 — the user can view and terminate any or all
 //     active sessions, having AUTHENTICATED AGAIN first. So both sign-out
 //     routes take the current password (owner's choice, 2026-10-29): a
-//     borrowed or stolen open laptop cannot throw the real owner out.
+//     borrowed or stolen open laptop cannot throw the real owner out. The
+//     check lives in utils/passwordCheck.js (PF-135's backup uses it too).
 //   - NIST SP 800-63B-4 §7 (session management) — ending a session ends it
 //     at once: revoking the family kills its access token too (`protect`
 //     checks `isFamilyLive`), not 15 minutes later.
@@ -21,13 +22,8 @@ const {
 // A refusal is 400, never 401 (the PF-124 rule): the client treats any 401
 // as "this session has ended" and signs out — a mistyped password must not.
 
-const WRONG_PASSWORD = 'Your password is wrong.';
 const THIS_DEVICE    = 'That is this device — use Sign out instead.';
 const NOT_FOUND      = 'That session has already ended.';
-
-const passwordRule = body('password')
-  .isString().withMessage('Password must be text').bail()
-  .notEmpty().withMessage('Password is required');
 
 const revokeRules       = [
   passwordRule,
@@ -36,11 +32,6 @@ const revokeRules       = [
     .notEmpty().withMessage('Session id is required'),
 ];
 const revokeOthersRules = [passwordRule];
-
-const checkPassword = async (req) => {
-  const account = await User.findById(req.user._id).select('+password');
-  return account.matchPassword(req.body.password);
-};
 
 // ── GET /api/auth/sessions ────────────────────────────────────────────────────
 // `id` is the session FAMILY. It is no secret from this client — its own

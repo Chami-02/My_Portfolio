@@ -411,6 +411,28 @@ describe('GET /api/cron/digest', () => {
     expect(digests()).toHaveLength(1);
   });
 
+  // PF-135 — a wrong password on a backup route comes from a SIGNED-IN
+  // session: its own sentence and its own line, never counted as a reset.
+  it('names refused backup attempts separately, without changing the other counts', async () => {
+    await fail();
+    await SignInEvent.create({ kind: 'reset-request', outcome: 'failed', address: 'nobody@example.com' });
+    await SignInEvent.create({ user: user._id, kind: 'backup-restore', outcome: 'failed' });
+    await SignInEvent.create({ user: user._id, kind: 'backup-download', outcome: 'failed' });
+
+    expect((await cron(`Bearer ${SECRET}`)).body).toMatchObject({ sent: true, count: 4 });
+    const [mail] = digests();
+    expect(mail.text).toContain('1 failed sign-in and 1 reset request for unknown addresses');
+    expect(mail.text).toContain('2 backup download or restore attempts had the wrong password — someone signed in to your admin tried it.');
+    expect(mail.text).toContain('Backup restore — wrong password');
+    expect(mail.text).toContain('Backup download — wrong password');
+  });
+
+  it('with no refused backup attempt the summary says nothing about backups', async () => {
+    await fail();
+    await cron(`Bearer ${SECRET}`);
+    expect(digests()[0].text).not.toMatch(/backup/i);
+  });
+
   it('two runs at once send ONE email (each row is claimed by one run)', async () => {
     await fail();
     await fail();

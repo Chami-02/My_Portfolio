@@ -20,6 +20,15 @@ vi.mock('../../../../hooks/useSessions', () => ({
   SIGN_INS_KEY: ['auth', 'sign-ins'],
 }));
 
+// PF-135: the Backup card has its own suite; here it only has to render.
+vi.mock('../../../../hooks/useBackup', () => ({
+  useDownloadBackup:     () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCheckRestore:       () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRestoreBackup:      () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSafetyCopies:       () => ({ isSuccess: true, data: [] }),
+  useDownloadSafetyCopy: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+
 const { AdminSettingsPanel } = await import('../AdminSettingsPanel');
 
 // PF-133: the Password card holds the QueryClient (it refreshes /auth/me and
@@ -51,11 +60,39 @@ beforeEach(() => {
   useMe.mockReturnValue({ data: ME });
 });
 
+describe('AdminSettingsPanel — the Account fold (owner, 2026-10-30)', () => {
+  it('folded, it is one line that still names the address this login used', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const user = userEvent.setup();
+    render(<AdminSettingsPanel />);
+    const toggle = within(card()).getByRole('button', { name: /VIEW DETAILS/ });
+    const body = document.getElementById('settings-account-body');
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(body).toHaveAttribute('inert');
+    expect(within(card()).getByText(`SIGNED IN AS ${SECOND}`)).toBeInTheDocument();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(body).not.toHaveAttribute('inert');
+    // Opened, the one-line summary gives way to the details (no repeat).
+    expect(within(card()).queryByText(`SIGNED IN AS ${SECOND}`)).toBeNull();
+  });
+
+  it('says nothing address-shaped before /auth/me answers', () => {
+    useMe.mockReturnValue({ data: undefined });
+    render(<AdminSettingsPanel />);
+    expect(within(card()).queryByText(/SIGNED IN AS/)).toBeNull();
+  });
+});
+
 describe('AdminSettingsPanel — Account card', () => {
-  it('renders only the BUILT cards — Account, Password, Sessions — no placeholders', () => {
+  it('renders only the BUILT cards — Account, Password, Sessions, Backup — no placeholders', () => {
     render(<AdminSettingsPanel />);
     expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-labelledby')))
-      .toEqual(['settings-account-title', 'settings-password-title', 'settings-sessions-title']);
+      .toEqual([
+        'settings-account-title', 'settings-password-title', 'settings-sessions-title',
+        'settings-backup-title',   // PF-135
+      ]);
     expect(card()).toBeInTheDocument();
     expect(screen.queryByText(/coming soon/i)).toBeNull();
   });

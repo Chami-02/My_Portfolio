@@ -3735,6 +3735,32 @@ Since PF-141 every limiter counts in the `ratelimits` collection. Older entries 
   deleted (mutant survived). Pin what CAN arrive (`Bearer`, `Bearer undefined`) and call the
   guard defence in depth.
 
+## PF-135 (2026-10-30) — six traps found building backup restore
+
+Each was found by a test going red (round trip, flaky order, mutation run), never by reading.
+
+1. **Blog's `pre('validate')` regenerates the SLUG on any NEW document.** `forceSlug:
+   this.isModified('title')` — on `new Blog(row)` every path is "modified", so a post whose
+   stored slug ≠ `makeSlug(title)` comes back at a different URL. Mongoose `insertMany` builds
+   new documents too, so it does the same. Restored rows go through `Model.hydrate()` (nothing
+   modified) and are written with the DRIVER's `collection.insertMany`. Mutant "Mongoose
+   insertMany" → round-trip test red.
+2. **`Model.hydrate()` is NOT strict** — unknown fields survive into `toObject()` (measured:
+   `unknownField` kept). Strict filtering must come first: `new Model(raw).toObject()`.
+3. **About's schema turns virtuals ON for `toObject`** (`hasAvatar`, `hasResume`, `id`); a
+   driver insert of `toObject()` WRITES them as real fields. `toObject({ virtuals: false })`.
+4. **Parallel operations on a transaction's session are refused** — `Promise.all` of reads with
+   `.session(s)` inside `withTransaction` → "Only servers in a sharded cluster can start a new
+   transaction at the active transaction number". Read one at a time inside a transaction.
+5. **`Model.create([a, b])` saves in PARALLEL** — insertion (natural) order varies, so a
+   `find()` without a sort returns rows in a different order run to run. Tests indexing
+   `rows[0]` were flaky 2 in 39; backup lists are now sorted by `_id`.
+6. **The in-memory test Mongo was STANDALONE — no transactions.** globalSetup now starts a
+   ONE-NODE REPLICA SET. CI's e2e job could not use a `services:` container for the same reason
+   (no way to pass `--replSet`) — a step starts it. A mutation test caught a weaker version of
+   a guard too: a refusal case that ALSO trips another rule cannot prove its own rule —
+   build each case so only one rule can catch it (the media rules, PF-135).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

@@ -9554,6 +9554,89 @@ ownable (AI output has no copyright in the US), and the face already appears twi
 - At 16px the tab icon is a coloured disc with a hint of PG (accepted; letters read from 32px).
 - Rubik Dirt's specks make each SVG ~31 KB; if it matters, a speck-free 16–44px variant.
 
+### PF-134 live check (2026-10-30, after PR #69 → merge commit `572734f`; recorded on the PF-135 branch)
+- Live site serves `favicon-dark.svg`, `favicon-light.svg`, `favicon.ico` and
+  `apple-touch-icon.png` — all 200 with the right content types; the live bundle serves the
+  hashed `logo-dark` / `logo-light` SVGs.
+- Owner checked by hand on the live site: admin header + footer logo, and the tab icon changing
+  with the site toggle — passed. That closes PF-134's first Outstanding item.
+
+## PF-135 — Backup download + restore + Settings phone pass (2026-10-30, `feat/PF-135-backup-download`)
+
+Plans approved in chat (plain words). Built as download only, then widened by the owner the same
+day: restore in the same ticket (option 1), "fully professional, industry standard, no mistakes";
+then (mid-build) every Settings card folds to one line and Settings gets a phone pass with small
+buttons. Full reasoning + owner choices: locked-decisions "PF-135".
+
+- **Backend:** `services/backupFile.js` (NEW — `buildBackup`, `validateBackup`, `restoreBackup`,
+  `BACKED_UP`/`NEVER_BACKED_UP`, `VERSION`/`UPGRADES`); `controllers/backupController.js`
+  (download + self-check, `/restore/check`, `/restore`, safety list + download);
+  `routes/backupRoutes.js` (5 routes); `models/BackupSnapshot.js` (NEW); `middleware/upload.js`
+  (`translateErrors` wrapper shared by `uploadSingle` + NEW `uploadBackup`);
+  `middleware/rateLimiter.js` (`backupLimiter`, one counter for every backup route);
+  `utils/passwordCheck.js` (moved from sessionController); `sessionService.signedInAddress`
+  (moved from passwordResetController; its `Session` import removed); `SignInEvent.kind`
+  + `backup-download` / `backup-restore`; digest names refused backup attempts separately.
+- **Test infra:** `__tests__/setup/globalSetup.js` → `MongoMemoryReplSet` (one node, wiredTiger)
+  — transactions need a replica set (Atlas is one). Full suite 277 s clean (was 303 s).
+  **CI:** `ci.yml` e2e job starts `mongo:7 --replSet rs0` by a step (a `services:` container
+  cannot take `--replSet`) + waits for `isWritablePrimary`; script proven locally in Docker
+  (port 27117) + a real transaction committed on it. Other jobs unchanged (backend uses the
+  in-memory set; migrations needs no transaction).
+- **Found while building (each now pinned by a test):**
+  (1) Blog `pre('validate')` regenerates the SLUG on any new document → restore would move a
+  renamed post's URL; Mongoose `insertMany` does the same → rows go `hydrate` → driver insert.
+  (2) `hydrate` alone keeps unknown fields (not strict) → strict `new Model().toObject()` first.
+  (3) About's `toObject` virtuals (`hasAvatar`, `hasResume`, `id`) would be WRITTEN →
+  `virtuals: false`; `__v: 0` restored. (4) Parallel reads on a transaction session are
+  refused ("Only servers in a sharded cluster…") → sequential inside it. (5) Backup lists were
+  in natural order (parallel `create` made tests flaky) → sorted by `_id`, files deterministic.
+  (6) ConfirmDialog's text is a `<p>` → the restore summary list lives in `extra`.
+- **Frontend:** `SettingsBackupCard.jsx` (download / restore / safety copies, folds),
+  `PasswordConfirmForm.jsx` (shared with Sessions), `services/backupService.js` (multipart via
+  `multipart()`, 60 s timeout on check/restore), `hooks/useBackup.js` (restore = cancel ALL then
+  invalidate ALL), `utils/backupFile.js` (`backupFileName`, `backupPickProblem`, `saveJson`
+  revoke after 40 s). Account card folds (VIEW DETAILS ▾, SIGNED IN AS … while folded);
+  `sessionsBody` → shared `foldBody`; Recent activity labels for the 2 new kinds; phone block
+  (LAST in AdminSettingsPanel.module.css): compact 36px buttons, 30px toggles, row buttons
+  beside text.
+- **Tests:** backend `backup.test.js` (13: download, self-check, migrations list, allow-list),
+  `backup.restore.test.js` (42: round trip, back-to-backup, message merge, safety copies + undo
+  + cap 3, check writes nothing, 24 refusal cases each on check AND restore with "nothing
+  changed", 20-problem cap, unknown fields dropped, auth/limits/415/413, atomicity under a
+  forced mid-write failure, 503 without transactions, event + email, VERSION guard, older DB
+  accepted), `signInHistory.test.js` +2 (digest), `mongoRateLimitStore` +backupLimiter.
+  Frontend `SettingsBackupCard.test.jsx` (22), `backupService.test.js` (4), `backupFile.test.js`
+  (+4), `AdminSettingsPanel.test.jsx` (+2 fold), `SettingsSessionsCard.test.jsx` (+1 labels).
+- **Mutations:** backend 35/35 killed (scratch copies; 2 media survivors on the first run →
+  cases rewritten so each rule is the ONLY one that can refuse its case → killed).
+  Frontend 20/20 (2 survivors → tests added: picker reset, history labels).
+- **Gates:** frontend `check` 108 files / 2384 tests (was 105 / 2345), lint 0, build OK; backend
+  63 suites / 1182 tests (was 61 / 1124), thresholds met; **full E2E 81/81 with `--retries=0`**,
+  twice (admin.spec Settings test now downloads a real file and restores it; folds opened).
+- **Real server (E2E DB, Atlas):** tampered file → 422 naming the `$set` key; edited counts →
+  422; intact file → 200 in ~3.8 s locally (Colombo → Mumbai; ~26 sequential steps); a
+  field-by-field diff of download → restore → download: 0 value differences (key order only).
+- **Phone probe (Playwright, 375 + 320px, dark + light, all cards open):** no page or card
+  overflow; toggles 30px, buttons 36px, eye buttons 40px.
+- **Incident (mine, harmless):** an E2E assertion of 5 s timed out on the 4–5 s local restore →
+  given 30 s with the reason in a comment; my probes spent the E2E sign-in budget twice →
+  reseeded `portfolio_e2e` (the documented fix).
+
+### PF-135 live check — to do after merge
+- Backup routes → 401 unauthenticated, `no-store`; region bom1. No email sent by me.
+- Owner, on the live site: DOWNLOAD BACKUP (the self-check must show no problems on prod data —
+  prod media must sit in prod's `CLOUDINARY_FOLDER`); then RESTORE that same file once → a
+  safety copy appears, the site unchanged, ONE "restored" email (the only email check).
+
+### Outstanding work added by PF-135
+- PF-143 (Certificates) must put its model on `BACKED_UP` (+ a restore test) — the allow-list
+  test fails until it does.
+- A restore never deletes Cloudinary files → files only an older version used can be orphaned.
+- `getUTCDate` mutant of the file name survives in a UTC zone (CI) — the test discriminates
+  only off UTC.
+- Prod CLOUDINARY_FOLDER ≠ dev's would make a prod backup unrestorable on dev (not a use case).
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

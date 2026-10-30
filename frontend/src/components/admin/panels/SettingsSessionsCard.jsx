@@ -3,14 +3,13 @@ import { useRef, useState } from 'react';
 import { useSessions, useEndSessions, useSignInHistory } from '../../../hooks/useSessions';
 import { useAdminFlash }  from '../../../hooks/useAdminFlash';
 import { useFormGuard }   from '../../../hooks/useFormGuard';
-import { fieldProps, errorId } from '../../../utils/formErrors';
 import { resetErrorMessage }   from '../../../utils/resetError';
 import { formatDate }     from '../../../utils/blogMeta';
 import { activeText }     from '../../../utils/sessionTimes';
 import { formatSent }     from '../../../utils/messageTime';
 import { ConfirmDialog }  from '../ConfirmDialog';
 import { LoadError }      from '../LoadError';
-import { EyeIcon, EyeOffIcon } from '../../icons/BrandIcons';
+import { PasswordConfirmForm } from '../PasswordConfirmForm';
 import styles from './AdminSettingsPanel.module.css';
 import a from '../../../styles/admin.module.css';
 
@@ -24,6 +23,9 @@ const EVENT_TEXT = {
   'reset-request':   { ok: 'Reset code requested', failed: 'Reset requested — unknown address' },
   'password-reset':  { ok: 'Password reset', failed: 'Password reset' },
   'password-change': { ok: 'Password changed', failed: 'Password changed' },
+  // PF-135 — `failed` = the password re-check refused it.
+  'backup-download': { ok: 'Backup downloaded', failed: 'Backup download — wrong password' },
+  'backup-restore':  { ok: 'Backup restored', failed: 'Backup restore — wrong password' },
 };
 /** Rows shown at first, and added by each SHOW MORE — the server sends 50. */
 const PAGE = 10;
@@ -68,7 +70,6 @@ export function SettingsSessionsCard() {
   const [folded,   setFolded]   = useState(true);
   const [target,   setTarget]   = useState(null);
   const [password, setPassword] = useState('');
-  const [shown,    setShown]    = useState(false);
   const [error,    setError]    = useState('');
   const guard       = useFormGuard(passwordErrors, FID);
   const passwordRef = useRef(null);
@@ -81,7 +82,6 @@ export function SettingsSessionsCard() {
   const open = (next) => {
     setTarget(next);
     setPassword('');
-    setShown(false);
     setError('');
     guard.reset();
   };
@@ -123,7 +123,7 @@ export function SettingsSessionsCard() {
         inert={folded}
       >
       <div className={styles.collapseInner}>
-      <div className={styles.sessionsBody}>
+      <div className={styles.foldBody}>
       {query.isError && <LoadError what="SESSIONS" query={query} />}
 
       {query.isSuccess && (
@@ -188,47 +188,15 @@ export function SettingsSessionsCard() {
           busy={end.isPending}
           initialFocusRef={passwordRef}
           extra={(
-            <form className={a.form} onSubmit={confirm} noValidate>
-              {error && (
-                <div className={a.bannerError} role="alert">
-                  <span className={a.bannerDot} aria-hidden="true" />
-                  <span>{error}</span>
-                </div>
-              )}
-              <div>
-                <label className={a.label} htmlFor={`${FID}-password`}>Your password</label>
-                <div className={a.passwordWrap}>
-                  <input
-                    {...fieldProps(guard.errors, FID, 'password')}
-                    ref={passwordRef}
-                    className={a.input}
-                    type={shown ? 'text' : 'password'}
-                    name="password"
-                    autoComplete="current-password"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); guard.clearField('password'); }}
-                  />
-                  <button
-                    type="button"
-                    className={a.reveal}
-                    aria-label="Show password"
-                    aria-pressed={shown}
-                    aria-controls={`${FID}-password`}
-                    onClick={() => setShown((v) => !v)}
-                  >
-                    {shown ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
-                  </button>
-                </div>
-                {guard.errorFor('password') && (
-                  <p className={a.fieldError} id={errorId(FID, 'password')} role="alert">
-                    {guard.errorFor('password')}
-                  </p>
-                )}
-              </div>
-            </form>
+            <PasswordConfirmForm
+              fid={FID}
+              guard={guard}
+              inputRef={passwordRef}
+              password={password}
+              onPasswordChange={setPassword}
+              error={error}
+              onSubmit={confirm}
+            />
           )}
         >
           {target.id

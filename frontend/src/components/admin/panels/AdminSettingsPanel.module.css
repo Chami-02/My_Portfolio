@@ -148,10 +148,11 @@
 
 /* ── Sessions card (PF-132) ─────────────────────────────────────────────── */
 
-/* The fold's gap under the header (Password's `.lede` margin). On a wrapper
+/* The fold's gap under the header (Password's `.lede` margin), for the
+   cards whose body opens with a list (Sessions, Account). On a wrapper
    INSIDE `.collapseInner`, so the clip hides it while folded — padding on
    `.collapseInner` itself would leave an 18px sliver showing. */
-.sessionsBody {
+.foldBody {
   padding-top: 18px;
 }
 
@@ -226,12 +227,102 @@
   color: var(--danger);
 }
 
-/* Password card (PF-133): when it last changed, under the header — visible
-   folded too. */
+/* The one-line fact under a card's header, visible folded too: Password's
+   LAST CHANGED (PF-133), Account's SIGNED IN AS (PF-135). An address may be
+   long — it breaks rather than widening a 320px screen. */
 .lastChanged {
   margin: 8px 0 0;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: .06em;
   color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* ── Backup card (PF-135) ──────────────────────────────────────────────── */
+
+/* Why a file cannot be restored (or a download would not restore): the
+   error banner's red, holding a list instead of one line. */
+.problemBox {
+  composes: bannerError from '../../../styles/admin.module.css';
+  display: grid;
+  align-items: start;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.problemList,
+.summary {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* The restore preview inside the confirm dialog. */
+.summary {
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* ── Phones (owner, 2026-10-30, PF-135): every Settings card on a small
+   screen. Each card is already ONE line folded; opened, its buttons are
+   COMPACT — the owner asked for small buttons here, replacing PF-142's 44px
+   for the Settings cards only (recorded in locked-decisions). They stay
+   36px tall, above WCAG 2.2's 24px minimum target (2.5.8), and each fold
+   toggle's ::after already makes its whole header row the tap target.
+   `.actions > button` / `.session > button` (0,1,1) outrank admin.module's
+   phone rule for `.btnOutline` etc. (0,1,0). LAST in the file
+   (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .disclosure {
+    padding: 6px 10px;
+    font-size: 10px;
+    letter-spacing: .08em;
+    gap: 6px;
+  }
+
+  .actions {
+    gap: 8px;
+  }
+
+  .actions > button,
+  .session > button {
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 11px;
+    letter-spacing: .06em;
+  }
+
+  /* Side by side when they fit, each its fair share; wraps on a 320px screen. */
+  .actions > button {
+    flex: 1 1 auto;
+  }
+
+  .lede,
+  .note {
+    font-size: 12.5px;
+  }
+
+  .facts {
+    gap: 14px;
+  }
+
+  .value {
+    font-size: 12.5px;
+  }
+
+  .session {
+    padding: 12px 0;
+  }
+
+  /* A row's button (SIGN OUT, a safety copy's DOWNLOAD) stays BESIDE its
+     text on a phone instead of dropping to a line of its own; the text
+     wraps narrower. Still wraps under it on a 320px screen if it must. */
+  .sessionText {
+    flex-basis: 170px;
+  }
 }

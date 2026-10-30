@@ -201,7 +201,7 @@ describe('when the store fails', () => {
   // count in memory, ignore the failing database and call the handler.
   it.each([
     'authLimiter', 'refreshLimiter', 'googleLimiter', 'contactLimiter',
-    'forgotLimiter', 'resetLimiter', 'changeLimiter', 'sessionsLimiter',
+    'forgotLimiter', 'resetLimiter', 'changeLimiter', 'sessionsLimiter', 'backupLimiter',
   ])('%s counts in MongoDB and fails CLOSED — no request reaches the handler', async (name) => {
     const limiter = require('../middleware/rateLimiter')[name];
     const handler = jest.fn((_req, res) => res.json({ ok: true }));

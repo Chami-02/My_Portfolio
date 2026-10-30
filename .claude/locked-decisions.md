@@ -4658,6 +4658,71 @@ Google sign-in confirms with it too.
 - **The tab icon follows the SITE's toggle, not the OS** (owner): `applyTheme()` swaps the SVG
   icon link; the head script is NOT touched (its CSP hash).
 
+## PF-135 — Backup download + restore, to the standard for restores (owner 2026-10-30)
+
+Plans approved in chat (plain words). First built as download only; the owner then asked
+"a download with no restore has no purpose" → restore added IN THE SAME TICKET (option 1),
+"fully professional, industry standard, no mistakes". Owner's choices are marked (owner).
+
+- **Password before every hand-out or replace (owner):** download, safety-copy download and
+  restore re-check the password (OWASP ASVS 5.0 V7.5). Refusal 400 never 401. POST only (the
+  password never in a URL). `utils/passwordCheck.js` shared with PF-132's sign-out.
+- **All-or-nothing (owner: "follow the standard rules"):** a restore is pg_restore
+  --single-transaction / mongorestore semantics, NOT an import wizard. One bad row → nothing
+  changes, the reasons listed (max 20, "List N (“title”): field — message"). Skip/fix-per-row
+  was offered and rejected as the IMPORT pattern (a half-restored site never existed).
+  Two guards keep the owner's own files restorable: (1) every DOWNLOAD runs the restore check
+  on its own file (JSON round-trip) and returns `problems`; the card still saves the file and
+  says what to fix; (2) `UPGRADES` (version n → n+1) + `VERSION`, guard test VERSION =
+  UPGRADES + 1 — a ticket that tightens a content rule adds a step. Damaged files: the 3-2-1
+  rule (3 safety copies + downloads + a copy elsewhere), said on the card.
+- **Validate → preview → confirm → execute:** `/restore/check` writes nothing (no password —
+  it only reads back the caller's file); `/restore` checks AGAIN, never trusts the preview.
+- **One transaction** (`session.withTransaction`, retried on transient conflicts): safety copy
+  → content replaced → messages merged; any failure rolls back everything, the copy too.
+  Inside it reads run ONE AT A TIME (Mongo refuses parallel ops on a transaction session).
+  No transactions (standalone Mongo) → 503 "Nothing was changed".
+- **Messages MERGE (owner):** every current message stays untouched (read/star kept); backup
+  messages missing now come back; nothing deleted. Content (About, projects, skills, sections,
+  blog, vocabulary) is REPLACED.
+- **Safety copies on the server, newest 3 (owner):** `BackupSnapshot` (`data` = the file as a
+  JSON STRING — no key can act as an operator), on the never-list. Card lists them (date +
+  counts, no content); DOWNLOAD needs the password. Undo = download it, restore it (one path).
+- **Email on restore (owner):** `renderAlert`, to the primary + the address used
+  (`signedInAddress`, moved to sessionService), background `waitUntil`, never fails the restore.
+- **Audit:** `SignInEvent.kind` + `backup-download` / `backup-restore` (ok / failed = wrong
+  password) — Recent activity labels; the digest names refused backup attempts in their own
+  sentence ("someone signed in to your admin tried it") without changing the other counts.
+- **Every file is untrusted:** strict models (unknown fields dropped), real ObjectIds, unique
+  ids, `$`-keys / `__proto__` / `constructor` / `prototype` refused anywhere, counts must match,
+  ≤ 5000 rows per list, newer migrations refused (`schema.migrations` ⊆ applied; older OK),
+  in-file unique checks (skill name, section key, slug, type+value), skill → existing section,
+  **media** = empty or https `res.cloudinary.com/<our cloud>/…` naming a publicId inside
+  `CLOUDINARY_FOLDER` (keeps "never a client-supplied publicId": a later REPLACE destroys by id).
+- **Rows are written EXACTLY as checked:** `new Model(raw).validate()` (all problems) → fresh
+  `new Model(raw).toObject(STORED)` (strict) → `Model.hydrate(...).validate()` → DRIVER
+  `collection.insertMany`. ⚠️ `new Model` or Mongoose `insertMany` makes Blog's pre('validate')
+  regenerate the SLUG (title "modified") — a renamed post would move URL; `hydrate` is not
+  strict on its own (unknown fields kept) — hence the three steps. `STORED` has
+  `virtuals: false` (About's toObject virtuals would be written as fields); `__v: 0` added.
+- **File:** `format`, `version: 1`, `createdAt`, `schema.migrations`, `counts`, about + 6 lists,
+  every field incl. `_id` + dates, lists sorted by `_id` (same site → same file). Round trip
+  proven value-identical; key ORDER inside a row follows the schema after a restore
+  (meaningless in JSON). Media are links. 4 MB multipart upload (`uploadBackup`, JSON courtesy
+  filter; the real gate is parse + validate).
+- **Card:** folds like Password/Sessions (BACKUP & RESTORE ▾), both buttons `btnOutline` (red
+  is in the restore dialog), clipped file input with the button as the control, dialog
+  OUTSIDE the fold (inert). `PasswordConfirmForm` shared with Sessions.
+- **Settings on phones (owner, 2026-10-30):** EVERY card folds to one line — Account too
+  (VIEW DETAILS ▾, folded it shows SIGNED IN AS …; hidden when open, no repeat). ≤560px:
+  COMPACT buttons in Settings (`.actions > button`, `.session > button` 36px, 11px;
+  toggles 30px) — the owner asked for small buttons; this REPLACES PF-142's 44px for the
+  Settings cards only (still ≥ WCAG 2.2 2.5.8's 24px; a toggle's ::after makes its whole
+  header row the target). Row buttons stay beside their text (`.sessionText` basis 170px).
+- **Accepted:** a signed-in POST triggers `purgeOnWrite` (one CDN MISS) — wanted after a
+  restore; images deleted from Cloudinary since a backup restore as dead links; a restore
+  never deletes Cloudinary files (the safety copy may need them) → possible orphans.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
