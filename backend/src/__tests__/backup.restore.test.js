@@ -294,6 +294,16 @@ describe('a file that cannot be restored is refused — and NOTHING changes', ()
     expect(raw).not.toHaveProperty('isAdmin');
     expect(await About.collection.findOne({})).not.toHaveProperty('extra');
   });
+
+  // PF-137: a backup taken while posts still carried `content` restores
+  // cleanly, and the removed field does not come back with it.
+  it('an old file whose posts carry the removed content field restores without it', async () => {
+    const f = edited((x) => { x.blog[0].content = 'Legacy markdown body.'; });
+    expect((await restore(f)).status).toBe(200);
+
+    expect(await Blog.collection.countDocuments({ content: { $exists: true } })).toBe(0);
+    expect(await Blog.collection.countDocuments()).toBe(2);
+  });
 });
 
 describe('who may restore', () => {

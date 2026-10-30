@@ -16,8 +16,8 @@ function countWords(text) {
 }
 
 // ── CHANGED IN PF-59 ────────────────────────────────────────────
-// Reading time now counts words across all sections.
-// Falls back to `content` for any post not yet migrated.
+// Reading time now counts words across all sections. (Its fallback to the
+// old `content` string went with that field in PF-137.)
 function calculateReadingTimeMinutes(doc) {
   let wordCount = 0;
 
@@ -33,8 +33,6 @@ function calculateReadingTimeMinutes(doc) {
       for (const para   of (section.body    || [])) wordCount += countWords(para);
       for (const bullet of (section.bullets || [])) wordCount += countWords(bullet);
     }
-  } else if (doc.content) {
-    wordCount = countWords(doc.content);
   }
 
   return wordCount > 0 ? Math.max(1, Math.ceil(wordCount / 200)) : 1;
@@ -125,14 +123,11 @@ const blogSchema = new mongoose.Schema(
       trim:      true,
       maxlength: [300, 'Excerpt cannot exceed 300 characters'],
     },
-    content: {
-      type:     String,
-      required: false,        // ← CHANGED: was `required: [true, ...]`
-      // Stored as Markdown — frontend renders it to HTML
-      // DEPRECATED as of PF-59. Kept for two weeks as a rollback
-      // safety net, then removed in a follow-up ticket.
-    },
-
+    // ⚠️ `content` WAS HERE AND WAS DELETED IN PF-137 — Phase 1's single
+    // Markdown string, replaced by `sections` in PF-59 and kept only as a
+    // rollback net. Migration 011 unsets it from every row. Do NOT re-add
+    // it as a fallback body: two sources of truth for a post's text is
+    // what caused PF-97.
     // ── NEW IN PF-59 ──────────────────────────────────────────
     sections: {
       type:    [sectionSchema],
@@ -143,14 +138,11 @@ const blogSchema = new mongoose.Schema(
       // `togglePublish` (load → flip → save()) never passes through
       // blogRules — so a list-row PUBLISH would have put an empty draft on
       // the public site with a 200. Here, every path that saves a post
-      // enforces it. `content` still satisfies it while that deprecated
-      // column exists, exactly as blogRules' copy does.
+      // enforces it, exactly as blogRules' copy does.
       validate: {
         validator(sections) {
           if (this.published !== true) return true;
-          const hasSections = Array.isArray(sections) && sections.length > 0;
-          const hasContent  = typeof this.content === 'string' && this.content.trim() !== '';
-          return hasSections || hasContent;
+          return Array.isArray(sections) && sections.length > 0;
         },
         message: 'A post needs a body — add at least one section',
       },
@@ -251,7 +243,7 @@ function applyDerivedFields(doc, options = {}) {
   // ──────────────────────────────────────────────────────────────
   if (doc.readingTimeOverride != null) {
     doc.readingTimeMinutes = doc.readingTimeOverride;
-  } else if ((doc.sections && doc.sections.length > 0) || doc.content) {
+  } else if (doc.sections && doc.sections.length > 0) {
     doc.readingTimeMinutes = calculateReadingTimeMinutes(doc);
   }
 

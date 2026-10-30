@@ -53,22 +53,20 @@ describe('Blog — sections schema (PF-59)', () => {
       .rejects.toThrow(/Excerpt is required/);
   });
 
-  it('requires a body on a PUBLISHED post — sections or legacy content', async () => {
+  // PF-137: the removed `content` field no longer counts as a body.
+  it('requires SECTIONS on a PUBLISHED post — content is not a body', async () => {
     await expect(new Blog({ ...BASE, published: true }).validate())
       .rejects.toThrow(/needs a body/);
     await expect(new Blog({ ...BASE, published: true, content: 'Legacy.' }).validate())
-      .resolves.toBeUndefined();
+      .rejects.toThrow(/needs a body/);
   });
 
-  it('allows a post with content but no sections (not yet migrated)', async () => {
-    const post = new Blog({
-      ...BASE,
-      content: 'Legacy markdown content.',
-    });
-    await expect(post.validate()).resolves.toBeUndefined();
+  it('has no content path — a stray value is dropped (strict schema)', () => {
+    expect(Blog.schema.path('content')).toBeUndefined();
+    expect(new Blog({ ...BASE, content: 'Legacy.' }).toObject()).not.toHaveProperty('content');
   });
 
-  it('allows a post with neither content nor sections', async () => {
+  it('allows a draft with no sections', async () => {
     const post = new Blog(BASE);
     await expect(post.validate()).resolves.toBeUndefined();
   });

@@ -12,7 +12,7 @@ afterAll(disconnectTestDB);
 const PUBLISHED_POST = {
   title:     'Published Test Post',
   excerpt:   'A short excerpt for a published post.',
-  content:   'This is enough content for a published test post.',
+  sections:  [{ heading: 'Intro', body: ['This is enough text for a published test post.'], bullets: [] }],
   tags:      ['testing'],
   published: true,
 };
@@ -20,7 +20,7 @@ const PUBLISHED_POST = {
 const DRAFT_POST = {
   title:     'Draft Test Post',
   excerpt:   'A short excerpt for a draft post.',
-  content:   'This is enough content for a draft test post.',
+  sections:  [{ heading: 'Intro', body: ['This is enough text for a draft test post.'], bullets: [] }],
   published: false,
 };
 
@@ -45,7 +45,6 @@ describe('GET /api/blog', () => {
     expect(res.body.status).toBe('success');
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].title).toBe(PUBLISHED_POST.title);
-    expect(res.body.data[0].content).toBeUndefined();
   });
 });
 
@@ -59,10 +58,6 @@ describe('GET /api/blog/:slug', () => {
     // ⚠️ PF-96 changed this shape: `data` is now the compound
     // { post, prev, next } the reading view needs, not the bare post.
     expect(res.body.data.post.title).toBe(PUBLISHED_POST.title);
-    // Deprecated since PF-59 and read by no client: no longer sent. The
-    // fixture HAS a `content`, so this cannot pass on a post without one.
-    expect(PUBLISHED_POST.content).toBeTruthy();
-    expect(res.body.data.post).not.toHaveProperty('content');
   });
 
   it('returns 404 for draft posts', async () => {
@@ -85,7 +80,6 @@ describe('GET /api/blog/admin/all', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(2);
-    expect(res.body.data.every((post) => post.content === undefined)).toBe(true);
   });
 });
 
@@ -141,20 +135,46 @@ describe('POST /api/blog', () => {
       expect(res.body.data.readingTimeMinutes).toBeGreaterThanOrEqual(1);
     });
 
-    it('still accepts a content-only post while the field exists', async () => {
+    // ── PF-137 — `content` is gone, so it is no longer A body ─────────
+    it('refuses a PUBLISHED post whose only body is the removed content field', async () => {
+      // The model refuses it too, with the same message — so the spy is what
+      // proves blogRules turns it away at the door, before Blog.create.
+      const create = jest.spyOn(Blog, 'create');
       const res = await request(app)
         .post('/api/blog')
         .set(await authHeader())
         .send({
-          title:   'Legacy Content Post',
-          excerpt: 'A post carrying the deprecated flat content field.',
+          title:     'Legacy Content Post',
+          excerpt:   'A post carrying the removed flat content field.',
+          content:   'Some legacy markdown body text.',
+          published: true,
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/needs a body/i);
+      const calls = create.mock.calls.length;
+      create.mockRestore();
+      expect(calls).toBe(0);
+    });
+
+    it('never stores a content field a client still sends', async () => {
+      const res = await request(app)
+        .post('/api/blog')
+        .set(await authHeader())
+        .send({
+          title:   'Draft With Content',
+          excerpt: 'A draft whose body carries the removed field.',
           content: 'Some legacy markdown body text.',
         });
 
       expect(res.status).toBe(201);
+      // The RAW row — a response could hide a field the database kept.
+      const stored = await Blog.collection.findOne({ slug: 'draft-with-content' });
+      expect(stored.title).toBe('Draft With Content');
+      expect(stored).not.toHaveProperty('content');
     });
 
-    it('rejects a post with neither sections nor content', async () => {
+    it('rejects a post with no sections', async () => {
       const res = await request(app)
         .post('/api/blog')
         .set(await authHeader())

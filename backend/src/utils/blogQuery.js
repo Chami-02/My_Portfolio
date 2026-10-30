@@ -92,10 +92,6 @@ function escapeRegex(input) {
  * an `$or` arm on an array field matches if ANY element matches. So one
  * regex per path covers all of them.
  *
- * The deprecated `content` string is deliberately NOT searched. No row in
- * this database has ever carried one (models/Blog.js marks it awaiting
- * its own removal ticket), so an arm for it would be dead weight.
- *
  * ── COST, STATED RATHER THAN DISCOVERED LATER ────────────────────────
  * There is no text index, and none on `sections` — this is a collection
  * scan running a regex per array element. Irrelevant at four posts, the
@@ -195,7 +191,7 @@ function sortedPipeline({ match = {}, project } = {}) {
   if (project) stages.push({ $project: project });
 
   // Must run AFTER $project: an exclusion projection such as
-  // `{ content: 0 }` keeps _sortDate, and leaking an internal sort key
+  // `{ sections: 0 }` keeps _sortDate, and leaking an internal sort key
   // into the API response would make it look like a real field.
   // A no-op when $project was an inclusion, which already dropped it.
   stages.push({ $unset: SORT_KEY });
