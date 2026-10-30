@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 
 // Credentials come from the environment so this suite can run against a
@@ -198,6 +199,8 @@ test.describe('Admin Authentication Flow', () => {
       .getByRole('button', { name: /Settings/ }).click();
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
     const account = page.getByRole('region', { name: 'Account', exact: true });
+    await expect(account.getByText(`SIGNED IN AS ${ADMIN_EMAIL}`, { exact: true })).toBeVisible();   // folded
+    await account.getByRole('button', { name: /VIEW DETAILS/ }).click();   // PF-135: the fold
     await expect(account.getByText('Signed in as', { exact: true }).locator('xpath=following-sibling::dd'))
       .toHaveText(ADMIN_EMAIL);
 
@@ -212,6 +215,46 @@ test.describe('Admin Authentication Flow', () => {
     await password.getByRole('button', { name: 'SEND CODE', exact: true }).click();
     await expect(password.getByText('Your current password is wrong.', { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+
+    // PF-135. A REAL backup file through the browser, then restore THAT file:
+    // check → preview → password → one transaction on the server. The content
+    // is the same before and after (ids and dates kept), so later specs still
+    // see the seed; the e2e database gains one safety copy (the newest 3 kept).
+    const backupCard = page.getByRole('region', { name: 'Backup', exact: true });
+    const dialog = page.getByRole('dialog');
+    await backupCard.getByRole('button', { name: /BACKUP & RESTORE/ }).click();   // the fold
+    await backupCard.getByRole('button', { name: 'DOWNLOAD BACKUP', exact: true }).click();
+    await dialog.getByLabel('Your password', { exact: true }).fill(ADMIN_PASSWORD);
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      dialog.getByRole('button', { name: 'DOWNLOAD', exact: true }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^portfolio-backup-\d{4}-\d{2}-\d{2}\.json$/);
+    // Saved under its own name: the card only accepts a .json file.
+    const saved = test.info().outputPath(download.suggestedFilename());
+    await download.saveAs(saved);
+    const backup = JSON.parse(await readFile(saved, 'utf8'));
+    expect(backup.format).toBe('portfolio-backup');
+    expect(backup.counts.projects).toBeGreaterThan(0);
+    await expect(backupCard.getByRole('alert')).toHaveCount(0);   // the self-check: restorable
+
+    await backupCard.locator('input[type="file"]').setInputFiles(saved);
+    await expect(dialog.getByText(`${backup.counts.projects} projects · ${backup.counts.skills} skills`, { exact: false })).toBeVisible();
+    await dialog.getByLabel('Your password', { exact: true }).fill(ADMIN_PASSWORD);
+    await dialog.getByRole('button', { name: 'RESTORE', exact: true }).click();
+    // A restore is ~26 sequential steps in ONE transaction. Locally against
+    // Atlas (Colombo → Mumbai) that measured 4–5 s, past expect's 5 s default;
+    // in production the API sits beside the database (PF-128). The client
+    // allows 60 s and shows RESTORING… meanwhile.
+    await expect(page.getByText(/^Site restored from the backup of /)).toBeVisible({ timeout: 30_000 });
+    await expect(backupCard.getByRole('list', { name: 'Safety copies' }).getByRole('listitem').first()).toBeVisible();
+
+    // The same content after the restore: the sidebar counts (refetched by
+    // the restore) match the file. Not by opening a panel — the Password card
+    // above is still dirty, so the unsaved-changes guard would hold the exit.
+    const nav = page.getByRole('navigation', { name: 'Admin sections' });
+    await expect(nav.getByRole('button', { name: `Projects ${backup.counts.projects}`, exact: true })).toBeVisible();
+    await expect(nav.getByRole('button', { name: `Skills ${backup.counts.skills}`, exact: true })).toBeVisible();
   });
 });
 

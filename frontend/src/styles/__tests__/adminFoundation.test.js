@@ -242,6 +242,8 @@ const REBUILT_JSX = [
   'components/admin/PasswordStrength.jsx', // PF-124
   'components/admin/panels/SettingsSessionsCard.jsx', // PF-132 (added in PF-133)
   'components/admin/PasswordLeakBanner.jsx', // PF-133
+  'components/admin/panels/SettingsBackupCard.jsx', // PF-135
+  'components/admin/PasswordConfirmForm.jsx',       // PF-135
 ];
 
 describe('PF-113 rebuilt components carry no Phase 1 styling', () => {

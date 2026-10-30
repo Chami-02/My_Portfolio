@@ -302,6 +302,25 @@ describe('SettingsSessionsCard — recent activity', () => {
     expect(ok).toHaveTextContent(/2026\/10\/29 \d{1,2}:\d{2} (AM|PM)$/);
   });
 
+  // PF-135 — backup downloads and restores are logged too (OWASP Logging).
+  it('names backup downloads and restores — and a refused password', async () => {
+    mocks.getSignIns.mockResolvedValue([
+      event(1, { kind: 'backup-restore', method: null }),
+      event(2, { kind: 'backup-restore', outcome: 'failed', method: null }),
+      event(3, { kind: 'backup-download', method: null }),
+      event(4, { kind: 'backup-download', outcome: 'failed', method: null }),
+    ]);
+    renderCard();
+    await screen.findByText('Backup restored');
+
+    expect(items().map((li) => within(li).getByText(/^Backup/).textContent)).toEqual([
+      'Backup restored',
+      'Backup restore — wrong password',
+      'Backup downloaded',
+      'Backup download — wrong password',
+    ]);
+  });
+
   it('shows 10; SHOW MORE adds 10 up to all sent; SHOW LESS goes back', async () => {
     const user = userEvent.setup();
     mocks.getSignIns.mockResolvedValue(Array.from({ length: 25 }, (_, i) => event(i)));

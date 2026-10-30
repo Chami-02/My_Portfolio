@@ -1,7 +1,9 @@
 // frontend/src/components/admin/panels/AdminSettingsPanel.jsx
+import { useState } from 'react';
 import { useMe } from '../../../hooks/useMe';
 import { SettingsPasswordCard } from './SettingsPasswordCard';
 import { SettingsSessionsCard } from './SettingsSessionsCard';
+import { SettingsBackupCard }   from './SettingsBackupCard';
 import styles from './AdminSettingsPanel.module.css';
 import a from '../../../styles/admin.module.css';
 
@@ -10,9 +12,9 @@ import a from '../../../styles/admin.module.css';
  * data, as opposed to About, which is what the site SAYS (owner, 2026-10-13).
  * The prototype has no Settings; the layout is owner-approved 2026-10-27.
  *
- * ⚠️ Only BUILT cards. Sign-in history (PF-133, a second part INSIDE the
- * Sessions card — owner, 2026-10-29) is built; backup (PF-135) arrives when
- * it is. The owner chose this over greyed-out "coming soon" cards: nothing on
+ * ⚠️ Only BUILT cards. Sign-in history (PF-133) is a second part INSIDE the
+ * Sessions card (owner, 2026-10-29); Backup (PF-135) is the last card. The
+ * owner chose this over greyed-out "coming soon" cards: nothing on
  * screen claims a feature that does not exist yet. There is no logo card:
  * PF-134 ships the logo as files, not an upload (owner, 2026-10-30).
  *
@@ -22,22 +24,53 @@ import a from '../../../styles/admin.module.css';
  * rather than leaving a panel up. The Password card (PF-124) is the first
  * with a form, and registers with the unsaved-changes guard itself. The
  * Sessions card (PF-132) fetches its own list and has its own LoadError.
+ * The Backup card (PF-135) fetches only when asked, behind the password.
  */
 export function AdminSettingsPanel() {
   const { data: me } = useMe();
+  const [folded, setFolded] = useState(true);
 
   return (
     <div className={a.stack}>
+      {/* FOLDS like every Settings card (owner, 2026-10-30), with the same
+          classes. Folded, it still says which address this login used — the
+          one fact worth seeing at a glance (as Password shows LAST CHANGED). */}
       <section className={a.panel} aria-labelledby="settings-account-title">
-        <h2 className={a.panelTitle} id="settings-account-title">Account</h2>
+        <div className={styles.disclosureHead}>
+          <h2 className={a.panelTitle} id="settings-account-title">Account</h2>
+          <button
+            type="button"
+            className={styles.disclosure}
+            aria-expanded={!folded}
+            aria-controls="settings-account-body"
+            onClick={() => setFolded((f) => !f)}
+          >
+            VIEW DETAILS
+            <span className={styles.chevron} aria-hidden="true">▾</span>
+          </button>
+        </div>
         {/* Nothing address-shaped until /auth/me answers — a placeholder
             address would be the defect the shell's header already avoids. */}
-        {me && <AccountFacts me={me} />}
+        {/* Folded only: opened, the same fact heads the details below. */}
+        {me && folded && <p className={styles.lastChanged}>SIGNED IN AS {me.signedInAs ?? me.email}</p>}
+        <div
+          id="settings-account-body"
+          className={`${styles.collapse} ${folded ? '' : styles.collapseOpen}`}
+          inert={folded}
+        >
+          <div className={styles.collapseInner}>
+            <div className={styles.foldBody}>
+              {me && <AccountFacts me={me} />}
+            </div>
+          </div>
+        </div>
       </section>
 
       <SettingsPasswordCard />
 
       <SettingsSessionsCard />
+
+      <SettingsBackupCard />
     </div>
   );
 }
