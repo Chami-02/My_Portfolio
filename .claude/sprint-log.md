@@ -9503,6 +9503,57 @@ footer + content, centre the WHOLE public footer (screenshot at ~470px), redesig
 - Owner to check on a real phone (iOS Safari + Android Chrome): menu stagger, × hover = tap state.
 - Tablet 600–899px not reviewed by the owner (only the fixed cascade changed there).
 
+## PF-134 — The site logo: Orbit PG in the site's sky + favicon set (2026-10-30, `feat/PF-134-site-logo`)
+
+**Re-scoped by the owner, 2026-10-30:** NOT an upload feature (the Sprint 15 plan's "logo +
+favicon upload, 6 places, no splash flash, reset to default"). "A logo rarely changes", so it
+ships as FILES; a later change is a file swap. The splash-flash problem therefore never exists.
+The old "logo" was an AI-generated PHOTO of the owner in a VR headset — a blur at 16px, not
+ownable (AI output has no copyright in the US), and the face already appears twice on the site.
+
+- **Design round:** concepts page `new mds/Sprint 15/PF-134-logo-concepts.html` (artifact
+  https://claude.ai/artifact/UYvANCdh99ahpTaG3emh9w): A monogram, B code mark, C Orbit PG, D Orbit
+  PG in a real typeface, E the owner's VR-mask sketch. **Owner picked D with Rubik Dirt.**
+  Velric (Mei Suseno) was tried and DROPPED: personal-use licence only.
+- **The mark:** "PG" — Rubik Dirt glyph OUTLINES (Google Fonts, SIL OFL: logo use free, no font
+  file shipped) — P in text colour, G in accent, an orbit passing behind then in front, a moon;
+  set in a piece of the site's sky: night (`--ink`→`--navy`, stars `rgba(226,235,255)`, one amber)
+  in dark, paper (`#FBF8F3`→`--ftr` tan, navy stars, accent `#7E4800`) in light.
+- **Files:** `src/assets/logo-dark.svg`, `logo-light.svg` (NO rim — every frame on the site
+  draws its own amber ring); `public/favicon-dark.svg` + `favicon-light.svg` (WITH rim),
+  `favicon.ico` 16/32/48 (dark), `apple-touch-icon.png` 180 (dark on `#050609`). `index.html`
+  links ico (`sizes="32x32"` so Chrome keeps the SVG) + `favicon-dark.svg` + the touch icon.
+- **Tab icon follows the SITE toggle (owner, same day — first build followed the OS theme):**
+  `utils/theme.js` `applyTheme()` sets the SVG icon link's href to `/favicon-${theme}.svg`; it runs
+  on mount, toggle and cross-tab change. NOT in the head script (that would change its CSP hash in
+  vercel.json + nginx.conf). Chrome checked: load/toggle/reload correct from both starting themes.
+  The .ico (non-SVG browsers) stays dark; Safari may keep its own cached icon.
+- **`hooks/useLogo.js`** — the ONE import of the logo files; returns the theme's src. One `<img>`
+  per spot, so only the theme on screen downloads; no flash (head script sets `data-theme`,
+  ThemeProvider's initial state reads it). Called in Splash, Navbar (+ MobileOverlay), Footer,
+  AdminLayout, AdminFooter, BrandMark (login, forgot, LoadingScreen).
+- **Deleted:** `src/assets/logo.webp`, `public/icons.svg` (zero consumers, hardcoded fills — see
+  the PF-79/PF-86 notes; it is gone now).
+- **Tests:** `hooks/__tests__/useLogo.test.jsx` (13): dark/light/toggle, light from the FIRST
+  render; no `assets/logo` import outside the hook; each of the 6 files calls it; favicon files
+  exist + linked; each `favicon-{theme}.svg` exists, is that sky, no `<script>`; theme.test.js +4
+  (swap both ways, normalised name, .ico untouched, no link → no throw). Swap removed → 1 fails. Splash/Footer test wrappers gained
+  `ThemeProvider`; Splash + Navbar src assertions → `logo-dark.svg`.
+  **Mutations:** Footer importing a file directly → 2 fail; hook ignoring the theme → 2 fail.
+- **Gates:** frontend `check` 105 files / 2345 tests (2340 before the tab-icon follow-up), lint 0, build OK (logo SVGs emitted hashed,
+  30.9 KB each, ~14 KB gzip); backend 61 suites / 1124 tests.
+- **Browser (Playwright on the owner's dev server, 1280 + 375px, dark + light):** splash, navbar,
+  phone menu, footer, sign-in card all load the right file; 0 console errors. Admin header +
+  footer NOT seen (needs a sign-in; same hook + same frames, unit-tested).
+- Vercel/nginx serve the root favicon files as files (rewrite only when no file matches; the
+  year-long immutable cache is `/assets/` only), so a future favicon change reaches visitors.
+
+### Outstanding work added by PF-134
+- Owner: look at the admin header/footer and the tab icon changing with the toggle on the live site.
+- Safari / non-SVG browsers use the dark `.ico`; Safari may keep its own cached icon.
+- At 16px the tab icon is a coloured disc with a hint of PG (accepted; letters read from 32px).
+- Rubik Dirt's specks make each SVG ~31 KB; if it matters, a speck-free 16–44px variant.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Project state, commands, architecture, environment
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

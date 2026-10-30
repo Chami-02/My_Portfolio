@@ -690,7 +690,8 @@ error message:
   panel is a deliberate non-port of `TerminalWindow` (see PF-85).
 - **A design image referenced by URL 404s in silence.** `docs/design/assets/` is
   not served by anything — it is design reference, outside the Vite root — and
-  `frontend/public/` holds only `favicon.svg` and `icons.svg`. A ticket saying
+  `frontend/public/` holds only the favicon set (PF-134: `favicon.svg`, `.ico`,
+  `apple-touch-icon.png`; `icons.svg` deleted). A ticket saying
   `src="/assets/logo.png"` renders a broken image with no error. **Copy the
   asset into `frontend/src/assets/` and `import` it** (established in PF-78,
   which added that directory and `logo.png`): Vite emits it hashed, and a path

@@ -127,14 +127,14 @@ something surprises you, search the companions *before* deriving an explanation.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
 | PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→130, PF-123, PF-125, PF-131 merged + live; PF-124, PF-141 merged + live; PF-133 merged + live 2026-10-29; PF-142 mobile pass built |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→130, PF-123, PF-125, PF-131 merged + live; PF-124, PF-141 merged + live; PF-133 merged + live 2026-10-29; PF-142 mobile pass + PF-134 logo built |
 
 `global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
 PF-127 → PF-128 → PF-129 → PF-130 (merged) → PF-123 mailer (built 2026-10-20) →
-PF-125 forgot password (live 2026-10-27) → PF-131 Settings (live 2026-10-27) → PF-124 change password (live 2026-10-27) → PF-141 shared limiter (live 2026-10-27) → PF-132 sessions (live 2026-10-29) → PF-133 history (live 2026-10-29) → PF-142 mobile pass (built) → PF-134… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+PF-125 forgot password (live 2026-10-27) → PF-131 Settings (live 2026-10-27) → PF-124 change password (live 2026-10-27) → PF-141 shared limiter (live 2026-10-27) → PF-132 sessions (live 2026-10-29) → PF-133 history (live 2026-10-29) → PF-142 mobile pass (built) → PF-134 logo (built) → PF-135… (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
   deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
@@ -428,6 +428,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
 - PF-133: history in Sessions card (90 d, 10 + SHOW MORE ≤50); alert on NEW device only (30 d); daily digest of failures (Cron + `CRON_SECRET`); leak check at sign-in → banner on every admin page.
 - PF-142: phones ≤560 — 44px CTAs, hero pair one line, footers + admin header centred/one row, card-list menu, no "FROM SCRATCH".
+- PF-134: logo = Orbit PG (Rubik Dirt outlines) in the site sky, dark/light via `useLogo()` only; NO upload; tab icon follows the SITE toggle (`applyTheme`).
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
