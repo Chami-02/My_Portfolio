@@ -85,6 +85,13 @@ const aboutRules = [
     ['availabilityNote', 160, 'Availability note'],
     ['heroIntro',        300, 'Hero intro'],
     ['footerBio',        300, 'Footer blurb'],
+    // PF-143 — the words around Certificates (Education's heading is fixed).
+    ['certificatesHeading',     40,  'Certificates heading'],
+    ['certificatesViewAll',     40,  'View-all button'],
+    ['certificatesVerify',      30,  'Verify button'],
+    ['certificatesCardLabel',   30,  'Card label'],
+    ['certificatesPageHeading', 60,  'Page heading'],
+    ['certificatesPageIntro',   300, 'Page intro'],
   ].map(([field, max, name]) =>
     body(field)
       .optional()

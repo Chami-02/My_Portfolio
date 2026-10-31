@@ -1,6 +1,16 @@
 const mongoose = require('mongoose');
 const { isTimeZone } = require('../utils/timeZone');
 
+// PF-143 — field → default. The limits live in aboutController's rules.
+const SECTION_TEXT = {
+  certificatesHeading:     'Certificates',
+  certificatesViewAll:     'VIEW ALL CERTIFICATES',
+  certificatesVerify:      'VERIFY',
+  certificatesCardLabel:   'VIEW CERTIFICATE',
+  certificatesPageHeading: 'Certificates',
+  certificatesPageIntro:   'Courses and exams I have passed. Open one to see it full size, and check it with the issuer.',
+};
+
 // ── NEW IN PF-60 ──────────────────────────────────────────────
 // Shared validator for social profile URLs.
 // Empty is always allowed — not every link is filled in
@@ -132,6 +142,15 @@ const aboutSchema = new mongoose.Schema(
       trim:    true,
       default: 'Computer Science undergraduate at the University of Westminster, building scalable web applications — MERN, FastAPI, Docker, shipped with CI/CD.',
     },
+
+    // ── PF-143: the words around Education + Certificates ─────────────
+    // Every visible word on those sections is the owner's (owner, 2026-10-30).
+    // Edited in the Education / Certificates panels' "Section text" card. A
+    // blank value shows the default — the frontend's SECTION_TEXT holds the
+    // same strings (utils/sectionText.js), so first paint never differs.
+    ...Object.fromEntries(Object.entries(SECTION_TEXT).map(([name, value]) => [
+      name, { type: String, trim: true, default: value },
+    ])),
 
     // ── REPLACED IN PF-111: avatarUrl (bare String) → avatar {} ───
     // The About portrait. Same shape and same reasoning as `resume`
