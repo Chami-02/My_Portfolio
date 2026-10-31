@@ -85,6 +85,8 @@ app.use(purgeOnWrite);                           // PF-128 — a signed-in SAVE 
    app.use('/api/dashboard', require('./routes/dashboardRoutes')); // PF-110 — admin counts, one call
    app.use('/api/backup',   require('./routes/backupRoutes'));    // PF-135 — the Settings backup download
    app.use('/api/cron',     require('./routes/cronRoutes'));      // PF-133 — the daily digest (Vercel Cron)
+   app.use('/api/education',    require('./routes/educationRoutes'));   // PF-143
+   app.use('/api/certificates', require('./routes/certificateRoutes')); // PF-143
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────
 app.use(notFound);      // Catch any unmatched routes and create a 404 AppError
