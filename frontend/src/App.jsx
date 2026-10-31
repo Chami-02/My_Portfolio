@@ -20,6 +20,7 @@ import { NotFoundPage }    from './pages/NotFoundPage';
  */
 const BlogPage       = lazy(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
 const BlogPostPage   = lazy(() => import('./pages/BlogPostPage').then((m) => ({ default: m.BlogPostPage })));
+const CertificatesPage = lazy(() => import('./pages/CertificatesPage').then((m) => ({ default: m.CertificatesPage })));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })));
 const AdminForgotPasswordPage = lazy(() =>
   import('./pages/AdminForgotPasswordPage').then((m) => ({ default: m.AdminForgotPasswordPage })));
@@ -75,6 +76,10 @@ function AppLayout() {
                   but it must precede nothing in particular — the `*`
                   catch-all below is what it is escaping. */}
               <Route path="/blog/:slug"  element={<BlogPostPage />} />
+              {/* PF-143. ONE route with an optional slug, so opening a
+                  certificate's big view does not remount the page (its grid,
+                  filter and scroll stay put underneath). */}
+              <Route path="/certificates/:slug?" element={<CertificatesPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
               {/* PF-125. Public, like sign-in: ranked above `/admin/*`, so it
                   never reaches ProtectedRoute. */}

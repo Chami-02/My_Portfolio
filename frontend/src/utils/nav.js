@@ -69,6 +69,11 @@ export function isBlogPath(pathname) {
   return pathname === '/blog' || pathname.startsWith('/blog/');
 }
 
+/** PF-143 — `/certificates` and `/certificates/:slug`. */
+export function isCertificatesPath(pathname) {
+  return pathname === '/certificates' || pathname.startsWith('/certificates/');
+}
+
 /**
  * Build the header's links for a path.
  *
@@ -102,6 +107,20 @@ export function navModel(pathname) {
   // The glowpulse pill keeps its slot and its href and is relabelled
   // '← GO BACK': with CONTACT now a plain link, '← PORTFOLIO' no longer
   // needs to name its destination to be unambiguous.
+  // PF-143 — /certificates is a sub-page like /blog: the same '← GO BACK'
+  // pill, and every home section as a plain link (BLOG included — you are not
+  // on it) plus CONTACT.
+  if (isCertificatesPath(pathname)) {
+    return {
+      variant: 'blog',
+      brandHref: HOME,
+      links: [...SECTIONS, { id: 'contact', label: 'CONTACT' }]
+        .map(({ id, label }) => ({ href: sectionHref(pathname, id), label })),
+      pillHref: HOME,
+      pillLabel: '\u2190 GO BACK',
+    };
+  }
+
   if (isBlogPath(pathname)) {
     return {
       variant: 'blog',

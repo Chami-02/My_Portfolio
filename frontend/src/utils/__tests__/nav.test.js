@@ -1,6 +1,6 @@
 // frontend/src/utils/__tests__/nav.test.js
 import { describe, it, expect } from 'vitest';
-import { navModel, isBlogPath, sectionHref } from '../nav';
+import { navModel, isBlogPath, isCertificatesPath, sectionHref } from '../nav';
 
 /**
  * ⚠️ THE BUG THIS COVERS. App.jsx mounts <Navbar /> on `path="*"`, and
@@ -99,5 +99,19 @@ describe('navModel / isBlogPath (2026-08-22)', () => {
       ['about', 'skills', 'projects', 'blog'].map((id) => sectionHref('/nope', id)),
     );
     expect(m.pillHref).toBe(sectionHref('/nope', 'contact'));
+  });
+});
+
+describe('PF-143 — /certificates', () => {
+  it.each(['/certificates', '/certificates/cloud-oracle'])('%s gets every home section, CONTACT and ← GO BACK', (path) => {
+    const model = navModel(path);
+    expect(model.links.map((l) => l.label)).toEqual(['ABOUT', 'SKILLS', 'PROJECTS', 'BLOG', 'CONTACT']);
+    expect(model.links[0].href).toBe('/?nosplash=1#about');
+    expect(model.pillLabel).toBe('\u2190 GO BACK');
+    expect(model.pillHref).toBe('/?nosplash=1');
+  });
+
+  it('a path that only STARTS with the word is not the page', () => {
+    expect(isCertificatesPath('/certificatesx')).toBe(false);
   });
 });
