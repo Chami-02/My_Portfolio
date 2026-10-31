@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const { assertExplicitDatabase } = require('./config/db');
 
 const Project = require('./models/Project');
+const Education   = require('./models/Education');   // PF-143
+const Certificate = require('./models/Certificate'); // PF-143
 const Skill   = require('./models/Skill');
 const Blog    = require('./models/Blog');
 const About   = require('./models/About');
@@ -467,6 +469,36 @@ async function seedVocabulary() {
 }
 // ───────────────────────────────────────────────────────────────────────────
 
+// ── PF-143: Education + Certificates ──────────────────────────────────────
+// DEMO rows for dev/e2e — the owner writes the real ones in the admin panel.
+// Two certificates are published and one is a draft, so the draft rule is
+// visible on a fresh database.
+const EDUCATION = [
+  {
+    school: 'University of Westminster', degree: 'BSc (Hons) Computer Science',
+    fieldOfStudy: 'Computer Science', start: '2022-09', end: '2026-06',
+    description: 'Full-stack web development, software engineering and databases.',
+    published: true, order: 0,
+  },
+  {
+    school: 'Demo High School', degree: 'G.C.E. Advanced Level',
+    fieldOfStudy: 'Physical Science', start: '2019', end: '2021',
+    published: true, order: 1,
+  },
+];
+
+const CERTIFICATES = [
+  {
+    title: 'Oracle Cloud Infrastructure Foundations Associate', issuer: 'Oracle',
+    issued: '2025-06', verifyUrl: 'https://education.oracle.com/', published: true, order: 0,
+  },
+  {
+    title: 'Data Scientist in Python', issuer: 'DataCamp',
+    issued: '2025-03', verifyUrl: 'https://www.datacamp.com/', published: true, order: 1,
+  },
+  { title: 'GitHub Foundations', issuer: 'GitHub', published: false, order: 2 },
+];
+
 // ── Main seed function ─────────────────────────────────────────────────────
 
 async function seed() {
@@ -498,6 +530,8 @@ async function seed() {
       RateLimit.deleteMany({}),
       // PF-133 — the sign-in history belongs to the users just deleted.
       SignInEvent.deleteMany({}),
+      Education.deleteMany({}),     // PF-143
+      Certificate.deleteMany({}),   // PF-143
     ]);
     console.log('🗑  Cleared existing data');
 
@@ -514,6 +548,11 @@ async function seed() {
 
     await Blog.insertMany(BLOG_POSTS);
     console.log(`📝 Seeded ${BLOG_POSTS.length} blog posts`);
+
+    await Education.insertMany(EDUCATION);
+    // One by one: each certificate's slug is made by its own save hook.
+    for (const c of CERTIFICATES) await Certificate.create(c);
+    console.log(`🎓 Seeded ${EDUCATION.length} education entries, ${CERTIFICATES.length} certificates`);
 
     await About.create(ABOUT_DATA);
     console.log('👤 Seeded about/profile data');
