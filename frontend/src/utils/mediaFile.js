@@ -97,13 +97,32 @@ export const RESUME_SPEC = {
  *
  * @returns {Promise<{ file: File, resizedFrom: number|null } | { error: string }>}
  */
+/** True for a PDF, by type or by name (a courtesy check; the server reads the bytes). */
+export const isPdfFile = (f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+
+/**
+ * PF-143 — a picture OR a PDF (certificates). A PDF's first
+ * page becomes the picture on the server (Cloudinary `pg_1`), so it is never
+ * resized here; a photo is, like every other image slot.
+ */
+export const pictureOrPdfSpec = (label) => ({
+  label,
+  accept:   '.png,.jpg,.jpeg,.webp,.pdf',
+  maxBytes: MAX_BYTES,
+  resizable: (f) => !isPdfFile(f),
+  looksRight: (f) => imageSpec(label).looksRight(f) || isPdfFile(f),
+  typeMessage: `${label} must be a PNG, JPEG or WEBP image, or a PDF.`,
+});
+
 export async function prepareFile(file, spec) {
   if (!spec.looksRight(file)) return { error: spec.typeMessage };
 
   let out = file;
   let resizedFrom = null;
 
-  if (spec.resizable) {
+  // `resizable` is a flag, or (PF-143) a question about this file.
+  const resizable = typeof spec.resizable === 'function' ? spec.resizable(file) : spec.resizable;
+  if (resizable) {
     try {
       const result = await resizeImage(file, { maxBytes: spec.maxBytes });
       if (result.resized) { out = result.file; resizedFrom = file.size; }

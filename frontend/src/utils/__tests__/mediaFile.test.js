@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const resize = vi.hoisted(() => ({ fn: vi.fn() }));
 vi.mock('../resizeImage', async (orig) => ({ ...(await orig()), resizeImage: resize.fn }));
 
-const { prepareFile, imageSpec, RESUME_SPEC, MAX_UPLOAD_MB } = await import('../mediaFile');
+const { prepareFile, imageSpec, RESUME_SPEC, MAX_UPLOAD_MB, pictureOrPdfSpec } = await import('../mediaFile');
 const { UndecodableImageError } = await import('../resizeImage');
 
 const MB = 1024 * 1024;
@@ -74,5 +74,18 @@ describe('prepareFile', () => {
   it('rethrows an UNEXPECTED resize failure rather than hiding it', async () => {
     resize.fn.mockRejectedValue(new TypeError('boom'));
     await expect(prepareFile(file(6 * MB, 'x.jpg', 'image/jpeg'), IMG)).rejects.toThrow('boom');
+  });
+});
+
+describe('PF-143 — pictureOrPdfSpec', () => {
+  const spec = pictureOrPdfSpec('Certificate picture');
+  it('takes a picture or a PDF, nothing else', () => {
+    expect(spec.looksRight(new File(['x'], 'a.pdf', { type: 'application/pdf' }))).toBe(true);
+    expect(spec.looksRight(new File(['x'], 'a.png', { type: 'image/png' }))).toBe(true);
+    expect(spec.looksRight(new File(['x'], 'a.gif', { type: 'image/gif' }))).toBe(false);
+  });
+  it('resizes a photo but never a PDF', () => {
+    expect(spec.resizable(new File(['x'], 'a.pdf', { type: 'application/pdf' }))).toBe(false);
+    expect(spec.resizable(new File(['x'], 'a.jpg', { type: 'image/jpeg' }))).toBe(true);
   });
 });
