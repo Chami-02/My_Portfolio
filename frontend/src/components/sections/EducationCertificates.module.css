@@ -1,0 +1,306 @@
+/* frontend/src/components/sections/EducationCertificates.module.css
+ *
+ * PF-143 — Education (timeline) + Certificates (rows), under the About grid.
+ * Not in the prototype; built in its vocabulary: Anton headings, mono labels,
+ * the accent's glow dot, hairlines in `--ln`.
+ *
+ * ⚠️ PF-93 — NO `transition` on a Reveal-wrapped element: `.heading`, `.step`
+ * and `.cert` are reveal targets. The links INSIDE them declare their own.
+ */
+
+.row {
+  display: grid;
+  /* Two columns while 360px fits twice, else stacked. auto-fit also gives a
+     lone column the full width when the other list is empty. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: clamp(36px, 6vw, 80px);
+  margin-top: clamp(56px, 8vw, 96px);
+  align-items: start;
+}
+
+.column {
+  min-width: 0;
+}
+
+.heading {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--strong);
+  margin: 0 0 26px;
+}
+
+/* ── Education: the timeline ─────────────────────────────────────────── */
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 26px;
+  /* The line the dots sit on. */
+  border-left: 1px solid rgba(var(--ln), .16);
+}
+
+.step {
+  position: relative;
+  padding-bottom: 28px;
+}
+
+.step:last-child {
+  padding-bottom: 0;
+}
+
+/* ⚠️ `composes` FIRST, timing as LONGHANDS — a keyframe named inside a module
+   resolves to nothing (CLAUDE.md, CSS traps). Smaller since 2026-10-31
+   (owner: "reduce the glowing dot size"). */
+.dot {
+  composes: kf-glowdot from global;
+  position: absolute;
+  /* Centred on the 1px line: padding 26px + half the line + half the dot. */
+  left: -30px;
+  top: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--acc, #FCA311);
+  box-shadow: 0 0 7px rgba(252, 163, 17, .5);
+  animation-duration: 2.4s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* With a logo, the dot lines up with the disc's middle (44px disc → 22px). */
+.step:has(.logo) .dot {
+  top: 18px;
+}
+
+/* The logo disc + the degree/school lines beside it. */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.headText {
+  min-width: 0;
+}
+
+.headText .school {
+  margin: 0;
+}
+
+/* The school's logo in a round disc (owner, 2026-10-31). LIGHT in both themes,
+   so a logo's black parts stay visible on the dark site; a thin accent ring
+   with a SOFT glow — "a bit glowing border", never a big halo. Every upload
+   is fitted inside with padding, so any shape looks the same size. */
+.logo {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 5px;
+  border-radius: 50%;
+  background: #F6F3EC;
+  border: 1px solid rgba(252, 163, 17, .55);
+  box-shadow: 0 0 8px rgba(252, 163, 17, .22);
+  overflow: hidden;
+}
+
+a.logo {
+  transition: box-shadow .2s, border-color .2s;
+}
+
+a.logo:hover {
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 0 12px rgba(252, 163, 17, .35);
+}
+
+/* The school's name as a link: reads as text, the accent and an underline on
+   hover/focus say it goes somewhere. */
+.schoolLink {
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 3px;
+  transition: color .2s;
+}
+
+.schoolLink:hover,
+.schoolLink:focus-visible {
+  color: var(--acc, #FCA311);
+  text-decoration: underline;
+}
+
+.logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Light theme: pure white on the cream page, a hairline so it doesn't melt
+   into the page, and a fainter glow. */
+:global(html[data-theme='light']) .logo {
+  background: #FFFFFF;
+  border-color: rgba(252, 163, 17, .7);
+  box-shadow: 0 0 0 1px rgba(var(--ln), .06), 0 0 6px rgba(252, 163, 17, .2);
+}
+
+:global(html[data-theme='light']) a.logo:hover {
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 0 0 1px rgba(var(--ln), .06), 0 0 10px rgba(252, 163, 17, .32);
+}
+
+.degree {
+  font-size: clamp(16px, 1.6vw, 18px);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--strong);
+  margin: 0 0 2px;
+}
+
+.school {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 0 0 6px;
+}
+
+.meta {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+.step .meta {
+  margin-bottom: 8px;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+  margin: 0 0 6px;
+}
+
+/* ── Certificates: the rows ──────────────────────────────────────────── */
+
+.certs {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+}
+
+.cert {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(var(--ln), .12);
+}
+
+.cert:first-child {
+  padding-top: 0;
+}
+
+.tick {
+  color: var(--acc, #FCA311);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.certBody {
+  min-width: 0;
+}
+
+.certTitle {
+  display: block;
+  font-size: clamp(15px, 1.5vw, 17px);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--strong);
+  text-decoration: none;
+  margin-bottom: 4px;
+  transition: color .25s;
+}
+
+.certTitle:hover {
+  color: var(--acc, #FCA311);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: var(--acc, #FCA311);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .25s;
+}
+
+.link:hover {
+  color: var(--strong);
+}
+
+.viewAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: .1em;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .22);
+  text-decoration: none;
+  transition: color .25s, border-color .25s, background .25s;
+}
+
+.viewAll:hover {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .08);
+}
+
+/* ── phones ──────────────────────────────────────────────────────────────
+   ⚠️ LAST in the file: a @media rule above the base rule it overrides never
+   applies (mediaOrder.test.js, PF-142). 44px targets, PF-142's phone rule. */
+@media (max-width: 560px) {
+  .link {
+    min-height: 44px;
+  }
+
+  .viewAll {
+    min-height: 44px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cert {
+    padding: 10px 0;
+  }
+
+  .logo {
+    width: 38px;
+    height: 38px;
+    padding: 4px;
+  }
+
+  .head {
+    gap: 12px;
+  }
+
+  .step:has(.logo) .dot {
+    top: 15px;   /* the 38px disc's middle */
+  }
+}

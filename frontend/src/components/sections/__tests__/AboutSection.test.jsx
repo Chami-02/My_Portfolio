@@ -10,6 +10,12 @@ import postcss from 'postcss';
 // vi.spyOn — Vite's SSR transform makes each export getter-only.
 const useAbout = vi.hoisted(() => vi.fn());
 vi.mock('../../../hooks/useAbout', () => ({ useAbout }));
+// PF-143 — the Education + Certificates row has its own tests
+// (EducationCertificates.test.jsx); here both lists are empty, so it renders nothing.
+vi.mock('../../../hooks/useEntries', () => ({
+  useEducation:    () => ({ data: [] }),
+  useCertificates: () => ({ data: [] }),
+}));
 import { AboutSection } from '../AboutSection';
 import { MotionProvider } from '../../../providers/MotionProvider';
 import { leadsWithIcon } from '../../../test/leadsWithIcon';

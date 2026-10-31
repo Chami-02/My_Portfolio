@@ -6,6 +6,7 @@ import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { useAbout } from '../../hooks/useAbout';
 import { statCards } from '../../utils/aboutStats';
 import { computeParallaxTransform } from '../../utils/parallax';
+import { EducationCertificates } from './EducationCertificates';
 import aboutPortrait from '../../assets/about-portrait.webp';
 import styles from './AboutSection.module.css';
 
@@ -203,6 +204,9 @@ export function AboutSection() {
             </Reveal>
           </div>
         </div>
+
+        {/* PF-143 — Education + Certificates, under the photo and the buttons. */}
+        <EducationCertificates />
       </div>
     </section>
   );
