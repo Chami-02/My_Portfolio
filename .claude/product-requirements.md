@@ -339,3 +339,16 @@ zone."*
 
 ---
 
+
+
+## Education + Certificates are owner-managed, every word (owner, 2026-10-30, PF-143)
+> **2026-10-31 polish:** Education's heading is FIXED (no Section text card); every other word
+> stays editable. Forms behave like common web forms: `*` on required fields, "This field is
+> required." under a skipped box, the banner names the fields, dates typeable with a red message
+> for a wrong value, "optional" written under the box. Newest education on top, still reorderable.
+- The owner adds a certificate whenever they earn one, and education entries in LinkedIn's shape,
+  from the admin panel — no code change, ever, for new content.
+- EVERY visible word on those sections is editable (headings, button text, page heading/intro).
+  A future section of this kind follows the same rule: no hardcoded visitor-facing words.
+- Home: up to 6 certificates, VIEW ALL always visible; the certificates page has a picture per
+  certificate, its own link, and a verify button when the issuer offers one.

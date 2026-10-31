@@ -10546,3 +10546,102 @@ each: all OK. `migrate:verify` not run locally (needs a throwaway DB — CI's mi
 **E2E:** not run locally (`dev:e2e` broken locally, Outstanding PF-127); CI runs it on push.
 **After merge:** pipeline Migrate shows 011's counts (expect Blocked: 0) — approve; the post appears in
 Admin → Blog as a DRAFT for the owner to read and PUBLISH.
+
+### PF-137 live check (2026-10-30, after PR #72 → squash `58337e4`; recorded on the PF-143 branch)
+- Owner published the auth & security post in prod AND dev.
+- `GET /api/health` ok, `portfolio_prod`. `GET /api/blog` → 5 posts, newest = the new post, NO
+  `content` key on any row. `GET /api/blog/<slug>` 200, 17 sections, 11 min, tags Security +
+  Authentication, `publishedAt` 2026-10-30T15:25:30Z, no `content`. No email sent by me. PF-137 DONE.
+
+## PF-143 — Education + Certificates (2026-10-30/31, `feat/PF-143-education-certificates`)
+
+**What (owner, 2026-10-30; plan `~/.claude/plans/no-need-to-add-nifty-hellman.md`):** a row under the
+About photo + buttons — Education TIMELINE (left) + Certificates ROWS (right), TEXT ONLY, ≤6
+certificates + VIEW ALL (always shown); `/certificates` = picture cards (supunsathsara.com's idea) →
+a big view at `/certificates/<slug>`; two admin panels; every visible word editable. Owner chose:
+no "in progress" status; two columns (from three samples); timeline + list style.
+
+**Backend**
+- `models/Education.js` (LinkedIn's fields), `models/Certificate.js` (slug from title+issuer, unique
+  by suffix, REMADE on rename only while a draft), `models/fields.js` (monthYear "2025"/"2025-06",
+  httpsUrl, pictureSlot). Drafts: `published` default FALSE; publish needs issuer+issued /
+  degree+start (model rules). End ≥ start compared at the coarser precision.
+- `controllers/entryController.js` — ONE factory for both lists: public GET (published, `publicCache`),
+  `/admin/all`, create (order = end), update, delete (row then file), `PUT /reorder` (exactly the
+  stored set — length AND found), picture upload/remove on a DEDICATED route (`/:id/image`,
+  `/:id/proof`). Typed field allow-list (Skills' `skillPayload` rule) — picture/slug never writable.
+- PDF → picture: uploaded as an Cloudinary IMAGE resource, delivered as `pg_1,f_auto,q_auto/….jpg`.
+  MEASURED on the free account 2026-10-30: the `.pdf` itself 401 (PDF delivery off), page 1 200.
+- `About` +7 section-text fields (defaults = frontend `SECTION_TEXT`, pinned by a test), rules in
+  `aboutController`. Backup: both models on `BACKED_UP`/`LISTS`, `UNIQUE.certificates = slug`,
+  **VERSION 2** with `UPGRADES[0]` (a v1 file restores with both lists empty). Dashboard stats +2
+  fields (`education`, `certificates`) → NINE fields. Seed: demo rows (one draft certificate).
+
+**Frontend**
+- `sections/EducationCertificates.jsx` (inside `AboutSection`, after `.grid`); `pages/CertificatesPage.jsx`
+  (lazy, ONE route `/certificates/:slug?` so the big view never remounts the grid). Big view: URL-driven
+  dialog, root = backdrop, Esc/←→/Tab trap, close = Back if opened from the grid else REPLACE, ←→
+  REPLACE, neighbours preloaded, page scroll locked. `nav.js` `isCertificatesPath` → sub-page nav
+  (all sections incl. BLOG + CONTACT, ← GO BACK).
+- Admin: `EntryListPanel.jsx` (shared: Section text card → About; the form; the list with ↑↓ + drag,
+  staged until SAVE ORDER, reconciled with the live list; HOME badge on the first 6 published certs),
+  `AdminEducationPanel` / `AdminCertificatesPanel` (config only), `MonthYearField` (month + year
+  SELECTS). Unsaved guard: up to three parts; SAVE only when exactly one is pending; EDIT/CANCEL ask
+  only when the FORM is dirty. `mediaFile.pictureOrPdfSpec` (`resizable` may now be a function).
+  Nav: Education + Certificates after Blog. Backup card counts + "N education · N certificates".
+
+**Tests:** backend `entries.routes.test.js` (new, 39), backup/dashboard updated (+v1 upgrade, +dup slug).
+Frontend new: monthYear, sectionText (backend parity), entryForm, EducationCertificates,
+CertificatesPage, AdminCertificatesPanel, AdminEducationPanel; nav/mediaFile/AboutSection/AdminLayout/
+SettingsBackupCard updated; adminFoundation lists +5. E2E new `certificates.spec.js` (2, NO sign-in —
+the authLimiter budget).
+**Mutation:** backend 15 mutants → 4 survived at first: the reorder duplicate check was REDUNDANT
+(deleted), extra-unknown-id / slug self-collision / backup duplicate slug were untested (tests added)
+→ all killed. Frontend 12 → 1 survived (staged order dropping a new entry; test added) → killed.
+**Gates:** backend 1242 / 66 (was 1201 / 65), cov 87.47 / 79.4 / 91.02 / 88.27; frontend 2458 / 115
+(was 2384 / 108), lint 0, build OK; full E2E 83/83 locally (dev:e2e worked around:
+`node node_modules/dotenv-cli/cli.js -e .env.e2e -- node src/server.js` + Vite on 5174, `CI=1`).
+**Browser:** dark + light at 1710px, phone 388px iframe (no overflow; links/buttons 44px); big view
+on phone. Admin panels NOT seen in a browser by me (sign-in needs the owner's password) → owner checks.
+**Dev DB:** demo rows tagged `[PF-143 DEMO]` (2 education, 3 certificates, 2 Cloudinary files) left for
+the owner's admin check; remove with the scratch script or delete in the panel.
+
+### Outstanding work added by PF-143
+- Admin panels' look checked only by unit tests + the owner (I cannot sign in).
+- A visitor cannot DOWNLOAD a PDF certificate (free-tier PDF delivery is off) — only its picture
+  and the issuer's verify link. Would need the résumé-style proxy if ever wanted.
+- Education `proof` file has no page of its own; the home row links the picture/URL as "PROOF ↗".
+  → **REMOVED 2026-10-31** (polish below): no proof at all.
+
+### PF-143 polish — owner review of Education (2026-10-31, same branch, before the PR)
+Owner tested on localhost and asked (each item theirs; recorded in locked-decisions PF-143 polish):
+- **Removed:** education `skills`, `proofUrl`, `proof` file; Education's Section text card and the
+  `educationHeading` About field (heading fixed: "education is education").
+- **Logo (upload only):** `Education.logo` (pictureSlot), `PUT/DELETE /api/education/:id/logo`;
+  `entryController` `allowPdf` (default false — a logo PDF is 415; certificates pass true). Home: a
+  LIGHT disc (dark theme `#F6F3EC`, light `#FFF` + hairline), thin accent ring + soft glow, 44px
+  (38px ≤560), beside degree/school; dot 11→7px, centred on the disc (`.step:has(.logo)`). Searching
+  a school list was REJECTED after measuring: Hipo list has no Sri Lankan schools, Wikidata has them
+  but almost no logos (P154), Clearbit's logo API is dead.
+- **Website:** `Education.website` (httpsUrl); the school NAME and the LOGO open it in a new tab
+  (the logo link is `aria-hidden` + `tabIndex -1` — one link per school for keyboard/SR).
+- **Dates TYPED with suggestions** (`MonthYearField` rewritten: inputs + `<datalist>`, was selects):
+  month accepts 6/06/jun/June/sept → JUN on leaving; red problem under the box on LEAVING (not while
+  typing); "Month is optional" under the box (the select's "(optional)" was cut to "("). Education
+  adds an optional DAY (Day · Month · Year): stored `YYYY-MM-DD`, shown "04 MAY 2008" (blog style);
+  the day list offers only that month's days; leap years (÷4, not centuries unless ÷400) on both
+  sides — backend `fields.isMonthYear` rejects 31 APR / 29 FEB 2025. A typo is passed up AS TYPED
+  (`typedMonthYear`) so the save is refused, never silently dropped.
+- **Required, said clearly:** Education school + start + end required on EVERY save (drafts too);
+  degree optional (school becomes the title line). `*` via CSS `content: ' *' / ''` (empty alt — the
+  name stays "School"), "* Indicates required", "This field is required." under the box, banner NAMES
+  the fields (EntryListPanel only; other panels still count).
+- **Order:** a NEW education entry is placed by date (end, then start; newest on top) — `isNewer`
+  option; the order stays draggable; certificates still append.
+- **Caption:** the picture block's caption follows `accept` (no "OR PDF" for a logo).
+**Tests:** backend 1259 / 66 (entries 58 tests); frontend 2476 / 115; lint 0; build OK.
+**Mutation:** day-in-month guard (backend) → 2 fail; the order shift on create → 2 fail; restored (cmp).
+**Browser:** home row dark + light 1710px, 388px iframe (no overflow; disc 38px) with a TEMPORARY
+data-URL logo on the demo rows (removed after). Admin form seen by the owner (works).
+**Flake seen:** frontend coverage run timed out 2–10 tests when run in PARALLEL with the backend
+suite (5 s userEvent tests, incl. untouched password tests); clean on rerun alone.

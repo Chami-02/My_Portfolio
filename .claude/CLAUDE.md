@@ -127,17 +127,16 @@ something surprises you, search the companions *before* deriving an explanation.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
 | PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — up to PF-136 merged + live; PF-137 built (migrations 011 + 012) |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — up to PF-137 merged + live; PF-143 built |
 
 `global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
 sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
-PF-127→130, 123, 125, 131, 124, 141, 132, 133, 142, 134, 135, 136 all live (dates in sprint-log) → PF-137 (built) → PF-143 → PF-138 (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
-- ⚠️ **Light theme: restored POST-LAUNCH** (owner, 2026-10-11) — after the custom-domain
-  deploy, as maintenance practice. Until then fix light BUGS only; upgrades need approval.
+PF-127→137 all live (order + dates in sprint-log) → PF-143 (built) → Projects rebuild → PF-138 (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+- ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — until then fix light BUGS only.
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
-- **Every doc I create** (tickets, reports, plans, PDFs) goes to `new mds/Sprint 15/` (owner, 2026-10-16; outside the repo). Sprint 15 plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`.
+- **Every doc I create** (tickets, reports, plans, PDFs) goes to `new mds/Sprint 15/` (owner, 2026-10-16; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
 - `frontend/src/styles/`: `global.css` (Tailwind only), `tokens.css`,
@@ -412,7 +411,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - Header reuses the site's ThemeToggle (67px, `--admin-header-h`); admin footer takes the prototype gradient; below 899px the sidebar is a horizontal strip.
 - Session: in-memory access JWT + rotating refresh token + `Session` collection; one `issueSession(user)` for every door; `api.js` never touches `window.location`.
 - `/admin/login` and `/admin` share the main page's background; no aurora/scanline; `riseIn` per screen (16/22/18px); no DESIGN PREVIEW line, no spinner.
-- `GET /api/dashboard/stats` returns seven fields; shell paints nothing count-shaped while loading; `+ NEW POST` opens the editor.
+- `GET /api/dashboard/stats` returns nine fields (PF-143); shell paints nothing count-shaped while loading; `+ NEW POST` opens the editor.
 - About panel is a STAGED form, saved profile-first sequentially; `PENDING SAVE` / `REMOVE ON SAVE` badges; résumé `accept=".pdf"`; portrait card mirrors résumé card but is NOT one component; portrait alt follows the source; upload input clipped, not `display: none`.
 - PF-119: auth code + PKCE, backend exchange, 60 s FRAGMENT handoff → `issueSession`; site-styled Google button ABOVE the form; Google binds address→first `sub`, never creates a User; `googleLimiter` 30. Prototype is stale (owner) — its emails aren't targets.
 - PF-118 b2: timezone = IANA place (`Asia/Colombo`) shown as its live offset; App uses a DATA router (`createBrowserRouter`, one catch-all) for `useBlocker` — keep the three `<Routes>` as they are.
@@ -432,6 +431,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-135: backup/restore behind the PASSWORD; restore all-or-nothing, ONE transaction, 3 safety copies, messages MERGE; ALLOW-list of models; Settings cards fold, 36px buttons ≤560.
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
+- PF-143: Education + Certificates — home TEXT ONLY (timeline + rows, ≤6, VIEW ALL always); `/certificates/:slug?` URL big view (Back closes); PDF = `pg_1` image; cert words = About fields; `EntryListPanel`; backup v2; 10-31: logo, typed dates.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment
