@@ -2,6 +2,8 @@ const Project = require('../models/Project');
 const Skill   = require('../models/Skill');
 const Blog    = require('../models/Blog');
 const Contact = require('../models/Contact');
+const Education   = require('../models/Education');   // PF-143
+const Certificate = require('../models/Certificate'); // PF-143
 
 // ── GET /api/dashboard/stats ─────────────────────────────────────────────────
 // Protected — the admin Overview panel, the shell's sidebar badges and the
@@ -20,13 +22,15 @@ const Contact = require('../models/Contact');
 // `!p.published` / `!m.read` filters this replaces were counting.
 const getStats = async (_req, res, next) => {
   try {
-    const [projects, skills, posts, published, messages, unread] = await Promise.all([
+    const [projects, skills, posts, published, messages, unread, education, certificates] = await Promise.all([
       Project.countDocuments(),
       Skill.countDocuments(),
       Blog.countDocuments(),
       Blog.countDocuments({ published: true }),
       Contact.countDocuments(),
       Contact.countDocuments({ read: { $ne: true } }),
+      Education.countDocuments(),
+      Certificate.countDocuments(),
     ]);
 
     res.json({
@@ -39,6 +43,8 @@ const getStats = async (_req, res, next) => {
         drafts: posts - published,
         messages,
         unread,
+        education,
+        certificates,
       },
     });
   } catch (err) {

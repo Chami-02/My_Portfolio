@@ -9,6 +9,8 @@ const Project = require('../models/Project');
 const Skill   = require('../models/Skill');
 const Blog    = require('../models/Blog');
 const Contact = require('../models/Contact');
+const Education   = require('../models/Education');
+const Certificate = require('../models/Certificate');
 const User    = require('../models/User');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 
@@ -65,6 +67,7 @@ describe('GET /api/dashboard/stats', () => {
     expect(res.body.status).toBe('success');
     expect(res.body.data).toEqual({
       projects: 0, skills: 0, posts: 0, published: 0, drafts: 0, messages: 0, unread: 0,
+      education: 0, certificates: 0,
     });
   });
 
@@ -80,6 +83,9 @@ describe('GET /api/dashboard/stats', () => {
       message(1, false), message(2, false), message(3, false),
       message(4, false), message(5, false), message(6, true),
     ]);
+    // PF-143 — drafts count too: the number is how many the panel lists.
+    await Education.create(Array.from({ length: 7 }, (_, i) => ({ school: `School ${i}`, start: '2019', end: '2021' })));
+    await Certificate.create(Array.from({ length: 8 }, (_, i) => ({ title: `Cert ${i}` })));
 
     const res = await request(app).get('/api/dashboard/stats').set(await authHeader());
     expect(res.status).toBe(200);
@@ -91,6 +97,8 @@ describe('GET /api/dashboard/stats', () => {
       drafts:    2,
       messages:  6,
       unread:    5,
+      education:    7,
+      certificates: 8,
     });
   });
 
