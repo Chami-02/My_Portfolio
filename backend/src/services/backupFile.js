@@ -6,6 +6,8 @@ const SkillCategory = require('../models/SkillCategory');
 const Blog          = require('../models/Blog');
 const Vocabulary    = require('../models/Vocabulary');
 const Contact       = require('../models/Contact');
+const Education     = require('../models/Education');     // PF-143
+const Certificate   = require('../models/Certificate');   // PF-143
 const Migration     = require('../models/Migration');
 const BackupSnapshot = require('../models/BackupSnapshot');
 const AppError      = require('../utils/AppError');
@@ -38,10 +40,20 @@ const AppError      = require('../utils/AppError');
 // prototype are refused, and media must point at our own Cloudinary folder.
 
 const FORMAT  = 'portfolio-backup';
-const VERSION = 1;
+const VERSION = 2;
 
-/** `UPGRADES[n]` : (file at version n+1) => file at version n+2. Empty: v1 is the first. */
-const UPGRADES = [];
+/** `UPGRADES[n]` : (file at version n+1) => file at version n+2. */
+const UPGRADES = [
+  // 1 → 2 (PF-143): Education + Certificates did not exist yet — a v1 file
+  // had none, so it restores with both lists empty.
+  (file) => ({
+    ...file,
+    version:      2,
+    counts:       { ...file.counts, education: 0, certificates: 0 },
+    education:    [],
+    certificates: [],
+  }),
+];
 
 /** Model name → key in the file. About is ONE document, the rest are lists. */
 const BACKED_UP = {
@@ -52,6 +64,8 @@ const BACKED_UP = {
   Blog:          'blog',
   Vocabulary:    'vocabulary',
   Contact:       'messages',
+  Education:     'education',
+  Certificate:   'certificates',
 };
 
 /** Accounts, credentials, sign-in records, plumbing and the safety copies — never in a backup. */
@@ -60,13 +74,15 @@ const NEVER_BACKED_UP = [
   'SignInEvent', 'RateLimit', 'Migration', 'BackupSnapshot',
 ];
 
-/** The six lists, in the order they are written. Messages last: they MERGE. */
+/** The lists, in the order they are written. Messages last: they MERGE. */
 const LISTS = [
   { key: 'skillCategories', Model: SkillCategory, label: 'Skill section', name: 'label' },
   { key: 'skills',          Model: Skill,         label: 'Skill',         name: 'name' },
   { key: 'projects',        Model: Project,       label: 'Project',       name: 'title' },
   { key: 'blog',            Model: Blog,          label: 'Blog post',     name: 'title' },
   { key: 'vocabulary',      Model: Vocabulary,    label: 'Tag/tech',      name: 'value' },
+  { key: 'education',       Model: Education,     label: 'Education entry', name: 'school' },
+  { key: 'certificates',    Model: Certificate,   label: 'Certificate',   name: 'title' },
   { key: 'messages',        Model: Contact,       label: 'Message',       name: 'name' },
 ];
 const LIST_KEYS = LISTS.map((l) => l.key);
@@ -86,6 +102,7 @@ const UNIQUE = {
   skills:          (row) => row.name,
   blog:            (row) => row.slug,
   vocabulary:      (row) => `${row.type}\u0000${row.value}`,
+  certificates:    (row) => row.slug,
 };
 
 // ── Build ─────────────────────────────────────────────────────────────────────
@@ -110,6 +127,8 @@ const buildBackup = async ({ session = null } = {}) => {
     () => read(Blog.find()),
     () => read(Vocabulary.find()),
     () => read(Contact.find()),
+    () => read(Education.find()),
+    () => read(Certificate.find()),
     () => Migration.find().select('name').sort({ name: 1 }).lean().session(session),
   ];
   // ⚠️ One at a time INSIDE a transaction: MongoDB refuses parallel operations
@@ -117,9 +136,9 @@ const buildBackup = async ({ session = null } = {}) => {
   // a new transaction at the active transaction number"). In parallel otherwise.
   const results = [];
   if (session) for (const q of queries) results.push(await q());
-  const [about, projects, skills, skillCategories, blog, vocabulary, messages, migrations] =
+  const [about, projects, skills, skillCategories, blog, vocabulary, messages, education, certificates, migrations] =
     session ? results : await Promise.all(queries.map((q) => q()));
-  const lists = { projects, skills, skillCategories, blog, vocabulary, messages };
+  const lists = { projects, skills, skillCategories, blog, vocabulary, messages, education, certificates };
 
   return {
     format:    FORMAT,

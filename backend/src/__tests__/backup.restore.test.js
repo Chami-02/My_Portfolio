@@ -16,6 +16,8 @@ const SkillCategory = require('../models/SkillCategory');
 const Blog          = require('../models/Blog');
 const Vocabulary    = require('../models/Vocabulary');
 const Contact       = require('../models/Contact');
+const Education     = require('../models/Education');
+const Certificate   = require('../models/Certificate');
 const Migration     = require('../models/Migration');
 const SignInEvent   = require('../models/SignInEvent');
 const BackupSnapshot = require('../models/BackupSnapshot');
@@ -53,7 +55,7 @@ const state = async () => {
   return {
     about: await all(About), projects: await all(Project), skills: await all(Skill),
     skillCategories: await all(SkillCategory), blog: await all(Blog), vocabulary: await all(Vocabulary),
-    messages: await all(Contact),
+    messages: await all(Contact), education: await all(Education), certificates: await all(Certificate),
   };
 };
 /** A downloaded file minus the moment it was made. */
@@ -97,6 +99,22 @@ const seedContent = async () => {
     { name: 'Ada', email: 'ada@example.com', message: 'A message long enough to satisfy the schema.', read: true, starred: true },
     { name: 'Bob', email: 'bob@example.com', message: 'Another message long enough for the schema.' },
   ]);
+  // PF-143 — a published certificate with a PDF-page picture, renamed after
+  // publishing (its shared address must survive), and two education entries.
+  const cert = media('certificates/oracle');
+  await Certificate.create([
+    {
+      title: 'Cloud Foundations', issuer: 'Oracle', issued: '2025-06', published: true, order: 0,
+      verifyUrl: 'https://example.com/verify/1',
+      image: { url: cert.url.replace('/upload/', '/upload/pg_1,f_auto,q_auto/'), publicId: cert.id, format: 'pdf' },
+    },
+    { title: 'Draft certificate', order: 1 },
+  ]);
+  await Certificate.collection.updateOne({ slug: 'cloud-foundations-oracle' }, { $set: { title: 'Renamed cert' } });
+  await Education.create([
+    { school: 'Westminster', degree: 'BSc', start: '2022-09', end: '2026', published: true, order: 0 },
+    { school: 'Draft school', start: '2019', end: '2021', order: 1 },
+  ]);
 };
 
 let sendMail;
@@ -128,6 +146,9 @@ describe('the round trip', () => {
     expect(content(after)).toEqual(content(before));
     expect(after.blog.find((p) => p.title === 'Renamed later').slug).toBe('original-title');
     expect(after.blog.find((p) => p.title === 'Renamed later').publishedAt).toBe('2026-01-02T03:04:05.000Z');
+    // PF-143 — both new lists travel, and a certificate keeps its address.
+    expect(after.counts).toMatchObject({ education: 2, certificates: 2 });
+    expect(after.certificates.find((c) => c.title === 'Renamed cert').slug).toBe('cloud-foundations-oracle');
   });
 
   it('brings the site back to the backup — rows added since go, rows deleted since return', async () => {
@@ -220,8 +241,10 @@ describe('POST /api/backup/restore/check — the preview changes nothing', () =>
     const res = await check(file);
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({
-      createdAt: file.createdAt, version: 1, hasAbout: true,
-      counts: { projects: 2, skills: 2, skillCategories: 2, blog: 2, vocabulary: 2, messages: 2 },
+      createdAt: file.createdAt, version: 2, hasAbout: true,
+      counts: {
+        projects: 2, skills: 2, skillCategories: 2, blog: 2, vocabulary: 2, messages: 2, education: 2, certificates: 2,
+      },
     });
     expect(await state()).toEqual(before);
     expect(await BackupSnapshot.countDocuments()).toBe(0);
@@ -252,6 +275,8 @@ describe('a file that cannot be restored is refused — and NOTHING changes', ()
     ['a row its model refuses', () => edited((f) => { f.blog[0].title = ''; }), /^Blog post 1: title — /],
     ['a wrong type', () => edited((f) => { f.messages[0].read = 'maybe'; }), /^Message 1 \(“Ada”\): read — /],
     ['two posts at one URL', () => edited((f) => { f.blog[1].slug = f.blog[0].slug; }), /Blog post 2 \(“Draft post”\): the same as Blog post 1/],
+    // PF-143 — refused as a PROBLEM, before the transaction's unique index could.
+    ['two certificates at one address', () => edited((f) => { f.certificates[1].slug = f.certificates[0].slug; }), /Certificate 2 \(“Draft certificate”\): the same as Certificate 1/],
     ['a skill in a missing section', () => edited((f) => { f.skillCategories.shift(); f.counts.skillCategories = 1; }), /Skill 1 \(“Git”\): category — the section “devops” is not in the file/],
     // Each media case breaks ONE rule while the link still names the file id,
     // so only that rule can refuse it (the first version of these cases was
@@ -421,6 +446,21 @@ describe('the format', () => {
   // upgrade step for older files AND bumps the version — never one alone.
   it('VERSION is one more than the number of upgrade steps', () => {
     expect(VERSION).toBe(UPGRADES.length + 1);
+  });
+
+  // PF-143 — version 1 had no Education or Certificates. A v1 file is the
+  // site as it was then, so restoring it leaves both lists EMPTY.
+  it('a version 1 file (before Education + Certificates) restores with both lists empty', async () => {
+    await seedContent();
+    const { education: _e, certificates: _c, ...v1 } = await download();
+    v1.version = 1;
+    v1.counts = Object.fromEntries(Object.entries(v1.counts).filter(([k]) => !['education', 'certificates'].includes(k)));
+
+    const res = await restore(v1);
+    expect(res.status).toBe(200);
+    expect(await Education.countDocuments()).toBe(0);
+    expect(await Certificate.countDocuments()).toBe(0);
+    expect(await Project.countDocuments()).toBe(2);
   });
 
   it('a file from an OLDER database (fewer migrations) is accepted', async () => {

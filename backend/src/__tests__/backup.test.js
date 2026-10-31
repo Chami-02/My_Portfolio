@@ -114,11 +114,13 @@ describe('POST /api/backup — what is in the file', () => {
     expect(res.body.problems).toEqual([]);
     expect(res.body.data).toMatchObject({
       format: 'portfolio-backup',
-      version: 1,
+      version: 2,
       schema: { migrations: [] },
       about: null,
-      counts: { projects: 0, skills: 0, skillCategories: 0, blog: 0, vocabulary: 0, messages: 0 },
-      projects: [], skills: [], skillCategories: [], blog: [], vocabulary: [], messages: [],
+      counts: {
+        projects: 0, skills: 0, skillCategories: 0, blog: 0, vocabulary: 0, messages: 0, education: 0, certificates: 0,
+      },
+      projects: [], skills: [], skillCategories: [], blog: [], vocabulary: [], messages: [], education: [], certificates: [],
     });
     expect(Number.isNaN(Date.parse(res.body.data.createdAt))).toBe(false);
   });
@@ -128,10 +130,12 @@ describe('POST /api/backup — what is in the file', () => {
     const { data } = (await backup({ password: PASSWORD })).body;
 
     expect(Object.keys(data).sort()).toEqual([
-      'about', 'blog', 'counts', 'createdAt', 'format', 'messages', 'projects',
+      'about', 'blog', 'certificates', 'counts', 'createdAt', 'education', 'format', 'messages', 'projects',
       'schema', 'skillCategories', 'skills', 'version', 'vocabulary',
     ]);
-    expect(data.counts).toEqual({ projects: 1, skills: 1, skillCategories: 1, blog: 1, vocabulary: 1, messages: 1 });
+    expect(data.counts).toEqual({
+      projects: 1, skills: 1, skillCategories: 1, blog: 1, vocabulary: 1, messages: 1, education: 0, certificates: 0,
+    });
     expect(data.about).toMatchObject({ name: 'Owner', title: 'Developer' });
     expect(data.projects[0]).toMatchObject({ title: 'Draft project', published: false });
     expect(data.blog[0]).toMatchObject({ title: 'Draft post', published: false });
