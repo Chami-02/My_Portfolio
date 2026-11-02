@@ -421,6 +421,14 @@ const DEMO_ADMIN_PASSWORD = 'Admin@1234!';
 // name nobody anticipated (`portfolio`, `portfolio_prod2`) is refused.
 const THROWAWAY_DB = /(?:^|_)(?:dev|test(?:_\d+)?|e2e|ci)$/;
 
+/**
+ * PF-143 — the demo Education and Certificates rows are for throwaway
+ * databases ONLY (owner, 2026-11-02: "don't push this dummy data to
+ * production"). Anywhere else a seed neither wipes nor writes them, so a real
+ * database keeps the owner's own entries. Same allowlist as the password.
+ */
+const seedsDemoEntries = (dbName) => THROWAWAY_DB.test(dbName || '');
+
 function resolveAdminCredentials(dbName) {
   const email    = ADMIN_EMAIL;
   const password = process.env.SEED_ADMIN_PASSWORD;
@@ -452,20 +460,24 @@ async function seedVocabulary() {
 
   const projects = await Project.find({}, 'tech');
   const posts    = await Blog.find({}, 'tags');
+  const certs    = await Certificate.find({}, 'tags');   // owner, 2026-11-02
 
   const tech = new Set();
   const tags = new Set();
+  const cert = new Set();
 
   projects.forEach(p => (p.tech || []).forEach(t => tech.add(String(t).trim())));
   posts.forEach(   p => (p.tags || []).forEach(t => tags.add(String(t).trim())));
+  certs.forEach(   c => (c.tags || []).forEach(t => cert.add(String(t).trim())));
 
   const docs = [
     ...[...tech].filter(Boolean).map(value => ({ type: 'tech', value })),
     ...[...tags].filter(Boolean).map(value => ({ type: 'tag',  value })),
+    ...[...cert].filter(Boolean).map(value => ({ type: 'cert', value })),
   ];
 
   if (docs.length) await Vocabulary.insertMany(docs);
-  console.log(`🏷  Seeded vocabulary: ${tech.size} tech, ${tags.size} tags`);
+  console.log(`🏷  Seeded vocabulary: ${tech.size} tech, ${tags.size} tags, ${cert.size} certificate tags`);
 }
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -490,13 +502,13 @@ const EDUCATION = [
 const CERTIFICATES = [
   {
     title: 'Oracle Cloud Infrastructure Foundations Associate', issuer: 'Oracle',
-    issued: '2025-06', verifyUrl: 'https://education.oracle.com/', published: true, order: 0,
+    issued: '2025-06', verifyUrl: 'https://education.oracle.com/', tags: ['Cloud'], published: true, order: 0,
   },
   {
     title: 'Data Scientist in Python', issuer: 'DataCamp',
-    issued: '2025-03', verifyUrl: 'https://www.datacamp.com/', published: true, order: 1,
+    issued: '2025-03', verifyUrl: 'https://www.datacamp.com/', tags: ['Python'], published: true, order: 1,
   },
-  { title: 'GitHub Foundations', issuer: 'GitHub', published: false, order: 2 },
+  { title: 'GitHub Foundations', issuer: 'GitHub', issued: '2024-07', tags: ['DevOps'], published: false, order: 2 },
 ];
 
 // ── Main seed function ─────────────────────────────────────────────────────
@@ -530,8 +542,8 @@ async function seed() {
       RateLimit.deleteMany({}),
       // PF-133 — the sign-in history belongs to the users just deleted.
       SignInEvent.deleteMany({}),
-      Education.deleteMany({}),     // PF-143
-      Certificate.deleteMany({}),   // PF-143
+      // PF-143 — only where the demo rows may go (see seedsDemoEntries).
+      ...(seedsDemoEntries(dbName) ? [Education.deleteMany({}), Certificate.deleteMany({})] : []),
     ]);
     console.log('🗑  Cleared existing data');
 
@@ -549,10 +561,14 @@ async function seed() {
     await Blog.insertMany(BLOG_POSTS);
     console.log(`📝 Seeded ${BLOG_POSTS.length} blog posts`);
 
-    await Education.insertMany(EDUCATION);
-    // One by one: each certificate's slug is made by its own save hook.
-    for (const c of CERTIFICATES) await Certificate.create(c);
-    console.log(`🎓 Seeded ${EDUCATION.length} education entries, ${CERTIFICATES.length} certificates`);
+    if (seedsDemoEntries(dbName)) {
+      await Education.insertMany(EDUCATION);
+      // One by one: each certificate's slug is made by its own save hook.
+      for (const c of CERTIFICATES) await Certificate.create(c);
+      console.log(`🎓 Seeded ${EDUCATION.length} education entries, ${CERTIFICATES.length} certificates`);
+    } else {
+      console.log(`🎓 Left Education + Certificates untouched — "${dbName}" is not a dev/test database`);
+    }
 
     await About.create(ABOUT_DATA);
     console.log('👤 Seeded about/profile data');
@@ -586,4 +602,4 @@ async function seed() {
 // Runs only as a script, so the guard above can be unit-tested (PF-120).
 if (require.main === module) seed();
 
-module.exports = { resolveAdminCredentials };
+module.exports = { resolveAdminCredentials, seedsDemoEntries };

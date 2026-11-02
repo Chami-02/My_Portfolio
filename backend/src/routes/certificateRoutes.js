@@ -14,9 +14,19 @@ const c = makeEntryController({
   media:  'image',
   folder: 'certificates',
   allowPdf: true,
+  // Owner, 2026-11-02: PINNED always first; within the pinned ones and within
+  // the rest, the owner's drag order. A new certificate goes in by its issue
+  // date (newest on top) — never above a pinned one, unless it is pinned
+  // itself. Issue dates are "YYYY[-MM[-DD]]" text, so a text compare IS a
+  // date compare (a year alone counts as its start).
+  sort: { pinned: -1, order: 1, createdAt: 1 },
+  isNewer: (a, b) => ((a.pinned === true) !== (b.pinned === true)
+    ? a.pinned === true
+    : (a.issued || '') > (b.issued || '')),
   fields: {
     title: 'string', issuer: 'string', issued: 'string', expires: 'string',
-    credentialId: 'string', verifyUrl: 'string', published: 'boolean', order: 'number',
+    credentialId: 'string', verifyUrl: 'string', description: 'string', tags: 'string[]',
+    published: 'boolean', pinned: 'boolean', order: 'number',
   },
 });
 

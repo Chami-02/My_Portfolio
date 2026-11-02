@@ -79,8 +79,10 @@ const reorderRules = [
  * @param {boolean} [opts.allowPdf]  a PDF may be the picture (certificates); else images only
  * @param {Function} [opts.isNewer]  (a, b) → true when a belongs ABOVE b; a new entry is then
  *                                   placed by it instead of at the end (education: by date)
+ * @param {object} [opts.sort]       the lists' order, when it is more than the drag order —
+ *                                   certificates: pinned first, then dragged (owner, 2026-11-02)
  */
-const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = false, isNewer }) => {
+const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = false, isNewer, sort = SORT }) => {
   const mediaFolder = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/${folder}`;
 
   const writeError = (err, next) => {
@@ -100,13 +102,13 @@ const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = f
 
   const getPublic = async (_req, res, next) => {
     try {
-      res.json({ status: 'success', data: await Model.find(PUBLIC_FILTER).sort(SORT) });
+      res.json({ status: 'success', data: await Model.find(PUBLIC_FILTER).sort(sort) });
     } catch (err) { next(err); }
   };
 
   const getAdmin = async (_req, res, next) => {
     try {
-      res.json({ status: 'success', data: await Model.find().sort(SORT) });
+      res.json({ status: 'success', data: await Model.find().sort(sort) });
     } catch (err) { next(err); }
   };
 
@@ -115,16 +117,18 @@ const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = f
       const { data, error } = payload(fields, req.body);
       if (error) return next(new AppError(error, 400));
       if (data.order === undefined) {
-        const list = await Model.find().sort(SORT).select('order start end').lean();
-        // Above the first entry it is newer than (when the list has a rule),
-        // shifting that one and every one below it down a place; else the END.
-        // The order stays the owner's to drag afterwards.
+        // In the list's own order (certificates: pinned first). Above the first
+        // entry it is newer than (when the list has a rule), shifting that one
+        // and every one after it down a place; else the END. The order stays
+        // the owner's to drag afterwards.
+        const list = await Model.find().sort(sort).lean();
         const below = isNewer ? list.find((e) => isNewer(data, e)) : undefined;
         if (below) {
           data.order = below.order;
           await Model.updateMany({ order: { $gte: below.order } }, { $inc: { order: 1 } });
         } else {
-          data.order = (list.at(-1)?.order ?? -1) + 1;
+          // The highest order + 1 — with pins first, the last row need not hold it.
+          data.order = Math.max(-1, ...list.map((e) => e.order ?? 0)) + 1;
         }
       }
       res.status(201).json({ status: 'success', data: await Model.create(data) });
@@ -166,7 +170,7 @@ const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = f
       }
 
       await Model.bulkWrite(ids.map((_id, order) => ({ updateOne: { filter: { _id }, update: { $set: { order } } } })));
-      res.json({ status: 'success', data: await Model.find().sort(SORT) });
+      res.json({ status: 'success', data: await Model.find().sort(sort) });
     } catch (err) { writeError(err, next); }
   };
 

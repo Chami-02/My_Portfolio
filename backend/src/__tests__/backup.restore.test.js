@@ -104,11 +104,11 @@ const seedContent = async () => {
   const cert = media('certificates/oracle');
   await Certificate.create([
     {
-      title: 'Cloud Foundations', issuer: 'Oracle', issued: '2025-06', published: true, order: 0,
+      title: 'Cloud Foundations', issuer: 'Oracle', issued: '2025-06', tags: ['Cloud'], published: true, order: 0,
       verifyUrl: 'https://example.com/verify/1',
       image: { url: cert.url.replace('/upload/', '/upload/pg_1,f_auto,q_auto/'), publicId: cert.id, format: 'pdf' },
     },
-    { title: 'Draft certificate', order: 1 },
+    { title: 'Draft certificate', issuer: 'GitHub', issued: '2024', tags: ['DevOps'], order: 1 },
   ]);
   await Certificate.collection.updateOne({ slug: 'cloud-foundations-oracle' }, { $set: { title: 'Renamed cert' } });
   await Education.create([

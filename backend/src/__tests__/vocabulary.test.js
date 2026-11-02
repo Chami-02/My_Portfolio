@@ -5,48 +5,50 @@ const app        = require('../app');
 const Vocabulary = require('../models/Vocabulary');
 const Project    = require('../models/Project');
 const Blog       = require('../models/Blog');
+const Certificate = require('../models/Certificate');
 const User       = require('../models/User');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
+const validationError = require('./helpers/validationError');
 
 describe('Vocabulary model (PF-61)', () => {
 
-  it('accepts a valid tech entry', () => {
+  it('accepts a valid tech entry', async () => {
     const v = new Vocabulary({ type: 'tech', value: 'React' });
-    expect(v.validateSync()).toBeUndefined();
+    expect((await validationError(v))).toBeUndefined();
   });
 
-  it('accepts a valid tag entry', () => {
+  it('accepts a valid tag entry', async () => {
     const v = new Vocabulary({ type: 'tag', value: 'DevOps' });
-    expect(v.validateSync()).toBeUndefined();
+    expect((await validationError(v))).toBeUndefined();
   });
 
-  it('rejects an invalid type', () => {
+  it('rejects an invalid type', async () => {
     const v = new Vocabulary({ type: 'category', value: 'React' });
-    const err = v.validateSync();
+    const err = (await validationError(v));
     expect(err).toBeDefined();
     expect(err.errors.type).toBeDefined();
   });
 
-  it('requires a value', () => {
+  it('requires a value', async () => {
     const v = new Vocabulary({ type: 'tech' });
-    expect(v.validateSync().errors.value).toBeDefined();
+    expect((await validationError(v)).errors.value).toBeDefined();
   });
 
-  it('allows real tech names with dots, plus, hash and slash', () => {
+  it('allows real tech names with dots, plus, hash and slash', async () => {
     for (const name of ['Node.js', 'C++', 'C#', 'CI/CD', 'Tailwind-CSS']) {
       const v = new Vocabulary({ type: 'tech', value: name });
-      expect(v.validateSync()).toBeUndefined();
+      expect((await validationError(v))).toBeUndefined();
     }
   });
 
-  it('rejects angle brackets', () => {
+  it('rejects angle brackets', async () => {
     const v = new Vocabulary({ type: 'tech', value: '<script>' });
-    expect(v.validateSync().errors.value).toBeDefined();
+    expect((await validationError(v)).errors.value).toBeDefined();
   });
 
-  it('rejects a value over 40 characters', () => {
+  it('rejects a value over 40 characters', async () => {
     const v = new Vocabulary({ type: 'tech', value: 'x'.repeat(41) });
-    expect(v.validateSync().errors.value).toBeDefined();
+    expect((await validationError(v)).errors.value).toBeDefined();
   });
 
   it('trims whitespace', () => {
@@ -167,6 +169,47 @@ describe('Vocabulary API (PF-62)', () => {
     const after = await Project.findById(proj._id);
     expect([...after.tech]).toEqual(['React']);                // stripped from content
     expect(await Vocabulary.findById(chip._id)).toBeNull();    // removed from vocabulary
+  });
+
+  // ── certificate tags (owner, 2026-11-02) ────────────────────────────────
+  const CERT = { issuer: 'Oracle', issued: '2025', published: true };
+
+  it('certificate tags are their OWN list — a blog tag of the same name is untouched', async () => {
+    const blogTag = await Vocabulary.create({ type: 'tag', value: 'Cloud' });
+    const certTag = await Vocabulary.create({ type: 'cert', value: 'Cloud' });
+    await Blog.collection.insertOne({ title: 'P', slug: 'p', tags: ['Cloud'], published: true });
+
+    const list = await request(app).get('/api/vocabulary/cert');
+    expect(list.body.data.map((v) => v.value)).toEqual(['Cloud']);
+
+    // No certificate uses it, so it goes — and the blog side is untouched.
+    const res = await request(app).delete(`/api/vocabulary/cert/${certTag._id}`).set(await authHeader());
+    expect(res.status).toBe(200);
+    expect(await Vocabulary.findById(blogTag._id)).not.toBeNull();
+    expect((await Blog.collection.findOne({ slug: 'p' })).tags).toEqual(['Cloud']);
+  });
+
+  it('a tag a certificate uses cannot be deleted — refused, naming it, nothing changes', async () => {
+    const chip = await Vocabulary.create({ type: 'cert', value: 'Python' });
+    await Certificate.create({ ...CERT, title: 'Data Scientist', tags: ['Python'] });
+    const auth = await authHeader();
+
+    const impact = await request(app).get(`/api/vocabulary/cert/${chip._id}/impact`).set(auth);
+    expect(impact.body.data).toMatchObject({ affected: 1, label: 'certificates', blocked: ['Data Scientist'] });
+
+    const res = await request(app).delete(`/api/vocabulary/cert/${chip._id}`).set(auth);
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/only tag of: Data Scientist/);
+    expect(await Vocabulary.findById(chip._id)).not.toBeNull();
+    expect([...(await Certificate.findOne({ title: 'Data Scientist' })).tags]).toEqual(['Python']);
+  });
+
+  it('a certificate tag shows as a public pill only while a PUBLISHED certificate uses it', async () => {
+    await Vocabulary.create([{ type: 'cert', value: 'Cloud' }, { type: 'cert', value: 'Draft only' }, { type: 'cert', value: 'Unused' }]);
+    await Certificate.create({ ...CERT, title: 'Live', tags: ['Cloud'] });
+    await Certificate.create({ ...CERT, title: 'Draft', tags: ['Draft only'], published: false });
+    const res = await request(app).get('/api/vocabulary/cert?inUse=true');
+    expect(res.body.data.map((v) => v.value)).toEqual(['Cloud']);
   });
 
   it('DELETE returns 404 for an unknown id', async () => {

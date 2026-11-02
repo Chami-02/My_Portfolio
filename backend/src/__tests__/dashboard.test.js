@@ -85,7 +85,7 @@ describe('GET /api/dashboard/stats', () => {
     ]);
     // PF-143 — drafts count too: the number is how many the panel lists.
     await Education.create(Array.from({ length: 7 }, (_, i) => ({ school: `School ${i}`, start: '2019', end: '2021' })));
-    await Certificate.create(Array.from({ length: 8 }, (_, i) => ({ title: `Cert ${i}` })));
+    await Certificate.create(Array.from({ length: 8 }, (_, i) => ({ title: `Cert ${i}`, issuer: 'Oracle', issued: '2025', tags: ['Cloud'] })));
 
     const res = await request(app).get('/api/dashboard/stats').set(await authHeader());
     expect(res.status).toBe(200);

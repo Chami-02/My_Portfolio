@@ -2,14 +2,11 @@ const mongoose = require('mongoose');
 const slugify  = require('slugify');
 const { monthYear, httpsUrl, pictureSlot } = require('./fields');
 
-// PF-143 — one certificate. Drafts follow the site rule (a NEW record saves as
-// a title-only draft, invisible publicly); a published one needs an issuer and
-// an issue date. The rule lives HERE, not in the controller, so every write
-// path (create, update, backup restore's checks) enforces it.
-
-function isPublished() {
-  return this.published === true;
-}
+// PF-143 — one certificate. A new one still saves as a DRAFT (invisible
+// publicly), but title, issuer AND issue date are required on EVERY save,
+// drafts too (owner, 2026-11-02 — Education's rule). The rule lives HERE, not
+// in the controller, so every write path (create, update, backup restore's
+// checks) enforces it.
 
 const certificateSchema = new mongoose.Schema(
   {
@@ -21,11 +18,11 @@ const certificateSchema = new mongoose.Schema(
     },
     issuer: {
       type:      String,
-      required:  [isPublished, 'Issuer is required'],
+      required:  [true, 'Issuer is required'],
       trim:      true,
       maxlength: [100, 'Issuer cannot exceed 100 characters'],
     },
-    issued:  { ...monthYear('Issue date'), required: [isPublished, 'Issue date is required'] },
+    issued:  { ...monthYear('Issue date'), required: [true, 'Issue date is required'] },
     expires: monthYear('Expiry date'),
     credentialId: {
       type:      String,
@@ -34,6 +31,27 @@ const certificateSchema = new mongoose.Schema(
       maxlength: [100, 'Credential ID cannot exceed 100 characters'],
     },
     verifyUrl: httpsUrl('Verify link'),
+    // Owner, 2026-11-02: EXACTLY ONE tag on every save — "one certificate
+    // can't have two pills" — picked from (or added to) the `cert` vocabulary;
+    // it is the public page's filter pill. A list, so the vocabulary's shared
+    // cascade ($pull) and `?inUse` work unchanged. Trimmed, blanks and repeats
+    // dropped, so `['', 'Cloud', 'Cloud']` is `['Cloud']`.
+    tags: {
+      type: [String],
+      set:  (list) => [...new Set((list || []).map((t) => String(t).trim()).filter(Boolean))],
+      validate: [
+        { validator: (list) => list.length >= 1, message: 'Add a tag' },
+        { validator: (list) => list.length <= 1, message: 'A certificate takes one tag' },
+        { validator: (list) => list.every((t) => t.length <= 40), message: 'A tag cannot exceed 40 characters' },
+      ],
+    },
+    // Owner, 2026-11-02: optional, shown under the details in the big view.
+    description: {
+      type:      String,
+      trim:      true,
+      default:   '',
+      maxlength: [1000, 'Description cannot exceed 1000 characters'],
+    },
 
     // The shareable address: /certificates/<slug>.
     slug: { type: String, trim: true },
@@ -43,6 +61,9 @@ const certificateSchema = new mongoose.Schema(
     // ⚠️ Default FALSE, unlike Project's `true`: there are no older rows to
     // keep visible, and a new record is a draft (owner rule).
     published: { type: Boolean, default: false },
+    // Owner, 2026-11-02: pinned ones lead the list, with a pin on their card.
+    pinned:    { type: Boolean, default: false },
+    // The owner's drag order — within the pinned ones and within the rest.
     order:     { type: Number,  default: 0 },
   },
   { timestamps: true }

@@ -45,12 +45,15 @@ const cloudinaryAnswer = (id, format = 'png') => ({
   height:   900,
 });
 
-const PUBLISHED_CERT = { title: 'Cloud Foundations', issuer: 'Oracle', issued: '2025-06', published: true };
+const PUBLISHED_CERT = { title: 'Cloud Foundations', issuer: 'Oracle', issued: '2025-06', tags: ['Cloud'], published: true };
+// What EVERY certificate save needs besides a title — drafts too (owner, 2026-11-02).
+const NEEDS = { issuer: 'Oracle', issued: '2025-06', tags: ['Cloud'] };
 
 describe('who may write', () => {
   it.each([
     ['post',   '/api/certificates'],
     ['put',    '/api/certificates/reorder'],
+    ['put',    '/api/education/reorder'],
     ['put',    '/api/certificates/507f1f77bcf86cd799439011'],
     ['delete', '/api/certificates/507f1f77bcf86cd799439011'],
     ['put',    '/api/certificates/507f1f77bcf86cd799439011/image'],
@@ -69,41 +72,118 @@ describe('who may write', () => {
 });
 
 describe('the public list', () => {
-  it('shows only PUBLISHED entries, in the owner\'s order, CDN-cacheable', async () => {
-    await Certificate.create([
-      { ...PUBLISHED_CERT, title: 'Second', order: 2 },
-      { title: 'A draft', order: 0 },
-      { ...PUBLISHED_CERT, title: 'First', order: 1 },
-    ]);
+  it('shows only PUBLISHED entries, CDN-cacheable', async () => {
+    await Certificate.create([{ ...PUBLISHED_CERT, title: 'Live' }, { ...NEEDS, title: 'A draft' }]);
 
     const res = await request(app).get('/api/certificates');
     expect(res.status).toBe(200);
-    expect(res.body.data.map((c) => c.title)).toEqual(['First', 'Second']);
+    expect(res.body.data.map((c) => c.title)).toEqual(['Live']);
     expect(res.headers['vercel-cache-tag']).toBe('public-data');
   });
 
+  // Owner, 2026-11-02: PINNED always first; within each group, the owner's order.
+  it('certificates run PINNED first, then the owner\'s order — public and admin alike', async () => {
+    const auth = await authHeader();
+    await Certificate.create([
+      { ...PUBLISHED_CERT, title: 'B', order: 1 },
+      { ...PUBLISHED_CERT, title: 'Pin 2', order: 3, pinned: true },
+      { ...PUBLISHED_CERT, title: 'A', order: 0 },
+      { ...PUBLISHED_CERT, title: 'Pin 1', order: 2, pinned: true },
+    ]);
+    const want = ['Pin 1', 'Pin 2', 'A', 'B'];
+    expect((await request(app).get('/api/certificates')).body.data.map((c) => c.title)).toEqual(want);
+    expect((await request(app).get('/api/certificates/admin/all').set(auth)).body.data.map((c) => c.title)).toEqual(want);
+  });
+
+  it('a NEW certificate goes in by issue date (newest on top), but never above a pinned one', async () => {
+    const auth = await authHeader();
+    const post = (title, issued, extra = {}) => request(app).post('/api/certificates').set(auth)
+      .send({ ...NEEDS, title, issued, ...extra });
+    await post('Pinned old', '2019', { pinned: true });
+    await post('2024', '2024-05');
+    await post('2026', '2026-01');      // newest → top of the unpinned ones
+    await post('2025', '2025');         // between them
+    await post('2018', '2018');         // oldest → the end
+    await post('Pinned new', '2026-03', { pinned: true });   // pinned → among the pins, by date
+    const list = (await request(app).get('/api/certificates/admin/all').set(auth)).body.data;
+    expect(list.map((c) => c.title)).toEqual(['Pinned new', 'Pinned old', '2026', '2025', '2024', '2018']);
+  });
+
+  it('the order stays the owner\'s: a dragged order is kept, pins still lead', async () => {
+    const auth = await authHeader();
+    const [a, b, pin] = await Certificate.create([
+      { ...PUBLISHED_CERT, title: 'Newer', issued: '2026', order: 0 },
+      { ...PUBLISHED_CERT, title: 'Older', issued: '2019', order: 1 },
+      { ...PUBLISHED_CERT, title: 'Pinned', order: 2, pinned: true },
+    ]);
+    const res = await request(app).put('/api/certificates/reorder').set(auth).send({ ids: [pin, b, a].map((d) => String(d._id)) });
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((c) => c.title)).toEqual(['Pinned', 'Older', 'Newer']);
+  });
+
+  it('pinning is saved — and must be true or false', async () => {
+    const auth = await authHeader();
+    const c = await Certificate.create(PUBLISHED_CERT);
+    expect((await request(app).put(`/api/certificates/${c._id}`).set(auth).send({ pinned: true })).body.data.pinned).toBe(true);
+    const bad = await request(app).put(`/api/certificates/${c._id}`).set(auth).send({ pinned: 'yes' });
+    expect(bad.status).toBe(400);
+    expect((await Certificate.findById(c._id)).pinned).toBe(true);
+  });
+
+
   it('the admin list shows drafts too', async () => {
-    await Certificate.create([{ title: 'A draft' }, PUBLISHED_CERT]);
+    await Certificate.create([{ ...NEEDS, title: 'A draft' }, PUBLISHED_CERT]);
     const res = await request(app).get('/api/certificates/admin/all').set(await authHeader());
     expect(res.body.data).toHaveLength(2);
   });
 });
 
 describe('a new entry is a draft (owner rule)', () => {
-  it('a title alone saves, unpublished, at the END of the list', async () => {
-    await Certificate.create({ ...PUBLISHED_CERT, order: 4 });
-    const res = await request(app).post('/api/certificates').set(await authHeader()).send({ title: 'GitHub Foundations' });
+  it('a new certificate saves unpublished', async () => {
+    const res = await request(app).post('/api/certificates').set(await authHeader()).send({ ...NEEDS, title: 'GitHub Foundations' });
     expect(res.status).toBe(201);
     expect(res.body.data.published).toBe(false);
-    expect(res.body.data.order).toBe(5);
+    expect(res.body.data.pinned).toBe(false);
   });
 
-  it('publishing needs an issuer and an issue date', async () => {
-    const res = await request(app).post('/api/certificates').set(await authHeader())
-      .send({ title: 'X', published: true });
+  it('a certificate needs title, issuer AND issue date on every save — drafts too (owner, 2026-11-02)', async () => {
+    const auth = await authHeader();
+    const res = await request(app).post('/api/certificates').set(auth).send({ title: 'X' });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/Issuer is required/);
     expect(res.body.message).toMatch(/Issue date is required/);
+    expect(await Certificate.countDocuments()).toBe(0);
+    expect((await request(app).post('/api/certificates').set(auth).send({ ...NEEDS, title: 'X' })).status).toBe(201);
+  });
+
+  it('a certificate needs EXACTLY one tag — drafts too; blanks and repeats are dropped (owner, 2026-11-02)', async () => {
+    const auth = await authHeader();
+    const none = await request(app).post('/api/certificates').set(auth).send({ ...NEEDS, title: 'X', tags: [] });
+    expect(none.status).toBe(400);
+    expect(none.body.message).toMatch(/Add a tag/);
+    const blank = await request(app).post('/api/certificates').set(auth).send({ ...NEEDS, title: 'X', tags: ['  ', ''] });
+    expect(blank.status).toBe(400);
+    const notList = await request(app).post('/api/certificates').set(auth).send({ ...NEEDS, title: 'X', tags: 'Cloud' });
+    expect(notList.status).toBe(400);
+    expect(await Certificate.countDocuments()).toBe(0);
+
+    const two = await request(app).post('/api/certificates').set(auth).send({ ...NEEDS, title: 'X', tags: ['Cloud', 'AWS'] });
+    expect(two.status).toBe(400);
+    expect(two.body.message).toMatch(/one tag/);
+
+    const ok = await request(app).post('/api/certificates').set(auth).send({ ...NEEDS, title: 'X', tags: [' Cloud ', 'Cloud'] });
+    expect(ok.status).toBe(201);
+    expect(ok.body.data.tags).toEqual(['Cloud']);
+  });
+
+  it('a description is optional, saved, and at most 1000 characters (owner, 2026-11-02)', async () => {
+    const auth = await authHeader();
+    const ok = await request(app).post('/api/certificates').set(auth).send({ ...NEEDS, title: 'X', description: 'What I learned.' });
+    expect(ok.status).toBe(201);
+    expect(ok.body.data.description).toBe('What I learned.');
+    const long = await request(app).post('/api/certificates').set(auth).send({ ...NEEDS, title: 'Y', description: 'x'.repeat(1001) });
+    expect(long.status).toBe(400);
+    expect(long.body.message).toMatch(/Description cannot exceed 1000/);
   });
 
   it('an education entry needs school, start AND end on every save — drafts too (owner, 2026-10-31)', async () => {
@@ -158,7 +238,7 @@ describe('only the named fields, each as its own type', () => {
 
   it('a verify link must be https', async () => {
     const res = await request(app).post('/api/certificates').set(await authHeader())
-      .send({ title: 'X', verifyUrl: 'http://example.com/v' });
+      .send({ ...NEEDS, title: 'X', verifyUrl: 'http://example.com/v' });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/https/);
   });
@@ -219,14 +299,6 @@ describe('where a new entry goes', () => {
     expect(String(list[1]._id)).toBe(String(a._id));
     expect(String(list[2]._id)).toBe(String(b._id));
   });
-
-  it('a new certificate still goes to the end', async () => {
-    const auth = await authHeader();
-    await request(app).post('/api/certificates').set(auth).send({ title: 'First' });
-    await request(app).post('/api/certificates').set(auth).send({ title: 'Second' });
-    const list = (await request(app).get('/api/certificates/admin/all').set(auth)).body.data;
-    expect(list.map((c) => c.title)).toEqual(['First', 'Second']);
-  });
 });
 
 describe('the shareable address (slug)', () => {
@@ -239,8 +311,8 @@ describe('the shareable address (slug)', () => {
 
   it('follows a rename while a DRAFT, and never changes once published', async () => {
     const auth = await authHeader();
-    const draft = await Certificate.create({ title: 'GitHub Foundations' });
-    expect(draft.slug).toBe('github-foundations');
+    const draft = await Certificate.create({ ...NEEDS, title: 'GitHub Foundations', issuer: 'GH' });
+    expect(draft.slug).toBe('github-foundations-gh');
 
     await request(app).put(`/api/certificates/${draft._id}`).set(auth).send({ issuer: 'GitHub' });
     expect((await Certificate.findById(draft._id)).slug).toBe('github-foundations-github');
@@ -256,13 +328,14 @@ describe('the shareable address (slug)', () => {
   });
 });
 
-describe('PUT /reorder', () => {
+describe('PUT /reorder (education — certificates sort themselves)', () => {
+  const EDU = { start: '2019', end: '2021' };
   it('writes the new order', async () => {
-    const [a, b, c] = await Certificate.create([{ title: 'A', order: 0 }, { title: 'B', order: 1 }, { title: 'C', order: 2 }]);
-    const res = await request(app).put('/api/certificates/reorder').set(await authHeader())
+    const [a, b, c] = await Education.create([{ ...EDU, school: 'A', order: 0 }, { ...EDU, school: 'B', order: 1 }, { ...EDU, school: 'C', order: 2 }]);
+    const res = await request(app).put('/api/education/reorder').set(await authHeader())
       .send({ ids: [c._id, a._id, b._id].map(String) });
     expect(res.status).toBe(200);
-    expect(res.body.data.map((x) => x.title)).toEqual(['C', 'A', 'B']);
+    expect(res.body.data.map((x) => x.school)).toEqual(['C', 'A', 'B']);
   });
 
   it.each([
@@ -270,11 +343,11 @@ describe('PUT /reorder', () => {
     ['one twice',   (ids) => [ids[0], ids[0], ids[1]]],
     ['an unknown extra', (ids) => [...ids, '507f1f77bcf86cd799439011']],
   ])('refuses a list with %s, and changes nothing', async (_name, edit) => {
-    const docs = await Certificate.create([{ title: 'A', order: 0 }, { title: 'B', order: 1 }, { title: 'C', order: 2 }]);
-    const res = await request(app).put('/api/certificates/reorder').set(await authHeader())
+    const docs = await Education.create([{ ...EDU, school: 'A', order: 0 }, { ...EDU, school: 'B', order: 1 }, { ...EDU, school: 'C', order: 2 }]);
+    const res = await request(app).put('/api/education/reorder').set(await authHeader())
       .send({ ids: edit(docs.map((d) => String(d._id))) });
     expect(res.status).toBe(400);
-    expect((await Certificate.find().sort({ order: 1 })).map((x) => x.title)).toEqual(['A', 'B', 'C']);
+    expect((await Education.find().sort({ order: 1 })).map((x) => x.school)).toEqual(['A', 'B', 'C']);
   });
 });
 
