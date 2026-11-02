@@ -99,7 +99,9 @@ html[data-theme="light"] {
   --acc:      #7E4800;
   --accInk:   #ffffff;   /* ink FLIPS to white on accent fills */
 
-  --bg:       #EDE8DF;   /* warm paper */
+  /* Paper, a step whiter and less warm (owner, 2026-11-02 — was #EDE8DF,
+     R−B 14 → 9). Mirrored as a triplet in HeroSection's `.lightPlate`. */
+  --bg:       #F5F2EC;
   --text:     #16223B;
   --strong:   #0B1220;
   --muted:    #45536D;
@@ -107,7 +109,7 @@ html[data-theme="light"] {
   --faint:    #55637C;
   --thumb:    #C9C2B6;
 
-  /* Warm whites, not pure white — #FFF against #EDE8DF paper reads
+  /* Warm whites, not pure white — #FFF against the paper reads
      cold and discordant. --srf stays marginally brighter than --gnd
      so raised cards still separate from the ground. */
   --gnd:  251,248,243;   /* #FBF8F3 */

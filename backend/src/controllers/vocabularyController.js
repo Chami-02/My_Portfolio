@@ -2,6 +2,7 @@ const mongoose   = require('mongoose');
 const Vocabulary = require('../models/Vocabulary');
 const Project    = require('../models/Project');
 const Blog       = require('../models/Blog');
+const Certificate = require('../models/Certificate');
 const AppError   = require('../utils/AppError');
 
 // Which collection and field each vocabulary type maps onto.
@@ -21,13 +22,17 @@ const TARGETS = {
           publicFilter: { published: { $ne: false } } },
   tag:  { model: Blog,    field: 'tags', label: 'blog posts',
           publicFilter: { published: true } },
+  // Owner, 2026-11-02. `keepOne`: a certificate must keep its tag (it has
+  // exactly one), so deleting a tag any certificate uses is refused, naming them.
+  cert: { model: Certificate, field: 'tags', label: 'certificates',
+          publicFilter: { published: true }, keepOne: true },
 };
 
 // Guard used by every handler — rejects anything that isn't tag/tech
 const resolveType = (type, next) => {
   const target = TARGETS[type];
   if (!target) {
-    next(new AppError(`Invalid vocabulary type "${type}" — use "tag" or "tech"`, 400));
+    next(new AppError(`Invalid vocabulary type "${type}" — use "tag", "tech" or "cert"`, 400));
     return null;
   }
   return target;
@@ -123,6 +128,8 @@ const getDeleteImpact = async (req, res, next) => {
         type:     item.type,
         affected,
         label:    target.label,   // 'projects' or 'blog posts' — for the modal text
+        // The certificates this delete would leave with NO tag — it is then refused.
+        ...(target.keepOne && { blocked: await onlyTagOf(target, item.value) }),
       },
     });
   } catch (err) {
@@ -132,6 +139,11 @@ const getDeleteImpact = async (req, res, next) => {
     next(err);
   }
 };
+
+/** Titles of the documents whose ONLY tag is `value` (a `keepOne` target). */
+const onlyTagOf = async (target, value) =>
+  (await target.model.find({ [target.field]: [value] }, { title: 1 }).sort({ order: 1 }).lean())
+    .map((d) => d.title);
 
 // ── POST /api/vocabulary/:type ───────────────────────────────────────────────
 // Protected. Adds a chip to the pool permanently.
@@ -208,6 +220,18 @@ const deleteVocabulary = async (req, res, next) => {
     if (!item) return next(new AppError('No vocabulary item found with that ID', 404));
 
     const { model, field } = target;
+
+    // A certificate must keep a tag (owner, 2026-11-02): refuse, and NAME the
+    // ones that would be left bare, rather than strip their last one.
+    if (target.keepOne) {
+      const bare = await onlyTagOf(target, item.value);
+      if (bare.length) {
+        return next(new AppError(
+          `"${item.value}" is the only tag of: ${bare.join(', ')}. Give ${bare.length === 1 ? 'it' : 'them'} another tag first.`,
+          409,
+        ));
+      }
+    }
 
     // Ask the server what it supports, rather than inferring support from a
     // client-side call not throwing.

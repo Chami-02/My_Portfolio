@@ -132,7 +132,7 @@ const rotateSession = async (refreshToken) => {
   const claimed = await Session.findOneAndUpdate(
     { _id: session._id, revokedAt: null },
     { $set: { revokedAt: now } },
-    { new: true }
+    { returnDocument: 'after' }
   );
   if (!claimed) {
     await Session.updateMany(

@@ -10,7 +10,6 @@ const request = require('supertest');
 const { issueSession } = require('../services/sessionService');
 const app   = require('../app');
 const Blog  = require('../models/Blog');
-const Project = require('../models/Project');
 const User  = require('../models/User');
 const { PUBLIC_TAG } = require('../middleware/cache');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
@@ -76,16 +75,6 @@ describe('public GETs — cached by the CDN, not the browser', () => {
   it('/api/blog/:slug', async () => {
     const post = await makePost();
     expectCdnCached(await request(app).get(`/api/blog/${post.slug}`));
-  });
-
-  it('/api/projects/:id', async () => {
-    const project = await Project.create({
-      title:       'Cached Project',
-      description: 'A project to read back through the cache headers.',
-      tech:        ['JavaScript'],
-      githubUrl:   'https://github.com/test/project',
-    });
-    expectCdnCached(await request(app).get(`/api/projects/${project._id}`));
   });
 });
 

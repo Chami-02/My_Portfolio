@@ -24,6 +24,8 @@ const passwordErrors = ({ password }) =>
 const countsText = (c = {}) => [
   `${c.projects ?? 0} projects`, `${c.skills ?? 0} skills`, `${c.skillCategories ?? 0} sections`,
   `${c.blog ?? 0} posts`, `${c.vocabulary ?? 0} tags & tech`, `${c.messages ?? 0} messages`,
+  // PF-143 — last, so the six earlier counts read as they always have.
+  `${c.education ?? 0} education`, `${c.certificates ?? 0} certificates`,
 ].join(' · ');
 
 /** The reader's own clock, in the Messages panel's YYYY/MM/DD 12-hour form. */

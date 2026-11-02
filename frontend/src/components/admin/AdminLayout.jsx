@@ -73,6 +73,8 @@ const NAV_ITEMS = [
   { id: 'skills',   label: 'Skills',   icon: '{ }' },
   { id: 'projects', label: 'Projects', icon: '◈' },
   { id: 'blog',     label: 'Blog',     icon: '✎' },
+  { id: 'education',    label: 'Education',    icon: '◎' },  // PF-143
+  { id: 'certificates', label: 'Certificates', icon: '✓' },  // PF-143
   { id: 'messages', label: 'Messages', icon: '✉' },
   { id: 'settings', label: 'Settings', icon: '\u2699\uFE0E', group: 'ACCOUNT' },
 ];
@@ -154,6 +156,8 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
         about:    '',
         blog:     String(counts.posts),
         messages: String(counts.unread),
+        education:    String(counts.education ?? ''),
+        certificates: String(counts.certificates ?? ''),
       }
     : {};
 
@@ -168,6 +172,8 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
       skills:   `${counts.skills} ITEMS`,
       blog:     `${counts.published} PUBLISHED · ${counts.drafts} DRAFT`,
       messages: `${counts.unread} UNREAD · ${counts.messages} TOTAL`,
+      education:    `${counts.education ?? 0} ITEMS`,
+      certificates: `${counts.certificates ?? 0} ITEMS`,
     }),
   };
 

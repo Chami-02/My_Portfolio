@@ -66,12 +66,17 @@ describe('HeroSection (PF-80)', () => {
 
   // ── content ────────────────────────────────────────────────────────
 
-  it('renders all three role pills with their exact text', () => {
+  // Owner, 2026-11-02: a typing line replaced the three role pills.
+  // TypingRoles.test.jsx covers the typing itself.
+  it('types the roles under the name, where the role pills were', () => {
     mockMatchMedia(false);
-    render(withMotion(<HeroSection />));
+    const { container } = render(withMotion(<HeroSection />));
 
-    ['Full-Stack Web Developer', 'Cloud & DevOps Enthusiast', 'Continuous Learner']
-      .forEach((text) => expect(screen.getByText(text)).toBeInTheDocument());
+    expect(screen.getByText(/^Full-Stack Web Developer, .*Tech Explorer, Problem Solver$/)).toBeInTheDocument();
+    expect(pick(container, 'rolePill')).toBeNull();
+    const heading = screen.getByRole('heading', { level: 1 });
+    const typing = pick(container, 'typing');
+    expect(heading.compareDocumentPosition(typing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   // Eight from the prototype plus the owner-requested Next.js and Java.
@@ -116,14 +121,14 @@ describe('HeroSection (PF-80)', () => {
     expect(pick(container, 'badgeDot')).not.toBeNull();
   });
 
-  it('sits the loud CTA in the pill row, after Continuous Learner', () => {
+  it('sits the loud CTA on its own row, right under the typing line', () => {
     mockMatchMedia(false);
     const { container } = render(withMotion(<HeroSection />));
 
-    const row = pick(container, 'pillRow');
+    const row = pick(container, 'loudRow');
     const cta = screen.getByText(/build something loud/i).closest('a');
     expect(row.contains(cta)).toBe(true);
-    expect(row.lastElementChild).toBe(cta);
+    expect(row.previousElementSibling).toBe(pick(container, 'typing'));
   });
 
   it('renders the badge, eyebrow and both heading lines', () => {
@@ -378,25 +383,18 @@ describe('HeroSection (PF-80)', () => {
      * outright, because the gate matches at the entrance's START
      * (Reveal.jsx:57) and therefore animated the entrance on the 0.25s
      * hover values. Measured on the production build — opacity reached 1
-     * at 0ms for both, and the pop settled at 448ms (.rolePill) and
-     * 301ms (.loudCta) instead of ~900ms.
-     *
-     * `.rolePill` is the sharper case. The prototype's line 102 really
-     * does declare `transition:border-color .25s,background .25s,
-     * transform .25s` in its style attribute, and PF-80 transcribed it
-     * faithfully — but hideReveals() writes el.style.transition into the
-     * SAME declaration block, so the design never renders that value.
-     * This guard is what stops a future fidelity pass reading line 102
-     * and putting it back.
+     * at 0ms, and the pop settled at 301ms (.loudCta) instead of ~900ms.
+     * (.rolePill had the same guard until the pills went, 2026-11-02;
+     * .typing is a Reveal too, so it takes the pill's place here.)
      *
      * `animation` longhands are untouched by this: both elements keep
      * their `composes: kf-glowpulse` and its timing, asserted above.
      * Only `transition*` is forbidden.
      */
-    it('declares no transition on .rolePill or .loudCta, at any selector', () => {
+    it('declares no transition on .typing or .loudCta, at any selector', () => {
       const offenders = [];
       postcss.parse(css).walkRules((rule) => {
-        if (!/\.(rolePill|loudCta)(?![\w-])/.test(rule.selector)) return;
+        if (!/\.(typing|loudCta)(?![\w-])/.test(rule.selector)) return;
         rule.walkDecls(/^transition/, (d) => {
           offenders.push(`${rule.selector} { ${d.prop}: ${d.value} }`);
         });
@@ -404,15 +402,9 @@ describe('HeroSection (PF-80)', () => {
       expect(offenders).toEqual([]);
     });
 
-    // The hover END STATES stay — .rolePill's are the prototype's
-    // (line 102's style-hover). Asserted so the deletion above cannot be
+    // The hover END STATE stays. Asserted so the deletion above cannot be
     // over-applied into removing the hover treatment itself.
     it('keeps the hover end states the transitions used to animate', () => {
-      const pill = ruleBody('.rolePill:hover');
-      expect(pill).toContain('border-color: var(--acc');
-      expect(pill).toContain('background: rgba(252, 163, 17, .12)');
-      expect(pill).toContain('transform: translateY(-2px)');
-
       const cta = ruleBody('.loudCta:hover');
       expect(cta).toContain('border-color: var(--acc');
       expect(cta).toContain('transform: translateY(-2px)');

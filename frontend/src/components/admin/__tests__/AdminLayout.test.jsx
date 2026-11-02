@@ -87,7 +87,7 @@ describe('AdminLayout — navigation', () => {
   // The export has Overview · Projects · Skills · About · Blog · Messages; About
   // was moved to second. Asserted here so the deviation is deliberate and
   // visible rather than something a fidelity pass quietly reverts.
-  it('renders all seven sections, in the owner-requested order', () => {
+  it('renders all nine sections, in the owner-requested order', () => {
     renderShell();
     const labels = within(nav())
       .getAllByRole('button')
@@ -97,7 +97,7 @@ describe('AdminLayout — navigation', () => {
     // breaks under a name pointing at the wrong cause the moment an
     // unrelated control joins the landmark.
     expect(labels).toEqual([
-      'Overview', 'About', 'Skills', 'Projects', 'Blog', 'Messages', 'Settings',
+      'Overview', 'About', 'Skills', 'Projects', 'Blog', 'Education', 'Certificates', 'Messages', 'Settings',
     ]);
   });
 
@@ -415,7 +415,7 @@ describe('the sidebar rail runs the full depth of the panel', () => {
 
     expect(within(rail).getByText('MANAGE')).toBeInTheDocument();
     expect(within(rail).getByText('SESSION')).toBeInTheDocument();
-    expect(within(rail).getAllByRole('button').length).toBe(7);
+    expect(within(rail).getAllByRole('button').length).toBe(9);
   });
 });
 

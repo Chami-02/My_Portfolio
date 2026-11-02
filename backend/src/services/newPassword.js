@@ -41,4 +41,4 @@ const newPasswordProblem = async (account, password, { current } = {}) => {
   return null;
 };
 
-module.exports = { newPasswordProblem, REUSED, BREACHED };
+module.exports = { newPasswordProblem };

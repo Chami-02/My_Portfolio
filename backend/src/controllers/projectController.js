@@ -81,27 +81,6 @@ const getAllProjectsAdmin = async (req, res, next) => {
   }
 };
 
-// ── GET /api/projects/:id ────────────────────────────────────────────────────
-// Public, so a draft answers 404 exactly like a project that does not exist —
-// an id is not a secret, and "it exists but you can't see it" is information.
-const getProjectById = async (req, res, next) => {
-  try {
-    const project = await Project.findOne({ _id: req.params.id, ...PUBLIC_FILTER });
-
-    if (!project) {
-      return next(new AppError('Project not found', 404));
-    }
-
-    res.json({ status: 'success', data: project });
-  } catch (err) {
-    // Mongoose throws CastError when the ID format is invalid (not a valid ObjectId)
-    if (err.name === 'CastError') {
-      return next(new AppError('Invalid project ID format', 400));
-    }
-    next(err);
-  }
-};
-
 // ── POST /api/projects ───────────────────────────────────────────────────────
 // Protected route — JWT required (added in PF-35)
 const createProject = async (req, res, next) => {
@@ -337,7 +316,6 @@ const removeBackground = async (req, res, next) => {
 module.exports = {
   getAllProjects,
   getAllProjectsAdmin, // PF-113
-  getProjectById,
   createProject,
   updateProject,
   deleteProject,

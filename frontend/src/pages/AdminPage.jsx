@@ -9,6 +9,8 @@ import { AdminAboutPanel }       from '../components/admin/panels/AdminAboutPane
 import { AdminBlogPanel }        from '../components/admin/panels/AdminBlogPanel';
 import { AdminMessagesPanel }    from '../components/admin/panels/AdminMessagesPanel';
 import { AdminSettingsPanel }    from '../components/admin/panels/AdminSettingsPanel';
+import { AdminEducationPanel }   from '../components/admin/panels/AdminEducationPanel';     // PF-143
+import { AdminCertificatesPanel } from '../components/admin/panels/AdminCertificatesPanel'; // PF-143
 
 const PANELS = {
   overview:  AdminOverviewPanel,
@@ -17,6 +19,8 @@ const PANELS = {
   about:     AdminAboutPanel,
   blog:      AdminBlogPanel,
   messages:  AdminMessagesPanel,
+  education:    AdminEducationPanel,
+  certificates: AdminCertificatesPanel,
   settings:  AdminSettingsPanel,
 };
 

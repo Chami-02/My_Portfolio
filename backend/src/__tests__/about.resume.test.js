@@ -1,4 +1,5 @@
 const About = require('../models/About');
+const validationError = require('./helpers/validationError');
 
 describe('About — resume slot (PF-60 Step 2)', () => {
 
@@ -22,14 +23,14 @@ describe('About — resume slot (PF-60 Step 2)', () => {
     expect(a.resume.uploadedAt).toBeNull();
   });
 
-  it('an empty slot is valid — a missing résumé is not an error', () => {
-    expect(new About({}).validateSync()).toBeUndefined();
+  it('an empty slot is valid — a missing résumé is not an error', async () => {
+    expect((await validationError(new About({})))).toBeUndefined();
   });
 
-  it('stores every field the admin card renders', () => {
+  it('stores every field the admin card renders', async () => {
     const a = new About({ resume: FILLED });
 
-    expect(a.validateSync()).toBeUndefined();
+    expect((await validationError(a))).toBeUndefined();
     expect(a.resume.url).toBe(FILLED.url);
     expect(a.resume.publicId).toBe(FILLED.publicId);
     expect(a.resume.fileName).toBe('Parindra_CV.pdf');
@@ -44,10 +45,10 @@ describe('About — resume slot (PF-60 Step 2)', () => {
     expect(a.resume.publicId).toBeTruthy();
   });
 
-  it('rejects a data: URI in the résumé url', () => {
+  it('rejects a data: URI in the résumé url', async () => {
     const a = new About({ resume: { url: 'data:application/pdf;base64,AAAA' } });
 
-    expect(a.validateSync().errors['resume.url']).toBeDefined();
+    expect((await validationError(a)).errors['resume.url']).toBeDefined();
   });
 
   it('coerces a numeric-string byte count', () => {

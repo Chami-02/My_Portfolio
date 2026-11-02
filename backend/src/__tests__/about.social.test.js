@@ -1,4 +1,5 @@
 const About = require('../models/About');
+const validationError = require('./helpers/validationError');
 
 describe('About — social links (PF-60 Step 1)', () => {
 
@@ -26,44 +27,44 @@ describe('About — social links (PF-60 Step 1)', () => {
     expect(a.bio.length).toBeGreaterThan(0);
   });
 
-  it('accepts the defaults as valid', () => {
-    expect(new About({}).validateSync()).toBeUndefined();
+  it('accepts the defaults as valid', async () => {
+    expect((await validationError(new About({})))).toBeUndefined();
   });
 
-  it('rejects a social URL with no protocol', () => {
+  it('rejects a social URL with no protocol', async () => {
     const a = new About({ social: { facebook: 'facebook.com/someone' } });
 
-    expect(a.validateSync().errors['social.facebook']).toBeDefined();
+    expect((await validationError(a)).errors['social.facebook']).toBeDefined();
   });
 
-  it('rejects a social URL with no domain dot', () => {
+  it('rejects a social URL with no domain dot', async () => {
     const a = new About({ social: { instagram: 'https://instagram' } });
 
-    expect(a.validateSync().errors['social.instagram']).toBeDefined();
+    expect((await validationError(a)).errors['social.instagram']).toBeDefined();
   });
 
-  it('allows twitter to stay empty', () => {
+  it('allows twitter to stay empty', async () => {
     const a = new About({ social: { twitter: '' } });
 
-    expect(a.validateSync()).toBeUndefined();
+    expect((await validationError(a))).toBeUndefined();
   });
 
-  it('accepts a twitter URL once one is added', () => {
+  it('accepts a twitter URL once one is added', async () => {
     const a = new About({ social: { twitter: 'https://twitter.com/someone' } });
 
-    expect(a.validateSync()).toBeUndefined();
+    expect((await validationError(a))).toBeUndefined();
   });
 
-  it('rejects an invalid contact email at the model layer', () => {
+  it('rejects an invalid contact email at the model layer', async () => {
     const a = new About({ email: 'not-an-email' });
 
-    expect(a.validateSync().errors.email).toBeDefined();
+    expect((await validationError(a)).errors.email).toBeDefined();
   });
 
-  it('ignores a stray social.email — the schema has no such path', () => {
+  it('ignores a stray social.email — the schema has no such path', async () => {
     const a = new About({ social: { email: 'someone@else.com' } });
 
-    expect(a.validateSync()).toBeUndefined();
+    expect((await validationError(a))).toBeUndefined();
     expect(a.social.email).toBeUndefined();
     expect(a.email).toBe('pcgallege@gmail.com');
   });

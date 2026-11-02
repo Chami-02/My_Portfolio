@@ -36,7 +36,7 @@ const BACKUP = Object.freeze({
   format: 'portfolio-backup', version: 1, createdAt: '2026-10-30T09:00:00.000Z',
   counts: { projects: 1 }, about: { name: 'Owner' }, projects: [{ title: 'P' }],
 });
-const COUNTS = Object.freeze({ projects: 4, skills: 26, skillCategories: 6, blog: 4, vocabulary: 32, messages: 140 });
+const COUNTS = Object.freeze({ projects: 4, skills: 26, skillCategories: 6, blog: 4, vocabulary: 32, messages: 140, education: 2, certificates: 5 });
 const SUMMARY = Object.freeze({ createdAt: '2026-10-29T08:00:00.000Z', version: 1, hasAbout: true, counts: COUNTS });
 const COPY = Object.freeze({ id: 'copy-1', createdAt: '2026-10-30T10:00:00.000Z', counts: COUNTS, reason: 'before-restore' });
 const PASSWORD = 'my password';
@@ -266,7 +266,7 @@ describe('SettingsBackupCard — restore', () => {
 
     await screen.findByRole('dialog');
     expect(dialog()).toHaveTextContent('Replace the site’s content with this backup?');
-    expect(dialog()).toHaveTextContent('4 projects · 26 skills · 6 sections · 4 posts · 32 tags & tech · 140 messages');
+    expect(dialog()).toHaveTextContent('4 projects · 26 skills · 6 sections · 4 posts · 32 tags & tech · 140 messages · 2 education · 5 certificates');
     expect(dialog()).toHaveTextContent(/Every message you have now is kept/);
     expect(dialog()).toHaveTextContent(/A safety copy of the site as it is now is kept first/);
     expect(pwField()).toHaveFocus();

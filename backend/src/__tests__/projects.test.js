@@ -56,27 +56,6 @@ describe('GET /api/projects', () => {
   });
 });
 
-describe('GET /api/projects/:id', () => {
-  it('returns a single project by valid ID', async () => {
-    const project = await Project.create(VALID_PROJECT);
-    const res = await request(app).get(`/api/projects/${project._id}`);
-    expect(res.status).toBe(200);
-    expect(res.body.data.title).toBe(VALID_PROJECT.title);
-  });
-
-  it('returns 404 for a nonexistent but valid ObjectId', async () => {
-    const res = await request(app).get('/api/projects/000000000000000000000000');
-    expect(res.status).toBe(404);
-    expect(res.body.message).toMatch(/not found/i);
-  });
-
-  it('returns 400 for an invalid ObjectId format', async () => {
-    const res = await request(app).get('/api/projects/not-valid-id');
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/invalid/i);
-  });
-});
-
 describe('POST /api/projects (no auth — will need token after PF-35)', () => {
   it('creates a project with valid data', async () => {
     const res = await request(app)
@@ -202,14 +181,6 @@ describe('Project drafts (PF-113)', () => {
     const res = await request(app).get('/api/projects');
 
     expect(res.body.data).toHaveLength(1);
-  });
-
-  it('GET /api/projects/:id answers 404 for a draft', async () => {
-    const draft = await Project.create(DRAFT);
-
-    const res = await request(app).get(`/api/projects/${draft._id}`);
-
-    expect(res.status).toBe(404);
   });
 
   it('GET /api/projects/admin/all is 401 without a token', async () => {

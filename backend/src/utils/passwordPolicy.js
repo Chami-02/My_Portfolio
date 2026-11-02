@@ -34,7 +34,7 @@ const passwordProblem = (password) => {
   return null;
 };
 
-module.exports = { passwordProblem, MIN_LENGTH, MAX_LENGTH };
+module.exports = { passwordProblem };
 
 // ── Strength (PF-124, owner 2026-10-27) ─────────────────────────────────────
 //
@@ -110,4 +110,3 @@ const strengthProblem = (password, words = []) => {
 
 module.exports.contextWords    = contextWords;
 module.exports.strengthProblem = strengthProblem;
-module.exports.MIN_SCORE       = MIN_SCORE;

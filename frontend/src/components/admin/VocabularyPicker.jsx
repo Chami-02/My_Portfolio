@@ -11,6 +11,7 @@ import styles from './VocabularyPicker.module.css';
 const NOUNS = {
   tag:  { one: 'tag',  list: 'tag list',  usedBy: 'posts' },
   tech: { one: 'tech', list: 'tech list', usedBy: 'projects' },
+  cert: { one: 'tag',  list: 'certificate tag list', usedBy: 'certificates' },   // owner, 2026-11-02
 };
 
 /**
@@ -33,6 +34,9 @@ function ChipDeleteConfirm({ type, chip, onCancel, onConfirm, isDeleting }) {
   const affected = impact?.affected;
   const label    = impact?.label || noun.usedBy;
   const known    = typeof affected === 'number';
+  // A certificate must keep a tag: the server names any this would leave bare,
+  // and refuses the delete — so the dialog says so and offers no YES.
+  const blocked  = impact?.blocked ?? [];
 
   return (
     <ConfirmDialog
@@ -40,13 +44,17 @@ function ChipDeleteConfirm({ type, chip, onCancel, onConfirm, isDeleting }) {
       confirmLabel="YES, REMOVE"
       busyLabel="REMOVING…"
       busy={isDeleting}
-      confirmDisabled={!known}
+      confirmDisabled={!known || blocked.length > 0}
       onConfirm={onConfirm}
       onCancel={onCancel}
     >
       {isLoading && `Checking how many ${noun.usedBy} use it…`}
       {isError   && `Could not check how many ${noun.usedBy} use this ${noun.one}. It is safer to cancel.`}
-      {known && (
+      {known && blocked.length > 0 && (
+        `“${chip.value}” is the only tag of: ${blocked.join(', ')}. ` +
+        `Give ${blocked.length === 1 ? 'it' : 'them'} another tag first, then remove this one.`
+      )}
+      {known && blocked.length === 0 && (
         affected === 0
           ? `This deletes the ${noun.one} permanently. No ${label} currently use it.`
           : `This deletes the ${noun.one} permanently and removes it from ${affected} ` +
@@ -57,8 +65,8 @@ function ChipDeleteConfirm({ type, chip, onCancel, onConfirm, isDeleting }) {
 }
 
 /**
- * A shared vocabulary, as a chip picker — `type` is 'tag' (blog posts, PF-97)
- * or 'tech' (projects, PF-113).
+ * A shared vocabulary, as a chip picker — `type` is 'tag' (blog posts, PF-97),
+ * 'tech' (projects, PF-113) or 'cert' (certificates, owner 2026-11-02).
  *
  * Extracted from AdminBlogPanel in PF-113 when Projects became the second
  * consumer. The API behind it was built in Sprint 9 (PF-61 / PF-62).
@@ -77,8 +85,12 @@ function ChipDeleteConfirm({ type, chip, onCancel, onConfirm, isDeleting }) {
  * @param onRemoved  (value, result) => void — strip a deleted value from the
  *                   form in hand, which a refetch cannot do while it is edited
  * @param onError    (message) => void
+ * @param field      optional `fieldProps(...)` — the box takes the field's id
+ *                   (so a refused save can focus it) and its error state
+ * @param single     one value only (certificates, owner 2026-11-02) — only the
+ *                   hint changes here; the caller's onToggle REPLACES the pick
  */
-export function VocabularyPicker({ type, selected, onToggle, onRemoved, onError }) {
+export function VocabularyPicker({ type, selected, onToggle, onRemoved, onError, field, single = false }) {
   const { data: chips = [], isLoading } = useVocabulary(type);
   const createValue = useCreateVocabulary(type);
   const deleteValue = useDeleteVocabulary(type);
@@ -122,8 +134,13 @@ export function VocabularyPicker({ type, selected, onToggle, onRemoved, onError 
   };
 
   return (
-    <div className={styles.box}>
-      <p className={styles.hint}>Click to pick · ✓ = selected · × removes it from this list</p>
+    <div
+      className={field?.['aria-invalid'] ? `${styles.box} ${styles.boxInvalid}` : styles.box}
+      {...(field && { ...field, role: 'group', tabIndex: -1 })}
+    >
+      <p className={styles.hint}>
+        {single ? 'Click to pick ONE' : 'Click to pick'} · ✓ = selected · × removes it from this list
+      </p>
 
       {isLoading ? (
         <div className={styles.skel} aria-busy="true">

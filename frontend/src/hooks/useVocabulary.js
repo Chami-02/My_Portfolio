@@ -84,6 +84,10 @@ export const useDeleteVocabulary = (type) => {
       if (type === 'tech') {
         qc.invalidateQueries({ queryKey: PROJECTS_KEY });
       }
+      // Certificate tags (owner, 2026-11-02) — the key prefix in useEntries.js.
+      if (type === 'cert') {
+        qc.invalidateQueries({ queryKey: ['certificates'] });
+      }
     },
   });
 };

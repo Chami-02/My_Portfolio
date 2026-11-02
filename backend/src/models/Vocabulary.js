@@ -6,8 +6,10 @@ const vocabularySchema = new mongoose.Schema(
       type:     String,
       required: [true, 'Vocabulary type is required'],
       enum: {
-        values:  ['tag', 'tech'],
-        message: '{VALUE} is not a valid vocabulary type — use "tag" or "tech"',
+        // `cert` — certificate tags (owner, 2026-11-02): their OWN list, so
+        // deleting a blog tag never touches a certificate, or the reverse.
+        values:  ['tag', 'tech', 'cert'],
+        message: '{VALUE} is not a valid vocabulary type — use "tag", "tech" or "cert"',
       },
     },
     value: {

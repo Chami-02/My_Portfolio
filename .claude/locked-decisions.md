@@ -4723,6 +4723,74 @@ Plans approved in chat (plain words). First built as download only; the owner th
   restore; images deleted from Cloudinary since a backup restore as dead links; a restore
   never deletes Cloudinary files (the safety copy may need them) → possible orphans.
 
+## PF-143 — Education + Certificates (owner 2026-10-30) — NEW SURFACES, not in the prototype
+
+Plan approved in chat; the layout was CHOSEN by the owner from samples (AskUserQuestion previews).
+- **Home row, TEXT ONLY (owner):** under the About photo + buttons, two columns (auto-fit, stack
+  below 2×360px): Education as a TIMELINE (1px line, glowing accent dot per entry) left,
+  Certificates as ROWS (✓ title / ISSUER · YEAR / VERIFY ↗) right. Pictures only on /certificates.
+  An empty column renders nothing; a failed load = empty on the public page.
+- **≤ 6 certificates on home, VIEW ALL ALWAYS shown (owner)** — it is the way to the pictures,
+  verify buttons and links; a button that appears at 7 would be inconsistent.
+- **/certificates = picture cards (owner: "like supun's"):** picture (`contain`, never cropped),
+  VIEW CERTIFICATE label, title, ISSUER · date; issuer filter when ≥ 2 issuers (`?issuer=`).
+  Beats the reference (owner agreed): a URL per certificate, Back closes, ← → Esc, preloaded pictures.
+- **No "in progress" status (owner).** No section number on the new headings (02 is SKILLS).
+- **Every visible word editable (owner):** 7 About fields edited in each panel's "Section text"
+  card; blank → the built-in wording (one `SECTION_TEXT`, pinned equal to the schema defaults).
+- **Education = LinkedIn's form (owner):** school, degree, field, start, end (or expected — a future
+  end shows "(EXPECTED)"), grade, activities, description, skills, proof file/link. Dates are CHOSEN
+  (month optional + year selects), stored "YYYY" / "YYYY-MM" text — never a Date (no zone shift).
+- **PDF proof → its first page is the picture (owner: test first):** measured — free tier refuses
+  `.pdf` delivery (401) but serves `pg_1` as an image (200). So a PDF is uploaded as an IMAGE
+  resource; nobody can download the PDF itself (accepted; verify link is the proof).
+- **Order decides the home page:** ↑↓ + drag, STAGED until SAVE ORDER (stage-until-save rule);
+  reorder must send exactly the stored set. A certificate's slug is FROZEN once published (shared
+  links); remade on rename only while a draft.
+- **One shared panel (`EntryListPanel`) for both lists** — same life, so composed, not copied
+  (unlike portrait/résumé, whose rules differ). Dashboard stats now NINE fields.
+- **Backup VERSION 2** — the first real `UPGRADES` step (v1 → empty Education/Certificates).
+
+### PF-143 polish (owner, 2026-10-31) — supersedes the Education bullets above where they differ
+- **No skills, no proof (link or file), no Section text card for Education** — heading fixed
+  "Education" ("education is education"). Certificates keep their card and verify link.
+- **School logo = UPLOAD only** (owner chose over search: free lists lack Sri Lankan schools/logos).
+  Round LIGHT disc beside the name in BOTH themes ("most logos sit on light"), a thin accent ring
+  with a SOFT glow ("a bit glowing border", not a halo). Timeline dot SMALLER (7px). Images only.
+- **School website** link (optional, https): name + logo open it in a new tab.
+- **Dates are TYPED** (with a dropdown of suggestions), never select-only; a wrong value → red
+  message under the box. Education dates take an optional DAY ("04/5/2008" → `04 MAY 2008`); leap
+  years respected. This REVERSES "a fixed set of answers is CHOSEN, never typed" for dates only.
+- **Education: school, start, end required on every save (drafts too); degree optional.**
+  Required = `*` + "* Indicates required"; skipped box says "This field is required."; the banner
+  names the fields.
+- **Newest on top:** a new entry is placed by date; the order stays editable (drag / ↑↓).
+
+### PF-143 polish 2 (owner, 2026-11-02) — supersedes the bullets above where they differ
+- **Every word on Education AND Certificates is FIXED** — no Section text card anywhere. REVERSES
+  2026-10-30 "every visible word editable" (owner: "I don't need to change visible texts").
+- **One tag per certificate, required; ONE public pill at a time.** Owner: "one certificate can't
+  have two pills… if a visitor chooses GitHub, a GitHub certificate can't get into LinkedIn".
+  Picked again / ALL / a tap on the page background = all. Tags are behind the scenes — never
+  printed on a card or in the big view. Certificate tags are their OWN vocabulary (`cert`). A
+  search comes only "if the certificate list gets bigger".
+- **Pins:** the admin's 📌 ("looks so cool") at a card's TOP-LEFT, small; never on home.
+- **Order: pinned always first, then the owner's drag order** (owner chose this over "fully free"
+  and "pin moves it once"); a new certificate goes in by issue date, never above a pin.
+  (Same day, before this: "pinned then newest, automatic" — withdrawn by the owner.)
+- **Card:** picture edge to edge on top, details below; label "VIEW" (was VIEW CERTIFICATE).
+- **Certificate form:** title + issuer + issue date required on every save (drafts too);
+  optional day; optional description shown in the big view.
+- **Hero: the three role pills are GONE** — the roles TYPE out under the name (`TypingRoles`:
+  Full-Stack Web Developer, Cloud & DevOps Enthusiast, Continuous Learner, Tech Explorer, Problem
+  Solver), white in dark / dark blue (`--navy`) in light, thick caret; LOUD button on its own row
+  under it. REVERSES PF-80's "the pills are the real content, not building a typewriter" and the
+  sanctioned "fourth pill item" (the LOUD CTA left the pill row).
+- **Light theme: the paper is whiter** (`--bg #F5F2EC`, was `#EDE8DF`) — an owner-requested
+  UPGRADE before launch, an explicit exception to "light upgrades post-launch" (2026-10-11).
+- **Demo education/certificates never reach a real database** (seed writes them on throwaway DBs
+  only); the owner adds the real ones on production after the merge.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

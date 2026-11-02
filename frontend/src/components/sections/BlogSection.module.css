@@ -282,7 +282,7 @@ section.blog {
 /* ⚠️ THE THEME SPLIT IS NOT COSMETIC, and light is the tighter constraint.
    The photograph is dark navy. At `.2` over the light card's white-ish
    gradient it drags the whole surface to a cold grey — the card stops
-   belonging to the warm-paper palette (`--bg: #EDE8DF`) even though the
+   belonging to the warm-paper palette (`--bg: #F5F2EC`) even though the
    text still measures over 6:1. `.1` reads as a ghosted texture and keeps
    the paper. Dark needs `.32` to register at all against its own gradient.
 
