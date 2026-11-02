@@ -25,6 +25,9 @@ const toTyped = (value) => {
  * panel's refused save has marked the field (`aria-invalid` on `field`), its
  * own FieldError says it instead, so the message never shows twice.
  *
+ * The boxes say DD · MM · YYYY, the common short forms (owner, 2026-11-02:
+ * "Day" / "Month" / "Year" were cut to "D" / "Mo" / "Yea" in a narrow form).
+ *
  * The YEAR box carries the field's id (`field`), because a refused save
  * focuses the field by that id and the year is what a rule asks for.
  */
@@ -71,8 +74,8 @@ export function MonthYearField({ label, value, onChange, field, required = false
             <label className={styles.visuallyHidden} htmlFor={dayId}>{label} — day</label>
             <input
               id={dayId}
-              className={a.input}
-              placeholder="Day"
+              className={`${a.input} ${styles.box}`}
+              placeholder="DD"
               list={`${dayId}-list`}
               autoComplete="off"
               inputMode="numeric"
@@ -94,9 +97,9 @@ export function MonthYearField({ label, value, onChange, field, required = false
           <label className={styles.visuallyHidden} htmlFor={monthId}>{label} — month</label>
           <input
             id={monthId}
-            className={a.input}
+            className={`${a.input} ${styles.box}`}
             list={`${monthId}-list`}
-            placeholder="Month"
+            placeholder="MM"
             autoComplete="off"
             maxLength={9}
             aria-describedby={hintId}
@@ -113,9 +116,9 @@ export function MonthYearField({ label, value, onChange, field, required = false
           <label className={styles.visuallyHidden} htmlFor={field.id}>{label} — year</label>
           <input
             {...field}
-            className={a.input}
+            className={`${a.input} ${styles.box}`}
             list={`${field.id}-list`}
-            placeholder="Year"
+            placeholder="YYYY"
             autoComplete="off"
             inputMode="numeric"
             maxLength={4}

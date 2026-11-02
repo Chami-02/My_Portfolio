@@ -22,7 +22,7 @@ const CONFIG = {
   titleField: 'school',
   media: {
     field: 'logo', label: 'Logo', spec: imageSpec('Logo'),
-    help: 'optional — the school\'s logo, PNG, JPEG or WebP. It shows in a small circle beside the school name.',
+    help: 'optional — the school\'s logo, PNG, JPG/JPEG or WebP. It shows in a small circle beside the school name.',
   },
   orderHint:  'A new entry takes its place by date, newest on top. To change the order, drag a row or use ↑ ↓, then SAVE ORDER.',
   rowMeta: (e) => [e.degree, dateRange(e.start, e.end)].filter(Boolean).join(' · ') || 'No dates yet',
@@ -36,8 +36,8 @@ const CONFIG = {
         {monthYearField('start', 'Start date', { required: true, withDay: true })}
         {monthYearField('end', 'End date (or expected)', { required: true, withDay: true })}
       </div>
-      {textField('activities', 'Activities and societies', { multiline: true, rows: 2, placeholder: 'Ex: Computing Society, Cricket' })}
-      {textField('description', 'Description', { multiline: true, rows: 3 })}
+      {textField('activities', 'Activities and societies', { multiline: true, rows: 2, max: 500, placeholder: 'Ex: Computing Society, Cricket' })}
+      {textField('description', 'Description', { multiline: true, rows: 3, max: 1000 })}
       {textField('website', 'School website (optional)', { placeholder: 'Ex: https://www.westminster.ac.uk', mono: true })}
     </>
   ),

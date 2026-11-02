@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { useAbout, useUpdateAbout } from '../../../hooks/useAbout';
 import { useAdminFlash } from '../../../hooks/useAdminFlash';
 import { useFormGuard } from '../../../hooks/useFormGuard';
 import { useUnsavedChanges } from '../../../hooks/useUnsavedChanges';
 import { useStagedFile } from '../../../hooks/useStagedFile';
 import { isEntryDirty, moveId, dropId } from '../../../utils/entryForm';
+import { toggleTag, removeTag, hasTag } from '../../../utils/blogForm';
 import { fieldProps, errorId } from '../../../utils/formErrors';
 import { formatBytes, messageFor, prepareFile, pictureOrPdfSpec, isPdfFile, MAX_UPLOAD_MB } from '../../../utils/mediaFile';
 import { MonthYearField } from '../MonthYearField';
+import { VocabularyPicker } from '../VocabularyPicker';
 import { DropZone } from '../DropZone';
 import { badgeFor } from '../mediaBadge';
 import { UploadPill } from '../UploadPill';
@@ -21,20 +22,23 @@ import styles from './EntryListPanel.module.css';
  * Education and Certificates. Both live the same life, so both panels are this
  * component with their own fields (AdminEducationPanel, AdminCertificatesPanel).
  *
- * Three cards, every standing admin rule (product-requirements.md):
- *   1. SECTION TEXT — the words around the list on the site, saved to About.
- *   2. THE FORM — a new entry SAVES AS DRAFT (title only, invisible); an
+ * Two cards, every standing admin rule (product-requirements.md):
+ *   1. THE FORM — a new entry SAVES AS DRAFT (title only, invisible); an
  *      existing one REVERTS. Stages until SAVE (the picture too), SAVE dim until
  *      dirty, an invalid save is refused with every field marked.
- *   3. THE LIST — PUBLISH/UNPUBLISH, EDIT, DELETE (ConfirmDialog), and the
+ *   2. THE LIST — PUBLISH/UNPUBLISH, EDIT, DELETE (ConfirmDialog), and the
  *      ORDER: dragged or moved with ↑ ↓, staged until SAVE ORDER — the order is
  *      what decides the home page (its first six certificates).
- * Leaving with any of the three unsaved asks first (useUnsavedChanges).
+ * Leaving with the form or the order unsaved asks first (useUnsavedChanges).
  *
  * The record's shape lives in `config`:
  *   FID, noun, hooks, toForm, toPayload, formErrors, titleField,
  *   renderFields(helpers), rowMeta(entry), media { field, label, help, spec? },
- *   textFields (optional — no Section text card without them; Education has none)
+ *   group(entry) (optional — rows move only among rows of the same group;
+ *   Certificates: pinned / not, since pinned ones always lead, owner 2026-11-02)
+ *
+ * No "Section text" card: every word around the lists on the site is fixed
+ * (owner, 2026-10-31 for Education, 2026-11-02 for Certificates).
  */
 export function EntryListPanel({ config }) {
   const { FID, noun, hooks, toForm, toPayload, formErrors, titleField, media } = config;
@@ -51,7 +55,7 @@ export function EntryListPanel({ config }) {
   const removePicture = hooks.useRemovePicture();
   const { showFlash } = useAdminFlash();
 
-  // ── 2. The form — DERIVED from the open record until the first edit ───────
+  // ── 1. The form — DERIVED from the open record until the first edit ───────
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(null);
   const saved = editingId ? entries.find((e) => e._id === editingId) ?? null : null;
@@ -162,39 +166,7 @@ export function EntryListPanel({ config }) {
     return true;
   };
 
-  // ── 1. Section text ───────────────────────────────────────────────────────
-  const aboutQuery = useAbout();
-  const updateAbout = useUpdateAbout();
-  const textFields = config.textFields ?? [];
-  const storedText = Object.fromEntries(textFields.map(({ name }) => [name, aboutQuery.data?.[name] ?? '']));
-  const [textDraft, setTextDraft] = useState(null);
-  const text = textDraft ?? storedText;
-  const textErrors = (values) => textFields
-    .filter(({ name, max }) => String(values[name] ?? '').trim().length > max)
-    .map(({ name, label, max }) => ({ field: name, message: `${label} cannot exceed ${max} characters.` }));
-  const TFID = `${FID}-text`;
-  const textGuard = useFormGuard(textErrors, TFID);
-  const textPayload = (values) => Object.fromEntries(Object.entries(values).map(([k, v]) => [k, String(v).trim()]));
-  const textDirty = JSON.stringify(textPayload(text)) !== JSON.stringify(textPayload(storedText));
-  const [textSaveError, setTextSaveError] = useState(null);
-
-  const saveText = async () => {
-    if (!textGuard.check(text)) return false;
-    setTextSaveError(null);
-    try {
-      await updateAbout.mutateAsync(textPayload(text));
-      setTextDraft(null);
-      showFlash('Section text saved');
-      return true;
-    } catch (err) {
-      setTextSaveError(`Section text: ${messageFor(err)}`);
-      return false;
-    }
-  };
-
-  const revertText = () => { setTextDraft(null); setTextSaveError(null); textGuard.reset(); };
-
-  // ── 3. The order — staged until SAVE ORDER ────────────────────────────────
+  // ── 2. The order — staged until SAVE ORDER ────────────────────────────────
   const [orderDraft, setOrderDraft] = useState(null);
   const savedIds = entries.map((e) => e._id);
   // A staged order is reconciled with the live list: deleted entries drop out,
@@ -223,7 +195,7 @@ export function EntryListPanel({ config }) {
   const [dropAt, setDropAt] = useState(null);
   const endDrag = () => { setDragId(null); setDropAt(null); };
 
-  // ── Leaving asks first — whichever of the three is unsaved ────────────────
+  // ── Leaving asks first — the form or the order ────────────────────────────
   // SAVE in the dialog only when exactly ONE thing is pending: with two, a
   // single "SAVE" would silently pick one (Skills' rule).
   const keepsLive = Boolean(saved) && saved.published === true;
@@ -233,7 +205,6 @@ export function EntryListPanel({ config }) {
       saveLabel: !saved ? 'SAVE AS DRAFT' : keepsLive ? 'SAVE CHANGES' : 'SAVE DRAFT',
       what: saved ? `“${saved[titleField]}”` : `your new ${noun}`,
     },
-    textDirty && { save: saveText, saveLabel: 'SAVE TEXT', what: 'the section text' },
     orderDirty && { save: saveOrder, saveLabel: 'SAVE ORDER', what: `the ${noun} order` },
   ].filter(Boolean);
   const leave = parts.length === 1 ? parts[0] : { what: parts.map((p) => p.what).join(' and ') };
@@ -281,7 +252,7 @@ export function EntryListPanel({ config }) {
   // the fields (owner, 2026-10-31), not only count them.
   const labels = {};
 
-  const textField = (name, label, { placeholder, multiline, rows = 3, mono, required } = {}) => {
+  const textField = (name, label, { placeholder, multiline, rows = 3, mono, required, max } = {}) => {
     labels[name] = label;
     return (
     <div key={name}>
@@ -307,6 +278,12 @@ export function EntryListPanel({ config }) {
           onChange={(e) => edit({ [name]: e.target.value }, name)}
         />
       )}
+      {/* A character count, like LinkedIn's (owner, 2026-11-02). */}
+      {max && (
+        <p className={form[name].length > max ? `${styles.counter} ${styles.counterOver}` : styles.counter}>
+          {form[name].length} / {max}
+        </p>
+      )}
       <FieldError field={name} guard={guard} fid={FID} />
     </div>
     );
@@ -329,6 +306,61 @@ export function EntryListPanel({ config }) {
     );
   };
 
+  /** An on/off switch (`role="switch"`) — staged like every field until SAVE. */
+  const toggleField = (name, label, { hint, icon } = {}) => {
+    labels[name] = label;
+    const id = `${FID}-${name}`;
+    const on = form[name] === true;
+    return (
+    <div key={name} className={styles.toggleRow}>
+      <button
+        type="button"
+        role="switch"
+        id={id}
+        aria-checked={on}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        className={on ? `${styles.switch} ${styles.switchOn}` : styles.switch}
+        onClick={() => edit({ [name]: !on }, name)}
+      >
+        <span aria-hidden="true" className={styles.switchKnob} />
+        <span className={styles.switchLabel}>
+          {icon && <span aria-hidden="true">{icon} </span>}{label}
+        </span>
+      </button>
+      {hint && <p className={styles.toggleHint} id={`${id}-hint`}>{hint}</p>}
+    </div>
+    );
+  };
+
+  /**
+   * A tag picker over a shared vocabulary (`type`) — Blog's, owner 2026-11-02.
+   * `single`: one value only — picking another REPLACES it, picking the
+   * picked one clears it.
+   */
+  const tagField = (name, label, { type, required, single } = {}) => {
+    labels[name] = label;
+    const labelId = `${FID}-${name}-label`;
+    return (
+    <div key={name}>
+      <p className={`${a.label} ${required ? styles.required : ''}`} id={labelId}>{label}</p>
+      <VocabularyPicker
+        type={type}
+        selected={form[name]}
+        field={{ ...fieldProps(guard.errors, FID, name), 'aria-labelledby': labelId }}
+        single={single}
+        onToggle={(value) => edit({
+          [name]: !single ? toggleTag(form[name], value) : hasTag(form[name], value) ? '' : value,
+        }, name)}
+        // The server stripped a deleted tag from every STORED record; the one
+        // open here is unsaved form state, so strip it here too.
+        onRemoved={(value) => edit({ [name]: removeTag(form[name], value) }, name)}
+        onError={(message) => setSaveErrors([message])}
+      />
+      <FieldError field={name} guard={guard} fid={FID} />
+    </div>
+    );
+  };
+
   // ── Buttons ───────────────────────────────────────────────────────────────
   // `disabled` is `!dirty`, never `|| invalid` (owner rule); PUBLISH on an
   // untouched draft is the one exception — publishing IS the change.
@@ -339,9 +371,21 @@ export function EntryListPanel({ config }) {
   const shakeOn = (which) => (guard.shaking && pressed === which ? a.shake : '');
   const confirmTarget = entries.find((e) => e._id === confirmId);
   const canMove = !dragId;
+  // Rows move only within their group (Certificates: pinned ones stay on top).
+  const groupOf = config.group ?? (() => 0);
+  const sameGroup = (j, entry) => j >= 0 && j < ordered.length && groupOf(ordered[j]) === groupOf(entry);
+  /** A drop slot, kept inside the dragged row's own group. */
+  const clampDrop = (at) => {
+    const dragged = ordered.find((e) => e._id === dragId);
+    if (!dragged) return at;
+    const g = groupOf(dragged);
+    const lo = ordered.findIndex((e) => groupOf(e) === g);
+    const hi = ordered.findLastIndex((e) => groupOf(e) === g) + 1;
+    return Math.min(Math.max(at, lo), hi);
+  };
 
   // Rendered BEFORE the JSX below, so `labels` is filled when the banner reads it.
-  const fields = config.renderFields({ textField, monthYearField });
+  const fields = config.renderFields({ textField, monthYearField, tagField, toggleField });
   const named = guard.errors.map((e) => labels[e.field]);
   const problemList = named.every(Boolean)
     ? named.join(', ')
@@ -349,79 +393,7 @@ export function EntryListPanel({ config }) {
 
   return (
     <div className={a.stack}>
-      {/* ── 1. Section text (only for a panel that has some) ── */}
-      {textFields.length > 0 && (
-      <section className={a.panel} aria-labelledby={`${TFID}-title`}>
-        <h2 className={a.panelTitle} id={`${TFID}-title`}>Section text</h2>
-        <p className={styles.note}>The words around the list on the site. Leave one empty to use the built-in wording.</p>
-        {aboutQuery.isLoading ? (
-          <div aria-busy="true"><div className={a.skelRow} /></div>
-        ) : aboutQuery.isError && aboutQuery.data === undefined ? (
-          <LoadError what="THE SECTION TEXT" query={aboutQuery} />
-        ) : (
-          <form className={a.form} noValidate onSubmit={(e) => { e.preventDefault(); saveText(); }}>
-            {textGuard.errors.length > 0 && (
-              <div className={a.bannerError} role="alert">
-                <span className={a.bannerDot} aria-hidden="true" />
-                <span>
-                  CHECK THE CHANGES AGAIN — {textGuard.errors.length}{' '}
-                  {textGuard.errors.length === 1 ? 'field needs' : 'fields need'} attention.
-                </span>
-              </div>
-            )}
-            {textSaveError && (
-              <div className={a.bannerError} role="alert">
-                <span className={a.bannerDot} aria-hidden="true" />
-                <span>{textSaveError}</span>
-              </div>
-            )}
-            <div className={styles.textGrid}>
-              {textFields.map(({ name, label, hint, multiline }) => (
-                <div key={name} className={multiline ? styles.wide : undefined}>
-                  <label className={a.label} htmlFor={`${TFID}-${name}`}>{label}</label>
-                  {multiline ? (
-                    <textarea
-                      {...fieldProps(textGuard.errors, TFID, name)}
-                      className={a.textarea}
-                      rows={2}
-                      placeholder={hint}
-                      value={text[name]}
-                      onChange={(e) => { setTextDraft({ ...text, [name]: e.target.value }); textGuard.clearField(name); }}
-                    />
-                  ) : (
-                    <input
-                      {...fieldProps(textGuard.errors, TFID, name)}
-                      className={a.input}
-                      placeholder={hint}
-                      value={text[name]}
-                      onChange={(e) => { setTextDraft({ ...text, [name]: e.target.value }); textGuard.clearField(name); }}
-                    />
-                  )}
-                  <FieldError field={name} guard={textGuard} fid={TFID} />
-                </div>
-              ))}
-            </div>
-            <div className={styles.saveRow}>
-              <button
-                key={`text-${textGuard.shakeKey}`}
-                type="submit"
-                className={`${a.btnPrimary} ${textGuard.shaking ? a.shake : ''}`}
-                onAnimationEnd={textGuard.onShakeEnd}
-                disabled={!textDirty || updateAbout.isPending}
-              >
-                {updateAbout.isPending ? 'SAVING…' : 'SAVE TEXT'}
-              </button>
-              {textDirty && !updateAbout.isPending && (
-                <button type="button" className={a.btnGhost} onClick={revertText}>REVERT CHANGES</button>
-              )}
-              {textDirty && !updateAbout.isPending && <span className={styles.unsaved}>UNSAVED CHANGES</span>}
-            </div>
-          </form>
-        )}
-      </section>
-      )}
-
-      {/* ── 2. The form ── */}
+      {/* ── 1. The form ── */}
       <section className={a.panel} aria-labelledby={`${FID}-form-title`}>
         <div className={styles.cardHead}>
           <h2 className={styles.cardTitle} id={`${FID}-form-title`}>
@@ -499,7 +471,7 @@ export function EntryListPanel({ config }) {
         </form>
       </section>
 
-      {/* ── 3. The list ── */}
+      {/* ── 2. The list ── */}
       <section className={a.panel} aria-labelledby={`${FID}-list-title`}>
         <h2 className={styles.listTitle} id={`${FID}-list-title`}>
           {config.listTitle}{!isLoading && !isError && ` (${entries.length})`}
@@ -548,7 +520,7 @@ export function EntryListPanel({ config }) {
                       if (!dragId) return;
                       e.preventDefault();
                       const box = e.currentTarget.getBoundingClientRect();
-                      const at = e.clientY > box.top + box.height / 2 ? i + 1 : i;
+                      const at = clampDrop(e.clientY > box.top + box.height / 2 ? i + 1 : i);
                       if (dropAt !== at) setDropAt(at);
                     }}
                   >
@@ -562,10 +534,10 @@ export function EntryListPanel({ config }) {
                       <span className={a.rowMeta}>{config.rowMeta(entry)}</span>
                     </span>
                     <span className={a.rowActions}>
-                      <button type="button" className={a.btnRow} disabled={!canMove || i === 0}
+                      <button type="button" className={a.btnRow} disabled={!canMove || !sameGroup(i - 1, entry)}
                         onClick={() => setOrderDraft(moveId(orderedIds, entry._id, -1))}
                         aria-label={`Move ${title} up`}>↑</button>
-                      <button type="button" className={a.btnRow} disabled={!canMove || i === ordered.length - 1}
+                      <button type="button" className={a.btnRow} disabled={!canMove || !sameGroup(i + 1, entry)}
                         onClick={() => setOrderDraft(moveId(orderedIds, entry._id, 1))}
                         aria-label={`Move ${title} down`}>↓</button>
                       <button type="button" className={a.btnRow} onClick={() => publishFromRow(entry)}
@@ -701,7 +673,9 @@ function PictureBlock({ id, label, help, stored, staged, accept, onPick, onRejec
       {error && <p className={a.fieldError} role="alert">{error}</p>}
       {/* The caption follows the slot's own rules: a logo takes no PDF (owner, 2026-10-31). */}
       <p className={styles.caption}>
-        {accept.includes('.pdf') ? 'PNG, JPEG, WEBP OR PDF' : 'PNG, JPEG OR WEBP'} · MAX {MAX_UPLOAD_MB} MB · LARGER PHOTOS ARE RESIZED
+        {accept.includes('.pdf')
+          ? <>PNG, JPG/JPEG, WEBP OR PDF · MAX {MAX_UPLOAD_MB} MB · LARGER PHOTOS ARE RESIZED · A PDF SHOWS ITS FIRST PAGE</>
+          : <>PNG, JPG/JPEG OR WEBP · MAX {MAX_UPLOAD_MB} MB · LARGER PHOTOS ARE RESIZED</>}
       </p>
     </div>
   );

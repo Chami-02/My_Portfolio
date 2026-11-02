@@ -56,16 +56,6 @@
 
 /* ── the form ─────────────────────────────────────────────────────────── */
 
-.textGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 14px;
-}
-
-.wide {
-  grid-column: 1 / -1;
-}
-
 .saveRow {
   display: flex;
   flex-wrap: wrap;
@@ -238,4 +228,82 @@
 .required::after {
   content: ' *';
   content: ' *' / '';
+}
+
+/* The character count under a long text box (owner, 2026-11-02). */
+.counter {
+  margin: 6px 0 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.counterOver {
+  color: var(--danger);
+}
+
+/* ── an on/off switch (owner, 2026-11-02: "pin this item?") ─────────────── */
+.toggleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+.switch {
+  position: relative;          /* the knob is placed against it */
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+/* The track — the knob slides along it. */
+.switch::before {
+  content: '';
+  order: -1;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(var(--ln), .18);
+  border: 1px solid rgba(var(--ln), .22);
+  transition: background .2s, border-color .2s;
+}
+
+.switchKnob {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--strong);
+  transition: transform .2s;
+}
+
+.switchOn::before {
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+.switchOn .switchKnob {
+  background: var(--accInk);
+  transform: translateX(18px);
+}
+
+.switchLabel {
+  font-weight: 600;
+}
+
+.toggleHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
 }

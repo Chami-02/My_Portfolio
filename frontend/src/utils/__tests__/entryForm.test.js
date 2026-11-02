@@ -8,18 +8,29 @@ import {
 const fields = (errors) => errors.map((e) => e.field);
 
 describe('certificates', () => {
-  it('a draft needs only a title', () => {
-    expect(certificateFormErrors({ ...certificateToForm(null), title: 'X', published: false })).toEqual([]);
-    expect(fields(certificateFormErrors({ ...certificateToForm(null), published: false }))).toEqual(['title']);
+  // Owner, 2026-11-02: title, issuer and issue date on EVERY save — drafts too.
+  it.each([false, true])('title, issuer and issue date are required (published: %s)', (published) => {
+    const blank = { ...certificateToForm(null), published };
+    expect(fields(certificateFormErrors(blank))).toEqual(['title', 'issuer', 'issued', 'tags']);
+    expect(certificateFormErrors(blank).slice(0, 3).every((e) => e.message === 'This field is required.')).toBe(true);
+    expect(certificateFormErrors({ ...blank, title: 'X', issuer: 'Y', issued: '2025', tags: 'Cloud' })).toEqual([]);
   });
 
-  it('publishing needs an issuer and an issue date', () => {
-    const errors = certificateFormErrors({ ...certificateToForm(null), title: 'X', published: true });
-    expect(fields(errors)).toEqual(['issuer', 'issued']);
+  it('exactly ONE tag (owner, 2026-11-02)', () => {
+    const form = { ...certificateToForm(null), title: 'X', issuer: 'Y', issued: '2025' };
+    expect(fields(certificateFormErrors({ ...form, tags: '' }))).toEqual(['tags']);
+    expect(fields(certificateFormErrors({ ...form, tags: 'Cloud, AWS' }))).toEqual(['tags']);
+    expect(certificateFormErrors({ ...form, tags: 'Cloud' })).toEqual([]);
+  });
+
+  it('a description is optional, at most 1000 characters', () => {
+    const form = { ...certificateToForm(null), title: 'X', issuer: 'Y', issued: '2025', tags: 'Cloud' };
+    expect(certificateFormErrors({ ...form, description: 'x'.repeat(1000) })).toEqual([]);
+    expect(fields(certificateFormErrors({ ...form, description: 'x'.repeat(1001) }))).toEqual(['description']);
   });
 
   it('a verify link must be https, and an expiry cannot come before the issue', () => {
-    const form = { ...certificateToForm(null), title: 'X', issuer: 'Y', issued: '2025-06', published: true };
+    const form = { ...certificateToForm(null), title: 'X', issuer: 'Y', issued: '2025-06', tags: 'Cloud', published: true };
     expect(fields(certificateFormErrors({ ...form, verifyUrl: 'http://a.com/x' }))).toEqual(['verifyUrl']);
     expect(fields(certificateFormErrors({ ...form, verifyUrl: 'https://a.com/x' }))).toEqual([]);
     expect(fields(certificateFormErrors({ ...form, expires: '2025-05' }))).toEqual(['expires']);

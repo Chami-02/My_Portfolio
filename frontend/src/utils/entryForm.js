@@ -3,6 +3,7 @@
 // list's form is a flat object of strings; `published` is the button's
 // INTENT, never a form field (Projects' pattern).
 import { compareMonthYear, monthYearProblem } from './monthYear';
+import { tagList } from './blogForm';
 
 const HTTPS = /^https:\/\/[^\s/]+\.[^\s]+$/i;
 
@@ -18,30 +19,43 @@ const tooLong = (add, field, label, value, max) => {
 
 // ── Certificates ─────────────────────────────────────────────────────────────
 
-const CERT_KEYS = ['title', 'issuer', 'issued', 'expires', 'credentialId', 'verifyUrl'];
+const CERT_KEYS = ['title', 'issuer', 'issued', 'expires', 'credentialId', 'verifyUrl', 'description'];
 
-export const certificateToForm = (cert) =>
-  Object.fromEntries(CERT_KEYS.map((k) => [k, cert?.[k] ?? '']));
+// `tags` is an array on the record and a comma-separated string in the form —
+// the shape VocabularyPicker reads and writes (Blog's, owner 2026-11-02).
+export const certificateToForm = (cert) => ({
+  ...Object.fromEntries(CERT_KEYS.map((k) => [k, cert?.[k] ?? ''])),
+  tags: (cert?.tags ?? []).join(', '),
+  pinned: cert?.pinned === true,   // owner, 2026-11-02
+});
 
 export const certificatePayload = (form, { publish }) => ({
   ...Object.fromEntries(CERT_KEYS.map((k) => [k, text(form[k])])),
+  tags: tagList(form.tags),
+  pinned: form.pinned === true,
   published: Boolean(publish),
 });
 
 export const certificateFormErrors = (form = {}) => {
   const errors = [];
   const add = (field, message) => errors.push({ field, message });
-  const publish = form.published !== false;
   const v = Object.fromEntries(CERT_KEYS.map((k) => [k, text(form[k])]));
 
+  // Title, issuer and issue date: required on EVERY save, drafts too
+  // (owner, 2026-11-02 — Education's rule).
   if (!v.title) add('title', REQUIRED);
   else tooLong(add, 'title', 'Title', v.title, 150);
 
-  if (!v.issuer) { if (publish) add('issuer', 'Issuer is required to publish.'); }
+  if (!v.issuer) add('issuer', REQUIRED);
   else tooLong(add, 'issuer', 'Issuer', v.issuer, 100);
 
-  if (!v.issued) { if (publish) add('issued', 'Add the year it was issued to publish.'); }
+  if (!v.issued) add('issued', REQUIRED);
   else if (monthYearProblem(v.issued)) add('issued', monthYearProblem(v.issued));
+
+  // Exactly one tag (owner, 2026-11-02) — the public page's filter pill.
+  const tags = tagList(form.tags);
+  if (tags.length === 0) add('tags', 'Pick a tag, or add a new one.');
+  else if (tags.length > 1) add('tags', 'A certificate takes one tag.');
 
   if (monthYearProblem(v.expires)) add('expires', monthYearProblem(v.expires));
   else if (v.expires && v.issued && !monthYearProblem(v.issued) && compareMonthYear(v.expires, v.issued) < 0) {
@@ -51,6 +65,8 @@ export const certificateFormErrors = (form = {}) => {
   tooLong(add, 'credentialId', 'Credential ID', v.credentialId, 100);
 
   if (v.verifyUrl && !HTTPS.test(v.verifyUrl)) add('verifyUrl', 'Use a full address starting with https://');
+
+  tooLong(add, 'description', 'Description', v.description, 1000);
 
   return errors;
 };

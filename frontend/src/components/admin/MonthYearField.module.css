@@ -20,6 +20,19 @@
   gap: 8px;
 }
 
+/* The boxes are ~56–70px wide in the admin form. Two things took the room
+   "DD" / "YYYY" need (measured 2026-11-02): 14px of side padding, and the
+   space Chrome KEEPS for a datalist's arrow even while the arrow is hidden.
+   The arrow goes (the common DD MM YYYY pattern has none). The suggestions
+   still open as you type, and with ↓. */
+.box {
+  padding-inline: 10px;
+}
+
+.box::-webkit-calendar-picker-indicator {
+  display: none !important;
+}
+
 .visuallyHidden {
   position: absolute;
   width: 1px;

@@ -8,9 +8,9 @@ import { renderWithGuard } from '../../../../test/renderWithGuard';
 const m = vi.hoisted(() => {
   const mut = () => ({ mutateAsync: vi.fn(), isPending: false });
   return {
-    list: vi.fn(), about: vi.fn(),
+    list: vi.fn(),
     create: mut(), update: mut(), remove: mut(), reorder: mut(), upload: mut(), removePic: mut(),
-    updateAbout: mut(), showFlash: vi.fn(),
+    showFlash: vi.fn(),
   };
 });
 
@@ -21,7 +21,6 @@ vi.mock('../../../../hooks/useEntries', () => ({
     useReorder: () => m.reorder, useUploadPicture: () => m.upload, useRemovePicture: () => m.removePic,
   },
 }));
-vi.mock('../../../../hooks/useAbout', () => ({ useAbout: m.about, useUpdateAbout: () => m.updateAbout }));
 vi.mock('../../../../hooks/useAdminFlash', () => ({ useAdminFlash: () => ({ showFlash: m.showFlash }) }));
 
 const { AdminEducationPanel } = await import('../AdminEducationPanel');
@@ -32,7 +31,6 @@ const inForm = (label) => within(formCard()).getByLabelText(label);
 beforeEach(() => {
   vi.clearAllMocks();
   m.list.mockReturnValue({ data: [], isLoading: false });
-  m.about.mockReturnValue({ data: {}, isLoading: false });
   m.create.mutateAsync = vi.fn().mockResolvedValue({ _id: 'e1' });
   window.scrollTo = vi.fn();
 });
@@ -48,9 +46,9 @@ describe('AdminEducationPanel', () => {
     expect(within(formCard()).queryByLabelText(/skills|proof/i)).not.toBeInTheDocument();
     const file = formCard().querySelector('input[type="file"]');
     expect(file.getAttribute('accept')).not.toMatch(/pdf/);
-    expect(within(formCard()).getByText(/PNG, JPEG OR WEBP · MAX/)).toBeInTheDocument();
+    expect(within(formCard()).getByText(/PNG, JPG\/JPEG OR WEBP · MAX/)).toBeInTheDocument();
     expect(within(formCard()).queryByText(/OR PDF/)).not.toBeInTheDocument();
-    expect(within(formCard()).getByText(/the school's logo, PNG, JPEG or WebP/)).toBeInTheDocument();
+    expect(within(formCard()).getByText(/the school's logo, PNG, JPG\/JPEG or WebP/)).toBeInTheDocument();
   });
 
   it('has no Section text card — the heading is fixed (owner, 2026-10-31)', () => {
@@ -147,5 +145,57 @@ describe('AdminEducationPanel', () => {
     m.list.mockReturnValue({ data: undefined, isLoading: true });
     renderWithGuard(<AdminEducationPanel />);
     expect(screen.getByRole('heading', { name: 'All education' })).toBeInTheDocument();
+  });
+});
+
+// The drag order — Education keeps it (Certificates sort themselves since
+// 2026-11-02, so these moved here from AdminCertificatesPanel.test.jsx).
+describe('the order', () => {
+  const E1 = Object.freeze({ _id: 'e1', school: 'Westminster', start: '2022', end: '2027', published: true, logo: { url: '' } });
+  const E2 = Object.freeze({ _id: 'e2', school: 'Mahinda College', start: '2010', end: '2021', published: true, logo: { url: '' } });
+  const E3 = Object.freeze({ _id: 'e3', school: 'Primary', start: '2005', end: '2010', published: false, logo: { url: '' } });
+  const listCard = () => screen.getByRole('heading', { name: /All education/ }).closest('section');
+
+  beforeEach(() => {
+    m.list.mockReturnValue({ data: [E1, E2, E3], isLoading: false });
+    m.reorder.mutateAsync = vi.fn().mockResolvedValue([]);
+  });
+
+  it('↓ stages a new order (nothing sent); SAVE ORDER sends every id', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminEducationPanel />);
+    await user.click(screen.getByRole('button', { name: 'Move Westminster down' }));
+    expect(m.reorder.mutateAsync).not.toHaveBeenCalled();
+    expect(within(listCard()).getByText('UNSAVED ORDER')).toBeInTheDocument();
+
+    await user.click(within(listCard()).getByRole('button', { name: 'SAVE ORDER' }));
+    expect(m.reorder.mutateAsync).toHaveBeenCalledWith(['e2', 'e1', 'e3']);
+  });
+
+  // A staged order is reconciled with the live list: an entry added since
+  // joins at the end and is SENT — a reorder missing one id is refused.
+  it('an entry added while an order is staged is kept, at the end', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminEducationPanel />);
+    await user.click(screen.getByRole('button', { name: 'Move Westminster down' }));
+
+    const NEW = { _id: 'e4', school: 'New one', start: '2001', end: '2002', published: false, logo: { url: '' } };
+    m.list.mockReturnValue({ data: [E1, E2, E3, NEW], isLoading: false });
+    await user.click(screen.getByRole('button', { name: 'Move Primary up' }));
+    await user.click(screen.getByRole('button', { name: 'Move Primary down' }));
+    expect(within(listCard()).getByText('New one')).toBeInTheDocument();
+
+    await user.click(within(listCard()).getByRole('button', { name: 'SAVE ORDER' }));
+    expect(m.reorder.mutateAsync).toHaveBeenCalledWith(['e2', 'e1', 'e3', 'e4']);
+  });
+
+  it('REVERT ORDER puts the saved order back', async () => {
+    const user = userEvent.setup();
+    renderWithGuard(<AdminEducationPanel />);
+    await user.click(screen.getByRole('button', { name: 'Move Primary up' }));
+    await user.click(within(listCard()).getByRole('button', { name: 'REVERT ORDER' }));
+    const rows = within(listCard()).getAllByRole('listitem').map((li) => li.textContent);
+    expect(rows[0]).toMatch(/^.?Westminster/);
+    expect(within(listCard()).queryByText('UNSAVED ORDER')).not.toBeInTheDocument();
   });
 });
