@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Reveal } from '../motion';
-import { useAbout } from '../../hooks/useAbout';
 import { useCertificates, useEducation } from '../../hooks/useEntries';
-import { sectionText } from '../../utils/sectionText';
 import { dateRange, splitMonthYear } from '../../utils/monthYear';
 import styles from './EducationCertificates.module.css';
 
@@ -38,15 +36,13 @@ export const HOME_CERTIFICATES = 6;
  * (the other sections' rule: the visitor gets no error box). The VIEW ALL link
  * shows whenever the certificates column does — always, not only past six
  * (owner): it is the way to the pictures, the verify buttons and the links.
+ * Every word here is fixed (owner, 2026-11-02 — no "Section text" card).
  */
 export function EducationCertificates() {
-  const { data: about } = useAbout();
   const { data: education = [] } = useEducation();
   const { data: certificates = [] } = useCertificates();
 
   if (education.length === 0 && certificates.length === 0) return null;
-
-  const verify = sectionText(about, 'certificatesVerify');
 
   return (
     <div className={styles.row}>
@@ -100,7 +96,7 @@ export function EducationCertificates() {
       {certificates.length > 0 && (
         <div className={styles.column}>
           <Reveal as="h3" type="up" className={styles.heading}>
-            {sectionText(about, 'certificatesHeading')}
+            Certificates
           </Reveal>
           <ul className={styles.certs}>
             {certificates.slice(0, HOME_CERTIFICATES).map((c, i) => (
@@ -118,9 +114,9 @@ export function EducationCertificates() {
                     href={c.verifyUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`${verify} ${c.title} (opens in a new tab)`}
+                    aria-label={`VERIFY ${c.title} (opens in a new tab)`}
                   >
-                    {verify} ↗
+                    VERIFY ↗
                   </a>
                 )}
               </Reveal>
@@ -128,7 +124,7 @@ export function EducationCertificates() {
           </ul>
           <Reveal type="up" delay={120}>
             <Link className={styles.viewAll} to="/certificates">
-              {sectionText(about, 'certificatesViewAll')} →
+              VIEW ALL CERTIFICATES →
             </Link>
           </Reveal>
         </div>

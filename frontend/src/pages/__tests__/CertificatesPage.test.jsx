@@ -1,28 +1,29 @@
-// PF-143 — /certificates: the picture grid, the issuer filter, and the big
+// PF-143 — /certificates: the picture grid, the tag pills, and the big
 // view driven by the URL (shareable, Back/Esc closes, ← → step).
 import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { MotionProvider } from '../../providers/MotionProvider';
+import { ThemeProvider } from '../../providers/ThemeProvider';
 
 const data = vi.hoisted(() => ({ query: null }));
-vi.mock('../../hooks/useAbout', () => ({ useAbout: () => ({ data: undefined }) }));
 vi.mock('../../hooks/useEntries', () => ({ useCertificates: () => data.query }));
 
 const { CertificatesPage } = await import('../CertificatesPage');
 
 const CERTS = [
   { _id: 'a', slug: 'cloud-oracle', title: 'Cloud Foundations', issuer: 'Oracle', issued: '2025-06',
-    credentialId: 'ABC-123', verifyUrl: 'https://verify.example/a', image: { url: 'https://cdn.test/a.jpg' } },
+    credentialId: 'ABC-123', verifyUrl: 'https://verify.example/a', image: { url: 'https://cdn.test/a.jpg' },
+    description: 'Core OCI services.\nTaken in one sitting.', tags: ['Cloud'] },
   { _id: 'b', slug: 'python-datacamp', title: 'Python', issuer: 'DataCamp', issued: '2025-03',
-    image: { url: 'https://cdn.test/b.jpg' } },
-  { _id: 'c', slug: 'sql-datacamp', title: 'SQL', issuer: 'DataCamp', issued: '2024', image: { url: '' } },
+    image: { url: 'https://cdn.test/b.jpg' }, tags: ['Python'] },
+  { _id: 'c', slug: 'sql-datacamp', title: 'SQL', issuer: 'DataCamp', issued: '2024', image: { url: '' }, tags: ['Data'] },
 ];
 
 const renderAt = (entries) => {
   const router = createMemoryRouter(
-    [{ path: '/certificates/:slug?', element: <MotionProvider><CertificatesPage /></MotionProvider> }],
+    [{ path: '/certificates/:slug?', element: <ThemeProvider><MotionProvider><CertificatesPage /></MotionProvider></ThemeProvider> }],
     { initialEntries: entries, initialIndex: entries.length - 1 },
   );
   render(<RouterProvider router={router} />);
@@ -35,25 +36,83 @@ beforeEach(() => {
 });
 
 describe('the grid', () => {
-  it('shows every certificate as a picture card with VIEW CERTIFICATE, title and issuer', () => {
+  it('sits on the site\'s starfield, like /blog (owner, 2026-11-02)', () => {
+    renderAt(['/certificates']);
+    expect(document.querySelector('canvas[aria-hidden="true"]')).not.toBeNull();
+  });
+
+  it('shows every certificate as a picture card with VIEW, title and issuer', () => {
     renderAt(['/certificates']);
     expect(screen.getByRole('heading', { level: 1, name: 'Certificates' })).toBeInTheDocument();
     expect(screen.getByText('3 CERTIFICATES')).toBeInTheDocument();
     const cards = screen.getAllByRole('listitem');
     expect(cards).toHaveLength(3);
-    expect(within(cards[0]).getByText('VIEW CERTIFICATE')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('VIEW')).toBeInTheDocument();
     expect(within(cards[0]).getByText('Oracle · JUN 2025')).toBeInTheDocument();
     expect(cards[0].querySelector('img')).toHaveAttribute('src', 'https://cdn.test/a.jpg');
     // No picture → the issuer stands in, never a broken image.
     expect(cards[2].querySelector('img')).toBeNull();
   });
 
-  it('filters by issuer through the URL', async () => {
+  // Owner, 2026-11-02: a pill row by TAG (no search), replacing the issuer
+  // filter. ONE pill at a time — a certificate has exactly one tag.
+  it('a pill shows only its certificates; another pill switches; the picked one again shows all', async () => {
     const router = renderAt(['/certificates']);
-    await userEvent.click(screen.getByRole('button', { name: 'DataCamp' }));
-    expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(router.state.location.search).toBe('?issuer=DataCamp');
-    expect(screen.getByRole('button', { name: 'DataCamp' })).toHaveAttribute('aria-pressed', 'true');
+    const row = screen.getByRole('group', { name: 'Filter by tag' });
+    expect(within(row).getAllByRole('button').map((b) => b.textContent)).toEqual(['ALL', 'Cloud', 'Data', 'Python']);
+    expect(within(row).getByRole('button', { name: 'ALL' })).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Data' }));
+    expect(screen.getAllByRole('listitem').map((li) => li.querySelector('a').textContent)).toEqual([expect.stringContaining('SQL')]);
+    expect(router.state.location.search).toBe('?tag=Data');
+    expect(screen.getByText('1 OF 3 CERTIFICATES')).toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Data' })).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Python' }));   // switches — never both
+    expect(screen.getAllByRole('listitem').map((li) => li.querySelector('a').textContent)).toEqual([expect.stringContaining('Python')]);
+    expect(router.state.location.search).toBe('?tag=Python');
+    expect(within(row).getByRole('button', { name: 'Data' })).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Python' }));   // the picked one again
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(router.state.location.search).toBe('');
+  });
+
+  it('a tap on the page BACKGROUND shows them all — a tap on a pill or card never does', async () => {
+    const router = renderAt(['/certificates?tag=Cloud']);
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+
+    await userEvent.click(screen.getByText(/Courses and exams I have passed/));   // plain text = background
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(router.state.location.search).toBe('');
+
+    await userEvent.click(within(screen.getByRole('group', { name: 'Filter by tag' })).getByRole('button', { name: 'Cloud' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);   // the pill itself is not "background"
+  });
+
+  // Owner, 2026-11-02: a small pin, top-right, on pinned cards only; the
+  // order is the server's (pinned, then newest) and filtering keeps it.
+  it('a pinned card shows a small pin; the grid keeps the server\'s order', async () => {
+    data.query = { data: [{ ...CERTS[1], pinned: true }, CERTS[0], CERTS[2]], isLoading: false, isError: false };
+    renderAt(['/certificates']);
+    const cards = screen.getAllByRole('listitem');
+    expect(within(cards[0]).getByRole('img', { name: 'Pinned' })).toBeInTheDocument();
+    expect(within(cards[1]).queryByRole('img', { name: 'Pinned' })).not.toBeInTheDocument();
+    expect(cards.map((li) => li.querySelector('a').textContent)).toEqual(
+      [expect.stringContaining('Python'), expect.stringContaining('Cloud Foundations'), expect.stringContaining('SQL')],
+    );
+    await userEvent.click(within(screen.getByRole('group', { name: 'Filter by tag' })).getByRole('button', { name: 'Python' }));
+    expect(screen.getAllByRole('listitem').map((li) => li.querySelector('a').textContent)).toEqual(
+      [expect.stringContaining('Python')],
+    );
+  });
+
+  it('a hand-typed ?tag= matches whatever its case; tags are never printed on a card', () => {
+    renderAt(['/certificates?tag=cloud']);
+    const cards = screen.getAllByRole('listitem');
+    expect(cards).toHaveLength(1);
+    expect(within(cards[0]).queryByText('Cloud')).not.toBeInTheDocument();   // owner, 2026-11-02
+    expect(screen.queryByRole('button', { name: 'Oracle' })).not.toBeInTheDocument();   // no issuer filter
   });
 
   it('a failed load says so and offers TRY AGAIN — never "no certificates"', async () => {
@@ -77,6 +136,20 @@ describe('the big view', () => {
       .toHaveAttribute('href', 'https://verify.example/a');
     expect(within(dialog).getByText('1 / 3')).toBeInTheDocument();
     expect(within(dialog).getByRole('button', { name: 'Close' })).toHaveFocus();
+  });
+
+  it('shows the owner\'s description under the details — and nothing when there is none (owner, 2026-11-02)', async () => {
+    renderAt(['/certificates/cloud-oracle']);
+    const dialog = screen.getByRole('dialog', { name: 'Cloud Foundations' });
+    const text = within(dialog).getByText(/Core OCI services/);
+    expect(text.textContent).toBe('Core OCI services.\nTaken in one sitting.');
+    // Under the details: after the issuer line in the document.
+    const meta = within(dialog).getByText('Oracle · ISSUED JUN 2025');
+    expect(meta.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    expect(within(dialog).queryByText('Cloud')).not.toBeInTheDocument();   // tags stay behind the scenes
+    await userEvent.keyboard('{ArrowRight}');
+    expect(within(screen.getByRole('dialog', { name: 'Python' })).queryByText(/Core OCI/)).not.toBeInTheDocument();
   });
 
   it('opening from the grid, then Esc, goes BACK — no dead history entry', async () => {

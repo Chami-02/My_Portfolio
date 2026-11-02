@@ -24,12 +24,13 @@
 
 .heading {
   font-family: var(--font-display);
-  font-size: clamp(26px, 3vw, 34px);
+  /* Smaller twice (owner, 2026-11-02; was clamp(26px, 3vw, 34px)). */
+  font-size: clamp(20px, 2vw, 24px);
   line-height: 1;
   letter-spacing: .02em;
   text-transform: uppercase;
   color: var(--strong);
-  margin: 0 0 26px;
+  margin: 0 0 22px;
 }
 
 /* ── Education: the timeline ─────────────────────────────────────────── */
@@ -70,15 +71,18 @@
   animation-iteration-count: infinite;
 }
 
-/* With a logo, the dot lines up with the disc's middle (44px disc → 22px). */
+/* With a logo, the dot lines up with the disc's middle (38px disc → 19px). */
 .step:has(.logo) .dot {
-  top: 18px;
+  top: 15.5px;
 }
 
-/* The logo disc + the degree/school lines beside it. */
+/* The logo disc + the degree/school lines beside it. TOP-aligned (LinkedIn's
+   list does the same): the two text lines are often taller than the disc, and
+   centring then pushed the disc off the timeline dot (measured 2026-11-02:
+   3.3px). From the top, the disc's middle is always half its size down. */
 .head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   margin-bottom: 6px;
 }
@@ -99,9 +103,9 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 5px;
+  width: 38px;
+  height: 38px;
+  padding: 4px;
   border-radius: 50%;
   background: #F6F3EC;
   border: 1px solid rgba(252, 163, 17, .55);
@@ -154,7 +158,7 @@ a.logo:hover {
 }
 
 .degree {
-  font-size: clamp(16px, 1.6vw, 18px);
+  font-size: clamp(14.5px, 1.4vw, 16px);
   font-weight: 600;
   line-height: 1.4;
   color: var(--strong);
@@ -163,7 +167,7 @@ a.logo:hover {
 
 .school {
   color: var(--text);
-  font-size: 15px;
+  font-size: 13.5px;
   line-height: 1.5;
   margin: 0 0 6px;
 }
@@ -171,7 +175,7 @@ a.logo:hover {
 .meta {
   display: block;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -184,7 +188,7 @@ a.logo:hover {
 
 .note {
   color: var(--muted);
-  font-size: 14.5px;
+  font-size: 13.5px;
   line-height: 1.7;
   margin: 0 0 6px;
 }
@@ -212,7 +216,7 @@ a.logo:hover {
 
 .tick {
   color: var(--acc, #FCA311);
-  font-size: 15px;
+  font-size: 13.5px;
   line-height: 1;
 }
 
@@ -222,7 +226,7 @@ a.logo:hover {
 
 .certTitle {
   display: block;
-  font-size: clamp(15px, 1.5vw, 17px);
+  font-size: clamp(14px, 1.3vw, 15.5px);
   font-weight: 600;
   line-height: 1.4;
   color: var(--strong);
@@ -239,7 +243,7 @@ a.logo:hover {
   display: inline-flex;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: .12em;
   color: var(--acc, #FCA311);
   text-decoration: none;
@@ -257,7 +261,7 @@ a.logo:hover {
   gap: 10px;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: .1em;
   padding: 12px 22px;
   border-radius: 999px;
@@ -291,8 +295,8 @@ a.logo:hover {
   }
 
   .logo {
-    width: 38px;
-    height: 38px;
+    width: 34px;
+    height: 34px;
     padding: 4px;
   }
 
@@ -301,6 +305,14 @@ a.logo:hover {
   }
 
   .step:has(.logo) .dot {
-    top: 15px;   /* the 38px disc's middle */
+    top: 13.5px;   /* the 34px disc's middle */
+  }
+
+  /* A certificate title is a link: a 44px tap area (measured 20px tall,
+     2026-11-02) without moving a thing — the padding is taken back by the
+     negative margin, so the row looks exactly the same. */
+  .certTitle {
+    padding: 12px 0;
+    margin: -12px 0 -8px;   /* base bottom margin 4px − 12px */
   }
 }

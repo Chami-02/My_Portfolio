@@ -1,9 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+  PageShell,
+  StarfieldCanvas,
+  CursorGlow,
+  GrainOverlay,
+} from '../components/ambient';
+import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { Reveal } from '../components/motion';
-import { useAbout } from '../hooks/useAbout';
 import { useCertificates } from '../hooks/useEntries';
-import { sectionText } from '../utils/sectionText';
 import { formatMonthYear } from '../utils/monthYear';
 import styles from './CertificatesPage.module.css';
 
@@ -11,7 +16,7 @@ import styles from './CertificatesPage.module.css';
  * PF-143 — /certificates and /certificates/:slug.
  *
  * The grid is picture cards like the reference site the owner chose
- * (supunsathsara.com/certifications): picture, VIEW CERTIFICATE, title, issuer.
+ * (supunsathsara.com/certifications): picture, a VIEW label (owner, 2026-11-02: was VIEW CERTIFICATE), title, issuer.
  * A card opens the BIG VIEW, and beats the reference in four ways the owner
  * agreed to:
  *   • the big view is a URL (/certificates/<slug>), so a certificate can be
@@ -19,17 +24,25 @@ import styles from './CertificatesPage.module.css';
  *   • ← → and Esc on the keyboard, focus kept inside while it is open;
  *   • the next and previous pictures are fetched ahead, so stepping through
  *     never shows an empty frame (the reference does);
- *   • a filter by issuer once there are two or more issuers.
+ *   • filter pills by TAG (owner, 2026-11-02): ALL, then every tag a published
+ *     certificate carries. ONE pill at a time — a certificate has exactly one
+ *     tag, so another pill simply switches; the picked one again, ALL, or a
+ *     tap on the page's BACKGROUND shows them all. Kept in the URL (`?tag=`).
+ *     Tags are BEHIND THE SCENES: they drive the pills, and are never printed
+ *     on a card or in the big view. (A search can come once the list grows.)
+ *
+ * The ambient layer (starfield, cursor glow, grain) is /blog's, in the same
+ * order (owner, 2026-11-02: "same effects same theme" as every other page).
+ * Every word on it is fixed (owner, 2026-11-02 — no "Section text" card).
  */
 export function CertificatesPage() {
   const { slug } = useParams();
-  const { data: about } = useAbout();
   const query = useCertificates();
   const { data: certificates = [], isLoading } = query;
   const failed = query.isError && query.data === undefined;
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const issuer = searchParams.get('issuer') || '';
+  const picked = searchParams.get('tag') ?? '';
 
   // Arriving here starts at the top; Back restores where the reader was.
   const location = useLocation();
@@ -41,96 +54,152 @@ export function CertificatesPage() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.state]);
 
-  const issuers = [...new Set(certificates.map((c) => c.issuer).filter(Boolean))];
-  const shown = issuer ? certificates.filter((c) => c.issuer === issuer) : certificates;
-  const cardLabel = sectionText(about, 'certificatesCardLabel');
+  // Case-insensitive, because a tag can arrive from a hand-typed URL.
+  const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+  const isPicked = (t) => picked !== '' && same(picked, t);
+  const allTags = [...new Set(certificates.flatMap((c) => c.tags ?? []))].sort((a, b) => a.localeCompare(b));
+  const shown = picked ? certificates.filter((c) => (c.tags ?? []).some(isPicked)) : certificates;
 
-  const setIssuer = (value) => setSearchParams(value ? { issuer: value } : {}, { replace: true });
+  /** One pill at a time: another switches, the picked one (or null = ALL) clears. */
+  const pickTag = (tag) => {
+    const next = tag === null || isPicked(tag) ? '' : tag;
+    setSearchParams(next ? { tag: next } : {}, { replace: true });
+  };
+
+  // A tap on the page's BACKGROUND shows them all again (owner, 2026-11-02):
+  // anywhere in this page that is not a control, a link or the big view. One
+  // document listener, reading the latest state through a ref.
+  const pageRef = useRef(null);
+  const reset = useRef(null);
+  useEffect(() => { reset.current = picked ? () => pickTag(null) : null; });
+  useEffect(() => {
+    const onClick = (e) => {
+      if (!reset.current || !pageRef.current?.contains(e.target)) return;
+      if (e.target.closest('a, button, input, select, textarea, label, [role="dialog"]')) return;
+      reset.current();
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, []);
 
   return (
-    <>
-      <section className={styles.header}>
-        <div className={styles.inner}>
-          <Reveal as="h1" type="up" className={styles.heading}>
-            {sectionText(about, 'certificatesPageHeading')}
-          </Reveal>
-          <Reveal as="p" type="up" delay={60} className={styles.deck}>
-            {sectionText(about, 'certificatesPageIntro')}
-          </Reveal>
-          {certificates.length > 0 && (
-            <Reveal type="up" delay={120} className={styles.statRow}>
-              <span className={styles.countPill}>
-                <span aria-hidden="true" className={styles.countDot} />
-                {certificates.length} {certificates.length === 1 ? 'CERTIFICATE' : 'CERTIFICATES'}
-              </span>
-            </Reveal>
-          )}
-          {issuers.length > 1 && (
-            <div className={styles.filters} role="group" aria-label="Filter by issuer">
-              {['', ...issuers].map((name) => (
-                <button
-                  key={name || 'all'}
-                  type="button"
-                  className={name === issuer ? `${styles.chip} ${styles.chipOn}` : styles.chip}
-                  aria-pressed={name === issuer}
-                  onClick={() => setIssuer(name)}
-                >
-                  {name || 'ALL'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+    <PageShell>
+      {/* Ambient first: a section that establishes its own stacking context
+          sits at the same z-tier as a z-index:0 fixed canvas, and CSS breaks
+          that tie by DOM order. */}
+      <StarfieldCanvas />
+      <CursorGlow />
 
-      <section className={styles.cards}>
-        <div className={styles.inner}>
-          {failed ? (
-            <p className={styles.message}>
-              The certificates could not load.{' '}
-              <button type="button" className={styles.retry} onClick={() => query.refetch()}>
-                TRY AGAIN
-              </button>
-            </p>
-          ) : isLoading ? null : shown.length === 0 ? (
-            <p className={styles.message}>No certificates to show yet.</p>
-          ) : (
-            <ul className={styles.grid}>
-              {shown.map((c, i) => (
-                <Reveal as="li" key={c._id} type="up" delay={Math.min(i, 8) * 50} className={styles.card}>
-                  <Link
-                    className={styles.cardLink}
-                    to={{ pathname: `/certificates/${c.slug}`, search: location.search }}
-                    state={{ fromGrid: true }}
-                  >
-                    <span className={styles.frame}>
-                      {c.image?.url ? (
-                        <img className={styles.picture} src={c.image.url} alt="" loading="lazy" decoding="async" />
-                      ) : (
-                        <span aria-hidden="true" className={styles.noPicture}>{c.issuer || c.title}</span>
-                      )}
-                      <span aria-hidden="true" className={styles.cardLabel}>{cardLabel}</span>
-                    </span>
-                    <span className={styles.cardTitle}>{c.title}</span>
-                    <span className={styles.cardMeta}>
-                      {[c.issuer, formatMonthYear(c.issued)].filter(Boolean).join(' · ')}
-                    </span>
-                  </Link>
+      <ErrorBoundary>
+        <div ref={pageRef}>
+          <section className={styles.header}>
+            <div className={styles.inner}>
+              <Reveal as="h1" type="up" className={styles.heading}>
+                Certificates
+              </Reveal>
+              <Reveal as="p" type="up" delay={60} className={styles.deck}>
+                Courses and exams I have passed. Open one to see it full size, and check it with the issuer.
+              </Reveal>
+              {certificates.length > 0 && (
+                <Reveal type="up" delay={120} className={styles.statRow}>
+                  <span className={styles.countPill}>
+                    <span aria-hidden="true" className={styles.countDot} />
+                    {shown.length < certificates.length && `${shown.length} OF `}
+                    {certificates.length} {certificates.length === 1 ? 'CERTIFICATE' : 'CERTIFICATES'}
+                  </span>
                 </Reveal>
-              ))}
-            </ul>
+              )}
+              {allTags.length > 0 && (
+                <div className={styles.filters} role="group" aria-label="Filter by tag">
+                  {[null, ...allTags].map((tag) => {
+                    const on = tag === null ? picked === '' : isPicked(tag);
+                    return (
+                      <button
+                        key={tag ?? 'all'}
+                        type="button"
+                        className={on ? `${styles.chip} ${styles.chipOn}` : styles.chip}
+                        aria-pressed={on}
+                        onClick={() => pickTag(tag)}
+                      >
+                        {tag ?? 'ALL'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className={styles.cards}>
+            <div className={styles.inner}>
+              {failed ? (
+                <p className={styles.message}>
+                  The certificates could not load.{' '}
+                  <button type="button" className={styles.retry} onClick={() => query.refetch()}>
+                    TRY AGAIN
+                  </button>
+                </p>
+              ) : isLoading ? null : shown.length === 0 ? (
+                <p className={styles.message}>No certificates to show yet.</p>
+              ) : (
+                <ul className={styles.grid}>
+                  {shown.map((c, i) => (
+                    <Reveal as="li" key={c._id} type="up" delay={Math.min(i, 8) * 50} className={styles.card}>
+                      <Link
+                        className={styles.cardLink}
+                        to={{ pathname: `/certificates/${c.slug}`, search: location.search }}
+                        state={{ fromGrid: true }}
+                      >
+                        <span className={styles.frame}>
+                          {c.image?.url ? (
+                            <img className={styles.picture} src={c.image.url} alt="" loading="lazy" decoding="async" />
+                          ) : (
+                            <span aria-hidden="true" className={styles.noPicture}>{c.issuer || c.title}</span>
+                          )}
+                          <span aria-hidden="true" className={styles.cardLabel}>VIEW</span>
+                          {c.pinned && <PinBadge />}
+                        </span>
+                        {/* The card's lower half — the details, on their own surface. */}
+                        <span className={styles.cardBody}>
+                          <span className={styles.cardTitle}>{c.title}</span>
+                          <span className={styles.cardMeta}>
+                            {[c.issuer, formatMonthYear(c.issued)].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
+                      </Link>
+                    </Reveal>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          {slug && !isLoading && !failed && (
+            <CertificateView
+              slug={slug}
+              list={shown.some((c) => c.slug === slug) ? shown : certificates}
+            />
           )}
         </div>
-      </section>
+      </ErrorBoundary>
 
-      {slug && !isLoading && !failed && (
-        <CertificateView
-          slug={slug}
-          list={shown.some((c) => c.slug === slug) ? shown : certificates}
-          verifyLabel={sectionText(about, 'certificatesVerify')}
-        />
-      )}
-    </>
+      {/* Last. z-index 70 sits over the page; the big view (z 90) sits over it. */}
+      <GrainOverlay />
+    </PageShell>
+  );
+}
+
+/**
+ * The small pin in a pinned card's top-left corner (owner, 2026-11-02) — the
+ * same 📌 the admin panel uses ("that looks so cool"). Only
+ * here — never on the home list. `role="img"` + a label, so a screen reader
+ * hears "Pinned" with the card.
+ */
+function PinBadge() {
+  return (
+    <span className={styles.pin} role="img" aria-label="Pinned">
+      📌
+    </span>
   );
 }
 
@@ -147,7 +216,7 @@ export function CertificatesPage() {
  * with ← → REPLACES too: Back always closes the view, it never steps back
  * through every certificate looked at.
  */
-function CertificateView({ slug, list, verifyLabel }) {
+function CertificateView({ slug, list }) {
   const navigate = useNavigate();
   const location = useLocation();
   const panelRef = useRef(null);
@@ -266,6 +335,8 @@ function CertificateView({ slug, list, verifyLabel }) {
                 {cert.credentialId && (
                   <p className={styles.viewMeta}>CREDENTIAL ID · <span className={styles.credential}>{cert.credentialId}</span></p>
                 )}
+                {/* Owner, 2026-11-02: the owner's own words, under the details. */}
+                {cert.description && <p className={styles.viewDescription}>{cert.description}</p>}
               </div>
               {cert.verifyUrl && (
                 <a
@@ -273,9 +344,9 @@ function CertificateView({ slug, list, verifyLabel }) {
                   href={cert.verifyUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`${verifyLabel} ${cert.title} (opens in a new tab)`}
+                  aria-label={`VERIFY ${cert.title} (opens in a new tab)`}
                 >
-                  {verifyLabel} ↗
+                  VERIFY ↗
                 </a>
               )}
             </div>

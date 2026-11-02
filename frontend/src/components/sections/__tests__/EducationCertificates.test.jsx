@@ -4,8 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
-const data = vi.hoisted(() => ({ about: undefined, education: [], certificates: [] }));
-vi.mock('../../../hooks/useAbout', () => ({ useAbout: () => ({ data: data.about }) }));
+const data = vi.hoisted(() => ({ education: [], certificates: [] }));
 vi.mock('../../../hooks/useEntries', () => ({
   useEducation:    () => ({ data: data.education }),
   useCertificates: () => ({ data: data.certificates }),
@@ -27,7 +26,6 @@ const renderRow = () => render(
 );
 
 beforeEach(() => {
-  data.about = undefined;
   data.education = [];
   data.certificates = [];
 });
@@ -115,15 +113,19 @@ describe('EducationCertificates', () => {
     expect(screen.queryByRole('link', { name: /University of Westminster/ })).not.toBeInTheDocument();
   });
 
-  it('every word is the owner\'s when set', () => {
-    data.about = { certificatesHeading: 'Credentials', certificatesViewAll: 'SEE THEM ALL', certificatesVerify: 'CHECK' };
+  it('the home list never shows a pin — it is the /certificates cards\' alone (owner, 2026-11-02)', () => {
+    data.certificates = [cert(1, { pinned: true }), cert(2)];
+    renderRow();
+    expect(screen.queryByRole('img', { name: 'Pinned' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('listitem').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('every word is fixed (owner, 2026-11-02 — no Section text card)', () => {
     data.education = [EDU];
     data.certificates = [cert(1)];
     renderRow();
-    // Education's heading is FIXED (owner, 2026-10-31).
     expect(screen.getByRole('heading', { name: 'Education' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Credentials' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'SEE THEM ALL →' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'CHECK Cert 1 (opens in a new tab)' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Certificates' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'VIEW ALL CERTIFICATES →' })).toBeInTheDocument();
   });
 });

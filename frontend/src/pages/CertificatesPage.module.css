@@ -2,7 +2,7 @@
  *
  * PF-143 — /certificates. Not in the prototype; the header follows /blog's
  * (BlogPage.module.css) and the cards follow the reference site the owner chose
- * (picture, VIEW CERTIFICATE, title, issuer), in this site's vocabulary.
+ * (picture, VIEW, title, issuer), in this site's vocabulary.
  *
  * ⚠️ PF-93 — NO `transition` on a Reveal-wrapped element (`.heading`, `.deck`,
  * `.statRow`, `.card`). The hover lift on `.card` rides Reveal's own
@@ -126,6 +126,24 @@
   color: var(--accInk);
 }
 
+/* The pin on a pinned card — top-left, over the picture: the admin panel's
+   📌 (owner, 2026-11-02). It sits on a small light disc so the red pin reads
+   on a white certificate AND a dark photo, in both themes. */
+.pin {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  line-height: 1;
+  background: rgba(255, 255, 255, .9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .28);
+}
+
 /* ── the grid ───────────────────────────────────────────────────────── */
 
 .grid {
@@ -153,27 +171,28 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 12px 12px 18px;
   color: inherit;
   text-decoration: none;
 }
 
+/* The card's UPPER half: the picture, edge to edge — no gap to the card's
+   border (owner, 2026-11-02). The card's own `overflow: hidden` rounds its
+   top corners. √2 : 1 is a landscape A4 / letter certificate, so `cover`
+   trims almost nothing; the big view still shows the whole page (`contain`). */
 .frame {
   position: relative;
   display: grid;
   place-items: center;
-  aspect-ratio: 4 / 3;
-  border-radius: 12px;
+  aspect-ratio: 1.414 / 1;
   overflow: hidden;
   background: rgba(var(--gnd), .55);
-  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(var(--ln), .1);
 }
 
 .picture {
   width: 100%;
   height: 100%;
-  /* `contain`: a certificate is a document — never crop its edges. */
-  object-fit: contain;
+  object-fit: cover;
   transition: transform .4s cubic-bezier(.16, 1, .3, 1);
 }
 
@@ -190,7 +209,7 @@
   text-align: center;
 }
 
-/* The VIEW CERTIFICATE label, over the bottom of the picture. */
+/* The VIEW label (owner, 2026-11-02), over the bottom of the picture. */
 .cardLabel {
   position: absolute;
   left: 10px;
@@ -205,12 +224,20 @@
   opacity: .92;
 }
 
+/* The card's LOWER half: the details, padded and readable. */
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  padding: 14px 16px 18px;
+}
+
 .cardTitle {
   font-size: 16px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--strong);
-  margin: 0 4px 6px;
 }
 
 .cardMeta {
@@ -219,7 +246,6 @@
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--muted);
-  margin: 0 4px;
 }
 
 .message {
@@ -347,6 +373,16 @@
   text-transform: uppercase;
   color: var(--muted);
   margin: 0 0 4px;
+}
+
+.viewDescription {
+  margin: 12px 0 0;
+  max-width: 70ch;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-line;      /* keeps the owner's own line breaks */
+  overflow-wrap: anywhere;
 }
 
 .credential {
