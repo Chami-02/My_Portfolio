@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Reveal, Marquee } from '../motion';
 import { useAbout } from '../../hooks/useAbout';
 import { cvAnchorProps } from '../../utils/resume';
+import { TypingRoles } from './TypingRoles';
 // WebP since 2026-10-14: the same 820×1028 cut-out, alpha intact, 1.48 MB →
 // 124 KB (cwebp -q 90 -alpha_q 100; 42.4 dB PSNR premultiplied, alpha
 // identical). The design source stays docs/design/assets/hero-ai.png.
@@ -39,19 +40,12 @@ const CHIPS = [
   { label: 'Java',       delay: 1340, cls: 'chipJava' },
 ];
 
-/** Lines 100-108. Each pill's lead dot pulses at its own rate. */
 /* PF-118 — the intro paragraph is the panel's "Hero intro". This is what a
    blank field or a failed fetch shows, and the schema default (About.js
    `heroIntro`) is the same sentence. */
 const HERO_INTRO_FALLBACK =
   'I’m a Computer Science undergraduate and Full-Stack Developer passionate about '
   + 'building modern, scalable web applications.';
-
-const ROLE_PILLS = [
-  { text: 'Full-Stack Web Developer',  delay: 200, cls: 'rolePillDotA' },
-  { text: 'Cloud & DevOps Enthusiast', delay: 280, cls: 'rolePillDotB' },
-  { text: 'Continuous Learner',        delay: 360, cls: 'rolePillDotC' },
-];
 
 // Line 189. The trailing non-breaking space is the prototype's, and it
 // is load-bearing: it holds the gap between the end of one copy and the
@@ -74,10 +68,10 @@ const MARQUEE_TEXT =
  * min-height:100vh flex-centre box that would swallow it. Hence the
  * fragment.
  *
- * The prototype's typeLoop()/ROLES/{{ typed }} typewriter is live in its
- * logic block but never rendered in this markup — grep confirms zero
- * references to `typed` between lines 83 and 191. The three static role
- * pills are the real on-screen content. Not building a typewriter.
+ * The prototype's typeLoop() typewriter was live in its logic block but
+ * never rendered, so PF-80 shipped three static role pills. The owner
+ * swapped them for a typing line on 2026-11-02 (TypingRoles, with the
+ * prototype's timings) and moved the LOUD button under it.
  */
 export function HeroSection() {
   // Shared cache entry with ContactSection's useAbout() — no extra request.
@@ -127,41 +121,30 @@ export function HeroSection() {
               <span className={styles.headingAccent}>Gallage</span>
             </Reveal>
 
-            <div className={styles.pillRow}>
-              {ROLE_PILLS.map((pill) => (
-                <Reveal
-                  key={pill.text}
-                  as="span"
-                  type="pop"
-                  delay={pill.delay}
-                  className={styles.rolePill}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`${styles.rolePillDot} ${styles[pill.cls]}`}
-                  />
-                  {pill.text}
-                </Reveal>
-              ))}
+            {/* Owner, 2026-11-02: the roles type out one by one here,
+                where the three role pills were. */}
+            <Reveal as="p" type="up" delay={180} className={styles.typing}>
+              <TypingRoles />
+            </Reveal>
 
-              {/* Owner-requested, 2026-08-17. Not in the prototype.
-                  Styled as the OPEN TO OPPORTUNITIES badge — same border,
-                  tint, glow shadow and lead dot — and it keeps the pill's
-                  glowpulse outline breathing. Only the dot's own pulse is
-                  dropped, which is why this does not reuse .badgeDot.
+            {/* Owner-requested, 2026-08-17. Not in the prototype. Styled as
+                the OPEN TO OPPORTUNITIES badge — same border, tint, glow
+                shadow and lead dot — and it keeps the glowpulse outline
+                breathing. Only the dot's own pulse is dropped, which is why
+                this does not reuse .badgeDot. Under the typing line since
+                2026-11-02 (owner).
 
-                  An <a>, not a <button>: it moves the reader to another
-                  place in the document, which is what a link is for, and
-                  it matches the two CTAs below. That also buys the native
-                  smooth scroll (and its reduced-motion override), keyboard
-                  activation and open-in-new-tab for free, none of which a
-                  <button> + scrollTo would carry. Presents and behaves as
-                  a button either way. */}
+                An <a>, not a <button>: it moves the reader to another place
+                in the document, which is what a link is for, and it matches
+                the two CTAs below — native smooth scroll (and its
+                reduced-motion override), keyboard activation and
+                open-in-new-tab for free. */}
+            <div className={styles.loudRow}>
               <Reveal
                 as="a"
                 href="#contact"
                 type="pop"
-                delay={50}
+                delay={220}
                 className={styles.loudCta}
               >
                 <span aria-hidden="true" className={styles.loudCtaDot} />
@@ -169,10 +152,8 @@ export function HeroSection() {
               </Reveal>
             </div>
 
-            {/* delay 260 sits between the 2nd and 3rd pill's 280 and 360.
-                Non-monotonic in DOM order and transcribed exactly — the
-                paragraph is meant to arrive while the pills are still
-                landing, not after them. Not a typo to "fix". */}
+            {/* delay 260 is the prototype's: the paragraph arrives just
+                after the typing line (180) and the LOUD button (220). */}
             <Reveal as="p" type="up" delay={260} className={styles.body}>
               {about?.heroIntro || HERO_INTRO_FALLBACK}
             </Reveal>

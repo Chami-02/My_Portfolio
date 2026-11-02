@@ -160,7 +160,7 @@ describe('Reveal-wrapped elements never declare their own transition', () => {
     // in components/sections, since several share a class.
     expect(pairs.length).toBeGreaterThan(20);
     expect(pairs.map((p) => p.name)).toContain('statCard');
-    expect(pairs.map((p) => p.name)).toContain('rolePill');
+    expect(pairs.map((p) => p.name)).toContain('typing');
     expect(pairs.map((p) => p.name)).toContain('loudCta');
   });
 
