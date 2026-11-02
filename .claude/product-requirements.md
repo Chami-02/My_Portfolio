@@ -342,6 +342,10 @@ zone."*
 
 
 ## Education + Certificates are owner-managed, every word (owner, 2026-10-30, PF-143)
+> **2026-11-02 (REVERSES "every word editable"):** every word on both sections is now FIXED —
+> no Section text card. Certificates: title + issuer + issue date required on every save, ONE
+> required tag (the public filter pill, one pill at a time), an optional description, a pin
+> (pinned lead; the rest in the owner's drag order). Demo rows never reach production.
 > **2026-10-31 polish:** Education's heading is FIXED (no Section text card); every other word
 > stays editable. Forms behave like common web forms: `*` on required fields, "This field is
 > required." under a skipped box, the banner names the fields, dates typeable with a red message

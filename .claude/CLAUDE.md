@@ -134,7 +134,7 @@ sprint-log "Sprint 14 closed — PF-121".
 
 **▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
 PF-127→137 all live (order + dates in sprint-log) → PF-143 (built) → Projects rebuild → PF-138 (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
-- ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — until then fix light BUGS only.
+- ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
 - Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
 - **Every doc I create** (tickets, reports, plans, PDFs) goes to `new mds/Sprint 15/` (owner, 2026-10-16; outside the repo).
 
@@ -383,7 +383,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - Reductions: cursor web `WEB_LINK_PX` 105 / `WEB_ALPHA` 0.065; splash scan lines removed (`.scanTexture` stays, 12 animated elements); hero marquee band 52px.
 - Removed: Contact accent glow; blog featured ghost `01`; About portrait caption and sweep; reading-view "GOT A QUESTION"; footer REPLAY/SCROLL UP; all section washes (footer takes the navbar surface).
 - Blog teaser featured card: fixed backdrop photo ONE PER THEME, crops differ on purpose, light scrim is a legibility requirement; card fills its cell, grid keeps `align-items: start`.
-- Hero: fourth pill item, ten chips, two-layer mask, `.blobC` z-index 2. Nine links carry brand icons. LIVE SITE green dot (`dot-ok`).
+- Hero: roles TYPE out (`TypingRoles`, no pills, 11-02), ten chips, two-layer mask, `.blobC` z-index 2. Nine links carry brand icons. LIVE SITE green dot (`dot-ok`).
 - Marquee copies hero 8 / footer 18 (EVEN); both bands 50 px/s — equal SPEED. `STAR_DRIFT = 0.35`. Different About portrait (never import the `.heic`). Smooth scroll via CSS. `data-terminal` attached.
 
 **Chrome**
@@ -431,7 +431,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-135: backup/restore behind the PASSWORD; restore all-or-nothing, ONE transaction, 3 safety copies, messages MERGE; ALLOW-list of models; Settings cards fold, 36px buttons ≤560.
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
-- PF-143: Education + Certificates — home TEXT ONLY (timeline + rows, ≤6, VIEW ALL always); `/certificates/:slug?` URL big view (Back closes); PDF = `pg_1` image; cert words = About fields; `EntryListPanel`; backup v2; 10-31: logo, typed dates.
+- PF-143: home TEXT ONLY (≤6, VIEW ALL); `/certificates/:slug?` big view; PDF = `pg_1`; words FIXED; `EntryListPanel`; certs: 1 tag = 1 pill, pins lead + drag order; demo rows throwaway DBs only.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment

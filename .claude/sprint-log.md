@@ -10645,3 +10645,54 @@ Owner tested on localhost and asked (each item theirs; recorded in locked-decisi
 data-URL logo on the demo rows (removed after). Admin form seen by the owner (works).
 **Flake seen:** frontend coverage run timed out 2–10 tests when run in PARALLEL with the backend
 suite (5 s userEvent tests, incl. untouched password tests); clean on rerun alone.
+
+### PF-143 polish, round 2 — Certificates, hero, clean-up (2026-11-02, same branch, before the PR)
+Owner asked (each item theirs; reasons in locked-decisions "PF-143 polish 2"):
+- **/certificates on the site's ambient layer** (PageShell + StarfieldCanvas + CursorGlow + Grain, /blog's order).
+- **No Section text for Certificates either** — every word fixed; deleted `utils/sectionText.js`
+  (+ test), the six `certificates*` About fields + rules, and EntryListPanel's whole Section text
+  card (no panel used it any more). REVERSES 2026-10-30 "every word editable".
+- **Date boxes** say DD · MM · YYYY; Chrome RESERVES the datalist arrow's width even while hidden —
+  measured; `.box::-webkit-calendar-picker-indicator { display:none }` + 10px side padding.
+- **Certificate form:** title + issuer + issue date required on EVERY save (drafts too, Education's
+  rule); dates `withDay`; optional `description` (≤1000, counter "n / 1000", shown in the big view,
+  `white-space: pre-line`); caption names types "PNG, JPG/JPEG, WEBP OR PDF". Counters on
+  Education's description/activities too (`textField({ max })`).
+- **Tags = ONE per certificate, required** (owner: "one certificate can't have two pills"):
+  `Certificate.tags` (list, validated 1..1, trimmed/deduped), own vocabulary type `cert`
+  (separate from blog `tag`); picker `single` (picking another REPLACES); deleting a `cert` tag a
+  certificate uses → 409 naming them (`keepOne`; impact returns `blocked`). Public: pills from the
+  published certificates' tags, ONE at a time, `?tag=`, the picked one again / ALL / a tap on the
+  page BACKGROUND (document listener, non-control targets inside the page) → all. Tags never
+  printed on a card or in the big view. The issuer filter is gone.
+- **Pins:** `Certificate.pinned`; admin switch (`toggleField`, `role="switch"`, stages until SAVE);
+  public 📌 on a small light disc, card TOP-LEFT (owner moved it there, 22–24px); none on home.
+- **Order:** pinned ALWAYS first, then the owner's drag order (`sort: { pinned:-1, order:1 }`);
+  a new certificate is placed by issue date and never above a pin (`isNewer` pin-aware; the create
+  placement now runs in the list's own sort and appends at max(order)+1); admin ↑ ↓ / drag stay
+  inside the row's group (`config.group`, `clampDrop`) — a row can never cross the pinned line.
+- **Cards:** picture edge to edge (√2 : 1, `cover`), details on their own lower half; label "VIEW".
+- **Home row:** text a step smaller twice; disc 38px (34 ≤560), TOP-aligned (centred it sat 3.3px
+  off the dot — measured); cert titles get a 44px tap area on phones (padding + negative margin).
+- **Hero:** the three role pills → `TypingRoles` (5 roles incl. Tech Explorer, Problem Solver;
+  prototype timings 85/2600/40/600 ms; waits for the splash; reduced motion = first role, no caret;
+  SR hears the list once); white (dark) / `--navy` (light), thick `currentColor` caret; LOUD
+  button on its own row under it.
+- **Light paper** `--bg #EDE8DF → #F5F2EC` (+ the hero `.lightPlate` triplet) — the first
+  light-theme UPGRADE before launch, by owner request.
+- **Seed:** demo education/certificates only on throwaway DBs (`seedsDemoEntries`, same allowlist
+  as the demo password) — "don't push this dummy data to production".
+- **Backend clean-up** (owner: "unused API routes and code"): deleted `GET /api/projects/:id` (no
+  site caller; Postman request removed); 9 exports nothing imported (blogQuery, passwordPolicy,
+  fields, newPassword, backupFile); Mongoose deprecations → `returnDocument:'after'`
+  (sessionService) and the test suites' `validateSync()` → `helpers/validationError.js` (await
+  `validate()`); test output 0 warnings (was dozens). Migrations untouched (checksum guard).
+- **Phone + both themes pass:** every changed screen at 388px dark + light — 0 overflow; fixed
+  home title taps (20→44px) and picker chips (32→36px, shared with Blog/Projects).
+**Tests:** backend 1273 / 66, 0 Mongoose warnings; frontend 2497 / 115; lint 0; build OK.
+**Mutation (each caught, restored with cmp):** starfield on the page; typing splash gate + timer
+cleanup; always-required issuer; keep-one-tag delete guard; pinned-first sort; pin-aware placement;
+pinned-group move rule; background reset.
+**Not run locally:** E2E (dotenv bin clash, Outstanding PF-127) — specs read; CI runs them.
+**Dev data (owner's dev DB only):** `[PF-143 DEMO]` rows, `cert` tags, a pin — scratch scripts
+`demo-rows.js remove`, `demo-tags.js remove`, `demo-pin.js unpin`.

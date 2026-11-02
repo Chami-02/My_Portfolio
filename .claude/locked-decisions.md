@@ -4766,6 +4766,31 @@ Plan approved in chat; the layout was CHOSEN by the owner from samples (AskUserQ
   names the fields.
 - **Newest on top:** a new entry is placed by date; the order stays editable (drag / ↑↓).
 
+### PF-143 polish 2 (owner, 2026-11-02) — supersedes the bullets above where they differ
+- **Every word on Education AND Certificates is FIXED** — no Section text card anywhere. REVERSES
+  2026-10-30 "every visible word editable" (owner: "I don't need to change visible texts").
+- **One tag per certificate, required; ONE public pill at a time.** Owner: "one certificate can't
+  have two pills… if a visitor chooses GitHub, a GitHub certificate can't get into LinkedIn".
+  Picked again / ALL / a tap on the page background = all. Tags are behind the scenes — never
+  printed on a card or in the big view. Certificate tags are their OWN vocabulary (`cert`). A
+  search comes only "if the certificate list gets bigger".
+- **Pins:** the admin's 📌 ("looks so cool") at a card's TOP-LEFT, small; never on home.
+- **Order: pinned always first, then the owner's drag order** (owner chose this over "fully free"
+  and "pin moves it once"); a new certificate goes in by issue date, never above a pin.
+  (Same day, before this: "pinned then newest, automatic" — withdrawn by the owner.)
+- **Card:** picture edge to edge on top, details below; label "VIEW" (was VIEW CERTIFICATE).
+- **Certificate form:** title + issuer + issue date required on every save (drafts too);
+  optional day; optional description shown in the big view.
+- **Hero: the three role pills are GONE** — the roles TYPE out under the name (`TypingRoles`:
+  Full-Stack Web Developer, Cloud & DevOps Enthusiast, Continuous Learner, Tech Explorer, Problem
+  Solver), white in dark / dark blue (`--navy`) in light, thick caret; LOUD button on its own row
+  under it. REVERSES PF-80's "the pills are the real content, not building a typewriter" and the
+  sanctioned "fourth pill item" (the LOUD CTA left the pill row).
+- **Light theme: the paper is whiter** (`--bg #F5F2EC`, was `#EDE8DF`) — an owner-requested
+  UPGRADE before launch, an explicit exception to "light upgrades post-launch" (2026-10-11).
+- **Demo education/certificates never reach a real database** (seed writes them on throwaway DBs
+  only); the owner adds the real ones on production after the merge.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These
