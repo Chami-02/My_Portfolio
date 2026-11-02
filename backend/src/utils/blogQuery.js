@@ -199,4 +199,4 @@ function sortedPipeline({ match = {}, project } = {}) {
   return stages;
 }
 
-module.exports = { SORT_KEY, escapeRegex, buildMatch, sortedPipeline };
+module.exports = { buildMatch, sortedPipeline };

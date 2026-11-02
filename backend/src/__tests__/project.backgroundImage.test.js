@@ -1,4 +1,5 @@
 const Project = require('../models/Project');
+const validationError = require('./helpers/validationError');
 
 describe('Project — backgroundImage (PF-52)', () => {
 
@@ -22,7 +23,7 @@ describe('Project — backgroundImage (PF-52)', () => {
     expect(p.backgroundImage.publicId).toBe('');
   });
 
-  it('retains publicId — without it the old file can never be deleted', () => {
+  it('retains publicId — without it the old file can never be deleted', async () => {
     // Cloudinary deletes by public_id and by nothing else, and a delivery URL
     // cannot be turned back into one. A lost publicId is a permanently
     // unreachable file, which is the whole reason PF-111 exists.
@@ -35,49 +36,49 @@ describe('Project — backgroundImage (PF-52)', () => {
       },
     });
 
-    expect(p.validateSync()).toBeUndefined();
+    expect((await validationError(p))).toBeUndefined();
     expect(p.backgroundImage.publicId).toBe('portfolio/projects/a');
   });
 
-  it('accepts a valid https URL', () => {
+  it('accepts a valid https URL', async () => {
     const p = new Project({
       ...BASE,
       backgroundImage: { src: 'https://example.com/bg.jpg', opacity: 0.5 },
     });
 
-    const err = p.validateSync();
+    const err = (await validationError(p));
     expect(err).toBeUndefined();
   });
 
-  it('rejects a data: URI', () => {
+  it('rejects a data: URI', async () => {
     const p = new Project({
       ...BASE,
       backgroundImage: { src: 'data:image/svg+xml;base64,AAA', opacity: 0.5 },
     });
 
-    const err = p.validateSync();
+    const err = (await validationError(p));
     expect(err).toBeDefined();
     expect(err.errors['backgroundImage.src']).toBeDefined();
   });
 
-  it('rejects opacity above 1.0', () => {
+  it('rejects opacity above 1.0', async () => {
     const p = new Project({
       ...BASE,
       backgroundImage: { src: 'https://example.com/bg.jpg', opacity: 5 },
     });
 
-    const err = p.validateSync();
+    const err = (await validationError(p));
     expect(err).toBeDefined();
     expect(err.errors['backgroundImage.opacity']).toBeDefined();
   });
 
-  it('rejects opacity below 0.1', () => {
+  it('rejects opacity below 0.1', async () => {
     const p = new Project({
       ...BASE,
       backgroundImage: { src: 'https://example.com/bg.jpg', opacity: 0.05 },
     });
 
-    const err = p.validateSync();
+    const err = (await validationError(p));
     expect(err).toBeDefined();
     expect(err.errors['backgroundImage.opacity']).toBeDefined();
   });

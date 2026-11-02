@@ -58,4 +58,4 @@ const pictureSlot = () => ({
   uploadedAt: { type: Date,   default: null },
 });
 
-module.exports = { MONTH_YEAR, monthYear, httpsUrl, pictureSlot };
+module.exports = { monthYear, httpsUrl, pictureSlot };

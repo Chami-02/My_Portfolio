@@ -10,6 +10,7 @@
 const mongoose = require('mongoose');
 const About = require('../models/About');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
+const validationError = require('./helpers/validationError');
 
 beforeAll(connectTestDB);
 afterEach(clearDB);
@@ -70,7 +71,7 @@ describe('About.avatar (PF-111)', () => {
     // Same rule as resume.url and Project.backgroundImage.src: data: URIs bloat
     // the database and can carry a stored-XSS payload via SVG.
     const about = new About({ avatar: { url: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' } });
-    const err = about.validateSync();
+    const err = (await validationError(about));
 
     expect(err).toBeDefined();
     expect(err.errors['avatar.url']).toBeDefined();
@@ -78,7 +79,7 @@ describe('About.avatar (PF-111)', () => {
 
   it('accepts an empty url — that is the "no portrait" state, not an error', async () => {
     const about = new About({ avatar: { url: '' } });
-    expect(about.validateSync()).toBeUndefined();
+    expect((await validationError(about))).toBeUndefined();
   });
 
   it('casts a numeric string for bytes', async () => {

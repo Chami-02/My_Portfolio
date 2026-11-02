@@ -5,7 +5,6 @@ const { uploadSingle } = require('../middleware/upload');
 const {
   getAllProjects,
   getAllProjectsAdmin,
-  getProjectById,
   createProject,
   updateProject,
   deleteProject,
@@ -14,10 +13,10 @@ const {
 } = require('../controllers/projectController');
 
 router.get('/',    publicCache, getAllProjects);
-// PF-113 — drafts included. Registered before `/:id` so the order never
-// matters, even though `/admin/all` is two segments and `/:id` matches one.
+// PF-113 — drafts included.
 router.get('/admin/all', protect, getAllProjectsAdmin);
-router.get('/:id', publicCache, getProjectById);
+// ⚠️ No public GET /:id since 2026-11-02 — nothing on the site called it (only
+// the Postman collection). The Projects rebuild reads a project by its slug.
 router.post('/',      protect, createProject);   
 router.put('/:id',    protect, updateProject);
 router.delete('/:id', protect, deleteProject);

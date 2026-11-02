@@ -455,6 +455,6 @@ const restoreBackup = async (rows) => {
 };
 
 module.exports = {
-  FORMAT, VERSION, UPGRADES, BACKED_UP, NEVER_BACKED_UP, SAFETY_COPIES, MAX_ROWS,
+  VERSION, UPGRADES, BACKED_UP, NEVER_BACKED_UP, SAFETY_COPIES, MAX_ROWS,
   buildBackup, validateBackup, restoreBackup,
 };
