@@ -225,7 +225,7 @@ const googleStart = async (req, res, next) => {
     // Fails CLOSED. With no frontend to return to there is nowhere to redirect,
     // so that one case is a plain 503.
     if (!frontendUrl()) {
-      return next(new AppError('Google sign-in is not configured.', 503));
+      return next(new AppError("Google sign-in isn't available right now. Please sign in with your email and password.", 503));
     }
     if (!google.isConfigured()) return failTo(res, 'unavailable');
 
@@ -304,7 +304,7 @@ const resolveGoogleUser = async ({ sub, email }) => {
 const googleCallback = async (req, res, next) => {
   try {
     if (!frontendUrl()) {
-      return next(new AppError('Google sign-in is not configured.', 503));
+      return next(new AppError("Google sign-in isn't available right now. Please sign in with your email and password.", 503));
     }
     const { state, code, error } = req.query;
     const binding = parseCookies(req.headers.cookie || '')[FLOW_COOKIE];
@@ -368,7 +368,7 @@ const googleExchange = async (req, res, next) => {
   try {
     const code = req.body?.code;
     if (typeof code !== 'string' || !code) {
-      return next(new AppError('Sign-in code required.', 400));
+      return next(new AppError('That sign-in link has expired. Please try again.', 400));
     }
 
     const handoff = await OAuthFlow.findOneAndDelete({ handoffHash: hashToken(code) });

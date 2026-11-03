@@ -63,7 +63,7 @@ const globalLimiter = rateLimit({
   passOnStoreError: true,
   message: {
     status:  'fail',
-    message: 'Too many requests from this IP. Please try again in 15 minutes.',
+    message: "You're going a little fast. Please wait a few minutes and try again.",
   },
 });
 
@@ -83,7 +83,7 @@ const authLimiter = rateLimit({
   max:      10,
   message: {
     status:  'fail',
-    message: 'Too many login attempts. Please wait 15 minutes before trying again.',
+    message: 'Too many sign-in attempts. Please wait 15 minutes and try again.',
   },
 });
 
@@ -109,7 +109,7 @@ const refreshLimiter = rateLimit({
   legacyHeaders:   false,
   message: {
     status:  'fail',
-    message: 'Too many session refreshes. Please wait 15 minutes before trying again.',
+    message: 'Too many attempts. Please wait 15 minutes and try again.',
   },
 });
 
@@ -133,7 +133,7 @@ const googleLimiter = rateLimit({
   legacyHeaders:   false,
   message: {
     status:  'fail',
-    message: 'Too many Google sign-in attempts. Please wait 15 minutes before trying again.',
+    message: 'Too many Google sign-in attempts. Please wait 15 minutes and try again.',
   },
 });
 
@@ -188,7 +188,7 @@ const forgotLimiter = rateLimit({
   legacyHeaders:   false,
   message: {
     status:  'fail',
-    message: 'Too many reset requests. Please wait 15 minutes before trying again.',
+    message: 'Too many reset attempts. Please wait 15 minutes and try again.',
   },
 });
 
@@ -200,7 +200,7 @@ const resetLimiter = rateLimit({
   legacyHeaders:   false,
   message: {
     status:  'fail',
-    message: 'Too many reset attempts. Please wait 15 minutes before trying again.',
+    message: 'Too many reset attempts. Please wait 15 minutes and try again.',
   },
 });
 
@@ -220,7 +220,7 @@ const changeLimiter = rateLimit({
   legacyHeaders:   false,
   message: {
     status:  'fail',
-    message: 'Too many password change attempts. Please wait 15 minutes before trying again.',
+    message: 'Too many password change attempts. Please wait 15 minutes and try again.',
   },
 });
 

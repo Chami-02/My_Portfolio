@@ -60,7 +60,7 @@ const line = (row) => [
 // ── GET /api/cron/digest ──────────────────────────────────────────────────────
 const sendDigest = async (req, res, next) => {
   try {
-    if (!isCron(req)) return next(new AppError('Not allowed.', 401));
+    if (!isCron(req)) return next(new AppError("You don't have permission to do that.", 401));
 
     // With mail off nothing is claimed — the rows wait for a run that can send.
     if (!mailer.isConfigured()) return res.json({ status: 'success', sent: false, reason: 'mail-off' });

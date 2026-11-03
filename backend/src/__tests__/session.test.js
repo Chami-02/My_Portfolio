@@ -137,7 +137,7 @@ describe('POST /api/auth/refresh — rotation', () => {
 
     const res = await refresh(first.refreshToken);
     expect(res.status).toBe(401);
-    expect(res.body.message).toMatch(/no longer exists/i);
+    expect(res.body.message).toMatch(/session has ended/i);
   });
 });
 

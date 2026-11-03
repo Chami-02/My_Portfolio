@@ -302,7 +302,7 @@ describe('PF-114 — PUT /api/skills/reorder', () => {
       .send({ ids: [a._id, b._id, c._id, x._id] });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/within one category/);
+    expect(res.body.message).toMatch(/within their own section/);
     expect((await Skill.findById(x._id)).order).toBe(3);   // nothing written
   });
 

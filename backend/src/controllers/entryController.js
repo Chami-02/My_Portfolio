@@ -65,8 +65,8 @@ const destroyQuietly = async (publicId, what) => {
 };
 
 const reorderRules = [
-  body('ids').isArray({ min: 1 }).withMessage('ids must be a non-empty array'),
-  body('ids.*').custom((id) => mongoose.isValidObjectId(id)).withMessage('Invalid id'),
+  body('ids').isArray({ min: 1 }).withMessage("The new order couldn't be saved. Please refresh the page and try again."),
+  body('ids.*').custom((id) => mongoose.isValidObjectId(id)).withMessage("The new order couldn't be saved. Please refresh the page and try again."),
 ];
 
 /**
@@ -86,7 +86,7 @@ const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = f
   const mediaFolder = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/${folder}`;
 
   const writeError = (err, next) => {
-    if (err.name === 'CastError') return next(new AppError(`Invalid ${label.toLowerCase()} ID format`, 400));
+    if (err.name === 'CastError') return next(new AppError(`We couldn't find that ${label.toLowerCase()}.`, 400));
     if (err.name === 'ValidationError') {
       return next(new AppError(Object.values(err.errors).map((e) => e.message).join(', '), 400));
     }
@@ -166,7 +166,7 @@ const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = f
       const total = await Model.countDocuments();
       const found = await Model.countDocuments({ _id: { $in: ids } });
       if (ids.length !== total || found !== total) {
-        return next(new AppError(`Send every ${label.toLowerCase()} exactly once`, 400));
+        return next(new AppError("The new order couldn't be saved. Please refresh the page and try again.", 400));
       }
 
       await Model.bulkWrite(ids.map((_id, order) => ({ updateOne: { filter: { _id }, update: { $set: { order } } } })));
@@ -176,7 +176,7 @@ const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = f
 
   const uploadPicture = async (req, res, next) => {
     try {
-      if (!req.file) return next(new AppError('No file uploaded — send a "file" field', 400));
+      if (!req.file) return next(new AppError('Please choose a file to upload.', 400));
       const buffer = req.file.buffer;
 
       // The magic bytes decide, never the file name or its claimed type.
@@ -189,7 +189,7 @@ const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = f
           413,
         ));
       }
-      if (!storage.isConfigured()) return next(new AppError('File storage is not configured on this server', 503));
+      if (!storage.isConfigured()) return next(new AppError("Uploads aren't working right now. Please try again later.", 503));
 
       const doc = await find(req.params.id);
       const oldPublicId = doc[media]?.publicId;

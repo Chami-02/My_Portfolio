@@ -27,7 +27,7 @@ const protect = async (req, _res, next) => {
     // missing, empty or non-Bearer header.
     if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
       return next(
-        new AppError('You are not logged in. Please log in to access this.', 401)
+        new AppError('Please sign in to continue.', 401)
       );
     }
 
@@ -43,14 +43,14 @@ const protect = async (req, _res, next) => {
 
     // 3. The session family behind the token must still be live
     if (!decoded.fam || !(await isFamilyLive(decoded.fam))) {
-      return next(new AppError('Your session has ended. Please log in again.', 401));
+      return next(new AppError('Your session has ended. Please sign in again.', 401));
     }
 
     // 4. Check that the user still exists (they may have been deleted)
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {
       return next(
-        new AppError('The user belonging to this token no longer exists.', 401)
+        new AppError('Your session has ended. Please sign in again.', 401)
       );
     }
 
@@ -61,10 +61,10 @@ const protect = async (req, _res, next) => {
 
   } catch (err) {
     if (err.name === 'JsonWebTokenError') {
-      return next(new AppError('Invalid token. Please log in again.', 401));
+      return next(new AppError('Your session has ended. Please sign in again.', 401));
     }
     if (err.name === 'TokenExpiredError') {
-      return next(new AppError('Your session has expired. Please log in again.', 401));
+      return next(new AppError('Your session has ended. Please sign in again.', 401));
     }
     next(err);
   }

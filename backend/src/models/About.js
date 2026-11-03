@@ -24,7 +24,7 @@ const imageSlot = (label) => ({
     default: '',
     validate: {
       validator: v => !v || /^https?:\/\//i.test(v),   // no data: URIs
-      message:   `${label} URL must be an http(s) URL`,
+      message:   `${label} must be a full web address starting with https://`,
     },
   },
   publicId:   { type: String, default: '' },
@@ -189,7 +189,7 @@ const aboutSchema = new mongoose.Schema(
         default: '',
         validate: {
           validator: v => !v || /^https?:\/\//i.test(v),   // no data: URIs
-          message:   'Resume URL must be an http(s) URL',
+          message:   'The résumé link must be a full web address starting with https://',
         },
       },
       publicId:   { type: String, default: '' },

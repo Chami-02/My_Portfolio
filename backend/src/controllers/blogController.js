@@ -247,7 +247,7 @@ const updatePost = async (req, res, next) => {
     await post.save();
     res.json({ status: 'success', data: post });
   } catch (err) {
-    if (err.name === 'CastError') return next(new AppError('Invalid post ID', 400));
+    if (err.name === 'CastError') return next(new AppError("We couldn't find that post.", 400));
     // save() surfaces these where findByIdAndUpdate did not — a renamed
     // post can now collide on the unique slug index, and full-document
     // validation can fail on a field the request never touched.
@@ -282,7 +282,7 @@ const togglePublish = async (req, res, next) => {
     // published-only rules. Without this it reached errorHandler as a 500 —
     // there is no global ValidationError mapping — telling the admin the
     // server broke when it had correctly said no.
-    if (err.name === 'CastError') return next(new AppError('Invalid post ID', 400));
+    if (err.name === 'CastError') return next(new AppError("We couldn't find that post.", 400));
     if (err.name === 'ValidationError') {
       const message = Object.values(err.errors).map((e) => e.message).join(', ');
       return next(new AppError(message, 400));
@@ -299,7 +299,7 @@ const deletePost = async (req, res, next) => {
     if (!post) return next(new AppError('Blog post not found', 404));
     res.status(204).json({ status: 'success', data: null });
   } catch (err) {
-    if (err.name === 'CastError') return next(new AppError('Invalid post ID', 400));
+    if (err.name === 'CastError') return next(new AppError("We couldn't find that post.", 400));
     next(err);
   }
 };
@@ -319,7 +319,7 @@ const incrementViews = async (req, res, next) => {
     );
 
     if (!post) {
-      return next(new AppError('No published post found with that slug', 404));
+      return next(new AppError("We couldn't find that post.", 404));
     }
 
     res.json({ status: 'success', data: { slug: post.slug, views: post.views } });

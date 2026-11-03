@@ -40,7 +40,7 @@ const refreshTtlMs = () => {
 const hashToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
 
-const SESSION_ENDED = 'Your session has ended. Please log in again.';
+const SESSION_ENDED = 'Your session has ended. Please sign in again.';
 
 /**
  * Create a fresh refresh-token row for `user` and sign an access token that
@@ -101,7 +101,7 @@ const issueSession = async (user, {
  */
 const rotateSession = async (refreshToken) => {
   if (typeof refreshToken !== 'string' || refreshToken.length === 0) {
-    throw new AppError('Refresh token required.', 401);
+    throw new AppError('Your session has ended. Please sign in again.', 401);
   }
 
   const now     = new Date();
@@ -144,7 +144,7 @@ const rotateSession = async (refreshToken) => {
 
   const user = await User.findById(session.user);
   if (!user) {
-    throw new AppError('The user belonging to this session no longer exists.', 401);
+    throw new AppError('Your session has ended. Please sign in again.', 401);
   }
 
   const next = await issueSession(user, {

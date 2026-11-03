@@ -31,7 +31,7 @@ describe('refreshLimiter', () => {
     const blocked = await request(app).post('/refresh');
     expect(blocked.status).toBe(429);
     expect(blocked.body.status).toBe('fail');
-    expect(blocked.body.message).toMatch(/session refreshes/i);
+    expect(blocked.body.message).toMatch(/Too many attempts/i);
   });
 
   // ⚠️ No "is looser than authLimiter" assertion: express-rate-limit v8

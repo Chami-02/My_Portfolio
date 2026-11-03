@@ -74,7 +74,7 @@ const BACKUP_MIME = ['application/json', 'text/json', 'application/octet-stream'
 
 const backupFilter = (_req, file, cb) => {
   if (BACKUP_MIME.includes(file.mimetype) || /\.json$/i.test(file.originalname || '')) return cb(null, true);
-  cb(new AppError('That is not a backup file — choose the .json file DOWNLOAD BACKUP saved.', 415));
+  cb(new AppError("That isn't a backup file. Choose the file you saved with DOWNLOAD BACKUP.", 415));
 };
 
 const backupUpload = multer({
@@ -105,7 +105,7 @@ const translateErrors = (middleware) => (req, res, next) => {
 
     if (err.code === 'LIMIT_UNEXPECTED_FILE') {
       return next(new AppError(
-        `Unexpected field "${err.field}" — send the file as a field named "file".`,
+        'Please upload one file at a time.',
         400
       ));
     }
