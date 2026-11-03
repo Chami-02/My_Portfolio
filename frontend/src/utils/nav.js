@@ -69,6 +69,11 @@ export function isBlogPath(pathname) {
   return pathname === '/blog' || pathname.startsWith('/blog/');
 }
 
+/** PF-144 — `/projects` and `/projects/:slug`. */
+export function isProjectsPath(pathname) {
+  return pathname === '/projects' || pathname.startsWith('/projects/');
+}
+
 /** PF-143 — `/certificates` and `/certificates/:slug`. */
 export function isCertificatesPath(pathname) {
   return pathname === '/certificates' || pathname.startsWith('/certificates/');
@@ -116,6 +121,21 @@ export function navModel(pathname) {
       brandHref: HOME,
       links: [...SECTIONS, { id: 'contact', label: 'CONTACT' }]
         .map(({ id, label }) => ({ href: sectionHref(pathname, id), label })),
+      pillHref: HOME,
+      pillLabel: '\u2190 GO BACK',
+    };
+  }
+
+  // PF-144 — /projects is a sub-page like /blog: every home section except
+  // the one you are on (PROJECTS), plus CONTACT, and the '← GO BACK' pill.
+  if (isProjectsPath(pathname)) {
+    return {
+      variant: 'blog',
+      brandHref: HOME,
+      links: [
+        ...SECTIONS.filter(({ id }) => id !== 'projects'),
+        { id: 'contact', label: 'CONTACT' },
+      ].map(({ id, label }) => ({ href: sectionHref(pathname, id), label })),
       pillHref: HOME,
       pillLabel: '\u2190 GO BACK',
     };

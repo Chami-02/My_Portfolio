@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { projectService } from '../services/projectService';
 import { refreshDashboard } from './useDashboardStats';
 
@@ -15,11 +15,57 @@ export const PROJECTS_ADMIN_KEY = [...PROJECTS_KEY, 'admin'];
 
 // ── Read ─────────────────────────────────────────────────────────────────────
 
-/** Fetch all projects from the API */
-export const useProjects = () =>
+/**
+ * The public list's query params, normalised — useBlog's `blogListParams`
+ * rule (PF-98), for the same reason: the object IS the query key, so `{}`,
+ * `{ q: '  ' }` and `{ tech: 'All' }` must be ONE key. That is what lets
+ * /projects mount the filtered list AND an unfiltered one for its count —
+ * and the home section share that unfiltered one — with a single request
+ * while no filter is active. Mirrors backend/src/utils/projectQuery.js.
+ */
+export const projectListParams = ({ q, tech, category } = {}) => {
+  const params = {};
+  const query = typeof q === 'string' ? q.trim() : '';
+  if (query) params.q = query;
+
+  const values = (input) => (Array.isArray(input) ? input : [input])
+    .filter((v) => typeof v === 'string')
+    .map((v) => v.trim())
+    .filter((v) => v && v.toLowerCase() !== 'all');
+
+  // Sorted COPY: one key whatever order the chips were clicked in, and the
+  // caller's own array (searchParams.getAll) is never reordered.
+  const techs = values(tech);
+  if (techs.length) params.tech = [...techs].sort();
+  const [first] = values(category);
+  if (first) params.category = first;
+  return params;
+};
+
+/**
+ * Published projects, optionally filtered by `{ q, tech, category }`.
+ *
+ * PF-144: keyed `['projects', 'list', params]` — under PROJECTS_KEY, so every
+ * mutation's prefix invalidation still reaches it, and in its own segment so
+ * no project slug (`/projects/admin`…) can ever collide with a list key (the
+ * Blog lesson of 2026-10-14). `keepPreviousData` keeps the grid on screen
+ * between keystrokes.
+ */
+export const useProjects = (params) => {
+  const listParams = projectListParams(params);
+  return useQuery({
+    queryKey:        [...PROJECTS_KEY, 'list', listParams],
+    queryFn:         () => projectService.getAll(listParams),
+    placeholderData: keepPreviousData,
+  });
+};
+
+/** PF-144 — one published project's page: `{ project, prev, next, index, total }`. */
+export const useProject = (slug) =>
   useQuery({
-    queryKey: PROJECTS_KEY,
-    queryFn:  projectService.getAll,
+    queryKey: [...PROJECTS_KEY, 'page', slug],
+    queryFn:  () => projectService.getBySlug(slug),
+    enabled:  !!slug,
   });
 
 /** Every project, drafts included — the admin panel's list (PF-113). */
@@ -55,6 +101,14 @@ export const useUpdateProject = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: PROJECTS_KEY }),
   });
 };
+
+/**
+ * PF-144 — upload one section picture into the project's ledger. Invalidates
+ * nothing: a ledger entry is shown nowhere until the save that names it, and
+ * that save invalidates PROJECTS_KEY itself.
+ */
+export const useUploadSectionImage = () =>
+  useMutation({ mutationFn: ({ id, file }) => projectService.uploadSectionImage(id, file) });
 
 /** Delete a project — used in admin panel */
 export const useDeleteProject = () => {

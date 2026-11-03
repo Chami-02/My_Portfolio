@@ -1,6 +1,6 @@
 // frontend/src/utils/__tests__/nav.test.js
 import { describe, it, expect } from 'vitest';
-import { navModel, isBlogPath, isCertificatesPath, sectionHref } from '../nav';
+import { navModel, isBlogPath, isCertificatesPath, isProjectsPath, sectionHref } from '../nav';
 
 /**
  * ⚠️ THE BUG THIS COVERS. App.jsx mounts <Navbar /> on `path="*"`, and
@@ -113,5 +113,21 @@ describe('PF-143 — /certificates', () => {
 
   it('a path that only STARTS with the word is not the page', () => {
     expect(isCertificatesPath('/certificatesx')).toBe(false);
+  });
+});
+
+describe('PF-144 — /projects', () => {
+  it.each(['/projects', '/projects/cleardrivelk'])('%s gets every home section but PROJECTS, CONTACT and ← GO BACK', (path) => {
+    const model = navModel(path);
+    expect(model.links.map((l) => l.label)).toEqual(['ABOUT', 'SKILLS', 'BLOG', 'CONTACT']);
+    expect(model.links[0].href).toBe('/?nosplash=1#about');
+    expect(model.variant).toBe('blog');
+    expect(model.pillLabel).toBe('← GO BACK');
+    expect(model.pillHref).toBe('/?nosplash=1');
+  });
+
+  it('a path that only STARTS with the word is not the page', () => {
+    expect(isProjectsPath('/projectsx')).toBe(false);
+    expect(navModel('/projectsx').variant).toBe('portfolio');
   });
 });

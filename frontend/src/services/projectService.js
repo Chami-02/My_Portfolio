@@ -2,8 +2,13 @@ import api from './api';
 import { multipart } from './multipart';
 
 export const projectService = {
-  // Public — PUBLISHED projects only since PF-113; drafts never leave the server
-  getAll:   ()           => api.get('/projects').then((r) => r.data.data),
+  // Public — PUBLISHED projects only since PF-113; drafts never leave the server.
+  // PF-144: `{ q, tech, category }` narrow it (/projects' search).
+  getAll:   (params)     => api.get('/projects', { params }).then((r) => r.data.data),
+
+  // PF-144 — one project's page. A COMPOUND resource, Blog's getBySlug shape:
+  // `{ project, prev, next, index, total }`.
+  getBySlug: (slug)      => api.get(`/projects/${encodeURIComponent(slug)}`).then((r) => r.data.data),
 
   // Admin protected
   // PF-113: every project, drafts included — the admin panel's list.
@@ -20,4 +25,9 @@ export const projectService = {
     api.put(`/projects/${id}/background`, ...multipart(file)).then((r) => r.data.data),
   removeBackground: (id) =>
     api.delete(`/projects/${id}/background`).then((r) => r.data.data),
+
+  // PF-144 — one section picture into the project's ledger. Returns the
+  // ledger entry `{ publicId, url, width, height }`; a save then names it.
+  uploadSectionImage: (id, file) =>
+    api.post(`/projects/${id}/images`, ...multipart(file)).then((r) => r.data.data),
 };
