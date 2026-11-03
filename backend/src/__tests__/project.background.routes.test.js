@@ -87,19 +87,6 @@ describe('PUT /api/projects/:id/background', () => {
     );
   });
 
-  it('leaves opacity alone when the image is replaced', async () => {
-    const p = await makeProject({ backgroundImage: { src: '', publicId: '', opacity: 0.35 } });
-    storage.upload.mockResolvedValue(uploaded('abc'));
-
-    await request(app)
-      .put(`/api/projects/${p._id}/background`)
-      .set(await authHeader())
-      .attach('file', PNG, 'bg.png');
-
-    const after = await Project.findById(p._id);
-    expect(after.backgroundImage.opacity).toBe(0.35);   // a tuned value survives
-  });
-
   it('uploads the new file BEFORE deleting the old one', async () => {
     const p = await makeProject();
     storage.upload.mockResolvedValue(uploaded('one'));
@@ -186,7 +173,7 @@ describe('PUT /api/projects/:id/background', () => {
 describe('DELETE /api/projects/:id/background', () => {
 
   it('clears src and publicId, destroys the file, keeps the project', async () => {
-    const p = await makeProject({ backgroundImage: { src: '', publicId: '', opacity: 0.4 } });
+    const p = await makeProject();
     storage.upload.mockResolvedValue(uploaded('one'));
     await request(app).put(`/api/projects/${p._id}/background`)
       .set(await authHeader()).attach('file', PNG, 'one.png');
@@ -205,7 +192,6 @@ describe('DELETE /api/projects/:id/background', () => {
     expect(after).not.toBeNull();                       // the project survives
     expect(after.backgroundImage.src).toBe('');
     expect(after.backgroundImage.publicId).toBe('');
-    expect(after.backgroundImage.opacity).toBe(0.4);    // and so does its opacity
   });
 
   it('404s when there is no background', async () => {
@@ -281,9 +267,11 @@ describe('sanitiseProjectBody — the strip is a security boundary (PF-111)', ()
     expect(out).toEqual({ title: 'x' });
   });
 
-  it('keeps opacity, flattened onto a dot path', () => {
-    const out = sanitiseProjectBody({ backgroundImage: { opacity: 0.5 } });
-    expect(out).toEqual({ 'backgroundImage.opacity': 0.5 });
+  // PF-138: opacity left the schema (migration 014), so nothing of
+  // backgroundImage is client-writable any more — nested or dotted.
+  it('drops opacity too, nested or dotted', () => {
+    expect(sanitiseProjectBody({ backgroundImage: { opacity: 0.5 } })).toEqual({});
+    expect(sanitiseProjectBody({ 'backgroundImage.opacity': 0.5 })).toEqual({});
   });
 
   it('tolerates a missing or non-object backgroundImage', () => {
@@ -296,7 +284,7 @@ describe('sanitiseProjectBody — the strip is a security boundary (PF-111)', ()
 
 describe('PUT /api/projects/:id — an ordinary save cannot touch the media (PF-111)', () => {
 
-  it('saving opacity alone does NOT wipe src and publicId', async () => {
+  it('an old client still sending backgroundImage does NOT wipe src and publicId', async () => {
     const p = await makeProject();
     storage.upload.mockResolvedValue(uploaded('one'));
     await request(app).put(`/api/projects/${p._id}/background`)
@@ -310,12 +298,12 @@ describe('PUT /api/projects/:id — an ordinary save cannot touch the media (PF-
     expect(res.status).toBe(200);
 
     // ⚠️ THE TRAP THIS PINS: Mongoose turns a nested OBJECT in an update into
-    // $set of the WHOLE sub-document, so the un-flattened version of this call
-    // replaces backgroundImage entirely — the image vanishes from the card and
-    // its file is orphaned, from an ordinary save. PF-113's slider would have
-    // hit this on its first save.
+    // $set of the WHOLE sub-document, so passing this body through would
+    // replace backgroundImage entirely — the image vanishes from the card and
+    // its file is orphaned, from an ordinary save. Since PF-138 the strip
+    // drops all of it; the opacity is not stored either.
     const after = await Project.findById(p._id);
-    expect(after.backgroundImage.opacity).toBe(0.5);
+    expect(after.toObject().backgroundImage).not.toHaveProperty('opacity');
     expect(after.backgroundImage.publicId).toBe('portfolio/projects/one');
     expect(after.backgroundImage.src).toContain('res.cloudinary.com');
   });
@@ -380,13 +368,12 @@ describe('PUT /api/projects/:id — an ordinary save cannot touch the media (PF-
       .set(await authHeader())
       .send({
         title: 'New', description: 'd', githubUrl: 'https://github.com/a/b', tech: ['React'], sections: [{ heading: 'About', body: ['What it does.'] }],
-        backgroundImage: { src: 'https://evil/a.png', publicId: 'portfolio/profile/victim', opacity: 0.6 },
+        backgroundImage: { src: 'https://evil/a.png', publicId: 'portfolio/profile/victim' },
       });
 
     expect(res.status).toBe(201);
     expect(res.body.data.backgroundImage.src).toBe('');
     expect(res.body.data.backgroundImage.publicId).toBe('');
-    expect(res.body.data.backgroundImage.opacity).toBe(0.6);   // opacity is content
   });
 });
 

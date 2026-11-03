@@ -9,7 +9,7 @@ const { MAX_IMAGE_BYTES } = require('../middleware/upload');
 // Education and Certificates. Both have exactly the same life (draft → publish,
 // reorder, one picture), so one factory makes both; each route file passes its
 // model and its fields. Projects/Skills keep their own controllers — they carry
-// rules (categories, opacity) these lists do not.
+// rules (categories, page sections) these lists do not.
 
 const PUBLIC_FILTER = { published: true };
 const SORT = { order: 1, createdAt: 1 };

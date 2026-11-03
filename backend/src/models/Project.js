@@ -150,9 +150,9 @@ const projectSchema = new mongoose.Schema(
 
     // ── NEW IN PF-52 · publicId added in PF-111 ─────────────────
     // The project's picture. Until PF-144 it was shown BEHIND the card's
-    // text at `opacity`; since PF-144 it is the picture ON TOP of the card
-    // and on the project page, and `opacity` is no longer read (left in
-    // place — CONTRACT a release later).
+    // text at an `opacity`; since PF-144 it is the picture ON TOP of the card
+    // and on the project page. PF-138 removed `opacity` (CONTRACT, migration
+    // 014): a value still sent by an old client or backup is dropped.
     //
     // ⚠️ PF-111 DELETED the sibling `imageUrl` field this comment used
     // to contrast against. It was a bare String with zero consumers in
@@ -180,13 +180,6 @@ const projectSchema = new mongoose.Schema(
       // PUT /api/projects/:id/background, never by a normal save —
       // see the strip in updateProject().
       publicId: { type: String, default: '' },
-
-      opacity: {
-        type:    Number,
-        default: 0.75,
-        min:     [0.1, 'Opacity cannot be below 0.1'],
-        max:     [1.0, 'Opacity cannot exceed 1.0'],
-      },
     },
     // ────────────────────────────────────────────────────────────
   },

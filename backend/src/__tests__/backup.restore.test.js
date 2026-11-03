@@ -77,7 +77,7 @@ const seedContent = async () => {
     {
       title: 'Live project', description: 'A valid test project description for the restore suite.',
       tech: ['JavaScript'], githubUrl: 'https://github.com/test/one', sections: [{ heading: 'About', body: ['What it does.'] }], order: 1,
-      backgroundImage: { src: bg.url, publicId: bg.id, opacity: 0.5 },
+      backgroundImage: { src: bg.url, publicId: bg.id },
     },
     {
       title: 'Draft project', description: 'Another valid test project description for this suite.',
@@ -480,6 +480,20 @@ describe('the format', () => {
       { heading: 'Description', body: ['A valid test project description for the restore suite.'], bullets: [], images: [] },
     ]);
     expect((await Project.findOne({ title: 'Draft project' }).lean()).slug).toBe('draft-project');
+  });
+
+  // PF-138 — files downloaded before migration 014 still carry
+  // `backgroundImage.opacity`. They restore, and the field does not come back.
+  it('a file that still has a project opacity restores WITHOUT it', async () => {
+    await seedContent();
+    const file = await download();
+    file.projects = file.projects.map((p) => ({ ...p, backgroundImage: { ...p.backgroundImage, opacity: 0.5 } }));
+
+    const res = await restore(file);
+    expect(res.status).toBe(200);
+    const raw = await Project.collection.findOne({ title: 'Live project' });
+    expect(raw.backgroundImage).not.toHaveProperty('opacity');
+    expect(raw.backgroundImage.publicId).toBeTruthy();
   });
 
   it('a file from an OLDER database (fewer migrations) is accepted', async () => {
