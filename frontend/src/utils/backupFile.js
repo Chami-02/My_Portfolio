@@ -24,8 +24,8 @@ export const MAX_BACKUP_BYTES = 4 * 1024 * 1024;
  * request. Returns the reason, or null.
  */
 export const backupPickProblem = (file) => {
-  if (!/\.json$/i.test(file.name)) return 'Choose the .json file that DOWNLOAD BACKUP saved.';
-  if (file.size > MAX_BACKUP_BYTES) return 'That file is bigger than 4 MB — a backup is far smaller. Choose the file DOWNLOAD BACKUP saved.';
+  if (!/\.json$/i.test(file.name)) return "That isn't a backup file. Choose the file you saved with DOWNLOAD BACKUP.";
+  if (file.size > MAX_BACKUP_BYTES) return 'That file is too large to be a backup. Choose the file you saved with DOWNLOAD BACKUP.';
   return null;
 };
 

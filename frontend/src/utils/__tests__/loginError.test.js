@@ -1,6 +1,7 @@
 // frontend/src/utils/__tests__/loginError.test.js
 import { describe, it, expect } from 'vitest';
 import { loginErrorMessage, googleErrorMessage, googleExchangeErrorMessage } from '../loginError';
+import { MESSAGES, JARGON } from '../friendlyError';
 
 /**
  * The regression these guard is specific: a backend that is down must not
@@ -13,11 +14,12 @@ describe('loginErrorMessage', () => {
   describe('no response — the request never reached a server', () => {
     // axios sets code ERR_NETWORK and leaves response undefined on a
     // connection refusal, which is precisely the "backend not running" case.
-    it('names the server, not the credentials, on a network error', () => {
+    // PF-144: plain words — no "server", no "backend" (utils/friendlyError.js).
+    it('says the connection failed, not the credentials, on a network error', () => {
       const msg = loginErrorMessage({ code: 'ERR_NETWORK', message: 'Network Error' });
 
-      expect(msg).toMatch(/cannot reach the server/i);
-      expect(msg).toMatch(/backend/i);
+      expect(msg).toBe(MESSAGES.offline);
+      expect(msg).not.toMatch(JARGON);
       // The whole point: it must not talk about the password.
       expect(msg).not.toMatch(/password/i);
       expect(msg).not.toMatch(/invalid email/i);
@@ -26,14 +28,14 @@ describe('loginErrorMessage', () => {
     it('distinguishes a timeout from a refusal', () => {
       const msg = loginErrorMessage({ code: 'ECONNABORTED' });
 
-      expect(msg).toMatch(/took too long/i);
+      expect(msg).toBe(MESSAGES.slow);
       expect(msg).not.toMatch(/password/i);
     });
 
     // Defensive: a thrown non-axios value must not crash the catch block.
     it('survives an error with no shape at all', () => {
       expect(() => loginErrorMessage(undefined)).not.toThrow();
-      expect(loginErrorMessage(undefined)).toMatch(/cannot reach the server/i);
+      expect(loginErrorMessage(undefined)).toBe(MESSAGES.offline);
     });
   });
 
@@ -43,7 +45,7 @@ describe('loginErrorMessage', () => {
         response: { status: 401, data: { message: 'Invalid email or password' } },
       });
 
-      expect(msg).toBe('Invalid email or password. Please try again.');
+      expect(msg).toBe('Incorrect email or password. Please try again.');
     });
 
     it('surfaces the server message on other statuses', () => {
@@ -56,10 +58,11 @@ describe('loginErrorMessage', () => {
 
     // A 500 with an empty body used to fall through to the credential
     // string — the same misdirection, one layer down.
-    it('falls back to the status code, never to a credential message', () => {
+    it('a problem on our side says so in plain words — never a status code, never the credentials', () => {
       const msg = loginErrorMessage({ response: { status: 500, data: {} } });
 
-      expect(msg).toMatch(/HTTP 500/);
+      expect(msg).toBe(MESSAGES.ourSide);
+      expect(msg).not.toMatch(/500/);
       expect(msg).not.toMatch(/invalid email/i);
     });
   });
@@ -94,7 +97,7 @@ describe('googleExchangeErrorMessage (PF-119)', () => {
       .toBe(googleErrorMessage('failed'));
   });
 
-  it('no response is reported as an unreachable server, like the password form', () => {
-    expect(googleExchangeErrorMessage({ code: 'ERR_NETWORK' })).toMatch(/cannot reach the server/i);
+  it('no response reads exactly like the password form\'s connection message', () => {
+    expect(googleExchangeErrorMessage({ code: 'ERR_NETWORK' })).toBe(MESSAGES.offline);
   });
 });

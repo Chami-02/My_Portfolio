@@ -1,5 +1,6 @@
 // frontend/src/utils/loginError.js
 
+import { friendlyError } from './friendlyError';
 /**
  * Turn an axios failure from the login request into a message the reader
  * can act on. React-free, like the rest of utils/, so it is unit-testable
@@ -26,26 +27,15 @@
  * fixes, so they get different sentences.
  */
 export function loginErrorMessage(err) {
-  // No response object at all: connection refused, DNS failure, CORS
-  // rejection or timeout. The credentials were never even checked, so
-  // saying anything about them is actively misleading.
-  if (!err?.response) {
-    if (err?.code === 'ECONNABORTED') {
-      return 'The server took too long to respond. Is the backend running?';
-    }
-    return 'Cannot reach the server — it may not be running. '
-         + 'Start the backend, then try again.';
+  // PF-144: no answer, too many tries, or a problem on our side read the same
+  // as everywhere else (utils/friendlyError.js). The old wording — "Cannot
+  // reach the server — it may not be running. Start the backend…" — spoke to
+  // a developer, not to the person signing in.
+  // The only status that is actually about the credentials:
+  if (err?.response?.status === 401) {
+    return 'Incorrect email or password. Please try again.';
   }
-
-  // The only status that is actually about the credentials.
-  if (err.response.status === 401) {
-    return 'Invalid email or password. Please try again.';
-  }
-
-  // Any other HTTP failure: surface what the server said, and fall back to
-  // the status code rather than to a credential message.
-  return err.response.data?.message
-      || `Sign-in failed (HTTP ${err.response.status}). Please try again.`;
+  return friendlyError(err, { fallback: "Sign-in didn't work. Please try again." });
 }
 
 /**
