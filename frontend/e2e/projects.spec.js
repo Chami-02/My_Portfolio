@@ -24,6 +24,11 @@ test('home → VIEW ALL → search + chip → a project → BACK TO RESULTS', as
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Built');
   await expect(page.getByText('4 PROJECTS · ALL')).toBeVisible();
 
+  // PF-138: one spelling mistake is forgiven — through the real MongoDB.
+  await page.getByRole('textbox', { name: /Search projects/ }).fill('dokcer');
+  await expect(page).toHaveURL(/\?q=dokcer$/);
+  await expect(page.getByText('2 OF 4 PROJECTS')).toBeVisible();
+
   // The search reaches the page's sections, not only the title.
   await page.getByRole('textbox', { name: /Search projects/ }).fill('docker');
   await expect(page).toHaveURL(/\?q=docker$/);
