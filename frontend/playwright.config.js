@@ -21,7 +21,13 @@ export default defineConfig({
     baseURL:      `http://localhost:${E2E_WEB_PORT}`,
     headless:     true,    // Change to false to watch the browser during debugging
     screenshot:   'only-on-failure',
-    video:        'retain-on-failure',
+    // PF-144: 'on-first-retry', was 'retain-on-failure'. That mode RECORDS
+    // EVERY test and only deletes the video after a pass, and closing each
+    // test's page waits for its encode. Measured 2026-11-03: ffmpeg at 99%
+    // CPU, a 3-minute local run took 13.6 minutes, and two tests failed in
+    // TEARDOWN after their checks had passed. Now only a retried test is
+    // filmed — the run that needs a video still gets one, beside its trace.
+    video:        'on-first-retry',
     trace:        'on-first-retry',
   },
 

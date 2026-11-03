@@ -1,0 +1,43 @@
+/* frontend/src/components/projects/ImageViewer.module.css
+ *
+ * PF-144 part 2 — the section-picture big view. The Certificates big view's
+ * look, COMPOSED from its sheet so the two stay one design (their hover,
+ * dark-theme and phone rules come with them). Only the title and caption are
+ * new here.
+ */
+
+.overlay     { composes: overlay     from '../../pages/CertificatesPage.module.css'; }
+.panel       { composes: panel       from '../../pages/CertificatesPage.module.css'; }
+.panelBar    { composes: panelBar    from '../../pages/CertificatesPage.module.css'; }
+.counter     { composes: counter     from '../../pages/CertificatesPage.module.css'; }
+.spacer      { composes: spacer      from '../../pages/CertificatesPage.module.css'; }
+.close       { composes: close       from '../../pages/CertificatesPage.module.css'; }
+.viewFrame   { composes: viewFrame   from '../../pages/CertificatesPage.module.css'; }
+.viewPicture { composes: viewPicture from '../../pages/CertificatesPage.module.css'; }
+.stepRow     { composes: stepRow     from '../../pages/CertificatesPage.module.css'; }
+.step        { composes: step        from '../../pages/CertificatesPage.module.css'; }
+
+/* The section's heading, small, before the counter. */
+.title {
+  margin: 0 14px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--strong);
+}
+
+.caption {
+  margin: 12px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* `width` / `height` attributes reserve the box; this keeps it from
+   stretching past the frame. */
+.viewPicture {
+  height: auto;
+}
