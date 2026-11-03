@@ -9,7 +9,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { LoadError } from '../LoadError';
 
 const FIRST = 'COULDN’T LOAD YOUR PROJECTS';
-const AGAIN = 'STILL CAN’T REACH THE SERVER — TRY AGAIN IN A MINUTE.';
+const AGAIN = 'STILL NOT LOADING — PLEASE TRY AGAIN IN A MINUTE.';
 
 describe('LoadError', () => {
   it('names what failed and offers RETRY, as an alert', () => {

@@ -33,7 +33,7 @@ const aboutRules = [
     .isLength({ max: 100 }),
   body('bio')
     .optional()
-    .isArray().withMessage('Bio must be an array of strings'),
+    .isArray().withMessage('Please check the About text and try again.'),
   body('email')
     .optional()
     .isEmail().withMessage('Must be a valid email'),
@@ -169,7 +169,7 @@ const updateAbout = async (req, res, next) => {
 const uploadResume = async (req, res, next) => {
   try {
     if (!req.file) {
-      return next(new AppError('No file uploaded — send a "file" field', 400));
+      return next(new AppError('Please choose a file to upload.', 400));
     }
 
     const buffer = req.file.buffer;
@@ -194,7 +194,7 @@ const uploadResume = async (req, res, next) => {
     // Only now is it a server problem. Fail loudly rather than letting the
     // SDK throw something opaque about missing credentials.
     if (!storage.isConfigured()) {
-      return next(new AppError('File storage is not configured on this server', 503));
+      return next(new AppError("Uploads aren't working right now. Please try again later.", 503));
     }
 
     // Single About document
@@ -259,7 +259,7 @@ const uploadResume = async (req, res, next) => {
 const removeResume = async (req, res, next) => {
   try {
     const about = await About.findOne();
-    if (!about) return next(new AppError('About document not found', 404));
+    if (!about) return next(new AppError("Your profile couldn't be found. Please refresh the page and try again.", 404));
 
     if (!about.resume || !about.resume.url) {
       return next(new AppError('No résumé to remove', 404));
@@ -314,7 +314,7 @@ const imageSlotHandlers = ({ field, label, folder, defaultName, presenceKey }) =
   const upload = async (req, res, next) => {
     try {
       if (!req.file) {
-        return next(new AppError('No file uploaded — send a "file" field', 400));
+        return next(new AppError('Please choose a file to upload.', 400));
       }
 
       const buffer = req.file.buffer;
@@ -335,7 +335,7 @@ const imageSlotHandlers = ({ field, label, folder, defaultName, presenceKey }) =
       }
 
       if (!storage.isConfigured()) {
-        return next(new AppError('File storage is not configured on this server', 503));
+        return next(new AppError("Uploads aren't working right now. Please try again later.", 503));
       }
 
       let about = await About.findOne();
@@ -392,7 +392,7 @@ const imageSlotHandlers = ({ field, label, folder, defaultName, presenceKey }) =
   const remove = async (req, res, next) => {
     try {
       const about = await About.findOne();
-      if (!about) return next(new AppError('About document not found', 404));
+      if (!about) return next(new AppError("Your profile couldn't be found. Please refresh the page and try again.", 404));
 
       if (!about[field] || !about[field].url) {
         return next(new AppError(`No ${noun} to remove`, 404));
@@ -475,18 +475,50 @@ const resumeDisposition = (fileName) => {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 };
 
+/**
+ * PF-144 (owner, 2026-11-03: a friendly message for EVERY error) — the
+ * DOWNLOAD CV button is a plain link, so a failure here is not caught by the
+ * site's code: the BROWSER opens this reply as a page. A raw JSON body
+ * (`{"status":"fail","message":…}`) would be that page. So a browser
+ * navigation (it asks for HTML) gets a small plain page with a way back; an
+ * API client still gets the usual JSON error.
+ */
+const resumeProblem = (req, res, next, status, message) => {
+  if (req.accepts(['json', 'html']) !== 'html') return next(new AppError(message, status));
+  const site = (process.env.FRONTEND_URL || '').replace(/\/+$/, '');
+  // The site's own "CV not available" page (owner, 2026-11-03: a friendly
+  // look and feel) — header, footer, both themes. 303: "see this page
+  // instead". `missing` = nothing uploaded; anything else = try again.
+  if (site) {
+    const reason = status === 404 ? 'missing' : 'later';
+    return res.set('Cache-Control', 'no-store').redirect(303, `${site}/cv-unavailable?reason=${reason}`);
+  }
+  // No site address configured: a minimal page of its own, never raw JSON.
+  const back = site ? `<p><a href="${site}/#contact">&larr; Back to the portfolio</a></p>` : '';
+  res.status(status).type('html').set('Cache-Control', 'no-store').send(
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    + '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    + '<title>CV not available</title>'
+    + '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1120;'
+    + 'color:#e5e7eb;font:16px/1.6 system-ui,sans-serif;padding:24px}main{max-width:460px}'
+    + 'h1{font-size:22px;margin:0 0 8px}a{color:#FCA311}</style></head><body><main>'
+    + `<h1>The CV isn't available right now</h1><p>${message}</p>${back}`
+    + '</main></body></html>',
+  );
+};
+
 const downloadResume = async (req, res, next) => {
   try {
     const about = await About.findOne().select('resume');
 
     if (!about || !about.resume || !about.resume.url) {
-      return next(new AppError('No résumé is currently available', 404));
+      return resumeProblem(req, res, next, 404, 'There is no CV to download yet. Please get in touch through the contact form.');
     }
 
     // The url is server-written (PUT /api/about strips `resume`), so this is
     // defence in depth: this route never fetches anywhere but Cloudinary.
     if (!about.resume.url.startsWith(RESUME_ORIGIN)) {
-      return next(new AppError('Résumé is unavailable', 502));
+      return resumeProblem(req, res, next, 502, 'Please try again later, or get in touch through the contact form.');
     }
 
     let upstream;
@@ -494,12 +526,12 @@ const downloadResume = async (req, res, next) => {
       upstream = await fetch(about.resume.url, { signal: AbortSignal.timeout(10_000) });
     } catch (e) {
       console.warn('[resume] Fetch from storage failed:', e.message);
-      return next(new AppError('Résumé is temporarily unavailable', 502));
+      return resumeProblem(req, res, next, 502, 'Please try again in a moment, or get in touch through the contact form.');
     }
 
     if (!upstream.ok) {
       console.warn(`[resume] Storage answered ${upstream.status} for ${about.resume.publicId}`);
-      return next(new AppError('Résumé is temporarily unavailable', 502));
+      return resumeProblem(req, res, next, 502, 'Please try again in a moment, or get in touch through the contact form.');
     }
 
     const bytes = Buffer.from(await upstream.arrayBuffer());
@@ -513,7 +545,15 @@ const downloadResume = async (req, res, next) => {
     });
     res.send(bytes);
 
-  } catch (err) { next(err); }
+  } catch (err) {
+    // Anything unexpected: logged by the error handler for an API client,
+    // a plain page for a reader.
+    if (req.accepts(['json', 'html']) === 'html') {
+      console.error('[resume] Download failed:', err.message);
+      return resumeProblem(req, res, next, 500, 'Something went wrong on our side. Please try again in a moment.');
+    }
+    next(err);
+  }
 };
 
 module.exports = {

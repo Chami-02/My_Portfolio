@@ -92,7 +92,13 @@ export function Footer() {
   const { data: about } = useAbout();
   const isAvailable = about?.availableForWork ?? true;
   // PF-112 — the ELSEWHERE column and the status line are the owner's data now.
-  const elsewhere = socialEntries(about);
+  // PF-144: if About could not load, the column would be a heading with
+  // nothing under it (seen in the error-message demo). The site's public
+  // address is fixed (owner rule — pcgallege@gmail.com only), so it is the
+  // safe fallback: a visitor always has one way to reach the owner.
+  const elsewhere = about
+    ? socialEntries(about)
+    : [{ key: 'email', label: 'Email', href: 'mailto:pcgallege@gmail.com', external: false }];
   // ⚠️ NOT named `location`: that shadows the global `location` inside this
   // component, in a file that also calls react-router's `useLocation`. Three
   // different things called some form of "location" is a mis-read waiting to

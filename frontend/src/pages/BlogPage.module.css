@@ -260,11 +260,21 @@
   color: var(--strong);
 }
 
+/* PF-144: the chips' wrapper. On a wide screen it takes NO part in layout
+   (`display: contents`), so the chips sit in the search row exactly as
+   before; on a phone it becomes one swipeable line (bottom of this file). */
+.chipList {
+  display: contents;
+}
+
 .chip {
   font-family: var(--font-mono);
-  font-size: 11px;
+  /* PF-144 (owner, 2026-11-03: "seems like big pills"): 10.5px / 6px 12px,
+     ≈28px tall — was 11px / 11px 15px (≈38px). /projects composes this.
+     Phones keep a 36px tap target (bottom of this file). */
+  font-size: 10.5px;
   letter-spacing: .1em;
-  padding: 11px 15px;
+  padding: 6px 12px;
   border-radius: 999px;
   cursor: pointer;
   background: rgba(var(--srf), .5);
@@ -895,4 +905,48 @@
   border-radius: 20px;
   border: 1px solid rgba(var(--ln), .09);
   background: rgba(var(--srf), .34);
+}
+
+/* PF-144 phones: the smaller filter chips keep a 36px tap target (WCAG 2.5.8
+   asks ≥ 24px; 36px is PF-142's chip size). ⚠️ LAST in the file
+   (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  /* Smaller on a phone than on a laptop (owner, 2026-11-03); 32px tap target. */
+  .chip {
+    min-height: 32px;
+    font-size: 10px;
+    padding: 5px 11px;
+  }
+
+  /* The search box's × and magnifier were their 16px icon alone — under
+     WCAG 2.5.8's 24px on a phone (measured, PF-144 phone pass). 36px, as the
+     chips; the icon stays centred. */
+  .searchClear,
+  .searchSubmit {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  /* 12+ tags wrapped into rows above the posts — one swipeable line, to the
+     screen edge, with a fade that says "there is more". */
+  .chipList {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 12px;
+    width: calc(100% + 16px);
+    margin-right: -16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px 32px 4px 0;
+    -webkit-mask-image: linear-gradient(to right, #000 82%, transparent);
+    mask-image: linear-gradient(to right, #000 82%, transparent);
+  }
+
+  .chipList::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chipList > button {
+    flex: none;
+  }
 }

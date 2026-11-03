@@ -38,131 +38,8 @@
   color: var(--strong);
 }
 
-/* ── The sections editor ─────────────────────────────────────────── */
-
-.sectionsHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.sections {
-  display: grid;
-  gap: 14px;
-}
-
-.section {
-  padding: 16px;
-  border-radius: 14px;
-  background: rgba(var(--gnd), .32);
-  border: 1px solid rgba(var(--ln), .14);
-}
-
-.sectionTop {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-/* The numeral the reading view prints — 01·02·03 — so the order here is
-   visibly the order a visitor reads. */
-.sectionNumber {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .14em;
-  color: var(--acc, #FCA311);
-}
-
-.sectionTools {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-/* ↑ ↓ — a compact square of the row-button family. */
-.move {
-  composes: btnRow from '../../../styles/admin.module.css';
-  padding: 6px 11px;
-}
-
-.move:disabled {
-  /* ⚠️ Not a low opacity on its own — the disabled look comes from losing
-     the border, the same rule admin.module.css's .input:disabled states. */
-  border-color: transparent;
-  color: var(--muted2);
-}
-
-.field {
-  margin-bottom: 14px;
-}
-
-.linesHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 9px;
-}
-
-.linesBlock + .linesBlock {
-  margin-top: 14px;
-}
-
-.lines {
-  display: grid;
-  gap: 9px;
-}
-
-.line {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-}
-
-.lineMark {
-  flex: none;
-  min-width: 22px;
-  margin-top: 12px;
-  text-align: right;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted2);
-}
-
-.lineInput {
-  flex: 1;
-  min-width: 0;
-}
-
-/* The × on a section or a line. `.btnIcon`'s hover goes to --danger; at rest
-   it is muted so a column of them does not read as a column of warnings. */
-.remove {
-  composes: btnIcon from '../../../styles/admin.module.css';
-  flex: none;
-  margin-top: 9px;
-  padding: 2px 6px;
-  font-size: 18px;
-}
-
-.sectionTools .remove {
-  margin-top: 0;
-}
-
-.none {
-  margin: 0;
-  padding: 2px 0 2px 31px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--muted2);
-}
+/* The sections editor's own rules moved to components/admin/
+   SectionsEditor.module.css in PF-144, when Projects started using it. */
 
 .hint {
   margin: 7px 0 0;
@@ -234,8 +111,6 @@
 /* ⚠️ PF-91's substitution, applied not re-decided (as PF-107/110/114 did on
    their surfaces): --muted2 at 11px on the panel card is under AA in DARK.
    (0,2,1) so it wins on specificity; light is untouched. */
-:global(html[data-theme='dark']) .lineMark,
-:global(html[data-theme='dark']) .none,
 :global(html[data-theme='dark']) .hint,
 :global(html[data-theme='dark']) .rowMeta { color: var(--muted); }
 

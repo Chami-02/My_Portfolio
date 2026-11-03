@@ -110,8 +110,10 @@ describe('NotFoundPage (PF-100)', () => {
     // "ERROR 404", which this full-string match does not touch.
     expect(screen.queryAllByText('404')).toHaveLength(0);
 
-    // The element must be ABSENT, not merely transparent.
-    expect(panel.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
+    // The element must be ABSENT, not merely transparent. PF-144: the one
+    // decorative element left is ErrorPage's round "!" warning mark.
+    const hidden = [...panel.querySelectorAll('[aria-hidden="true"]')];
+    expect(hidden.map((el) => el.textContent)).toEqual(['!']);
   });
 
   /* ⚠️ THE TOKEN CHOICE IS THE WHOLE TICKET, AND NOTHING ELSE GUARDS IT.
@@ -143,7 +145,7 @@ describe('NotFoundPage (PF-100)', () => {
    */
   it('reads Phase 2 tokens only — no Phase 1 token survives', () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    const css = readFileSync(resolve(here, '../NotFoundPage.module.css'), 'utf8');
+    const css = readFileSync(resolve(here, '../../components/common/ErrorPage.module.css'), 'utf8')   // PF-144: the shared layout;
 
     // Declaration values only. Comments are not decls, so they cannot
     // satisfy or break either assertion.

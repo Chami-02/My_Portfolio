@@ -5,13 +5,16 @@ import { hasTag } from '../../utils/blogForm';
 import { ConfirmDialog } from './ConfirmDialog';
 import a      from '../../styles/admin.module.css';
 import styles from './VocabularyPicker.module.css';
+import { friendlyError } from '../../utils/friendlyError';
 
 // What each vocabulary is called in the words a person reads. The impact
 // count's own noun ("projects", "blog posts") comes from the SERVER.
+// `many` is spelled out, not `${one}s` — "categorys" (PF-144, found in the browser).
 const NOUNS = {
-  tag:  { one: 'tag',  list: 'tag list',  usedBy: 'posts' },
-  tech: { one: 'tech', list: 'tech list', usedBy: 'projects' },
-  cert: { one: 'tag',  list: 'certificate tag list', usedBy: 'certificates' },   // owner, 2026-11-02
+  tag:  { one: 'tag',  many: 'tags',  list: 'tag list',  usedBy: 'posts' },
+  tech: { one: 'tech', many: 'techs', list: 'tech list', usedBy: 'projects' },
+  cert: { one: 'tag',  many: 'tags',  list: 'certificate tag list', usedBy: 'certificates' },   // owner, 2026-11-02
+  category: { one: 'category', many: 'categories', list: 'category list', usedBy: 'projects' }, // PF-144
 };
 
 /**
@@ -66,7 +69,8 @@ function ChipDeleteConfirm({ type, chip, onCancel, onConfirm, isDeleting }) {
 
 /**
  * A shared vocabulary, as a chip picker — `type` is 'tag' (blog posts, PF-97),
- * 'tech' (projects, PF-113) or 'cert' (certificates, owner 2026-11-02).
+ * 'tech' (projects, PF-113), 'cert' (certificates, owner 2026-11-02) or
+ * 'category' (a project's one label, PF-144).
  *
  * Extracted from AdminBlogPanel in PF-113 when Projects became the second
  * consumer. The API behind it was built in Sprint 9 (PF-61 / PF-62).
@@ -118,7 +122,7 @@ export function VocabularyPicker({ type, selected, onToggle, onRemoved, onError,
       onToggle(created.value);   // a value you just added is one you want
       setDraft('');
     } catch (err) {
-      onError(err.response?.data?.message || `Could not add "${value}".`);
+      onError(friendlyError(err, { fallback: `Could not add "${value}". Please try again.` }));
     }
   };
 
@@ -129,7 +133,7 @@ export function VocabularyPicker({ type, selected, onToggle, onRemoved, onError,
       const result = await deleteValue.mutateAsync(chip._id);
       onRemoved(chip.value, result);
     } catch (err) {
-      onError(err.response?.data?.message || `Could not remove "${chip.value}".`);
+      onError(friendlyError(err, { fallback: `Could not remove "${chip.value}". Please try again.` }));
     }
   };
 
@@ -147,7 +151,7 @@ export function VocabularyPicker({ type, selected, onToggle, onRemoved, onError,
           {[1, 2, 3, 4].map((n) => <span key={n} className={a.skelPill} />)}
         </div>
       ) : chips.length === 0 ? (
-        <p className={styles.empty}>No {noun.one}s in the list yet — add one below.</p>
+        <p className={styles.empty}>No {noun.many} in the list yet — add one below.</p>
       ) : (
         <div className={styles.chips}>
           {chips.map((chip) => {

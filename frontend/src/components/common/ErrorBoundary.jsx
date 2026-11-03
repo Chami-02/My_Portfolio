@@ -55,8 +55,11 @@ export class ErrorBoundary extends Component {
             <p className={styles.heading}>
               Something went wrong loading this section
             </p>
+            {/* PF-144: plain words. The raw error ("Cannot read properties
+                of undefined…") went to the reader here; it now goes only to
+                the console (componentDidCatch above). */}
             <p className={styles.detail}>
-              {this.state.error?.message}
+              Please try again. If it keeps happening, refresh the page.
             </p>
             <button
               type="button"

@@ -50,7 +50,7 @@ const writeError = (err, name) => {
   if (err.name === 'ValidationError') {
     return new AppError(Object.values(err.errors).map((e) => e.message).join(', '), 400);
   }
-  if (err.name === 'CastError') return new AppError('Invalid skill ID', 400);
+  if (err.name === 'CastError') return new AppError("We couldn't find that skill.", 400);
   return err;
 };
 
@@ -139,9 +139,9 @@ const updateSkill = async (req, res, next) => {
 // sequential PUTs can half-apply a swap and leave two skills tied.
 const reorderRules = [
   body('ids')
-    .isArray({ min: 1 }).withMessage('ids must be a non-empty array'),
+    .isArray({ min: 1 }).withMessage("The new order couldn't be saved. Please refresh the page and try again."),
   body('ids.*')
-    .custom((id) => mongoose.isValidObjectId(id)).withMessage('Invalid skill ID'),
+    .custom((id) => mongoose.isValidObjectId(id)).withMessage("We couldn't find that skill."),
 ];
 
 const reorderSkills = async (req, res, next) => {
@@ -149,17 +149,17 @@ const reorderSkills = async (req, res, next) => {
     const { ids } = req.body;
 
     if (new Set(ids).size !== ids.length) {
-      return next(new AppError('ids must not repeat a skill', 400));
+      return next(new AppError("The new order couldn't be saved. Please refresh the page and try again.", 400));
     }
 
     const skills = await Skill.find({ _id: { $in: ids } }).select('category order').lean();
     if (skills.length !== ids.length) {
-      return next(new AppError('One or more skills were not found', 400));
+      return next(new AppError("Some skills couldn't be found. Please refresh the page and try again.", 400));
     }
 
     const categories = new Set(skills.map((s) => s.category));
     if (categories.size !== 1) {
-      return next(new AppError('Skills can only be reordered within one category', 400));
+      return next(new AppError('Skills can only be moved within their own section.', 400));
     }
 
     // ⚠️ The WHOLE card, not a subset. Reordering two of five would hand those
@@ -168,7 +168,7 @@ const reorderSkills = async (req, res, next) => {
     const [category] = categories;
     const cardSize = await Skill.countDocuments({ category });
     if (cardSize !== ids.length) {
-      return next(new AppError('Send every skill in the category, in the new order', 400));
+      return next(new AppError("The new order couldn't be saved. Please refresh the page and try again.", 400));
     }
 
     const slots = skills.map((s) => s.order).sort((a, b) => a - b);
@@ -193,7 +193,7 @@ const deleteSkill = async (req, res, next) => {
 
     res.status(204).json({ status: 'success', data: null });
   } catch (err) {
-    if (err.name === 'CastError') return next(new AppError('Invalid skill ID', 400));
+    if (err.name === 'CastError') return next(new AppError("We couldn't find that skill.", 400));
     next(err);
   }
 };

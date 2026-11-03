@@ -142,7 +142,7 @@ describe('GET /api/auth/me', () => {
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(res.status).toBe(401);
-    expect(res.body.message).toMatch(/no longer exists/i);
+    expect(res.body.message).toMatch(/session has ended/i);
   });
 
   it('returns 401 when the token is expired', async () => {
@@ -158,7 +158,7 @@ describe('GET /api/auth/me', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(401);
-    expect(res.body.message).toMatch(/expired/i);
+    expect(res.body.message).toMatch(/session has ended/i);
   });
 
   // PF-108: a token in the pre-PF-108 shape — correctly signed, unexpired,

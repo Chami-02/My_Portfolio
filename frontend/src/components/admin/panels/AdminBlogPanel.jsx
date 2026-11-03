@@ -1,3 +1,4 @@
+import { friendlyError } from '../../../utils/friendlyError';
 import { useState }                                              from 'react';
 import { ViewCount } from '../../blog/ViewCount';
 import { useBlogPostAdmin, useCreatePost, useUpdatePost,
@@ -9,6 +10,7 @@ import { useUnsavedChanges }       from '../../../hooks/useUnsavedChanges';
 import { useAdminFlash }           from '../../../hooks/useAdminFlash';
 import { fieldProps, errorId, fieldId } from '../../../utils/formErrors';
 import { VocabularyPicker }        from '../VocabularyPicker';
+import { SectionsEditor }          from '../SectionsEditor';
 import { ConfirmDialog }           from '../ConfirmDialog';
 import { LoadError }               from '../LoadError';
 import a      from '../../../styles/admin.module.css';
@@ -56,106 +58,8 @@ function FieldError({ field, guard }) {
   );
 }
 
-/**
- * One editable line inside a section — a paragraph or a bullet.
- *
- * Paragraphs get a textarea and bullets get an input, because a bullet that
- * grows to three lines is a paragraph wearing the wrong marker.
- *
- * ⚠️ PF-115 gives each its OWN accessible name. Until now they had only a
- * placeholder, so `getAllByLabelText(/paragraph 1/)` matched the REMOVE
- * buttons — a screen reader announced an unnamed text box.
- */
-function LineRow({ kind, index, sectionNumber, value, onChange, onRemove }) {
-  const isParagraph = kind === 'body';
-  const noun = isParagraph ? 'paragraph' : 'bullet';
-  const name = `Section ${sectionNumber}, ${noun} ${index + 1}`;
-
-  return (
-    <div className={styles.line}>
-      <span className={styles.lineMark} aria-hidden="true">
-        {isParagraph ? `${index + 1}.` : '•'}
-      </span>
-      {isParagraph ? (
-        <textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)}
-          placeholder={`Paragraph ${index + 1}…`} aria-label={name}
-          className={`${a.textarea} ${styles.lineInput}`} />
-      ) : (
-        <input value={value} onChange={(e) => onChange(e.target.value)}
-          placeholder="Bullet point…" aria-label={name}
-          className={`${a.input} ${styles.lineInput}`} />
-      )}
-      <button type="button" onClick={onRemove} aria-label={`Remove ${noun} ${index + 1}`}
-        className={styles.remove}>
-        ×
-      </button>
-    </div>
-  );
-}
-
-/*
- * One section of the post: a heading, its paragraphs and its bullets.
- *
- * The numbering is the same 01·02·03 the reading view renders, so the order of
- * these blocks is the order a visitor reads — which is why they can be moved.
- */
-function SectionEditor({ section, index, total, guard, onField, onLine, onAddLine, onRemoveLine, onMove, onRemove }) {
-  const number = String(index + 1).padStart(2, '0');
-  const path = `sections.${index}.heading`;
-
-  return (
-    <div className={styles.section}>
-      <div className={styles.sectionTop}>
-        <span className={styles.sectionNumber}>SECTION {number}</span>
-        <div className={styles.sectionTools}>
-          <button type="button" onClick={() => onMove(-1)} disabled={index === 0}
-            aria-label={`Move section ${number} up`} className={styles.move}>↑</button>
-          <button type="button" onClick={() => onMove(1)} disabled={index === total - 1}
-            aria-label={`Move section ${number} down`} className={styles.move}>↓</button>
-          <button type="button" onClick={onRemove} aria-label={`Remove section ${number}`}
-            className={styles.remove}>×</button>
-        </div>
-      </div>
-
-      <div className={styles.field}>
-        <label className={a.label} htmlFor={fieldId(FID, path)}>Heading *</label>
-        <input {...fieldProps(guard.errors, FID, path)}
-          value={section.heading}
-          onChange={(e) => onField('heading', e.target.value)}
-          placeholder="Introduction" className={a.input} />
-        <FieldError field={path} guard={guard} />
-      </div>
-
-      {['body', 'bullets'].map((kind) => (
-        <div key={kind} className={styles.linesBlock}>
-          <div className={styles.linesHead}>
-            <span className={a.labelLead}>{kind === 'body' ? 'Paragraphs' : 'Bullets'}</span>
-            <button type="button" onClick={() => onAddLine(kind)} className={a.btnRow}>
-              + ADD {kind === 'body' ? 'PARAGRAPH' : 'BULLET'}
-            </button>
-          </div>
-          {section[kind].length === 0 ? (
-            <p className={styles.none}>None yet.</p>
-          ) : (
-            <div className={styles.lines}>
-              {section[kind].map((value, j) => (
-                <LineRow key={j} kind={kind} index={j} sectionNumber={number} value={value}
-                  onChange={(next) => onLine(kind, j, next)}
-                  onRemove={() => onRemoveLine(kind, j)} />
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** The server's message, or the plain truth that no server answered. */
-const messageFor = (err, fallback) =>
-  err?.response
-    ? (err.response.data?.message || fallback || `Request failed (HTTP ${err.response.status}).`)
-    : 'Cannot reach the server — it may not be running. Your changes have not been saved.';
+/** One plain sentence for any failure (utils/friendlyError.js, PF-144). */
+const messageFor = (err, fallback) => friendlyError(err, { fallback });
 
 /**
  * `initialView` — PF-110. The Overview's `+ NEW POST` quick action lands here
@@ -237,56 +141,6 @@ export function AdminBlogPanel({ initialView = 'list' }) {
     // every keystroke marks the excerpt "too long" while it is being written.
     guard.clearField(name);
   };
-
-  // ── Section state ───────────────────────────────────────────────────
-  // Every one of these rebuilds the arrays it touches rather than mutating
-  // them in place. React compares by reference, so `sections[i].body[j] = v`
-  // would change the data and render nothing.
-  const updateSection = (index, mutate) =>
-    edit((f) => ({
-      ...f,
-      sections: f.sections.map((section, i) => (i === index ? mutate(section) : section)),
-    }));
-
-  const setSectionField = (index, field, value) => {
-    updateSection(index, (section) => ({ ...section, [field]: value }));
-    guard.clearField(`sections.${index}.${field}`);
-  };
-
-  const setLine = (index, kind, lineIndex, value) => {
-    updateSection(index, (section) => ({
-      ...section,
-      [kind]: section[kind].map((line, j) => (j === lineIndex ? value : line)),
-    }));
-    // ⚠️ "Section NN needs at least one paragraph or bullet" is reported
-    // against the HEADING — a variable-length list has no single input to
-    // mark — so typing a paragraph clears the heading's mark.
-    guard.clearField(`sections.${index}.heading`);
-  };
-
-  const addLine = (index, kind) =>
-    updateSection(index, (section) => ({ ...section, [kind]: [...section[kind], ''] }));
-
-  const removeLine = (index, kind, lineIndex) =>
-    updateSection(index, (section) => ({
-      ...section,
-      [kind]: section[kind].filter((_, j) => j !== lineIndex),
-    }));
-
-  const addSection = () =>
-    edit((f) => ({ ...f, sections: [...f.sections, emptySection()] }));
-
-  const removeSection = (index) =>
-    edit((f) => ({ ...f, sections: f.sections.filter((_, i) => i !== index) }));
-
-  const moveSection = (index, direction) =>
-    edit((f) => {
-      const target = index + direction;
-      if (target < 0 || target >= f.sections.length) return f;
-      const sections = [...f.sections];
-      [sections[index], sections[target]] = [sections[target], sections[index]];
-      return { ...f, sections };
-    });
 
   // ── Save ────────────────────────────────────────────────────────────
   /**
@@ -452,32 +306,10 @@ export function AdminBlogPanel({ initialView = 'list' }) {
               <FieldError field="excerpt" guard={guard} />
             </div>
 
-            {/* ── Sections ── */}
-            <div>
-              <div className={styles.sectionsHead}>
-                <span className={a.labelLead}>Sections *</span>
-                <button type="button" onClick={addSection} className={a.btnRow}>
-                  + ADD SECTION
-                </button>
-              </div>
-              <div className={styles.sections}>
-                {form.sections.map((section, i) => (
-                  <SectionEditor
-                    key={i}
-                    section={section}
-                    index={i}
-                    total={form.sections.length}
-                    guard={guard}
-                    onField={(field, value) => setSectionField(i, field, value)}
-                    onLine={(kind, j, value) => setLine(i, kind, j, value)}
-                    onAddLine={(kind) => addLine(i, kind)}
-                    onRemoveLine={(kind, j) => removeLine(i, kind, j)}
-                    onMove={(direction) => moveSection(i, direction)}
-                    onRemove={() => removeSection(i)}
-                  />
-                ))}
-              </div>
-            </div>
+            {/* ── Sections — the shared editor (PF-144) ── */}
+            <SectionsEditor fid={FID} sections={form.sections} guard={guard}
+              emptySection={emptySection}
+              onChange={(update) => edit((f) => ({ ...f, sections: update(f.sections) }))} />
 
             <div>
               <label className={a.label} htmlFor="post-tags">Tags (comma separated)</label>

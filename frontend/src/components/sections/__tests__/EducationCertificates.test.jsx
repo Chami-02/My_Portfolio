@@ -4,10 +4,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { MotionProvider } from '../../../providers/MotionProvider';
 
-const data = vi.hoisted(() => ({ education: [], certificates: [] }));
+const data = vi.hoisted(() => ({ education: [], certificates: [], failed: false, refetch: () => {} }));
 vi.mock('../../../hooks/useEntries', () => ({
-  useEducation:    () => ({ data: data.education }),
-  useCertificates: () => ({ data: data.certificates }),
+  useEducation:    () => (data.failed ? { data: undefined, isError: true, refetch: data.refetch } : { data: data.education }),
+  useCertificates: () => ({ data: data.certificates, refetch: () => {} }),
 }));
 
 const { EducationCertificates, HOME_CERTIFICATES } = await import('../EducationCertificates');
@@ -28,6 +28,7 @@ const renderRow = () => render(
 beforeEach(() => {
   data.education = [];
   data.certificates = [];
+  data.failed = false;
 });
 
 describe('EducationCertificates', () => {
@@ -127,5 +128,17 @@ describe('EducationCertificates', () => {
     expect(screen.getByRole('heading', { name: 'Education' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Certificates' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'VIEW ALL CERTIFICATES →' })).toBeInTheDocument();
+  });
+});
+
+// ⚠️ PF-144: a FAILED load is not "nothing to show" (the `data = []` trap).
+describe('EducationCertificates — a failed load', () => {
+  it('says so with TRY AGAIN, instead of vanishing like an empty row', () => {
+    data.failed = true;
+    data.refetch = vi.fn();
+    renderRow();
+    expect(screen.getByRole('status')).toHaveTextContent('Education and certificates didn’t load.');
+    screen.getByRole('button', { name: 'TRY AGAIN' }).click();
+    expect(data.refetch).toHaveBeenCalled();
   });
 });

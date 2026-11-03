@@ -577,3 +577,19 @@ describe('PF-114 — level dots', () => {
     expect(decls['.pill:hover .dotOff box-shadow']).toContain('currentColor');
   });
 });
+
+// PF-144 (owner, 2026-11-03): a failed load SAYS so, with TRY AGAIN.
+describe('a failed load', () => {
+  it('shows "didn\u2019t load" with TRY AGAIN, which refetches both lists', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const refetchSkills = vi.fn();
+    const refetchCats = vi.fn();
+    useSkills.mockReturnValue({ data: undefined, isLoading: false, isError: true, error: new Error('x'), refetch: refetchSkills, isFetching: false });
+    useSkillCategories.mockReturnValue({ data: [], isLoading: false, isError: false, error: null, refetch: refetchCats, isFetching: false });
+    render(withMotion(<SkillsSection />));
+    expect(screen.getByRole('status')).toHaveTextContent('The skills didn’t load.');
+    screen.getByRole('button', { name: 'TRY AGAIN' }).click();
+    expect(refetchSkills).toHaveBeenCalled();
+    expect(refetchCats).toHaveBeenCalled();
+  });
+});

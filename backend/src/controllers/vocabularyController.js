@@ -26,13 +26,17 @@ const TARGETS = {
   // exactly one), so deleting a tag any certificate uses is refused, naming them.
   cert: { model: Certificate, field: 'tags', label: 'certificates',
           publicFilter: { published: true }, keepOne: true },
+  // PF-144 — a project's category is OPTIONAL, so deleting one simply strips
+  // it from the projects using it (the `tech` behaviour, not `cert`'s refusal).
+  category: { model: Project, field: 'categories', label: 'projects',
+              publicFilter: { published: { $ne: false } } },
 };
 
-// Guard used by every handler — rejects anything that isn't tag/tech
+// Guard used by every handler — rejects anything that isn't a known type
 const resolveType = (type, next) => {
   const target = TARGETS[type];
   if (!target) {
-    next(new AppError(`Invalid vocabulary type "${type}" — use "tag", "tech" or "cert"`, 400));
+    next(new AppError(`Invalid vocabulary type "${type}" — use "tag", "tech", "cert" or "category"`, 400));
     return null;
   }
   return target;
@@ -115,7 +119,7 @@ const getDeleteImpact = async (req, res, next) => {
     if (!target) return;
 
     const item = await Vocabulary.findById(req.params.id);
-    if (!item) return next(new AppError('No vocabulary item found with that ID', 404));
+    if (!item) return next(new AppError('That item no longer exists. Please refresh the page.', 404));
 
     const affected = await target.model.countDocuments({
       [target.field]: item.value,
@@ -134,7 +138,7 @@ const getDeleteImpact = async (req, res, next) => {
     });
   } catch (err) {
     if (err.name === 'CastError') {
-      return next(new AppError('Invalid vocabulary ID format', 400));
+      return next(new AppError('That item no longer exists. Please refresh the page.', 400));
     }
     next(err);
   }
@@ -152,7 +156,7 @@ const createVocabulary = async (req, res, next) => {
     if (!resolveType(req.params.type, next)) return;
 
     const value = String(req.body.value || '').trim();
-    if (!value) return next(new AppError('Value is required', 400));
+    if (!value) return next(new AppError('Please enter a name.', 400));
 
     const item = await Vocabulary.create({ type: req.params.type, value });
     res.status(201).json({ status: 'success', data: item });
@@ -217,7 +221,7 @@ const deleteVocabulary = async (req, res, next) => {
     if (!target) return;
 
     const item = await Vocabulary.findById(req.params.id);
-    if (!item) return next(new AppError('No vocabulary item found with that ID', 404));
+    if (!item) return next(new AppError('That item no longer exists. Please refresh the page.', 404));
 
     const { model, field } = target;
 
@@ -282,7 +286,7 @@ const deleteVocabulary = async (req, res, next) => {
       session.endSession();
     }
     if (err.name === 'CastError') {
-      return next(new AppError('Invalid vocabulary ID format', 400));
+      return next(new AppError('That item no longer exists. Please refresh the page.', 400));
     }
     next(err);
   }

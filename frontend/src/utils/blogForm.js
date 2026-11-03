@@ -81,8 +81,16 @@ export const postToForm = (post = {}) => ({
   // agree here anyway — `??` says which question is being asked.
   readingTimeOverride:
     post.readingTimeOverride == null ? '' : String(post.readingTimeOverride),
-  sections:  Array.isArray(post.sections) && post.sections.length > 0
-    ? post.sections.map((section) => ({
+  sections:  sectionsToForm(post.sections, () => [emptySection()]),
+});
+
+/**
+ * Stored sections → editor state; `whenNone()` when there are none. Shared
+ * with the Projects panel (PF-144), whose page sections are the same shape.
+ */
+export function sectionsToForm(sections, whenNone) {
+  return Array.isArray(sections) && sections.length > 0
+    ? sections.map((section) => ({
         heading: section.heading || '',
         // Copied into NEW arrays. Reusing the query cache's own arrays
         // would let an edit mutate TanStack Query's cached post in place,
@@ -90,8 +98,22 @@ export const postToForm = (post = {}) => ({
         body:    Array.isArray(section.body)    ? [...section.body]    : [],
         bullets: Array.isArray(section.bullets) ? [...section.bullets] : [],
       }))
-    : [emptySection()],
-});
+    : whenNone();
+}
+
+/**
+ * Editor sections → what is sent: trimmed, blank lines dropped, and a section
+ * left completely empty dropped (see formToPayload). Shared with Projects.
+ */
+export function sectionsPayload(sections) {
+  return (sections || [])
+    .map((section) => ({
+      heading: (section.heading || '').trim(),
+      body:    (section.body    || []).map((p) => p.trim()).filter(Boolean),
+      bullets: (section.bullets || []).map((b) => b.trim()).filter(Boolean),
+    }))
+    .filter((section) => section.heading || section.body.length || section.bullets.length);
+}
 
 /**
  * Editor state → API payload.
@@ -107,13 +129,7 @@ export const postToForm = (post = {}) => ({
  * disagrees with `sections`.
  */
 export const formToPayload = (form = {}) => {
-  const sections = (form.sections || [])
-    .map((section) => ({
-      heading: (section.heading || '').trim(),
-      body:    (section.body    || []).map((p) => p.trim()).filter(Boolean),
-      bullets: (section.bullets || []).map((b) => b.trim()).filter(Boolean),
-    }))
-    .filter((section) => section.heading || section.body.length || section.bullets.length);
+  const sections = sectionsPayload(form.sections);
 
   // ⚠️ Blank sends an explicit `null`, it does not omit the key. Omitting
   // it would make "clear the pin" inexpressible — the server would keep the
@@ -271,8 +287,6 @@ export const formErrors = (form = {}) => {
   //
   // The payload's trimming rules are applied here by hand for the same reason
   // the old note gives: a section made entirely of whitespace must not pass.
-  const sections = form.sections || [];
-
   // ⚠️ THE EMPTINESS CHECK ASKS THE PAYLOAD; only the per-section loop below
   // needs the form's indexes. They answer different questions: "would anything
   // be sent?" is about the payload, and a form holding one blank section — the
@@ -286,10 +300,26 @@ export const formErrors = (form = {}) => {
     errors.push({ field: 'title', message: 'Add at least one section — a post needs a body.' });
   }
 
-  sections.forEach((section, i) => {
+  errors.push(...sectionErrors(form.sections));
+
+  return errors;
+};
+
+/**
+ * The per-section problems, keyed on the FORM's indexes (see the note in
+ * formErrors). A completely empty section is not an error on its own — it is
+ * dropped by the payload. Shared with the Projects panel (PF-144).
+ */
+export function sectionErrors(sections = [], { withImages = false } = {}) {
+  const errors = [];
+  (sections || []).forEach((section, i) => {
     const heading = (section?.heading || '').trim();
     const body    = (section?.body    || []).map((p) => (p || '').trim()).filter(Boolean);
-    const bullets = (section?.bullets || []).map((b) => (b || '').trim()).filter(Boolean);
+    // PF-144: on a project, a picture counts as content (the model's rule).
+    const bullets = [
+      ...(section?.bullets || []).map((b) => (b || '').trim()).filter(Boolean),
+      ...(withImages ? (section?.images || []) : []),
+    ];
 
     // A completely empty section is dropped by the payload and is the normal
     // state of one just added, so it is not an error on its own — the
@@ -304,10 +334,10 @@ export const formErrors = (form = {}) => {
     if (body.length === 0 && bullets.length === 0) {
       errors.push({
         field:   `sections.${i}.heading`,
-        message: `${label} needs at least one paragraph or bullet.`,
+        message: `${label} needs at least one ${withImages ? 'paragraph, bullet or picture' : 'paragraph or bullet'}.`,
       });
     }
   });
 
   return errors;
-};
+}

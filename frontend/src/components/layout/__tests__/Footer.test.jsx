@@ -1056,3 +1056,15 @@ describe('Footer — PF-118 wiring', () => {
     expect(pick(container, 'bio').textContent).toMatch(/^Computer Science undergraduate at the University of Westminster/);
   });
 });
+
+// PF-144 — found in the error-message demo: with About not loaded, ELSEWHERE
+// was a heading with nothing under it.
+describe('ELSEWHERE when the About data did not load', () => {
+  it('still offers the site email — never an empty column', () => {
+    useAbout.mockReturnValue({ data: undefined, isError: true });
+    renderFooter();
+    const email = screen.getAllByRole('link', { name: /Email/ })
+      .find((a) => a.getAttribute('href') === 'mailto:pcgallege@gmail.com');
+    expect(email).toBeTruthy();
+  });
+});

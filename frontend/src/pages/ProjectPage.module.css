@@ -1,0 +1,336 @@
+/* frontend/src/pages/ProjectPage.module.css
+ *
+ * PF-144 — /projects/:slug. The reading view is the blog's, COMPOSED from
+ * BlogPostPage.module.css so a post and a project page read alike and stay
+ * in step (their :hover, dark-theme and phone rules come with them).
+ *
+ * Only what a project page adds lives here: the category + date line, the
+ * ROLE / CLIENT facts, the two links (moved from the home card, values
+ * unchanged — prototype lines 333/374 + the owner's 2026-08-29 icon and
+ * live dot), the big picture, and the Tech Stack pills (the home card's,
+ * values unchanged).
+ */
+
+.article         { composes: article         from './BlogPostPage.module.css'; }
+.inner           { composes: inner           from './BlogPostPage.module.css'; }
+.backLink        { composes: backLink        from './BlogPostPage.module.css'; }
+.loading         { composes: loading         from './BlogPostPage.module.css'; }
+.placeholder     { composes: placeholder     from './BlogPostPage.module.css'; }
+.notFound        { composes: notFound        from './BlogPostPage.module.css'; }
+.notFoundHeading { composes: notFoundHeading from './BlogPostPage.module.css'; }
+.notFoundBody    { composes: notFoundBody    from './BlogPostPage.module.css'; }
+.notFoundLink    { composes: notFoundLink    from './BlogPostPage.module.css'; }
+.meta            { composes: meta            from './BlogPostPage.module.css'; }
+.metaSep         { composes: metaSep         from './BlogPostPage.module.css'; }
+.title           { composes: title           from './BlogPostPage.module.css'; }
+.excerpt         { composes: excerpt         from './BlogPostPage.module.css'; }
+.section         { composes: section         from './BlogPostPage.module.css'; }
+.sectionHeading  { composes: sectionHeading  from './BlogPostPage.module.css'; }
+.sectionNo       { composes: sectionNo       from './BlogPostPage.module.css'; }
+.para            { composes: para            from './BlogPostPage.module.css'; }
+.bullet          { composes: bullet          from './BlogPostPage.module.css'; }
+.bulletDot       { composes: bulletDot       from './BlogPostPage.module.css'; }
+.navRow          { composes: navRow          from './BlogPostPage.module.css'; }
+.navCard         { composes: navCard         from './BlogPostPage.module.css'; }
+.navPrev         { composes: navPrev         from './BlogPostPage.module.css'; }
+.navNext         { composes: navNext         from './BlogPostPage.module.css'; }
+.navLabel        { composes: navLabel        from './BlogPostPage.module.css'; }
+.navTitle        { composes: navTitle        from './BlogPostPage.module.css'; }
+.backBottomRow   { composes: backBottomRow   from './BlogPostPage.module.css'; }
+.backLinkBottom  { composes: backLinkBottom  from './BlogPostPage.module.css'; }
+
+/* ── the line above the title ──────────────────────────────────────── */
+.category {
+  color: var(--acc, #FCA311);
+  text-transform: uppercase;
+}
+
+.period {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ── ROLE · CLIENT ─────────────────────────────────────────────────── */
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: -8px 0 24px;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.factLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+
+.factValue {
+  margin: 0;
+  font-size: 15px;
+  color: var(--strong);
+}
+
+/* ── the two links ─────────────────────────────────────────────────── */
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.githubLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  color: var(--acc, #FCA311);
+  border: 1px solid rgba(252, 163, 17, .35);
+  border-radius: 999px;
+  padding: 10px 16px;
+}
+.githubLink:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+}
+
+.liveLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  color: var(--text);
+  border: 1px solid rgba(var(--ln), .2);
+  border-radius: 999px;
+  padding: 10px 16px;
+}
+.liveLink:hover {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .1);
+}
+
+/* ⚠️ NOT IN THE PROTOTYPE — owner-requested 2026-08-29: a glowing green
+   dot marking a project as live.
+
+   `composes: kf-dot-ok from global` and NOT `animation: dot-ok ...`.
+   A keyframe name written inside a *.module.css is scoped by the CSS
+   Modules compiler and then resolves to nothing — the single most
+   expensive silent failure recorded in CLAUDE.md. The name is supplied
+   by a global carrier in styles/animations.css; only the timing
+   longhands live here. The shorthand is likewise avoided: `animation:
+   2s ease-out infinite` would reset animation-name to `none` and undo
+   the composed class.
+
+   Fill is `var(--ok)`, so it flips with the theme and inherits PF-91's
+   contrast work (#34d399 dark / #0B6446 light). The GLOW around it is a
+   literal green in both themes, inside the keyframe — see base.css. */
+.liveDot {
+  composes: kf-dot-ok from global;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ok);
+  /* ⚠️ The RESTING glow, and it is load-bearing under reduced motion.
+     motion.css collapses every animation to 0.01ms with one iteration,
+     and `dot-ok` carries NO fill-mode — deliberately, because
+     `fill-mode: both` keeps a finished animation in getAnimations()
+     for the life of the page (the ScrollToTop finding in CLAUDE.md).
+     So once it finishes the element falls back to this declaration,
+     which is what keeps the dot reading as "live" rather than as a
+     plain green disc for anyone who asked for no motion. With motion
+     allowed the running animation supplies box-shadow instead and this
+     value is never seen. */
+  box-shadow: 0 0 6px 1px rgba(52, 211, 153, .65);
+  animation-duration: 2s;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+/* ── the big picture ───────────────────────────────────────────────── */
+/* The card's 16:9, reserved BEFORE the file arrives — measured: without it
+   the sections below jumped ~460px down when the picture loaded. */
+.picture {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 20px;
+  border: 1px solid rgba(var(--ln), .12);
+  box-shadow: 0 30px 60px rgba(var(--shd), .45);
+  margin-bottom: 44px;
+}
+
+/* ── Tech Stack ────────────────────────────────────────────────────── */
+.techList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.techPill {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .16);
+  color: var(--muted);
+  transition: background .25s, color .25s, border-color .25s, transform .25s;
+  cursor: default;
+}
+.techPill:hover {
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-3px) scale(1.05);
+}
+
+/* ── The orange glow (owner, 2026-11-03) ──────────────────────────────
+   "Same effect" as VIEW ALL PROJECTS / VIEW ALL CERTIFICATES on the page's
+   ← ALL PROJECTS (top AND bottom, and its ← BACK TO RESULTS form), VIEW ON
+   GITHUB and LIVE SITE: a warm fill and a light orange glow at rest, stronger on hover.
+   Literal accent rgba so light theme keeps an orange glow.
+   ⚠️ (0,2,0) selectors: the back links compose BlogPostPage's `.pillLink`
+   (background: none; its own border) at (0,1,0), and an equal-weight
+   override would be decided by stylesheet order — the recorded trap. */
+.inner .backLink,
+.inner .backLinkBottom,
+.linkRow .githubLink,
+.linkRow .liveLink {
+  border-color: rgba(252, 163, 17, .35);
+  background: rgba(252, 163, 17, .07);
+  box-shadow: 0 0 22px rgba(252, 163, 17, .2), inset 0 0 12px rgba(252, 163, 17, .08);
+  transition: color .25s, border-color .25s, background .25s, box-shadow .25s;
+}
+
+.inner .backLink:hover,
+.inner .backLinkBottom:hover,
+.linkRow .githubLink:hover,
+.linkRow .liveLink:hover {
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .14);
+  box-shadow: 0 0 30px rgba(252, 163, 17, .35), inset 0 0 14px rgba(252, 163, 17, .12);
+}
+
+/* ── Light theme: the DARK accent, so the button catches the eye ─────
+   Owner, 2026-11-03: on the light paper the orange glow was hard to see.
+   Light's --acc is #7E4800 (PF-91's measured, readable accent), so border
+   and text take it, with a warm tint and a deeper brown-orange glow.
+   (0,2,1) beats the base rule on specificity, never emission order. */
+:global(html[data-theme='light']) .inner .backLink,
+:global(html[data-theme='light']) .inner .backLinkBottom,
+:global(html[data-theme='light']) .linkRow .githubLink,
+:global(html[data-theme='light']) .linkRow .liveLink {
+  color: var(--acc);
+  border-color: rgba(126, 72, 0, .55);
+  background: rgba(126, 72, 0, .08);
+  box-shadow: 0 0 20px rgba(126, 72, 0, .22), inset 0 0 10px rgba(126, 72, 0, .06);
+}
+
+:global(html[data-theme='light']) .inner .backLink:hover,
+:global(html[data-theme='light']) .inner .backLinkBottom:hover,
+:global(html[data-theme='light']) .linkRow .githubLink:hover,
+:global(html[data-theme='light']) .linkRow .liveLink:hover {
+  color: var(--acc);
+  border-color: var(--acc);
+  background: rgba(126, 72, 0, .14);
+  box-shadow: 0 0 26px rgba(126, 72, 0, .32), inset 0 0 12px rgba(126, 72, 0, .1);
+}
+
+/* ── PF-144 part 2 — a section's pictures ─────────────────────────────
+   Under the heading, above the text. UNCROPPED (screenshots — cutting one
+   would hide what it shows); 2–4 sit in two columns. */
+.pictures {
+  display: grid;
+  gap: 14px;
+  margin: 4px 0 22px;
+}
+
+.picturesGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.figure {
+  margin: 0;
+}
+
+/* The whole picture is the button. Zoom-in cursor says what a click does. */
+.pictureButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid rgba(var(--ln), .12);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(var(--gnd), .55);
+  cursor: zoom-in;
+  transition: border-color .25s, transform .25s;
+}
+
+.pictureButton:hover {
+  border-color: var(--acc, #FCA311);
+  transform: translateY(-3px);
+}
+
+.sectionPicture {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.figcaption {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+/* Phones (PF-142): 44px link targets. Last in the file (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  /* Owner, 2026-11-03: on a phone, everything a size SMALLER than on a laptop.
+     Tap targets stay ≥ 32px (WCAG 2.5.8 asks 24px). */
+  .githubLink,
+  .liveLink,
+  .inner .backLink,
+  .inner .backLinkBottom {
+    min-height: 36px;
+    font-size: 10.5px;
+    padding: 8px 13px;
+  }
+
+  .linkRow {
+    gap: 9px;
+  }
+
+  .techPill {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+
+  .factValue {
+    font-size: 14px;
+  }
+
+  /* One column on a phone — two screenshots side by side are too small. */
+  .picturesGrid {
+    grid-template-columns: 1fr;
+  }
+}

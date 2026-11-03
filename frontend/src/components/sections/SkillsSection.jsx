@@ -3,8 +3,10 @@ import { useEffect, useMemo } from 'react';
 import { Reveal } from '../motion';
 import { useSkills } from '../../hooks/useSkills';
 import { useSkillCategories } from '../../hooks/useSkillCategories';
+import { SectionLoadError } from '../common/SectionLoadError';
 import { LEVELS, levelRank } from '../../utils/skillForm';
 import styles from './SkillsSection.module.css';
+import { loadFailed } from '../../utils/queryState';
 
 /**
  * How many loading placeholders to show. The section list is not known yet
@@ -92,13 +94,14 @@ export function SkillsSection() {
     if (isError) console.error('SkillsSection: loading skills failed', error);
   }, [isError, error]);
 
-  // No visible failure UI, deliberately. One section failing to load
-  // should not announce the whole site as broken on a portfolio page —
-  // but the section, its heading and its `#skills` anchor stay, because
-  // the navbar links to it (Navbar.jsx:10) and returning null here would
-  // turn that link into a dead anchor with no feedback at all. Only the
-  // card grid goes; the cause is in the console.
-  const showGrid = !isError;
+  // The section, its heading and its `#skills` anchor always stay (the
+  // navbar links to it). On a failed load the card grid gives way to a calm
+  // "didn't load — TRY AGAIN" line (PF-144, owner 2026-11-03 — it used to
+  // vanish silently).
+  const failed = loadFailed(skillsQuery) || loadFailed(categoriesQuery);
+  const showGrid = !failed;
+  const retry = () => { skillsQuery.refetch(); categoriesQuery.refetch(); };
+  const retrying = skillsQuery.isFetching || categoriesQuery.isFetching;
   const hasData  = !isLoading && grouped;
 
   return (
@@ -112,6 +115,8 @@ export function SkillsSection() {
         <Reveal as="h2" type="up" delay={60} className={styles.heading}>
           The <span className={styles.outlined}>Toolkit</span>
         </Reveal>
+
+        {failed && <SectionLoadError what="The skills" retry={retry} busy={retrying} />}
 
         {/* PF-114 — the key to the dots, so one dot is not a guess. aria-hidden:
             each pill already SAYS its level to a screen reader. Revealed with

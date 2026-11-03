@@ -23,7 +23,7 @@ const viewLimiter = rateLimit({
   store:    new MongoStore('view'),
   windowMs: 60 * 1000,        // 1 minute
   max:      30,               // 30 views per IP per window
-  message:  { status: 'error', message: 'Too many requests' },
+  message:  { status: 'error', message: "You're going a little fast. Please wait a moment and try again." },
   standardHeaders: true,
   legacyHeaders:   false,
 });

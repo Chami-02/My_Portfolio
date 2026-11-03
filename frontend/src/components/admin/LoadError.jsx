@@ -29,7 +29,8 @@ export function LoadError({ what, query }) {
   const { refetch, isFetching } = query;
 
   const message = retried && !isFetching
-    ? 'STILL CAN’T REACH THE SERVER — TRY AGAIN IN A MINUTE.'
+    // PF-144: plain words — the owner's "still" rule kept, "the server" gone.
+    ? 'STILL NOT LOADING — PLEASE TRY AGAIN IN A MINUTE.'
     : `COULDN’T LOAD ${what}`;
 
   return (

@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
 import { Reveal } from '../motion';
 import { useCertificates, useEducation } from '../../hooks/useEntries';
+import { SectionLoadError } from '../common/SectionLoadError';
 import { dateRange, splitMonthYear } from '../../utils/monthYear';
 import styles from './EducationCertificates.module.css';
+import { loadFailed } from '../../utils/queryState';
 
 /** "BSc (Hons), Computer Science" — degree and field, either alone, or ''. */
 const title = (e) => (e.degree && e.fieldOfStudy && !e.degree.includes(e.fieldOfStudy)
@@ -39,9 +41,26 @@ export const HOME_CERTIFICATES = 6;
  * Every word here is fixed (owner, 2026-11-02 — no "Section text" card).
  */
 export function EducationCertificates() {
-  const { data: education = [] } = useEducation();
-  const { data: certificates = [] } = useCertificates();
+  const educationQuery = useEducation();
+  const certificatesQuery = useCertificates();
+  const education = educationQuery.data ?? [];
+  const certificates = certificatesQuery.data ?? [];
 
+  // ⚠️ PF-144: a FAILED load is not "nothing to show". The old `data = []`
+  // defaults turned a failure into an empty row, which this component then
+  // hid — the silent-failure trap recorded in CLAUDE.md. Now a failure SAYS
+  // so (owner, 2026-11-03); a genuinely empty row still renders nothing.
+  const failed = loadFailed(educationQuery) || loadFailed(certificatesQuery);
+  const retry = () => { educationQuery.refetch(); certificatesQuery.refetch(); };
+  const retrying = educationQuery.isFetching || certificatesQuery.isFetching;
+
+  if (failed && education.length === 0 && certificates.length === 0) {
+    return (
+      <div className={styles.failed}>
+        <SectionLoadError what="Education and certificates" retry={retry} busy={retrying} />
+      </div>
+    );
+  }
   if (education.length === 0 && certificates.length === 0) return null;
 
   return (

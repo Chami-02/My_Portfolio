@@ -237,6 +237,6 @@ describe('About.heroImage — the model', () => {
 
   it('refuses a data: URI', async () => {
     const about = new About({ heroImage: { url: 'data:image/png;base64,AAAA' } });
-    await expect(about.validate()).rejects.toThrow(/Hero image URL must be an http\(s\) URL/);
+    await expect(about.validate()).rejects.toThrow(/Hero image must be a full web address/);
   });
 });

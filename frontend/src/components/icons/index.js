@@ -13,6 +13,7 @@ export {
   // to `undefined`, which renders as nothing with no error at all.
   TwitterIcon,
   LinkIcon,
+  CalendarIcon,   // PF-144
 } from './BrandIcons';
 
 // The key→glyph map. Separate module because a file exporting components may

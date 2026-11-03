@@ -1,0 +1,182 @@
+/* frontend/src/components/common/ErrorPage.module.css
+ *
+ * PF-144 — the one full-page error layout (404, CV not available). Owner,
+ * 2026-11-03: smaller and simpler, "like an error message", all alike.
+ * Replaces the 404's 64px uppercase display heading. Colours are the tokens
+ * PF-91 measured for both themes (--strong heading, --muted body, --acc
+ * label and mark).
+ */
+
+/* Fills the viewport between the header and the footer, card centred. */
+.page {
+  composes: kf-riseIn-portfolio from global;
+  animation-duration: .8s;
+  animation-timing-function: cubic-bezier(.16, 1, .3, 1);
+  animation-fill-mode: both;
+
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(100px, 14vh, 150px) 16px clamp(56px, 8vh, 96px);
+}
+
+.errorCard {
+  width: min(100%, 460px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 28px 30px;
+  border-radius: 20px;
+  background: rgba(var(--srf), .72);
+  border: 1px solid rgba(var(--ln), .14);
+  box-shadow: 0 24px 60px rgba(var(--shd), .35);
+}
+
+/* The warning mark — RED (owner, 2026-11-03), the same --danger "!" the
+   sign-in errors and the crash screen use, so every error reads alike. */
+.mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 14px;
+  border-radius: 50%;
+  background: rgba(180, 35, 31, .1);
+  border: 1.5px solid var(--danger);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.label {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .2em;
+  color: var(--acc, #FCA311);
+}
+
+.title {
+  margin: 0 0 10px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--strong);
+}
+
+.body {
+  margin: 0 0 24px;
+  max-width: 40ch;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  cursor: pointer;
+  border: 0;
+  align-items: center;
+  font-family: var(--font-mono);
+  /* Smaller (owner, 2026-11-03: "buttons … are too big"). */
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  padding: 9px 15px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.primary {
+  font-weight: 700;
+  color: var(--accInk);
+  background: var(--acc, #FCA311);
+  box-shadow: 0 6px 16px rgba(252, 163, 17, .22);
+  transition: transform .25s, box-shadow .25s;
+}
+
+.primary:hover {
+  color: var(--accInk);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(252, 163, 17, .4);
+}
+
+.secondary {
+  color: var(--text);
+  background: none;
+  border: 1px solid rgba(var(--ln), .22);
+  transition: color .25s, border-color .25s, background .25s;
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
+.secondary:hover {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .08);
+}
+
+/* Phones (owner, 2026-11-03: "mobile … the most important part"): the card
+   sits near the TOP (just under the header) instead of mid-screen, so the
+   message and both buttons are seen without scrolling; a size smaller; the
+   buttons a full-width, thumb-sized stack (36px). LAST in the file
+   (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .page {
+    place-items: start center;
+    min-height: auto;
+    padding: 96px 16px 56px;
+  }
+
+  .errorCard {
+    padding: 24px 18px 20px;
+    border-radius: 16px;
+  }
+
+  .mark {
+    width: 34px;
+    height: 34px;
+    margin-bottom: 12px;
+    font-size: 16px;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .body {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .primary,
+  .secondary {
+    justify-content: center;
+    min-height: 36px;
+    font-size: 10.5px;
+  }
+}

@@ -8,6 +8,11 @@
  * and `.cert` are reveal targets. The links INSIDE them declare their own.
  */
 
+/* PF-144 — the failed-load line sits where the row would (same top gap). */
+.failed {
+  margin-top: clamp(56px, 8vw, 96px);
+}
+
 .row {
   display: grid;
   /* Two columns while 360px fits twice, else stacked. auto-fit also gives a
@@ -265,15 +270,40 @@ a.logo:hover {
   letter-spacing: .1em;
   padding: 12px 22px;
   border-radius: 999px;
-  border: 1px solid rgba(var(--ln), .22);
+  border: 1px solid rgba(252, 163, 17, .35);
+  /* Owner, 2026-11-03: a light orange glow and a warm fill at rest, so the
+     button reads as the way on. Literal accent rgba: the glow is orange in
+     BOTH themes (light theme's --acc is a dark brown). */
+  background: rgba(252, 163, 17, .07);
+  box-shadow: 0 0 22px rgba(252, 163, 17, .2), inset 0 0 12px rgba(252, 163, 17, .08);
   text-decoration: none;
-  transition: color .25s, border-color .25s, background .25s;
+  transition: color .25s, border-color .25s, background .25s, box-shadow .25s;
 }
 
 .viewAll:hover {
   color: var(--strong);
   border-color: var(--acc, #FCA311);
-  background: rgba(252, 163, 17, .08);
+  background: rgba(252, 163, 17, .14);
+  box-shadow: 0 0 30px rgba(252, 163, 17, .35), inset 0 0 14px rgba(252, 163, 17, .12);
+}
+
+/* ── Light theme: the DARK accent, so the button catches the eye ─────
+   Owner, 2026-11-03: on the light paper the orange glow was hard to see.
+   Light's --acc is #7E4800 (PF-91's measured, readable accent), so border
+   and text take it, with a warm tint and a deeper brown-orange glow.
+   (0,1,1) beats the base rule on specificity, never emission order. */
+:global(html[data-theme='light']) .viewAll {
+  color: var(--acc);
+  border-color: rgba(126, 72, 0, .55);
+  background: rgba(126, 72, 0, .08);
+  box-shadow: 0 0 20px rgba(126, 72, 0, .22), inset 0 0 10px rgba(126, 72, 0, .06);
+}
+
+:global(html[data-theme='light']) .viewAll:hover {
+  color: var(--acc);
+  border-color: var(--acc);
+  background: rgba(126, 72, 0, .14);
+  box-shadow: 0 0 26px rgba(126, 72, 0, .32), inset 0 0 12px rgba(126, 72, 0, .1);
 }
 
 /* ── phones ──────────────────────────────────────────────────────────────
@@ -285,7 +315,8 @@ a.logo:hover {
   }
 
   .viewAll {
-    min-height: 44px;
+    min-height: 40px;
+    font-size: 10.5px;
     width: 100%;
     justify-content: center;
   }

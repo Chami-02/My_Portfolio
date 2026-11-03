@@ -84,7 +84,7 @@ test.describe('Admin Authentication Flow', () => {
     await page.fill('input[type="password"]', 'wrongpassword');
     await page.click('button[type="submit"]');
 
-    await expect(page.getByText(/invalid email or password/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/incorrect email or password/i)).toBeVisible({ timeout: 5000 });
   });
 
   test('correct credentials log in and redirect to dashboard', async ({ page }) => {

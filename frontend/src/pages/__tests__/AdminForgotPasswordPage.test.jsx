@@ -97,7 +97,7 @@ describe('AdminForgotPasswordPage — step 1, the address', () => {
     renderAt();
     await user.type(screen.getByLabelText('Email address'), 'me@example.com');
     await user.click(screen.getByRole('button', { name: 'SEND CODE →' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/cannot reach the server/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/We can't connect right now/i);
     expect(screen.queryByLabelText('6-digit code')).toBeNull();
   });
 });

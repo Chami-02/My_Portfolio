@@ -1,0 +1,259 @@
+/* frontend/src/components/projects/ProjectCard.module.css
+ *
+ * PF-144 — the picture-on-top project card (owner, 2026-11-03). There is NO
+ * prototype source for this layout: every card in `Portfolio Revolution.dc.html`
+ * (lines 318-393) is text over a background picture, which is exactly what
+ * the owner found unreadable. So the SHELL, the type and the hover keep the
+ * prototype's own values (the small card's surface, radius and lift; the big
+ * card's gradient, accent border and Anton title) and only the arrangement
+ * is new.
+ */
+
+/* `display: flex` column so VIEW PROJECT sits at the bottom of every card in
+   a row, however long its summary. `isolation` keeps the stretched link's
+   ::after inside the card's own stacking context. */
+.card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 20px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .09);
+}
+
+/* NO `transition`: the card is Reveal-wrapped on the home page (locked —
+   a Reveal-wrapped element never declares one; Reveal owns the property). */
+.card:hover {
+  transform: translateY(-8px);
+  border-color: var(--acc, #FCA311);
+  box-shadow: 0 28px 60px rgba(var(--shd), .55);
+}
+
+/* The title link's focus ring shows on the title; the card answers too. */
+.card:has(.link:focus-visible) {
+  border-color: var(--acc, #FCA311);
+}
+
+/* The home section's first slot — the big card's own shell. */
+.big {
+  border-radius: 22px;
+  background: linear-gradient(150deg, rgba(var(--srf), .9), rgba(var(--gnd), .9));
+  border-color: rgba(252, 163, 17, .28);
+}
+
+.big:hover {
+  box-shadow: 0 34px 70px rgba(var(--shd), .6);
+}
+
+/* ── the picture ─────────────────────────────────────────────────── */
+
+.media {
+  position: relative;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: rgba(var(--gnd), .6);
+  border-bottom: 1px solid rgba(var(--ln), .09);
+}
+
+.picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .8s cubic-bezier(.16, 1, .3, 1);
+}
+
+.card:hover .picture {
+  transform: scale(1.04);
+}
+
+.noPicture {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(150deg, rgba(var(--srf), .9), rgba(var(--gnd), .9));
+  font-family: var(--font-display);
+  font-size: 64px;
+  line-height: 1;
+  color: rgba(252, 163, 17, .28);
+}
+
+/* The two labels ON the picture. SOLID fills, not the admin badge's 10% tint:
+   over a photo a see-through pill measured 2.35:1 (owner chose solid for the
+   FEATURED pill on 2026-10-03 for exactly this reason). */
+.category,
+.featured {
+  position: absolute;
+  top: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgb(var(--srf));
+  box-shadow: 0 6px 16px rgba(var(--shd), .35);
+}
+
+.category {
+  left: 12px;
+  color: var(--strong);
+  border: 1px solid rgba(var(--ln), .18);
+}
+
+.featured {
+  right: 12px;
+  color: var(--acc, #FCA311);
+  border: 1px solid rgba(252, 163, 17, .4);
+}
+
+/* ── the words ───────────────────────────────────────────────────── */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 10px;
+  padding: 22px 24px 24px;
+}
+
+.period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+
+.period svg {
+  color: var(--acc, #FCA311);
+}
+
+/* Space Grotesk 700 — the prototype's small-card title (line 361). */
+.title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 21px;
+  line-height: 1.3;
+  color: var(--strong);
+}
+
+/* The big card keeps its Anton uppercase title (prototype line 322). */
+.big .title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(26px, 3.4vw, 42px);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The stretched link: one link, the whole card clickable. */
+.link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.summary {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.big .summary {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.byline {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--muted);
+}
+
+.cta {
+  margin-top: auto;
+  padding-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  color: var(--acc, #FCA311);
+}
+
+/* Phones (PF-142): a little less padding. Last in the file (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  /* Owner, 2026-11-03: on a phone, everything a size SMALLER than on a laptop.
+     Tap targets stay ≥ 32px (WCAG 2.5.8 asks 24px). */
+  .card {
+    border-radius: 16px;
+  }
+
+  .body {
+    gap: 8px;
+    padding: 16px 16px 18px;
+  }
+
+  .category,
+  .featured {
+    top: 10px;
+    font-size: 9px;
+    padding: 4px 9px;
+  }
+
+  .category { left: 10px; }
+  .featured { right: 10px; }
+
+  .noPicture {
+    font-size: 48px;
+  }
+
+  .period {
+    gap: 6px;
+    font-size: 10px;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .big .title {
+    font-size: 26px;
+  }
+
+  .summary,
+  .big .summary {
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  .byline {
+    font-size: 10px;
+  }
+
+  .cta {
+    font-size: 10.5px;
+  }
+}

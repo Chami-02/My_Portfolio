@@ -76,192 +76,6 @@ section.projects {
   margin-bottom: 20px;
 }
 
-/* `isolation: isolate` is load-bearing, not decoration. It makes the card
-   its own stacking context so the z-index 0/1/2 layering below cannot
-   interact with the ambient layer (canvas 0, glow 1, grain 70). Without
-   it a card background layer at z-index 0 competes site-wide. */
-.bigCard {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  padding: clamp(22px, 3vw, 36px);
-  border-radius: 22px;
-  background: linear-gradient(150deg, rgba(var(--srf), .9), rgba(var(--gnd), .9));
-  border: 1px solid rgba(252, 163, 17, .28);
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-/* ⚠️ NO `transition` here, deliberately — and the two cards end up
-   behaving DIFFERENTLY because of it, which is the prototype's own
-   asymmetry rather than an oversight:
-
-     .bigCard   prototype line 318 — NO data-reveal. Nothing supplies a
-                transition, so the hover lift SNAPS. Its parent grid
-                carries the reveal (line 317), not the card.
-     .card      prototype line 357 — data-reveal="up". hideReveals()
-                writes `opacity .85s, transform 1.05s` onto it inline and
-                never clears it, so the hover lift EASES over 1.05s.
-
-   Neither card declares a transition in its own markup; the difference
-   comes entirely from whether hideReveals() reached it. Declaring none
-   here reproduces both.
-
-   ⚠️ This comment previously said both cards snap, and that the eased
-   .statCard / Skills .card were an un-extended 2026-08-18 deviation.
-   Both halves were wrong, and PF-93 (2026-08-21) settled it: the
-   deviation is withdrawn, all four gated elements now let Reveal own the
-   property, and the standing rule is that a Reveal-wrapped element never
-   declares a `transition` at all — not even gated on [data-reveal='in'],
-   which is set at the entrance's START and therefore eats it. */
-.bigCard:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 34px 70px rgba(var(--shd), .6);
-  border-color: var(--acc, #FCA311);
-}
-
-/* ⚠️ OWNER OVERRIDE (2026-10-03, PF-113 batch 2): the admin list's
-   `★ FEATURED` pill (admin.module.css `.badge`, Admin.dc.html:290), NOT the
-   prototype's solid orange box. Same values restated here, not composed —
-   a CSS module cannot compose from another feature's stylesheet without
-   coupling the public site to the admin layer. Big AND small cards. */
-.featuredBadge {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: .1em;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(252, 163, 17, .4);
-  background: rgba(252, 163, 17, .1);
-  color: var(--acc, #FCA311);
-  align-self: flex-start;
-}
-
-.bigTitle {
-  font-family: var(--font-display);
-  font-size: clamp(26px, 3.4vw, 42px);
-  text-transform: uppercase;
-  color: var(--strong);
-  margin: 0;
-  line-height: 1;
-}
-
-.bigDesc {
-  color: var(--muted);
-  font-size: 15px;
-  line-height: 1.75;
-  margin: 0;
-}
-
-.pillRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-/* Composition of two prototype patterns, not a new one. The prototype's
-   big card holds a single bare <a> with `margin-top:auto;
-   align-self:flex-start` (line 333), because the project in that slot had
-   no liveUrl. The owner reordered so ClearDrive — which has one — takes
-   the slot, so the big card now needs two links, a case the prototype
-   never shows.
-   `gap: 12px` + `flex-wrap` come from the small card's link row (line
-   374); `margin-top: auto` comes from the big card's single link. The
-   auto margin absorbs the column's free space and pins the row to the
-   card's bottom exactly as it did for one link, and resolves to 0 when
-   content fills the card, leaving the column's own `gap: 18px`.
-   ⚠️ Deliberately NO `align-self: flex-start`. A full-width row is what
-   makes `flex-wrap` work; shrinking it to its content would stop the
-   links wrapping on a narrow card. */
-.featuredLinkRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: auto;
-}
-
-.linkRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.githubLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: .1em;
-  color: var(--acc, #FCA311);
-  border: 1px solid rgba(252, 163, 17, .35);
-  border-radius: 999px;
-  padding: 10px 16px;
-}
-.githubLink:hover {
-  color: var(--accInk);
-  background: var(--acc, #FCA311);
-  border-color: var(--acc, #FCA311);
-}
-
-.liveLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: .1em;
-  color: var(--text);
-  border: 1px solid rgba(var(--ln), .2);
-  border-radius: 999px;
-  padding: 10px 16px;
-}
-.liveLink:hover {
-  color: var(--strong);
-  border-color: var(--acc, #FCA311);
-  background: rgba(252, 163, 17, .1);
-}
-
-/* ⚠️ NOT IN THE PROTOTYPE — owner-requested 2026-08-29: a glowing green
-   dot marking a project as live.
-
-   `composes: kf-dot-ok from global` and NOT `animation: dot-ok ...`.
-   A keyframe name written inside a *.module.css is scoped by the CSS
-   Modules compiler and then resolves to nothing — the single most
-   expensive silent failure recorded in CLAUDE.md. The name is supplied
-   by a global carrier in styles/animations.css; only the timing
-   longhands live here. The shorthand is likewise avoided: `animation:
-   2s ease-out infinite` would reset animation-name to `none` and undo
-   the composed class.
-
-   Fill is `var(--ok)`, so it flips with the theme and inherits PF-91's
-   contrast work (#34d399 dark / #0B6446 light). The GLOW around it is a
-   literal green in both themes, inside the keyframe — see base.css. */
-.liveDot {
-  composes: kf-dot-ok from global;
-  width: 8px;
-  height: 8px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--ok);
-  /* ⚠️ The RESTING glow, and it is load-bearing under reduced motion.
-     motion.css collapses every animation to 0.01ms with one iteration,
-     and `dot-ok` carries NO fill-mode — deliberately, because
-     `fill-mode: both` keeps a finished animation in getAnimations()
-     for the life of the page (the ScrollToTop finding in CLAUDE.md).
-     So once it finishes the element falls back to this declaration,
-     which is what keeps the dot reading as "live" rather than as a
-     plain green disc for anyone who asked for no motion. With motion
-     allowed the running animation supplies box-shadow instead and this
-     value is never seen. */
-  box-shadow: 0 0 6px 1px rgba(52, 211, 153, .65);
-  animation-duration: 2s;
-  animation-timing-function: ease-out;
-  animation-iteration-count: infinite;
-}
-
 /* ── terminal panel ───────────────────────────────────────────────────
    ⚠️ The literal hexes below are the prototype's and stay literal. This
    element is a PICTURE of a terminal, not themed UI — #0d1117 and
@@ -392,150 +206,60 @@ section.projects {
   gap: 20px;
 }
 
-.card {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  padding: 26px 24px;
-  border-radius: 20px;
-  background: rgba(var(--srf), .5);
-  border: 1px solid rgba(var(--ln), .09);
-}
-
-/* NO `transition` — see the note on `.bigCard:hover`. */
-.card:hover {
-  transform: translateY(-8px);
-  border-color: var(--acc, #FCA311);
-  box-shadow: 0 28px 60px rgba(var(--shd), .55);
-}
-
-.numeral {
-  font-family: var(--font-display);
-  font-size: 44px;
-  color: rgba(252, 163, 17, .28);
-  margin: 0 0 6px;
-  line-height: 1;
-}
-
-/* Owner decision 2026-09-16: a featured project outside the big slot
-   carries the badge too. The numeral and the badge share one head row —
-   numeral left, badge right, both top-aligned — so the badge sits in
-   the card's top-right corner WITHOUT `position: absolute`. The
-   `.card > *` layering rule further down pins every direct child
-   `position: relative` at (0,3,0) and would outrank an absolute badge
-   (measured: it landed in flow at the card's left edge). No
-   `transition`: the card is Reveal-wrapped. */
-.cardHead {
+/* ── VIEW ALL PROJECTS (PF-144) ─────────────────────────────────────
+   EducationCertificates' VIEW ALL button, restated (a module cannot compose
+   from another feature's sheet without coupling them). Centred under the
+   cards; phones get the full-width 44px target below. */
+.viewAllRow {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  margin-top: 36px;
 }
 
-/* Same pill as .featuredBadge — restated rather than composed because
-   that one is `align-self: flex-start` in the big card's flex column and
-   this one is a flex-row end item. */
-.featuredBadgeSm {
-  flex: none;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: .1em;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(252, 163, 17, .4);
-  background: rgba(252, 163, 17, .1);
-  color: var(--acc, #FCA311);
-}
-
-/* Space Grotesk 700 sentence-case here against the big card's Anton
-   uppercase. The two headings differ by design (prototype lines 322 and
-   361) — not an inconsistency to smooth over. */
-.cardTitle {
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 21px;
-  color: var(--strong);
-  margin: 0 0 10px;
-}
-
-.cardDesc {
-  color: var(--muted);
-  font-size: 14.5px;
-  line-height: 1.7;
-  margin: 0 0 16px;
-}
-
-/* ── tech pill — the PROJECTS variant, declared locally ───────────────
-   ⚠️ Deliberately NOT `composes: pill from patterns.module.css`. That
-   shared class is a third shape matching neither prototype pill —
-   inline-flex, 10px 18px padding, plus a `gap` and `letter-spacing`
-   neither has. And this pill differs from the Skills pill on five
-   properties: font-size (11 vs 12), padding (6/11 vs 7/12), background
-   (none vs rgba(252,163,17,.08)), border colour and text colour. They
-   match only on hover, transition, radius, cursor, display and family.
-   SkillsSection declares its own locally for the same reason.
-
-   Declared BARE, and that is correct: the pill is not Reveal-wrapped —
-   the prototype wraps the CARD (line 357) and the pills arrive with it —
-   so nothing competes for the `transition` property and the pill keeps
-   its own. Same case as `.pill:not([data-reveal])` in
-   patterns.module.css. Wrapping pills individually would also stagger
-   N entrances where the design has one per card. */
-.techPill {
-  display: inline-block;
+.viewAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: 11px;
-  padding: 6px 11px;
+  letter-spacing: .1em;
+  padding: 12px 22px;
   border-radius: 999px;
-  border: 1px solid rgba(var(--ln), .16);
-  color: var(--muted);
-  transition: background .25s, color .25s, border-color .25s, transform .25s;
-  cursor: default;
+  border: 1px solid rgba(252, 163, 17, .35);
+  /* Owner, 2026-11-03: a light orange glow and a warm fill at rest, so the
+     button reads as the way on. Literal accent rgba: the glow is orange in
+     BOTH themes (light theme's --acc is a dark brown). */
+  background: rgba(252, 163, 17, .07);
+  box-shadow: 0 0 22px rgba(252, 163, 17, .2), inset 0 0 12px rgba(252, 163, 17, .08);
+  text-decoration: none;
+  transition: color .25s, border-color .25s, background .25s, box-shadow .25s;
 }
-.techPill:hover {
-  color: var(--accInk);
-  background: var(--acc, #FCA311);
+
+.viewAll:hover {
+  color: var(--strong);
   border-color: var(--acc, #FCA311);
-  transform: translateY(-3px) scale(1.05);
+  background: rgba(252, 163, 17, .14);
+  box-shadow: 0 0 30px rgba(252, 163, 17, .35), inset 0 0 14px rgba(252, 163, 17, .12);
 }
 
-/* ── card background layers ───────────────────────────────────────────
-   Ports the prototype's applyProjectBgs() (line 684) onto PF-52's
-   `backgroundImage { src, opacity }` schema field. Both layers render
-   only when a src exists; the opacity values are written inline by the
-   component, matching the prototype's JS. */
-.cardBg {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-size: cover;
-  background-position: center;
-  transition: opacity .6s ease, transform .8s cubic-bezier(.16, 1, .3, 1);
+/* ── Light theme: the DARK accent, so the button catches the eye ─────
+   Owner, 2026-11-03: on the light paper the orange glow was hard to see.
+   Light's --acc is #7E4800 (PF-91's measured, readable accent), so border
+   and text take it, with a warm tint and a deeper brown-orange glow.
+   (0,1,1) beats the base rule on specificity, never emission order. */
+:global(html[data-theme='light']) .viewAll {
+  color: var(--acc);
+  border-color: rgba(126, 72, 0, .55);
+  background: rgba(126, 72, 0, .08);
+  box-shadow: 0 0 20px rgba(126, 72, 0, .22), inset 0 0 10px rgba(126, 72, 0, .06);
 }
 
-.cardScrim {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  transition: opacity .6s ease;
-  background: linear-gradient(180deg,
-    rgba(var(--gnd), .30) 0%,
-    rgba(var(--gnd), .62) 45%,
-    rgba(var(--gnd), .88) 100%);
-}
-
-/* The prototype walks each card's children in JS setting
-   `position:relative; z-index:2` so content clears both layers. One
-   declarative rule does the same thing without a DOM sweep.
-   ⚠️ Both layer classes MUST stay in the :not() list. Dropping either
-   puts z-index 2 on the layer itself, which lifts the background image
-   above the text — the text does not disappear from the DOM, it is
-   simply painted over, so nothing errors and no test that counts
-   elements would notice. Guarded. */
-.bigCard > *:not(.cardBg):not(.cardScrim),
-.card > *:not(.cardBg):not(.cardScrim) {
-  position: relative;
-  z-index: 2;
+:global(html[data-theme='light']) .viewAll:hover {
+  color: var(--acc);
+  border-color: var(--acc);
+  background: rgba(126, 72, 0, .14);
+  box-shadow: 0 0 26px rgba(126, 72, 0, .32), inset 0 0 12px rgba(126, 72, 0, .1);
 }
 
 /* ── loading ──────────────────────────────────────────────────────────
@@ -558,37 +282,24 @@ section.projects {
   min-height: 289px;
 }
 
-/* ⚠️ NO single value is correct here, and this one is a compromise the
-   owner should see rather than a measurement.
-   Unlike Skills — where every filled card is the same height because the
-   grid rows stretch and the content is uniform — a project card's height
-   is driven by its description length and how its tech pills wrap, so it
-   differs per project AND per width. Filled heights measured in Chromium:
-
-     1600 479 · 1440 479 · 1280 479 · 1024 619
-      900 479 ·  768 594 ·  600 391 ·  375 594
-
-   479px is exact at four of the eight widths measured (1600/1440/1280/
-   900) and is the value used here. It is off by +140 at 1024, +115 at
-   768 and 375, and -88 at 600, so the section still shifts when content
-   lands at those widths. Without a min-height the card collapses to 2px
-   and the shift is far larger. Flagged in the PF-85 hand-off. */
+/* PF-144: the picture-on-top card's height, measured in Chromium at 1459px
+   (448px; the old text card was 479px). A picture card is steadier than the
+   old one — the picture is a fixed 16:9 and the summary is clamped to two
+   lines — so what still varies is the width, the date / role lines and how
+   the title wraps. */
 .cardPlaceholder {
   border-radius: 20px;
   border: 1px solid rgba(var(--ln), .09);
   background: rgba(var(--srf), .5);
-  min-height: 479px;
+  min-height: 448px;
 }
 
-/* ── The FEATURED pill on a PHOTO, dark theme (owner, 2026-10-03) ─────────
-   The admin `.badge` tint is 90% see-through. In the admin it sits on a solid
-   dark row; here a card background photo shows through it, and MEASURED over
-   the live photo (photo × 0.65 + scrim + tint, per pixel under the pill) the
-   orange 9.5px text read 2.35:1 worst / 2.61 mean — under AA's 4.5. The owner
-   chose a SOLID fill: the raised-surface navy, ≈ 7.9:1 on any photo.
-   ⚠️ Dark only — light measured 4.71 worst / 5.74 mean and is untouched.
-   (0,2,1) beats the base rule on specificity, never emission order. */
-:global(html[data-theme='dark']) .featuredBadge,
-:global(html[data-theme='dark']) .featuredBadgeSm {
-  background: rgb(var(--srf));
+/* PF-142 phones. ⚠️ LAST in the file (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .viewAll {
+    min-height: 40px;
+    font-size: 10.5px;
+    width: 100%;
+    justify-content: center;
+  }
 }

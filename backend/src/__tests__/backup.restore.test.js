@@ -76,7 +76,7 @@ const seedContent = async () => {
   await Project.create([
     {
       title: 'Live project', description: 'A valid test project description for the restore suite.',
-      tech: ['JavaScript'], githubUrl: 'https://github.com/test/one', order: 1,
+      tech: ['JavaScript'], githubUrl: 'https://github.com/test/one', sections: [{ heading: 'About', body: ['What it does.'] }], order: 1,
       backgroundImage: { src: bg.url, publicId: bg.id, opacity: 0.5 },
     },
     {
@@ -157,7 +157,7 @@ describe('the round trip', () => {
     const wanted = await state();
 
     await Project.deleteOne({ title: 'Live project' });
-    await Project.create({ title: 'Added later', description: 'A valid test project description, added later.', tech: ['Go'], githubUrl: 'https://github.com/test/x' });
+    await Project.create({ title: 'Added later', description: 'A valid test project description, added later.', tech: ['Go'], githubUrl: 'https://github.com/test/x', sections: [{ heading: 'About', body: ['What it does.'] }] });
     await Skill.deleteMany({});
     await SkillCategory.updateOne({ key: 'devops' }, { label: 'Changed' });
     await About.updateOne({}, { title: 'Changed' });
@@ -241,7 +241,7 @@ describe('POST /api/backup/restore/check — the preview changes nothing', () =>
     const res = await check(file);
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({
-      createdAt: file.createdAt, version: 2, hasAbout: true,
+      createdAt: file.createdAt, version: 3, hasAbout: true,
       counts: {
         projects: 2, skills: 2, skillCategories: 2, blog: 2, vocabulary: 2, messages: 2, education: 2, certificates: 2,
       },
@@ -261,32 +261,32 @@ describe('a file that cannot be restored is refused — and NOTHING changes', ()
 
   const cases = [
     ['not JSON at all', () => '{ this is not json', /could not be read as a backup/],
-    ['another kind of file', () => ({ hello: 'world' }), /not a portfolio backup file/],
-    ['a $ operator key', () => edited((f) => { f.projects[0].tech = { $where: 'x' }; }), /key the site never writes \(“projects\[0\]\.tech\.\$where”\)/],
-    ['a __proto__ key', () => JSON.stringify(good).replace('"about":{', '"about":{"__proto__":{"admin":true},'), /key the site never writes \(“about\.__proto__”\)/],
+    ['another kind of file', () => ({ hello: 'world' }), /isn't a backup from this site/],
+    ['a $ operator key', () => edited((f) => { f.projects[0].tech = { $where: 'x' }; }), /changed by hand \(it contains “projects\[0\]\.tech\.\$where”\)/],
+    ['a __proto__ key', () => JSON.stringify(good).replace('"about":{', '"about":{"__proto__":{"admin":true},'), /changed by hand \(it contains “about\.__proto__”\)/],
     ['a newer version', () => edited((f) => { f.version = VERSION + 1; }), /made by a newer version/],
-    ['no version', () => edited((f) => { delete f.version; }), /no valid version/],
-    ['a newer database', () => edited((f) => { f.schema.migrations = ['999-future.js']; }), /database update this site has not had yet \(999-future\.js\)/],
-    ['counts that do not match', () => edited((f) => { f.projects.pop(); }), /“projects” list should have 2 rows but has 1/],
-    ['a missing list', () => edited((f) => { delete f.skills; }), /“skills” list is missing/],
-    ['too many rows', () => edited((f) => { f.vocabulary = Array(MAX_ROWS + 1).fill({}); f.counts.vocabulary = MAX_ROWS + 1; }), /more than 5000 rows/],
-    ['a bad id', () => edited((f) => { f.skills[0]._id = 'nope'; }), /^Skill 1 \(“Git”\): _id — not a valid id$/],
-    ['the same id twice', () => edited((f) => { f.blog[1]._id = f.blog[0]._id; }), /Blog post 2 \(“Draft post”\): _id — appears twice/],
-    ['a row its model refuses', () => edited((f) => { f.blog[0].title = ''; }), /^Blog post 1: title — /],
-    ['a wrong type', () => edited((f) => { f.messages[0].read = 'maybe'; }), /^Message 1 \(“Ada”\): read — /],
+    ['no version', () => edited((f) => { delete f.version; }), /missing its version/],
+    ['a newer database', () => edited((f) => { f.schema.migrations = ['999-future.js']; }), /made by a newer version of the site/],
+    ['counts that do not match', () => edited((f) => { f.projects.pop(); }), /projects list should have 2 items but has 1/],
+    ['a missing list', () => edited((f) => { delete f.skills; }), /skills list is missing/],
+    ['too many rows', () => edited((f) => { f.vocabulary = Array(MAX_ROWS + 1).fill({}); f.counts.vocabulary = MAX_ROWS + 1; }), /more than 5000 items/],
+    ['a bad id', () => edited((f) => { f.skills[0]._id = 'nope'; }), /^Skill 1 \(“Git”\): has a broken link inside it/],
+    ['the same id twice', () => edited((f) => { f.blog[1]._id = f.blog[0]._id; }), /Blog post 2 \(“Draft post”\): appears twice/],
+    ['a row its model refuses', () => edited((f) => { f.blog[0].title = ''; }), /^Blog post 1: Blog title is required/],
+    ['a wrong type', () => edited((f) => { f.messages[0].read = 'maybe'; }), /^Message 1 \(“Ada”\): one of its values isn't valid/],
     ['two posts at one URL', () => edited((f) => { f.blog[1].slug = f.blog[0].slug; }), /Blog post 2 \(“Draft post”\): the same as Blog post 1/],
     // PF-143 — refused as a PROBLEM, before the transaction's unique index could.
     ['two certificates at one address', () => edited((f) => { f.certificates[1].slug = f.certificates[0].slug; }), /Certificate 2 \(“Draft certificate”\): the same as Certificate 1/],
-    ['a skill in a missing section', () => edited((f) => { f.skillCategories.shift(); f.counts.skillCategories = 1; }), /Skill 1 \(“Git”\): category — the section “devops” is not in the file/],
+    ['a skill in a missing section', () => edited((f) => { f.skillCategories.shift(); f.counts.skillCategories = 1; }), /Skill 1 \(“Git”\): its section “devops” isn't in the file/],
     // Each media case breaks ONE rule while the link still names the file id,
     // so only that rule can refuse it (the first version of these cases was
     // also caught by the id-in-link rule — mutation testing showed it).
-    ['media on another host', () => edited((f) => { f.projects[0].backgroundImage.src = `https://evil.example/image/upload/v1/${FOLDER}/project-bg.webp`; }), /Project 1 \(“Live project”\): backgroundImage — the file link is not one this site uploaded/],
-    ['media in another Cloudinary account', () => edited((f) => { f.projects[0].backgroundImage.src = `https://res.cloudinary.com/someone-else/image/upload/v1/${FOLDER}/project-bg.webp`; }), /Project 1 \(“Live project”\): backgroundImage — the file link/],
-    ['media over plain http', () => edited((f) => { f.projects[0].backgroundImage.src = `http://res.cloudinary.com/${CLOUD}/image/upload/v1/${FOLDER}/project-bg.webp`; }), /Project 1 \(“Live project”\): backgroundImage — the file link/],
-    ['a file outside our folder', () => edited((f) => { f.about.resume.publicId = 'other/resume'; f.about.resume.url = `https://res.cloudinary.com/${CLOUD}/raw/upload/v1/other/resume`; }), /About: resume — the file link is not one this site uploaded/],
-    ['a link that names another file', () => edited((f) => { f.about.resume.url = `https://res.cloudinary.com/${CLOUD}/raw/upload/v1/${FOLDER}/someone-else`; }), /About: resume — the file link/],
-    ['a link with no file id', () => edited((f) => { f.about.resume.publicId = ''; }), /About: resume — the file link/],
+    ['media on another host', () => edited((f) => { f.projects[0].backgroundImage.src = `https://evil.example/image/upload/v1/${FOLDER}/project-bg.webp`; }), /Project 1 \(“Live project”\): a picture or file link isn't one this site uploaded/],
+    ['media in another Cloudinary account', () => edited((f) => { f.projects[0].backgroundImage.src = `https://res.cloudinary.com/someone-else/image/upload/v1/${FOLDER}/project-bg.webp`; }), /Project 1 \(“Live project”\): a picture or file link/],
+    ['media over plain http', () => edited((f) => { f.projects[0].backgroundImage.src = `http://res.cloudinary.com/${CLOUD}/image/upload/v1/${FOLDER}/project-bg.webp`; }), /Project 1 \(“Live project”\): a picture or file link/],
+    ['a file outside our folder', () => edited((f) => { f.about.resume.publicId = 'other/resume'; f.about.resume.url = `https://res.cloudinary.com/${CLOUD}/raw/upload/v1/other/resume`; }), /About: a picture or file link isn't one this site uploaded/],
+    ['a link that names another file', () => edited((f) => { f.about.resume.url = `https://res.cloudinary.com/${CLOUD}/raw/upload/v1/${FOLDER}/someone-else`; }), /About: a picture or file link/],
+    ['a link with no file id', () => edited((f) => { f.about.resume.publicId = ''; }), /About: a picture or file link/],
   ];
 
   it.each(cases)('%s → 422 with the reason, on check AND restore', async (_name, make, reason) => {
@@ -461,6 +461,25 @@ describe('the format', () => {
     expect(await Education.countDocuments()).toBe(0);
     expect(await Certificate.countDocuments()).toBe(0);
     expect(await Project.countDocuments()).toBe(2);
+  });
+
+  // PF-144 — a v2 project has no slug and no page sections. Without the 2→3
+  // step a published one fails "a project needs a page" and the whole
+  // restore is refused; with it, it gets migration 013's slug and section.
+  it('a version 2 file (before project pages) restores, each project given a slug and a page', async () => {
+    await seedContent();
+    const v2 = await download();
+    v2.version = 2;
+    v2.projects = v2.projects.map(({ slug: _s, sections: _x, ...p }) => p);
+
+    const res = await restore(v2);
+    expect(res.status).toBe(200);
+    const live = await Project.findOne({ title: 'Live project' }).lean();
+    expect(live.slug).toBe('live-project');
+    expect(live.sections).toEqual([
+      { heading: 'Description', body: ['A valid test project description for the restore suite.'], bullets: [], images: [] },
+    ]);
+    expect((await Project.findOne({ title: 'Draft project' }).lean()).slug).toBe('draft-project');
   });
 
   it('a file from an OLDER database (fewer migrations) is accepted', async () => {

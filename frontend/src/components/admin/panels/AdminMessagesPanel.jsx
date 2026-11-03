@@ -1,3 +1,4 @@
+import { friendlyError } from '../../../utils/friendlyError';
 import { useState } from 'react';
 import { useMessages, useMarkMessageRead, useStarMessage, useDeleteMessage }
   from '../../../hooks/useMessages';
@@ -43,11 +44,8 @@ function Highlighted({ text, words }) {
       : <span key={i}>{part.text}</span>);
 }
 
-/** The server's message, or the plain truth that no server answered. */
-const messageFor = (err, fallback) =>
-  err?.response
-    ? (err.response.data?.message || fallback)
-    : 'Cannot reach the server — it may not be running.';
+/** One plain sentence for any failure (utils/friendlyError.js, PF-144). */
+const messageFor = (err, fallback) => friendlyError(err, { fallback });
 
 export function AdminMessagesPanel() {
   // PF-107 moved these into hooks/useMessages.js; the key is still ['messages'].

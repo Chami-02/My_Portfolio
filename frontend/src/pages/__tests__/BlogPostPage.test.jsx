@@ -4,7 +4,7 @@
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import postcss from 'postcss';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -109,7 +109,8 @@ const compound = (over = {}) => Object.freeze({
 
 const ok      = (data) => ({ data, isLoading: false, isError: false, error: null });
 const loading = ()     => ({ data: undefined, isLoading: true,  isError: false, error: null });
-const failed  = ()     => ({ data: undefined, isLoading: false, isError: true,  error: new Error('404') });
+const failed  = (status = 404) => ({ data: undefined, isLoading: false, isError: true, refetch: vi.fn(),
+  error: status ? Object.assign(new Error(String(status)), { response: { status } }) : new Error('Network Error') });
 
 /**
  * Rendered through a real `<Route path="/blog/:slug">` rather than with a
@@ -482,21 +483,21 @@ describe('states', () => {
     // Owner's decision, 2026-09-06: NOT a redirect to NotFoundPage, which
     // is still the Phase 1 layout until PF-100 — a mistyped blog link
     // would otherwise drop the reader into the old palette entirely.
-    const c = draw({ query: failed() });
-    expect(pick(c, 'notFound')).not.toBeNull();
-    expect(pick(c, 'notFound').getAttribute('role')).toBe('status');
-    expect(pick(c, 'notFoundLink').getAttribute('href')).toBe('/blog');
+    // PF-144: the shared ErrorCard — found by role and name, not class.
+    draw({ query: failed() });
+    const panel = screen.getByRole('status');
+    expect(panel).toHaveTextContent('That note is not here');
+    const panelLink = within(panel).getByRole('link');
+    expect(panelLink.getAttribute('href')).toBe('/blog');
 
     // ⚠️ The panel's link and the back link above it must not share an
     // accessible name — both are on screen in this state, and two links
     // reading `← ALL POSTS` to the same place announce identically. Found
     // by Playwright's strict mode, pinned here so the unit suite catches
     // a regression first.
-    expect(pick(c, 'notFoundLink').textContent).toBe('BROWSE FIELD NOTES →');
-    expect(pick(c, 'backLink').textContent).toBe('← ALL POSTS');
-    expect(pick(c, 'notFoundLink').textContent)
-      .not.toBe(pick(c, 'backLink').textContent);
-    expect(pick(c, 'title')).toBeNull();
+    expect(panelLink.textContent).toBe('BROWSE FIELD NOTES →');
+    expect(screen.getAllByRole('link', { name: '← ALL POSTS' })).toHaveLength(1);
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();   // no post title
   });
 
   it('keeps the back link on every state, including the failure', () => {
@@ -619,5 +620,17 @@ describe('BlogPostPage.module.css', () => {
     // Parsed selectors, not a text search — the header comments name
     // both removals in prose.
     expect(selectors.some((s) => /ghost|contact|emailMe/i.test(s))).toBe(false);
+  });
+});
+
+// PF-144 — a busy or dead server is NOT "not here" (found on ProjectPage).
+describe('a failure that is not a 404', () => {
+  it.each([[429], [500], [null]])('%s → "not loading" with TRY AGAIN, never "not here"', (status) => {
+    const query = failed(status);
+    draw({ query });
+    expect(screen.getByRole('alert')).toHaveTextContent('This note is not loading');
+    expect(screen.queryByText('That note is not here')).toBeNull();
+    screen.getByRole('button', { name: 'TRY AGAIN' }).click();
+    expect(query.refetch).toHaveBeenCalled();
   });
 });

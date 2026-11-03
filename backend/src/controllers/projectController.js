@@ -1,6 +1,7 @@
 const Project  = require('../models/Project');
 const AppError = require('../utils/AppError');
 const storage  = require('../services/storage');
+const { buildProjectMatch } = require('../utils/projectQuery');
 
 // PF-111 — see utils/fileType.js. Same magic-byte gate as the About portrait.
 const { isAllowedImage, MEDIA_IMAGE_MIME } = require('../utils/fileType');
@@ -28,13 +29,16 @@ const BACKGROUND_FOLDER = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}
  *    would have hit it on its very first save.
  */
 const sanitiseProjectBody = (body) => {
-  const { backgroundImage, ...rest } = body ?? {};
+  // PF-144: `slug` is DERIVED by the model (from the title, frozen once
+  // published), never written by a client.
+  // PF-144: `media` (the picture ledger) is written only by the upload route.
+  const { backgroundImage, slug, media, ...rest } = body ?? {};
   // ⚠️ PF-120 — and every DOTTED path into it. `set()` treats
   // `"backgroundImage.publicId"` as that nested path, so stripping only the
   // top-level key let a raw request set the publicId (and `src`) anyway —
   // measured. Opacity, the one client-writable part, is re-added below.
   const update = Object.fromEntries(
-    Object.entries(rest).filter(([key]) => !key.startsWith('backgroundImage.'))
+    Object.entries(rest).filter(([key]) => !key.startsWith('backgroundImage.') && !key.startsWith('media.'))
   );
 
   if (backgroundImage && typeof backgroundImage === 'object' &&
@@ -56,15 +60,108 @@ const sanitiseProjectBody = (body) => {
  */
 const PUBLIC_FILTER = { published: { $ne: false } };
 
+// PF-144 — the `media` ledger is the server's own bookkeeping; a visitor
+// never needs it (each picture already carries its address).
+const PUBLIC_FIELDS = '-media';
+
+// ── PF-144 — pictures inside a project's sections ──────────────────────────
+
+/** The ledger's ceiling: every section full, plus headroom for unsaved picks. */
+const MAX_MEDIA = 60;
+
+/**
+ * Give every section picture its address FROM THE LEDGER (models/Project.js
+ * `media`). The form sends only `{ publicId, caption }`; anything else it sends
+ * about a picture is overwritten. A publicId this project never uploaded is
+ * refused with a 400 — the client cannot make the site show (or a later
+ * clean-up delete) a file that is not this project's.
+ */
+const attachSectionImages = (project) => {
+  const ledger = new Map((project.media || []).map((m) => [m.publicId, m]));
+  for (const section of project.sections || []) {
+    for (const image of section.images || []) {
+      const entry = ledger.get(image.publicId);
+      if (!entry) throw new AppError("That picture couldn't be found. Please upload it again.", 400);
+      image.url    = entry.url;
+      image.width  = entry.width;
+      image.height = entry.height;
+    }
+  }
+};
+
+/** publicIds the sections show right now. */
+const usedPictures = (project) =>
+  new Set((project.sections || []).flatMap((s) => (s.images || []).map((i) => i.publicId)));
+
+/**
+ * After a successful save: destroy every ledger file no section uses any more
+ * (a picture removed in the editor, or picked and never saved), and drop it
+ * from the ledger. Non-fatal, like every other clean-up (PF-111): the record is
+ * already right; a failed destroy only leaves a logged orphan.
+ */
+const sweepUnusedPictures = async (project) => {
+  const used = usedPictures(project);
+  const unused = (project.media || []).filter((m) => !used.has(m.publicId));
+  if (unused.length === 0) return;
+
+  const gone = unused.map((m) => m.publicId);
+  await Project.updateOne({ _id: project._id }, { $pull: { media: { publicId: { $in: gone } } } });
+  project.media = project.media.filter((m) => used.has(m.publicId));
+
+  for (const publicId of gone) {
+    try {
+      const del = await storage.destroy(publicId, 'image');
+      if (del.result !== 'ok') console.warn(`[PF-144] Section picture not deleted (${del.result}): ${publicId}`);
+    } catch (e) {
+      console.warn(`[PF-144] Failed to delete section picture ${publicId}:`, e.message);
+    }
+  }
+};
+
 const SORT = { order: 1, createdAt: -1 };
 
 // ── GET /api/projects ────────────────────────────────────────────────────────
 // Returns every PUBLISHED project, sorted by order ASC then newest first.
 // Drafts are the admin's alone — see getAllProjectsAdmin.
+// PF-144: `?q=`, `?tech=` and `?category=` narrow it (utils/projectQuery.js).
 const getAllProjects = async (req, res, next) => {
   try {
-    const projects = await Project.find(PUBLIC_FILTER).sort(SORT);
+    const { q, tech, category } = req.query;
+    const projects = await Project
+      .find(buildProjectMatch({ base: PUBLIC_FILTER, q, tech, category }))
+      .select(PUBLIC_FIELDS)
+      .sort(SORT);
     res.json({ status: 'success', data: projects });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── GET /api/projects/:slug ──────────────────────────────────────────────────
+// PF-144 — one PUBLISHED project, for its page. A draft is a 404, not a 403
+// ("exists but hidden" is information). Blog's getPostBySlug shape:
+// `{ project, prev, next, index, total }`, the neighbours walking the SAME
+// ordered public list the home section and /projects show, wrapping round,
+// and null when there is nowhere else to go.
+const getProjectBySlug = async (req, res, next) => {
+  try {
+    const project = await Project.findOne({ ...PUBLIC_FILTER, slug: String(req.params.slug) }).select(PUBLIC_FIELDS);
+    if (!project) return next(new AppError('Project not found', 404));
+
+    const ordered = await Project.find(PUBLIC_FILTER, { slug: 1, title: 1 }).sort(SORT).lean();
+    const total = ordered.length;
+    const index = ordered.findIndex((p) => p.slug === project.slug);
+
+    const neighbour = (offset) => {
+      if (total < 2 || index === -1) return null;
+      const { slug, title } = ordered[(index + offset + total) % total];
+      return { slug, title };
+    };
+
+    res.json({
+      status: 'success',
+      data: { project, prev: neighbour(-1), next: neighbour(1), index, total },
+    });
   } catch (err) {
     next(err);
   }
@@ -95,9 +192,14 @@ const createProject = async (req, res, next) => {
       delete safe['backgroundImage.opacity'];
     }
 
-    const project = await Project.create(safe);
+    // PF-144: a NEW project has no ledger yet, so it cannot name a picture —
+    // the panel creates it first, then uploads, then saves the sections.
+    const project = new Project(safe);
+    attachSectionImages(project);
+    await project.save();
     res.status(201).json({ status: 'success', data: project });
   } catch (err) {
+    if (err instanceof AppError) return next(err);
     if (err.name === 'ValidationError') {
       // Collect all field-level validation messages into one string
       const message = Object.values(err.errors)
@@ -132,12 +234,15 @@ const updateProject = async (req, res, next) => {
     }
 
     project.set(sanitiseProjectBody(req.body));
+    attachSectionImages(project);   // PF-144
     await project.save();
+    await sweepUnusedPictures(project);
 
     res.json({ status: 'success', data: project });
   } catch (err) {
+    if (err instanceof AppError) return next(err);
     if (err.name === 'CastError') {
-      return next(new AppError('Invalid project ID format', 400));
+      return next(new AppError("We couldn't find that project.", 400));
     }
     if (err.name === 'ValidationError') {
       const message = Object.values(err.errors).map((e) => e.message).join(', ');
@@ -168,15 +273,19 @@ const deleteProject = async (req, res, next) => {
     // recoverable direction: an orphaned file that is logged, rather than a
     // project the admin cannot remove. Non-fatal for the same reason the
     // résumé path is.
-    const publicId = project.backgroundImage && project.backgroundImage.publicId;
-    if (publicId) {
+    // PF-144: and every section picture in its ledger, the same way.
+    const files = [
+      project.backgroundImage && project.backgroundImage.publicId,
+      ...(project.media || []).map((m) => m.publicId),
+    ].filter(Boolean);
+    for (const publicId of files) {
       try {
         const del = await storage.destroy(publicId, 'image');
         if (del.result !== 'ok') {
-          console.warn(`[PF-111] Background not deleted (${del.result}): ${publicId}`);
+          console.warn(`[PF-111] File not deleted (${del.result}): ${publicId}`);
         }
       } catch (e) {
-        console.warn(`[PF-111] Failed to delete background ${publicId}:`, e.message);
+        console.warn(`[PF-111] Failed to delete ${publicId}:`, e.message);
       }
     }
 
@@ -184,7 +293,7 @@ const deleteProject = async (req, res, next) => {
     res.status(204).json({ status: 'success', data: null });
   } catch (err) {
     if (err.name === 'CastError') {
-      return next(new AppError('Invalid project ID format', 400));
+      return next(new AppError("We couldn't find that project.", 400));
     }
     next(err);
   }
@@ -196,7 +305,7 @@ const deleteProject = async (req, res, next) => {
 const uploadBackground = async (req, res, next) => {
   try {
     if (!req.file) {
-      return next(new AppError('No file uploaded — send a "file" field', 400));
+      return next(new AppError('Please choose a file to upload.', 400));
     }
 
     const buffer = req.file.buffer;
@@ -218,7 +327,7 @@ const uploadBackground = async (req, res, next) => {
     }
 
     if (!storage.isConfigured()) {
-      return next(new AppError('File storage is not configured on this server', 503));
+      return next(new AppError("Uploads aren't working right now. Please try again later.", 503));
     }
 
     // findById + save(), never findByIdAndUpdate: the update helpers run no
@@ -267,7 +376,70 @@ const uploadBackground = async (req, res, next) => {
 
   } catch (err) {
     if (err.name === 'CastError') {
-      return next(new AppError('Invalid project ID format', 400));
+      return next(new AppError("We couldn't find that project.", 400));
+    }
+    next(err);
+  }
+};
+
+// ── POST /api/projects/:id/images ────────────────────────────────────────────
+// PF-144 — upload ONE section picture into the project's ledger. It is not
+// shown anywhere until a save names it in a section (staged, owner rule), and
+// a save that does not use it destroys it. Same gates, same order, as the
+// cover picture: a file, then its bytes, then its size, then storage.
+const uploadSectionImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return next(new AppError('Please choose a file to upload.', 400));
+    }
+    const buffer = req.file.buffer;
+
+    if (!isAllowedImage(buffer)) {
+      return next(new AppError(
+        `A picture must be a ${MEDIA_IMAGE_MIME.map(m => m.replace('image/', '').toUpperCase()).join(', ')} image.`,
+        415
+      ));
+    }
+    if (buffer.length > MAX_IMAGE_BYTES) {
+      return next(new AppError(
+        `This picture is ${(buffer.length / 1024 / 1024).toFixed(1)} MB — the limit is ` +
+        `${MAX_IMAGE_BYTES / 1024 / 1024} MB.`,
+        413
+      ));
+    }
+    if (!storage.isConfigured()) {
+      return next(new AppError("Uploads aren't working right now. Please try again later.", 503));
+    }
+
+    // Exists AND has room — checked before the upload so a refused request
+    // never leaves a file behind.
+    const project = await Project.findById(req.params.id, { media: 1 });
+    if (!project) return next(new AppError('Project not found', 404));
+    if ((project.media || []).length >= MAX_MEDIA) {
+      return next(new AppError('Too many unsaved pictures. Please save the project, then add more.', 409));
+    }
+
+    const result = await storage.upload(buffer, { resourceType: 'image', folder: BACKGROUND_FOLDER() });
+    const entry = {
+      publicId: result.publicId, url: result.url,
+      width: result.width || 0, height: result.height || 0, uploadedAt: new Date(),
+    };
+
+    // ATOMIC push with the ceiling in the filter, so two quick uploads cannot
+    // both slip past it. No full-document validation: only the ledger moves.
+    const pushed = await Project.updateOne(
+      { _id: project._id, [`media.${MAX_MEDIA - 1}`]: { $exists: false } },
+      { $push: { media: entry } },
+    );
+    if (pushed.modifiedCount !== 1) {
+      await storage.destroy(result.publicId, 'image').catch(() => {});
+      return next(new AppError('Too many unsaved pictures. Please save the project, then add more.', 409));
+    }
+
+    res.status(201).json({ status: 'success', data: entry });
+  } catch (err) {
+    if (err.name === 'CastError') {
+      return next(new AppError("We couldn't find that project.", 400));
     }
     next(err);
   }
@@ -307,7 +479,7 @@ const removeBackground = async (req, res, next) => {
 
   } catch (err) {
     if (err.name === 'CastError') {
-      return next(new AppError('Invalid project ID format', 400));
+      return next(new AppError("We couldn't find that project.", 400));
     }
     next(err);
   }
@@ -315,11 +487,13 @@ const removeBackground = async (req, res, next) => {
 
 module.exports = {
   getAllProjects,
+  getProjectBySlug,    // PF-144
   getAllProjectsAdmin, // PF-113
   createProject,
   updateProject,
   deleteProject,
   uploadBackground,   // PF-111
+  uploadSectionImage, // PF-144
   removeBackground,   // PF-111
   sanitiseProjectBody, // exported for tests — the strip is a security boundary
 };

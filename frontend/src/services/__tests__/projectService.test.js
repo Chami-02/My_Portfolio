@@ -72,3 +72,19 @@ describe('the other PF-113 calls', () => {
     expect(JSON.parse(calls[0].data)).toEqual({ title: 'x', published: false });
   });
 });
+
+// PF-144 — the /projects search and a project's page.
+describe('getAll / getBySlug (PF-144)', () => {
+  it('sends several tech values as repeated keys, not tech[0]=…', async () => {
+    await projectService.getAll({ q: 'car', tech: ['Docker', 'React'], category: 'Web App' });
+    const [config] = calls;
+    expect(config.url).toBe('/projects');
+    expect(api.getUri(config)).toMatch(/\/projects\?q=car&tech=Docker&tech=React&category=Web\+App$/);
+  });
+
+  it('reads one project by its slug, escaped', async () => {
+    install({ project: { slug: 'a' }, prev: null, next: null, index: 0, total: 1 });
+    expect(await projectService.getBySlug('a b')).toMatchObject({ project: { slug: 'a' }, total: 1 });
+    expect(calls[0].url).toBe('/projects/a%20b');
+  });
+});

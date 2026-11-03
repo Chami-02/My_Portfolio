@@ -415,7 +415,7 @@ describe('errors are reported per item, with the server’s own wording', () => 
   // rather than leaving them retrying a server-side configuration problem.
   it('explains that a 503 is not theirs to fix', async () => {
     hooks.uploadResume.mutateAsync = rejected(
-      httpError(503, 'File storage is not configured on this server')
+      httpError(503, "Pictures can't be uploaded right now. Please try again later.")
     );
     const user = userEvent.setup();
     render(<AdminAboutPanel />);
@@ -423,7 +423,7 @@ describe('errors are reported per item, with the server’s own wording', () => 
     await user.upload(fileInputIn(card('Résumé / CV')), pdf());
     await user.click(save());
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/Nothing can be done from this panel/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/Pictures can't be uploaded right now/i);
   });
 
   // ⚠️ A dead backend and a rejected file are different problems. utils/
@@ -436,7 +436,7 @@ describe('errors are reported per item, with the server’s own wording', () => 
     await user.upload(fileInputIn(card('Résumé / CV')), pdf());
     await user.click(save());
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/could not be reached/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/We can't connect right now/i);
   });
 
   // ⚠️ THE DISHONEST-SUCCESS CASE. Flashing "Profile saved" after a refused

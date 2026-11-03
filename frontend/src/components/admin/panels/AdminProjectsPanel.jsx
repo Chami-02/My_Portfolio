@@ -1,23 +1,25 @@
 import { useState } from 'react';
 import {
   useAdminProjects, useCreateProject, useUpdateProject, useDeleteProject,
-  useUploadBackground, useRemoveBackground,
+  useUploadBackground, useRemoveBackground, useUploadSectionImage,
 } from '../../../hooks/useProjects';
 import { useAdminFlash } from '../../../hooks/useAdminFlash';
 import { useFormGuard } from '../../../hooks/useFormGuard';
 import { useUnsavedChanges } from '../../../hooks/useUnsavedChanges';
 import { useStagedFile } from '../../../hooks/useStagedFile';
 import {
-  projectToForm, formToPayload, projectFormErrors,
-  isProjectDirty, percentToOpacity,
+  projectToForm, formToPayload, projectFormErrors, isProjectDirty, emptySection, isStagedPicture,
 } from '../../../utils/projectForm';
-import { toggleTag, removeTag, tagList } from '../../../utils/blogForm';
+import { toggleTag, removeTag, tagList, hasTag } from '../../../utils/blogForm';
 import { fieldProps, errorId } from '../../../utils/formErrors';
 import { imageSpec, formatBytes, messageFor, prepareFile, MAX_UPLOAD_MB } from '../../../utils/mediaFile';
 import { DropZone } from '../DropZone';
 import { badgeFor } from '../mediaBadge';
 import { UploadPill } from '../UploadPill';
 import { VocabularyPicker } from '../VocabularyPicker';
+import { SectionsEditor } from '../SectionsEditor';
+import { SectionPictures } from '../SectionPictures';
+import { MonthYearField } from '../MonthYearField';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { LoadError }     from '../LoadError';
 import a      from '../../../styles/admin.module.css';
@@ -25,18 +27,37 @@ import styles from './AdminProjectsPanel.module.css';
 
 // The portrait's spec, relabelled — same handler limit (MAX_IMAGE_BYTES, 4 MB
 // since PF-113 batch 2) and the same magic-byte list on the server (PF-111).
-const BACKGROUND_SPEC = imageSpec('Background');
+const BACKGROUND_SPEC = imageSpec('Picture');
 
 /** The id namespace — every validatable input's id derives from it. */
 const FID = 'project';
 
-/** The 2×2 grid. Labels and placeholders: Admin.dc.html:211-226. */
+/**
+ * Every validatable field's name for the refused-save banner — "Title,
+ * Summary need attention" (owner, 2026-10-31: the banner NAMES the fields).
+ * Section headings are named by their own number.
+ */
+const LABELS = {
+  title: 'Title', description: 'Summary', category: 'Category', role: 'Role', client: 'Client',
+  startedOn: 'Start date', endedOn: 'End date', sections: 'Sections', tech: 'Tech stack',
+  githubUrl: 'GitHub URL', liveUrl: 'Live URL', order: 'Order',
+};
+const labelFor = (field) => {
+  const section = /^sections\.(\d+)\./.exec(field);
+  return section ? `Section ${String(Number(section[1]) + 1).padStart(2, '0')}` : LABELS[field];
+};
+
+/** The two link fields and the order, in a grid. Placeholders: Admin.dc.html:211-226. */
 const GRID_FIELDS = [
-  { name: 'title',     label: 'Title',      placeholder: 'Project title' },
-  { name: 'githubUrl', label: 'GitHub URL', placeholder: 'https://github.com/...' },
-  { name: 'liveUrl',   label: 'Live URL',   placeholder: 'https://live-demo.com (optional)' },
+  { name: 'githubUrl', label: 'GitHub URL', placeholder: 'https://github.com/...', required: true },
+  { name: 'liveUrl',   label: 'Live URL',   placeholder: 'https://live-demo.com' },
   { name: 'order',     label: 'Order',      placeholder: '0', inputMode: 'numeric' },
 ];
+
+/** A label, with " *" when the field is required to publish. */
+function Label({ htmlFor, children, required }) {
+  return <label className={`${a.label} ${required ? styles.required : ''}`} htmlFor={htmlFor}>{children}</label>;
+}
 
 /** The inline message under a field. `role="alert"` so it is announced. */
 function FieldError({ field, guard }) {
@@ -46,7 +67,10 @@ function FieldError({ field, guard }) {
 }
 
 /**
- * The card background block — Admin.dc.html:252-270.
+ * The project's picture — Admin.dc.html:252-270's background block. Since
+ * PF-144 it is the picture at the TOP of the card and on the project's page,
+ * no longer behind the text, so the prototype's "Image visibility" slider is
+ * gone (owner, 2026-11-03: a card over a picture could not be read).
  *
  * ⚠️ NO URL INPUT, deliberately (owner, 2026-10-03). The prototype's
  * `https://image-url.jpg (or upload →)` box cannot work here: PF-111 made
@@ -59,7 +83,7 @@ function FieldError({ field, guard }) {
  * own blob URL and goes to the server on SAVE; CLEAR on a stored image stages
  * 'remove'. The slider is form state like any other field.
  */
-function BackgroundBlock({ stored, staged, opacity, onOpacity, onPick, onReject, onClear, error }) {
+function BackgroundBlock({ stored, staged, onPick, onReject, onClear, error }) {
   const hasStored = Boolean(stored?.src);
   const stagedFile = staged.file instanceof File ? staged.file : null;
   const pendingRemove = staged.file === 'remove';
@@ -73,13 +97,13 @@ function BackgroundBlock({ stored, staged, opacity, onOpacity, onPick, onReject,
         .filter(Boolean).join(' · ')
     : pendingRemove ? 'Will be deleted when you save'
     : hasStored ? 'Uploading a new one permanently deletes this file'
-    : 'No image — the card shows its plain surface';
+    : 'No picture — the card shows a plain panel';
 
   return (
     <div className={styles.bgBlock}>
       <div className={styles.bgHead}>
         <p className={styles.bgLabel}>
-          Card background image — shown behind this project on the home page
+          Project picture — shown at the top of its card and on its page
         </p>
         <span className={a.spacer} />
         <span className={badge.cls}>{badge.text}</span>
@@ -88,16 +112,12 @@ function BackgroundBlock({ stored, staged, opacity, onOpacity, onPick, onReject,
       {/* Drag-and-drop (PF-113 batch 2) — the same prepare path as the pill. */}
       <DropZone onFile={onPick} onReject={onReject}>
       <div className={styles.bgRow}>
-        {/* The preview runs at the slider's opacity, live — the prototype's
-            `bgPreviewOpacity`. Decorative: the meta line says what it shows. */}
+        {/* Decorative: the meta line says what it shows. */}
         <span
           className={styles.bgPreview}
           aria-hidden="true"
           data-testid="bg-preview"
-          style={{
-            backgroundImage: src ? `url("${src}")` : 'none',
-            opacity: percentToOpacity(opacity),
-          }}
+          style={{ backgroundImage: src ? `url("${src}")` : 'none' }}
         />
         <div className={styles.bgBody}>
           <span className={styles.bgMeta}>{meta}</span>
@@ -115,19 +135,6 @@ function BackgroundBlock({ stored, staged, opacity, onOpacity, onPick, onReject,
             {(stagedFile || (hasStored && !pendingRemove)) && (
               <button type="button" className={styles.clear} onClick={onClear}>CLEAR</button>
             )}
-          </div>
-          <div className={styles.opacityRow}>
-            <label className={styles.opacityLabel} htmlFor="project-opacity">Image visibility</label>
-            {/* 10–100 step 5 is Admin.dc.html:266; percentToOpacity clamps to
-                the schema's 0.1–1.0 on the way out, or the save would 400. */}
-            <input
-              id="project-opacity"
-              type="range" min="10" max="100" step="5"
-              className={styles.range}
-              value={opacity}
-              onChange={(e) => onOpacity(Number(e.target.value))}
-            />
-            <span className={styles.opacityValue} aria-hidden="true">{opacity}%</span>
           </div>
         </div>
       </div>
@@ -154,6 +161,7 @@ export function AdminProjectsPanel() {
   const deleteProject    = useDeleteProject();
   const uploadBackground = useUploadBackground();
   const removeBackground = useRemoveBackground();
+  const uploadSectionImage = useUploadSectionImage();
   const { showFlash } = useAdminFlash();
 
   // ── Which record, and the form DERIVED from it ────────────────────────────
@@ -186,6 +194,15 @@ export function AdminProjectsPanel() {
     if (field) guard.clearField(field);
   };
 
+  /** The sections editor's FUNCTIONAL update (it may land after a re-render). */
+  const editSections = (update) => {
+    setDraft((d) => {
+      const current = d ?? projectToForm(saved);
+      return { ...current, sections: update(current.sections) };
+    });
+    guard.clearField('sections');
+  };
+
   /**
    * Back to the last SAVED state of whatever is open — never to blank.
    * ⚠️ This is the fix for the old `cancelEdit`, which set the form to EMPTY
@@ -194,6 +211,10 @@ export function AdminProjectsPanel() {
    * a half-revert, whose tell is SAVE uploading a file the owner discarded.
    */
   const discard = () => {
+    // Staged section pictures preview from blob URLs — free them.
+    (draft?.sections || []).forEach((s) => (s.images || []).forEach((img) => {
+      if (isStagedPicture(img)) URL.revokeObjectURL(img.previewUrl);
+    }));
     setDraft(null);
     background.clear();
     setPickError(null);
@@ -263,16 +284,48 @@ export function AdminProjectsPanel() {
     let id = editingId;
     let recordSaved = false;
 
+    // ── PF-144: section pictures — the public site only ever sees the
+    // FINISHED state. Staged pictures upload into the project's ledger first
+    // (shown nowhere), then ONE save names them. A NEW project with pictures
+    // is created as a DRAFT first (the upload needs its id), and only that
+    // final save applies the button pressed.
+    let working = form;
+    const staged = form.sections.some((sec) => (sec.images || []).some(isStagedPicture));
+    let step = 'Project';
     try {
-      const payload = formToPayload(form, { publish });
-      if (id) {
-        await updateProject.mutateAsync({ id, data: payload });
-      } else {
-        id = (await createProject.mutateAsync(payload))._id;
+      if (!id) {
+        id = (await createProject.mutateAsync(formToPayload(form, { publish: staged ? false : publish })))._id;
+        recordSaved = true;
+      }
+      if (staged) {
+        step = 'Picture';
+        for (let i = 0; i < working.sections.length; i += 1) {
+          for (let j = 0; j < (working.sections[i].images || []).length; j += 1) {
+            const img = working.sections[i].images[j];
+            if (!isStagedPicture(img)) continue;
+            const entry = await uploadSectionImage.mutateAsync({ id, file: img.file });
+            URL.revokeObjectURL(img.previewUrl);
+            // Swap the uploaded one in at once, so a later failure never
+            // uploads it twice — the retry sends only what is still staged.
+            working = {
+              ...working,
+              sections: working.sections.map((sec, si) => (si !== i ? sec : {
+                ...sec,
+                images: sec.images.map((im, ij) => (ij !== j ? im : { ...entry, caption: img.caption ?? '' })),
+              })),
+            };
+          }
+        }
+        step = 'Project';
+      }
+      if (editingId || staged) {
+        await updateProject.mutateAsync({ id, data: formToPayload(working, { publish }) });
       }
       recordSaved = true;
     } catch (err) {
-      failures.push(`Project: ${messageFor(err)}`);
+      failures.push(`${step}: ${messageFor(err)}`);
+      // Keep what DID upload, so SAVE again sends only the rest.
+      if (working !== form) setDraft(working);
     }
 
     if (id && background.file) {
@@ -291,11 +344,14 @@ export function AdminProjectsPanel() {
       if (recordSaved) {
         // The record is stored; keep the owner on it (a new project becomes
         // the one being edited) with whatever failed still staged.
-        setDraft(null);
+        if (working === form) setDraft(null);
         setEditingId(id);
         guard.reset();
       }
-      setSaveErrors(recordSaved ? [`${publish ? 'Project' : 'Draft'} saved.`, ...failures] : failures);
+      // A new project with pictures was created as a DRAFT and stays one
+      // until the save that names its pictures succeeds.
+      const savedAs = publish && !(staged && !editingId) ? 'Project' : 'Draft';
+      setSaveErrors(recordSaved ? [`${savedAs} saved.`, ...failures] : failures);
       return false;
     }
 
@@ -378,6 +434,42 @@ export function AdminProjectsPanel() {
 
   const confirmTarget = projects.find((p) => p._id === confirmId);
 
+  // The banner NAMES the fields (owner, 2026-10-31), each once — a section
+  // can carry two messages on one heading.
+  const named = [...new Set(guard.errors.map((e) => labelFor(e.field)))];
+  const problemCount = named.length;
+  const problemList = named.every(Boolean) ? named.join(', ') : `${guard.errors.length} fields`;
+
+  /** A one-line text box, its label and its message. */
+  const textField = (name, label, { placeholder, required, mono, inputMode } = {}) => (
+    <div key={name}>
+      <Label htmlFor={`${FID}-${name}`} required={required}>{label}</Label>
+      <input
+        {...fieldProps(guard.errors, FID, name)}
+        className={mono ? a.inputMono : a.input}
+        name={name}
+        inputMode={inputMode}
+        required={required}
+        placeholder={placeholder}
+        value={form[name]}
+        onChange={(e) => edit({ [name]: e.target.value }, name)}
+      />
+      <FieldError field={name} guard={guard} />
+    </div>
+  );
+
+  const monthField = (name, label) => (
+    <div>
+      <MonthYearField
+        label={label}
+        value={form[name]}
+        field={fieldProps(guard.errors, FID, name)}
+        onChange={(value) => edit({ [name]: value }, name)}
+      />
+      <FieldError field={name} guard={guard} />
+    </div>
+  );
+
   return (
     <div className={a.stack}>
       <section className={a.panel} aria-labelledby="project-form-title">
@@ -411,8 +503,8 @@ export function AdminProjectsPanel() {
             <div className={a.bannerError} role="alert">
               <span className={a.bannerDot} aria-hidden="true" />
               <span>
-                CHECK THE CHANGES AGAIN — {guard.errors.length}{' '}
-                {guard.errors.length === 1 ? 'field needs' : 'fields need'} attention.
+                CHECK THE CHANGES AGAIN — {problemList}{' '}
+                {problemCount === 1 ? 'needs' : 'need'} attention.
               </span>
             </div>
           )}
@@ -426,27 +518,12 @@ export function AdminProjectsPanel() {
             </div>
           )}
 
-          <div className={a.fieldGrid}>
-            {GRID_FIELDS.map(({ name, label, placeholder, inputMode }) => (
-              <div key={name}>
-                <label className={a.label} htmlFor={`${FID}-${name}`}>{label}</label>
-                <input
-                  {...fieldProps(guard.errors, FID, name)}
-                  className={a.input}
-                  name={name}
-                  inputMode={inputMode}
-                  required={name === 'title' || name === 'githubUrl'}
-                  placeholder={placeholder}
-                  value={form[name]}
-                  onChange={(e) => edit({ [name]: e.target.value }, name)}
-                />
-                <FieldError field={name} guard={guard} />
-              </div>
-            ))}
-          </div>
+          <p className={styles.requiredNote}><span aria-hidden="true">*</span> Indicates required to publish</p>
+
+          {textField('title', 'Title', { placeholder: 'Project title', required: true })}
 
           <div>
-            <label className={a.label} htmlFor={`${FID}-description`}>Description</label>
+            <Label htmlFor={`${FID}-description`} required>Summary — two lines on the card</Label>
             <textarea
               {...fieldProps(guard.errors, FID, 'description')}
               className={a.textarea}
@@ -459,8 +536,62 @@ export function AdminProjectsPanel() {
             <FieldError field="description" guard={guard} />
           </div>
 
+          {/* PF-144 — the label on the card's picture: ONE value from the
+              `category` list, optional. Picking another REPLACES it. */}
           <div>
-            <label className={a.label} htmlFor={`${FID}-tech`}>Tech stack (comma separated)</label>
+            <p className={a.label} id={`${FID}-category-label`}>Category</p>
+            <VocabularyPicker
+              type="category"
+              single
+              selected={form.category}
+              field={{ ...fieldProps(guard.errors, FID, 'category'), 'aria-labelledby': `${FID}-category-label` }}
+              onToggle={(value) => edit({ category: hasTag(form.category, value) ? '' : value }, 'category')}
+              onRemoved={(value) => {
+                if (hasTag(form.category, value)) edit({ category: '' });
+              }}
+              onError={(message) => setSaveErrors([message])}
+            />
+            <FieldError field="category" guard={guard} />
+          </div>
+
+          <div className={a.fieldGrid}>
+            {textField('role', 'Role', { placeholder: 'Solo developer' })}
+            {textField('client', 'Client / for whom', { placeholder: 'University project' })}
+          </div>
+
+          {/* "FEB 2024 – PRESENT": a start, and an end OR Ongoing. */}
+          <div className={styles.dateRow}>
+            {monthField('startedOn', 'Started')}
+            <div>
+              {!form.ongoing && monthField('endedOn', 'Finished')}
+              <label className={`${a.checkRow} ${styles.ongoing}`}>
+                <input
+                  type="checkbox"
+                  className={a.checkbox}
+                  checked={form.ongoing}
+                  onChange={(e) => edit({ ongoing: e.target.checked }, 'endedOn')}
+                />
+                <span>Ongoing — shows “PRESENT”</span>
+              </label>
+            </div>
+          </div>
+
+          {/* PF-144 — the project's own page, in Blog's editor. */}
+          <SectionsEditor fid={FID} sections={form.sections} guard={guard}
+            emptySection={emptySection} onChange={editSections}
+            aboveBody={(section, i) => (
+              <SectionPictures
+                fid={FID}
+                index={i}
+                images={section.images || []}
+                guard={guard}
+                onChange={(update) => editSections((list) => list.map((sec, k) =>
+                  (k === i ? { ...sec, images: update(sec.images || []) } : sec)))}
+              />
+            )} />
+
+          <div>
+            <Label htmlFor={`${FID}-tech`} required>Tech stack (comma separated)</Label>
             <input
               {...fieldProps(guard.errors, FID, 'tech')}
               className={a.inputMono}
@@ -491,11 +622,14 @@ export function AdminProjectsPanel() {
             onError={(message) => setSaveErrors([message])}
           />
 
+          <div className={a.fieldGrid}>
+            {GRID_FIELDS.map(({ name, label, placeholder, inputMode, required }) =>
+              textField(name, label, { placeholder, inputMode, required }))}
+          </div>
+
           <BackgroundBlock
             stored={saved?.backgroundImage}
             staged={background}
-            opacity={form.opacity}
-            onOpacity={(opacity) => edit({ opacity })}
             onPick={pickBackground}
             onReject={setPickError}
             onClear={clearBackground}

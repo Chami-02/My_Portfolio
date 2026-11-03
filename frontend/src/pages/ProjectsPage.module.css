@@ -1,0 +1,129 @@
+/* frontend/src/pages/ProjectsPage.module.css
+ *
+ * PF-144 — /projects. The page header, search box, chips, filter row and
+ * empty states are /blog's, COMPOSED from BlogPage.module.css rather than
+ * copied: the owner asked for search "like /blog", and two copies of one
+ * search page are two things to keep in step. Their :hover, dark-theme and
+ * phone rules come with them (they key on BlogPage's own class names).
+ *
+ * Only what /projects has and /blog does not lives here: the two labelled
+ * chip rows and the card grid / placeholder sized for picture cards.
+ */
+
+.header             { composes: header             from './BlogPage.module.css'; }
+.results            { composes: posts              from './BlogPage.module.css'; }
+.inner              { composes: inner              from './BlogPage.module.css'; }
+.eyebrow            { composes: eyebrow            from './BlogPage.module.css'; }
+.eyebrowLabel       { composes: eyebrowLabel       from './BlogPage.module.css'; }
+.eyebrowLine        { composes: eyebrowLine        from './BlogPage.module.css'; }
+.heading            { composes: heading            from './BlogPage.module.css'; }
+.outlined           { composes: outlined           from './BlogPage.module.css'; }
+.deck               { composes: deck               from './BlogPage.module.css'; }
+.statRow            { composes: statRow            from './BlogPage.module.css'; }
+.countPill          { composes: countPill          from './BlogPage.module.css'; }
+.countDot           { composes: countDot           from './BlogPage.module.css'; }
+.searchRow          { composes: searchRow          from './BlogPage.module.css'; }
+.searchField        { composes: searchField        from './BlogPage.module.css'; }
+.searchSlash        { composes: searchSlash        from './BlogPage.module.css'; }
+.searchInput        { composes: searchInput        from './BlogPage.module.css'; }
+.searchClear        { composes: searchClear        from './BlogPage.module.css'; }
+.searchSubmit       { composes: searchSubmit       from './BlogPage.module.css'; }
+.chip               { composes: chip               from './BlogPage.module.css'; }
+.chipActive         { composes: chipActive         from './BlogPage.module.css'; }
+.chipDisabled       { composes: chipDisabled       from './BlogPage.module.css'; }
+.activeFilters      { composes: activeFilters      from './BlogPage.module.css'; }
+.activeFiltersLabel { composes: activeFiltersLabel from './BlogPage.module.css'; }
+.activeFilterPill   { composes: activeFilterPill   from './BlogPage.module.css'; }
+.clearAll           { composes: clearAll           from './BlogPage.module.css'; }
+.empty              { composes: empty              from './BlogPage.module.css'; }
+.emptyHeading       { composes: emptyHeading       from './BlogPage.module.css'; }
+.emptyTerm          { composes: emptyTerm          from './BlogPage.module.css'; }
+.emptyBody          { composes: emptyBody          from './BlogPage.module.css'; }
+.emptyBodyLast      { composes: emptyBodyLast      from './BlogPage.module.css'; }
+.resetButton        { composes: resetButton        from './BlogPage.module.css'; }
+
+/* ── the two chip rows (CATEGORY, TECH) ──────────────────────────────
+   Each its own full-width wrapping row under the search box, led by a mono
+   label — /blog has one row of tags, so nothing to transcribe. */
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex-basis: 100%;
+  /* ⚠️ A flex item's default min-width is its CONTENT — with the phone's
+     one-line chip list that is ~1750px, and the list could not be swiped to
+     its end (measured). 0 lets it be the screen's width. */
+  min-width: 0;
+}
+
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chipGroupLabel {
+  min-width: 78px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+
+/* ── the results ─────────────────────────────────────────────────────
+   `auto-FILL`, not /blog's auto-fit: a search that finds ONE project must
+   not stretch its picture card across the whole page. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 20px;
+}
+
+.cardPlaceholder {
+  min-height: 420px;
+  border-radius: 20px;
+  border: 1px solid rgba(var(--ln), .09);
+  background: rgba(var(--srf), .34);
+}
+
+/* Phones. Last in the file (mediaOrder.test.js).
+   PF-144 phone pass: 20 tech chips wrapped into 7 rows and pushed the
+   results a whole screen down. Each row becomes ONE swipeable line (the
+   common mobile filter-row pattern), running to the screen edge, with a fade
+   at the right that says "there is more". The label sits above. */
+@media (max-width: 560px) {
+  .chipGroup {
+    display: block;
+  }
+
+  .chipGroupLabel {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 10px;
+  }
+
+  .chipList {
+    gap: 8px;
+  }
+
+  .chipList {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-right: -16px;
+    padding: 2px 32px 4px 0;
+    -webkit-mask-image: linear-gradient(to right, #000 82%, transparent);
+    mask-image: linear-gradient(to right, #000 82%, transparent);
+  }
+
+  .chipList::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chipList > button {
+    flex: none;
+  }
+}

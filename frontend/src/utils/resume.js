@@ -28,13 +28,15 @@ import { apiUrl } from '../services/api';
  *
  *   résumé present → href = the file, download = its name, title removed
  *   résumé absent  → href = '#contact', download removed,
- *                    title = 'Upload a résumé in the admin panel to enable this'
+ *                    title = 'Ask me for my CV through the contact form'
  *
  * So the design does answer the empty-state question: always show the button,
  * leave it inert, and explain why on hover.
  */
 export const CV_EMPTY_HREF  = '#contact';
-export const CV_EMPTY_TITLE = 'Upload a résumé in the admin panel to enable this';
+// PF-144: written for the VISITOR who hovers it — it used to tell them to
+// "upload a résumé in the admin panel", an instruction only the owner can act on.
+export const CV_EMPTY_TITLE = 'Ask me for my CV through the contact form';
 
 /**
  * The public download endpoint — `GET /api/resume`, which sends the PDF itself,

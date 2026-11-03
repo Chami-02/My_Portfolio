@@ -8,6 +8,10 @@ describe('Project — backgroundImage (PF-52)', () => {
     description: 'Test description',
     tech:        ['React'],
     githubUrl:   'https://github.com/test/project',
+    sections: [{ heading: 'About', body: ['What it does.'] }],  // PF-144: a published project needs a page
+    // PF-144: with a slug already set the model's slug hook never asks the
+    // database — these are pure validation tests with no connection.
+    slug:        'test',
   };
 
   it('defaults to empty src and 0.75 opacity', () => {

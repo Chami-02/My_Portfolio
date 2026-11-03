@@ -22,11 +22,11 @@ describe('backupPickProblem — a courtesy, the server is the gate', () => {
     expect(backupPickProblem(file('portfolio-backup.JSON', MAX_BACKUP_BYTES))).toBeNull();
   });
   it('refuses another kind of file', () => {
-    expect(backupPickProblem(file('photo.png', 10))).toMatch(/\.json file/);
-    expect(backupPickProblem(file('backup.json.png', 10))).toMatch(/\.json file/);
+    expect(backupPickProblem(file('photo.png', 10))).toMatch(/isn't a backup file/);
+    expect(backupPickProblem(file('backup.json.png', 10))).toMatch(/isn't a backup file/);
   });
   it('refuses a file over 4 MB', () => {
-    expect(backupPickProblem(file('b.json', MAX_BACKUP_BYTES + 1))).toMatch(/bigger than 4 MB/);
+    expect(backupPickProblem(file('b.json', MAX_BACKUP_BYTES + 1))).toMatch(/too large to be a backup/);
   });
 });
 

@@ -72,8 +72,8 @@ const labelRule = body('label')
 const createRules = [labelRule];
 const renameRules = [labelRule];
 const reorderRules = [
-  body('ids').isArray({ min: 1 }).withMessage('ids must be a non-empty array'),
-  body('ids.*').custom((id) => mongoose.isValidObjectId(id)).withMessage('Invalid section ID'),
+  body('ids').isArray({ min: 1 }).withMessage("The new order couldn't be saved. Please refresh the page and try again."),
+  body('ids.*').custom((id) => mongoose.isValidObjectId(id)).withMessage("We couldn't find that section. Please refresh the page and try again."),
 ];
 
 const sorted = () => SkillCategory.find().sort({ order: 1, createdAt: 1 });
@@ -127,7 +127,7 @@ const renameCategory = async (req, res, next) => {
     if (!category) return next(new AppError('Section not found', 404));
     res.json({ status: 'success', data: category });
   } catch (err) {
-    if (err.name === 'CastError') return next(new AppError('Invalid section ID', 400));
+    if (err.name === 'CastError') return next(new AppError("We couldn't find that section. Please refresh the page and try again.", 400));
     next(err);
   }
 };
@@ -139,12 +139,12 @@ const reorderCategories = async (req, res, next) => {
   try {
     const { ids } = req.body;
     if (new Set(ids).size !== ids.length) {
-      return next(new AppError('ids must not repeat a section', 400));
+      return next(new AppError("The new order couldn't be saved. Please refresh the page and try again.", 400));
     }
     const total = await SkillCategory.countDocuments();
     const found = await SkillCategory.countDocuments({ _id: { $in: ids } });
     if (found !== ids.length || total !== ids.length) {
-      return next(new AppError('Send every section, in the new order', 400));
+      return next(new AppError("The new order couldn't be saved. Please refresh the page and try again.", 400));
     }
     await SkillCategory.bulkWrite(ids.map((id, i) => ({
       updateOne: { filter: { _id: id }, update: { $set: { order: i + 1 } } },
@@ -209,7 +209,7 @@ const deleteCategory = async (req, res, next) => {
     await category.deleteOne();
     res.json({ status: 'success', data: { moved: moveTo ? skills.length : 0, deleted: deleteSkills === true ? skills.length : 0 } });
   } catch (err) {
-    if (err.name === 'CastError') return next(new AppError('Invalid section ID', 400));
+    if (err.name === 'CastError') return next(new AppError("We couldn't find that section. Please refresh the page and try again.", 400));
     next(err);
   }
 };

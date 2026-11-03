@@ -445,7 +445,7 @@ describe('form submission (Step 9 #11, #12, #13)', () => {
     await fill(user, { name: 'Ada', email: 'ada@example.com', message: 'A properly long message.' });
     await user.click(send());
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/check your connection/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/check your internet connection/i);
   });
 
   /** #12. Double-submission is the reason, and the label is the
@@ -617,7 +617,7 @@ describe('DOWNLOAD CV (Step 9 #14)', () => {
     const link = cv(container);
     expect(link).toHaveAttribute('href', '#contact');
     expect(link).not.toHaveAttribute('download');
-    expect(link).toHaveAttribute('title', 'Upload a résumé in the admin panel to enable this');
+    expect(link).toHaveAttribute('title', 'Ask me for my CV through the contact form');
   });
 
   /** Fails closed. A failed About fetch must not produce a link to a

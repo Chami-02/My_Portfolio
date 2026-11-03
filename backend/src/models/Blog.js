@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const slugify  = require('slugify');
+const { makeSectionSchema } = require('./sectionSchema');
 
 const slugifyOptions = {
   lower:  true,
@@ -57,49 +58,11 @@ function isPublished() {
   return this.published === true;
 }
 
-// The section rules run on a SUBDOCUMENT, whose `this` is the section; the
-// post that decides is its owner.
-function ownerIsPublished(section) {
-  const owner = typeof section.ownerDocument === 'function' ? section.ownerDocument() : null;
-  return Boolean(owner && owner.published === true);
-}
-
-// ── NEW IN PF-59 ──────────────────────────────────────────────
-// One section of a blog post. The reading view renders these
-// in order, numbered 01, 02, 03…
-//
-// A section may have body paragraphs, bullets, or both.
-// It may NOT have neither — that would render as an empty heading.
-const sectionSchema = new mongoose.Schema(
-  {
-    heading: {
-      type:      String,
-      // PF-115: required only once the post is published — a draft may
-      // hold a section whose heading has not been written yet.
-      required:  [function () { return ownerIsPublished(this); }, 'Section heading is required'],
-      trim:      true,
-      maxlength: [200, 'Heading cannot exceed 200 characters'],
-    },
-    body: {
-      type:    [String],   // each element = one paragraph
-      default: [],
-    },
-    bullets: {
-      type:    [String],   // each element = one bullet point
-      default: [],
-    },
-  },
-  { _id: false }   // sections are positional, not independently addressable
-);
-
-// A section with no content at all is meaningless — on a PUBLISHED post.
-// PF-115: a draft keeps a half-written section rather than losing it.
-sectionSchema.pre('validate', function () {
-  if (!ownerIsPublished(this)) return;
-  if (this.body.length === 0 && this.bullets.length === 0) {
-    throw new Error('A section must have at least one paragraph or bullet');
-  }
-});
+// ── PF-59 · moved to models/sectionSchema.js in PF-144 ────────────
+// One section of a blog post — the shape Project's page sections share.
+// A section's rules ask its POST, and a post is published only when
+// `published === true` (see isPublished above).
+const sectionSchema = makeSectionSchema((post) => post.published === true);
 // ──────────────────────────────────────────────────────────────
 
 const blogSchema = new mongoose.Schema(

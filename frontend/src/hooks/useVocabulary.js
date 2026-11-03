@@ -81,7 +81,8 @@ export const useDeleteVocabulary = (type) => {
         qc.invalidateQueries({ queryKey: BLOG_KEY });
         qc.invalidateQueries({ queryKey: BLOG_ADMIN_KEY });
       }
-      if (type === 'tech') {
+      // `category` (PF-144) cascades onto projects too.
+      if (type === 'tech' || type === 'category') {
         qc.invalidateQueries({ queryKey: PROJECTS_KEY });
       }
       // Certificate tags (owner, 2026-11-02) — the key prefix in useEntries.js.

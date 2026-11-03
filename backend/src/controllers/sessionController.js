@@ -28,8 +28,8 @@ const NOT_FOUND      = 'That session has already ended.';
 const revokeRules       = [
   passwordRule,
   body('id')
-    .isString().withMessage('Session id must be text').bail()
-    .notEmpty().withMessage('Session id is required'),
+    .isString().withMessage("We couldn't find that session. Please refresh the page and try again.").bail()
+    .notEmpty().withMessage("We couldn't find that session. Please refresh the page and try again."),
 ];
 const revokeOthersRules = [passwordRule];
 

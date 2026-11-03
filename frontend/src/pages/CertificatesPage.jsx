@@ -11,6 +11,8 @@ import { Reveal } from '../components/motion';
 import { useCertificates } from '../hooks/useEntries';
 import { formatMonthYear } from '../utils/monthYear';
 import styles from './CertificatesPage.module.css';
+import { ErrorCard } from '../components/common/ErrorCard';
+import { loadFailed } from '../utils/queryState';
 
 /**
  * PF-143 — /certificates and /certificates/:slug.
@@ -39,7 +41,7 @@ export function CertificatesPage() {
   const { slug } = useParams();
   const query = useCertificates();
   const { data: certificates = [], isLoading } = query;
-  const failed = query.isError && query.data === undefined;
+  const failed = loadFailed(query);   // PF-144: stays failed while it retries
 
   const [searchParams, setSearchParams] = useSearchParams();
   const picked = searchParams.get('tag') ?? '';
@@ -133,12 +135,14 @@ export function CertificatesPage() {
           <section className={styles.cards}>
             <div className={styles.inner}>
               {failed ? (
-                <p className={styles.message}>
-                  The certificates could not load.{' '}
-                  <button type="button" className={styles.retry} onClick={() => query.refetch()}>
-                    TRY AGAIN
-                  </button>
-                </p>
+                // PF-144: the shared error card, like every other error.
+                <ErrorCard
+                  role="alert"
+                  title="The certificates are not loading"
+                  actions={[{ label: query.isFetching ? 'TRYING AGAIN…' : 'TRY AGAIN', onClick: () => query.refetch(), disabled: query.isFetching }]}
+                >
+                  They didn’t load this time. This is usually temporary — please try again.
+                </ErrorCard>
               ) : isLoading ? null : shown.length === 0 ? (
                 <p className={styles.message}>No certificates to show yet.</p>
               ) : (

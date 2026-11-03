@@ -195,7 +195,7 @@ const setStarred = async (req, res, next) => {
     if (!message) return next(new AppError('Message not found', 404));
     res.json({ status: 'success', data: message });
   } catch (err) {
-    if (err.name === 'CastError') return next(new AppError('Invalid message ID', 400));
+    if (err.name === 'CastError') return next(new AppError("We couldn't find that message.", 400));
     next(err);
   }
 };

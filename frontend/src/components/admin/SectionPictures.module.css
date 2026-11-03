@@ -1,0 +1,118 @@
+/* frontend/src/components/admin/SectionPictures.module.css
+ *
+ * PF-144 part 2 — a project section's pictures in the admin editor. No
+ * prototype source (the export has no such block); it borrows the cover
+ * picture block's pieces (AdminProjectsPanel.module.css) and the sections
+ * editor's inset surface, so it reads as part of the same form.
+ *
+ * ⚠️ Registered in adminFoundation.test.js's PHASE_2_SHEETS.
+ */
+
+.block {
+  margin-bottom: 14px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.add {
+  padding: 7px 13px;
+}
+
+.none {
+  margin: 0;
+  padding: 10px 0 10px 31px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted2);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Picture, caption, × — the × sits over the picture's corner. */
+.item {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.thumbWrap {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--ln), .18);
+  background: rgba(var(--srf), .6);
+}
+
+/* `contain`: these pictures are shown UNCROPPED on the page, so the editor
+   shows the whole picture too. */
+.thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* (0,2,0) — the shared `.badge` class it sits beside would otherwise win. */
+.thumbWrap .badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+}
+
+.remove {
+  composes: btnIcon from '../../styles/admin.module.css';
+}
+
+/* (0,2,0), not (0,1,0): `.btnIcon` sets position / background / border /
+   padding at equal weight and is emitted LATER, so a bare `.remove` lost
+   and the × fell under the caption (seen in the browser). Specificity, never
+   emission order. */
+.item .remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  padding: 0;
+  background: rgb(var(--srf));
+  border: 1px solid rgba(var(--ln), .2);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.caption {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  color: var(--muted2);
+}
+
+/* PF-91: --muted2 at 11px on the panel card is under AA in DARK. */
+:global(html[data-theme='dark']) .none,
+:global(html[data-theme='dark']) .caption { color: var(--muted); }
+
+/* Phones: the × gets PF-142's 36px target. ⚠️ LAST (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .item .remove {
+    width: 36px;
+    height: 36px;
+  }
+}

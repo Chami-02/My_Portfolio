@@ -327,7 +327,7 @@ describe('AdminBlogPanel — failures are visible', () => {
     await touch(user);
     await user.click(saveChanges());
 
-    expect(await screen.findByText(/Cannot reach the server/)).toBeInTheDocument();
+    expect(await screen.findByText(/We can't connect right now/)).toBeInTheDocument();
   });
 
   it('blocks the save and explains why when a section has no text', async () => {
@@ -618,7 +618,7 @@ describe('AdminBlogPanel — tag picker', () => {
 
     it('surfaces a failed delete', async () => {
       deleteVocabMutation.mutateAsync.mockRejectedValue({
-        response: { data: { message: 'No vocabulary item found with that ID' } },
+        response: { data: { message: 'That tag no longer exists.' } },
       });
 
       const user = userEvent.setup();
@@ -626,7 +626,7 @@ describe('AdminBlogPanel — tag picker', () => {
       await user.click(chipRemove('Docker'));
       await user.click(dialog().getByRole('button', { name: 'YES, REMOVE' }));
 
-      expect(await screen.findByText(/No vocabulary item found/)).toBeInTheDocument();
+      expect(await screen.findByText(/That tag no longer exists/)).toBeInTheDocument();
     });
   });
 
@@ -843,7 +843,7 @@ describe('validation refuses the save (2026-09-25)', () => {
     await user.type(screen.getByLabelText(/^Title/), '!');
     await user.click(save());
 
-    expect(await screen.findByText(/Cannot reach the server/i)).toBeInTheDocument();
+    expect(await screen.findByText(/We can't connect right now/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Title/)).not.toHaveAttribute('aria-invalid');
     expect(screen.queryByText(/CHECK THE CHANGES AGAIN/i)).not.toBeInTheDocument();
   });

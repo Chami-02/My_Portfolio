@@ -114,7 +114,7 @@ describe('POST /api/backup — what is in the file', () => {
     expect(res.body.problems).toEqual([]);
     expect(res.body.data).toMatchObject({
       format: 'portfolio-backup',
-      version: 2,
+      version: 3,
       schema: { migrations: [] },
       about: null,
       counts: {
@@ -178,7 +178,7 @@ describe('POST /api/backup — the file checks itself (restore guard 1)', () => 
 
     expect(res.status).toBe(200);
     expect(res.body.data.blog).toHaveLength(1);
-    expect(res.body.problems).toEqual([expect.stringMatching(/^Blog post 1: title — /)]);
+    expect(res.body.problems).toEqual([expect.stringMatching(/^Blog post 1: Blog title is required/)]);
   });
 
   it('names the migrations this database has run', async () => {

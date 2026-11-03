@@ -21,6 +21,9 @@ import { NotFoundPage }    from './pages/NotFoundPage';
 const BlogPage       = lazy(() => import('./pages/BlogPage').then((m) => ({ default: m.BlogPage })));
 const BlogPostPage   = lazy(() => import('./pages/BlogPostPage').then((m) => ({ default: m.BlogPostPage })));
 const CertificatesPage = lazy(() => import('./pages/CertificatesPage').then((m) => ({ default: m.CertificatesPage })));
+const ProjectsPage   = lazy(() => import('./pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage })));
+const ProjectPage    = lazy(() => import('./pages/ProjectPage').then((m) => ({ default: m.ProjectPage })));
+const CvUnavailablePage = lazy(() => import('./pages/CvUnavailablePage').then((m) => ({ default: m.CvUnavailablePage })));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })));
 const AdminForgotPasswordPage = lazy(() =>
   import('./pages/AdminForgotPasswordPage').then((m) => ({ default: m.AdminForgotPasswordPage })));
@@ -80,6 +83,11 @@ function AppLayout() {
                   certificate's big view does not remount the page (its grid,
                   filter and scroll stay put underneath). */}
               <Route path="/certificates/:slug?" element={<CertificatesPage />} />
+              {/* PF-144 — every project with a search, and each one's page. */}
+              <Route path="/projects"       element={<ProjectsPage />} />
+              <Route path="/projects/:slug" element={<ProjectPage />} />
+              {/* PF-144 — where DOWNLOAD CV lands when the CV can't be served. */}
+              <Route path="/cv-unavailable" element={<CvUnavailablePage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
               {/* PF-125. Public, like sign-in: ranked above `/admin/*`, so it
                   never reaches ProtectedRoute. */}

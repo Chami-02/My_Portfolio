@@ -1024,7 +1024,7 @@ describe('BlogPage — failure', () => {
 
   it('disables the retry while a refetch is already in flight', () => {
     drawFailed({ isFetching: true });
-    const retry = screen.getByRole('button', { name: 'RETRYING…' });
+    const retry = screen.getByRole('button', { name: 'TRYING AGAIN…' });
     expect(retry).toBeDisabled();
   });
 

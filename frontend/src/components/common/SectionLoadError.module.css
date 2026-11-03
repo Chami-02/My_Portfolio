@@ -1,0 +1,92 @@
+/* frontend/src/components/common/SectionLoadError.module.css
+ *
+ * PF-144 — the calm one-line "didn't load — TRY AGAIN" a home section shows
+ * in place of its cards. The site's own surfaces and pill button (the VIEW ALL
+ * family), so it reads as part of the section, not as an alarm. Works in
+ * both themes through the tokens.
+ */
+
+.box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+  padding: 18px 22px;
+  border-radius: 16px;
+  background: rgba(var(--srf), .5);
+  border: 1px dashed rgba(var(--ln), .22);
+}
+
+/* The shared red "!" (ErrorPage's mark, a size smaller). */
+.mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(180, 35, 31, .1);
+  border: 1.5px solid var(--danger);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.text {
+  margin: 0;
+  flex: 1 1 240px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.button {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  padding: 10px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--text);
+  background: rgba(252, 163, 17, .07);
+  border: 1px solid rgba(252, 163, 17, .35);
+  transition: color .25s, border-color .25s, background .25s;
+}
+
+.button:hover:not(:disabled) {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+  background: rgba(252, 163, 17, .14);
+}
+
+.button:disabled {
+  opacity: .6;
+  cursor: default;
+}
+
+/* Phones: a size smaller (owner, 2026-11-03), the button full width with a
+   36px target. LAST in the file (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .box {
+    padding: 16px;
+  }
+
+  .text {
+    font-size: 14px;
+  }
+
+  .mark {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+
+  .button {
+    width: 100%;
+    min-height: 36px;
+    font-size: 10.5px;
+  }
+}

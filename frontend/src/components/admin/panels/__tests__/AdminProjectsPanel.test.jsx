@@ -19,6 +19,7 @@ const hooks = vi.hoisted(() => ({
   update:   { mutateAsync: vi.fn(), isPending: false },
   remove:   { mutateAsync: vi.fn(), isPending: false },
   uploadBg: { mutateAsync: vi.fn(), isPending: false },
+  uploadPic: { mutateAsync: vi.fn(), isPending: false },
   removeBg: { mutateAsync: vi.fn(), isPending: false },
   vocab:    vi.fn(),
   createVocab: { mutateAsync: vi.fn(), isPending: false },
@@ -33,6 +34,7 @@ vi.mock('../../../../hooks/useProjects', () => ({
   useUpdateProject:    () => hooks.update,
   useDeleteProject:    () => hooks.remove,
   useUploadBackground: () => hooks.uploadBg,
+  useUploadSectionImage: () => hooks.uploadPic,
   useRemoveBackground: () => hooks.removeBg,
 }));
 
@@ -59,7 +61,9 @@ const { AdminProjectsPanel } = await import('../AdminProjectsPanel');
 const LIVE = Object.freeze({
   _id: 'p1', title: 'ClearDrive', description: 'A car marketplace.',
   tech: ['React', 'Docker'], githubUrl: 'https://github.com/a/cleardrive', liveUrl: null,
-  order: 0, featured: true, published: true,
+  order: 0, featured: true, published: true, slug: 'cleardrive',
+  categories: ['Web App'], role: 'Team lead', client: '', startedOn: '2024-02', endedOn: '', ongoing: true,
+  sections: [{ heading: 'Description', body: ['A car marketplace.'], bullets: [] }],
   backgroundImage: { src: 'https://cdn.test/bg.webp', publicId: 'projects/bg', opacity: 0.4 },
 });
 
@@ -68,6 +72,11 @@ const DRAFT = Object.freeze({
   order: 1, featured: false, published: false,
   backgroundImage: { src: '', publicId: '', opacity: 0.75 },
 });
+
+const CATEGORIES = [
+  { _id: 'c1', type: 'category', value: 'Web App' },
+  { _id: 'c2', type: 'category', value: 'API' },
+];
 
 const TECH = [
   { _id: 't1', type: 'tech', value: 'React' },
@@ -81,16 +90,23 @@ const formCard = () => screen.getByRole('heading', { name: /new project|edit pro
 const field = (label) => within(formCard()).getByLabelText(label);
 const btn = (name) => within(formCard()).getByRole('button', { name });
 const queryBtn = (name) => within(formCard()).queryByRole('button', { name });
-const fileInput = () => formCard().querySelector('input[type="file"]');
+// The COVER picture's input, by id — since PF-144 part 2 each section has one too.
+const fileInput = () => formCard().querySelector('#project-background-file');
 const editRow = (title) => screen.getByRole('button', { name: `Edit ${title}` });
 const httpError = (status, message) => ({ response: { status, data: { message } } });
 
-/** Fill a complete, publishable new project. */
+/** The summary box — its label goes on to say where it shows. */
+const SUMMARY = /^Summary/;
+
+/** Fill a complete, publishable new project — the three starter sections too. */
 const fillComplete = async (user) => {
   await user.type(field('Title'), 'Portfolio');
   await user.type(field('GitHub URL'), 'https://github.com/a/portfolio');
-  await user.type(field('Description'), 'This site.');
+  await user.type(field(SUMMARY), 'This site.');
   await user.type(field('Tech stack (comma separated)'), 'React');
+  await user.type(field('Section 01, paragraph 1'), 'What it is.');
+  await user.type(field('Section 02, bullet 1'), 'Fast.');
+  await user.type(field('Section 03, paragraph 1'), 'What it changed.');
 };
 
 beforeEach(() => {
@@ -100,9 +116,12 @@ beforeEach(() => {
   hooks.update.mutateAsync = vi.fn().mockResolvedValue({});
   hooks.remove.mutateAsync = vi.fn().mockResolvedValue({});
   hooks.uploadBg.mutateAsync = vi.fn().mockResolvedValue({});
+  hooks.uploadPic.mutateAsync = vi.fn(async ({ file }) => ({
+    publicId: `p/${file.name}`, url: `https://res.cloudinary.com/x/${file.name}`, width: 1920, height: 1080,
+  }));
   hooks.removeBg.mutateAsync = vi.fn().mockResolvedValue({});
   hooks.deleteVocab.mutateAsync = vi.fn().mockResolvedValue({ strippedFrom: 1 });
-  hooks.vocab.mockReturnValue({ data: TECH, isLoading: false });
+  hooks.vocab.mockImplementation((type) => ({ data: type === 'category' ? CATEGORIES : TECH, isLoading: false }));
   hooks.impact.mockReturnValue({ data: { affected: 2, label: 'projects' }, isLoading: false, isError: false });
   URL.createObjectURL = vi.fn(() => 'blob:preview');
   URL.revokeObjectURL = vi.fn();
@@ -111,7 +130,7 @@ beforeEach(() => {
 });
 
 /** The background block — the DropZone's own element wraps its media row. */
-const bgBlock = () => screen.getByText(/Card background image/).closest('div').parentElement;
+const bgBlock = () => screen.getByText(/Project picture/).closest('div').parentElement;
 const dropZone = () => screen.getByTestId('bg-preview').closest('[class*="dropZone"]');
 const dropFiles = (target, files) => {
   const dataTransfer = { files, types: ['Files'], dropEffect: '' };
@@ -164,11 +183,12 @@ describe('creating — ADD PROJECT and SAVE AS DRAFT', () => {
     const user = userEvent.setup();
     render(<AdminProjectsPanel />);
 
-    await user.type(field('Description'), 'words');
+    await user.type(field(SUMMARY), 'words');
     await user.click(btn('SAVE AS DRAFT'));
 
     expect(hooks.create.mutateAsync).not.toHaveBeenCalled();
-    expect(screen.getByText(/1 field needs attention/)).toBeInTheDocument();
+    // The banner NAMES the field (owner, 2026-10-31).
+    expect(screen.getByText(/CHECK THE CHANGES AGAIN — Title needs attention\./)).toBeInTheDocument();
     expect(field('Title')).toHaveAttribute('aria-invalid', 'true');
     expect(field('GitHub URL')).not.toHaveAttribute('aria-invalid');
   });
@@ -181,9 +201,15 @@ describe('creating — ADD PROJECT and SAVE AS DRAFT', () => {
     await user.click(btn('ADD PROJECT'));
 
     expect(hooks.create.mutateAsync).not.toHaveBeenCalled();
-    expect(screen.getByText(/3 fields need attention/)).toBeInTheDocument();
-    for (const label of ['GitHub URL', 'Description', 'Tech stack (comma separated)']) {
+    // The untouched starter sections are named too — each heading has no text yet.
+    expect(screen.getByText(
+      /Summary, Section 01, Section 02, Section 03, Tech stack, GitHub URL need attention\./,
+    )).toBeInTheDocument();
+    for (const label of ['GitHub URL', SUMMARY, 'Tech stack (comma separated)']) {
       expect(field(label)).toHaveAttribute('aria-invalid', 'true');
+    }
+    for (const heading of within(formCard()).getAllByLabelText('Heading *')) {
+      expect(heading).toHaveAttribute('aria-invalid', 'true');
     }
     // The SAVE button stays pressable — validity never disables it.
     expect(btn('ADD PROJECT')).toBeEnabled();
@@ -206,10 +232,13 @@ describe('creating — ADD PROJECT and SAVE AS DRAFT', () => {
 
     await user.type(field('Title'), 'Idea');
     await user.click(btn('ADD PROJECT'));
+    // The refusal focuses the FIRST problem a frame later — wait for it, or
+    // in a slow run that focus lands mid-typing and steals the keystroke.
+    await waitFor(() => expect(field(SUMMARY)).toHaveFocus());
     await user.type(field('GitHub URL'), 'h');
 
     expect(field('GitHub URL')).not.toHaveAttribute('aria-invalid');
-    expect(field('Description')).toHaveAttribute('aria-invalid', 'true');
+    expect(field(SUMMARY)).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('ADD PROJECT publishes a complete project and returns to a blank form', async () => {
@@ -220,9 +249,16 @@ describe('creating — ADD PROJECT and SAVE AS DRAFT', () => {
     await user.click(btn('ADD PROJECT'));
 
     await waitFor(() => expect(hooks.showFlash).toHaveBeenCalledWith('Project added'));
-    expect(hooks.create.mutateAsync.mock.calls[0][0]).toMatchObject({
-      title: 'Portfolio', published: true, tech: ['React'], backgroundImage: { opacity: 0.75 },
+    const sent = hooks.create.mutateAsync.mock.calls[0][0];
+    expect(sent).toMatchObject({
+      title: 'Portfolio', published: true, tech: ['React'],
+      sections: [
+        { heading: 'Description', body: ['What it is.'], bullets: [] },
+        { heading: 'Key Features', body: [], bullets: ['Fast.'] },
+        { heading: 'Outcome & Impact', body: ['What it changed.'], bullets: [] },
+      ],
     });
+    expect(sent).not.toHaveProperty('backgroundImage');
     expect(field('Title')).toHaveValue('');
   });
 
@@ -250,7 +286,12 @@ describe('editing, REVERT and CANCEL EDIT', () => {
     expect(screen.getByRole('heading', { name: 'Edit project' })).toBeInTheDocument();
     expect(field('Title')).toHaveValue('ClearDrive');
     expect(field('Tech stack (comma separated)')).toHaveValue('React, Docker');
-    expect(screen.getByRole('slider', { name: 'Image visibility' })).toHaveValue('40');
+    expect(field(SUMMARY)).toHaveValue('A car marketplace.');
+    expect(field('Role')).toHaveValue('Team lead');
+    expect(field('Section 01, paragraph 1')).toHaveValue('A car marketplace.');
+    expect(within(formCard()).getByRole('checkbox', { name: /Ongoing/ })).toBeChecked();
+    // PF-144: no slider — the picture is not behind the text any more.
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
   });
 
   // ⚠️ THE OWNER'S BUG. The old cancelEdit set the form to EMPTY.
@@ -337,7 +378,7 @@ describe('editing, REVERT and CANCEL EDIT', () => {
     await user.click(btn('PUBLISH'));
 
     expect(hooks.update.mutateAsync).not.toHaveBeenCalled();
-    expect(screen.getByText(/3 fields need attention/)).toBeInTheDocument();
+    expect(screen.getByText(/Summary, Sections, Tech stack, GitHub URL need attention\./)).toBeInTheDocument();
   });
 
   it('deleting the project being edited leaves edit mode', async () => {
@@ -411,7 +452,7 @@ describe('the background — staged until SAVE', () => {
 
     // ⚠️ INSIDE the background block, not the banner at the top of the form.
     expect(await within(bgBlock()).findByRole('alert'))
-      .toHaveTextContent('Background must be a PNG, JPEG or WEBP image.');
+      .toHaveTextContent('Picture must be a PNG, JPEG or WEBP image.');
     expect(within(formCard()).getByText('PENDING SAVE')).toBeInTheDocument();
   });
 
@@ -437,7 +478,7 @@ describe('the background — staged until SAVE', () => {
     dropFiles(dropZone(), [new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' })]);
 
     expect(await within(bgBlock()).findByRole('alert'))
-      .toHaveTextContent('Background must be a PNG, JPEG or WEBP image.');
+      .toHaveTextContent('Picture must be a PNG, JPEG or WEBP image.');
     expect(within(formCard()).getByText('LIVE')).toBeInTheDocument();
   });
 
@@ -478,25 +519,10 @@ describe('the background — staged until SAVE', () => {
     expect(await within(bgBlock()).findByRole('alert')).toHaveTextContent('Drop one file at a time.');
   });
 
-  it('the slider moves the preview live and is saved as a 0.x opacity', async () => {
-    const user = userEvent.setup();
-    render(<AdminProjectsPanel />);
-
-    await user.click(editRow('ClearDrive'));
-    fireEvent.change(screen.getByRole('slider', { name: 'Image visibility' }), { target: { value: '85' } });
-
-    expect(screen.getByText('85%')).toBeInTheDocument();
-    expect(screen.getByTestId('bg-preview').style.opacity).toBe('0.85');
-
-    await user.click(btn('SAVE CHANGES'));
-    await waitFor(() => expect(hooks.update.mutateAsync).toHaveBeenCalled());
-    expect(hooks.update.mutateAsync.mock.calls[0][0].data.backgroundImage).toEqual({ opacity: 0.85 });
-  });
-
   // ⚠️ Never a "saved" flash for a half-saved project.
   it('a failed upload after a successful create keeps the owner on the new project, file still staged', async () => {
     const user = userEvent.setup();
-    hooks.uploadBg.mutateAsync = vi.fn().mockRejectedValue(httpError(503, 'File storage is not configured on this server'));
+    hooks.uploadBg.mutateAsync = vi.fn().mockRejectedValue(httpError(503, "Pictures can't be uploaded right now. Please try again later."));
     hooks.useAdminProjects.mockReturnValue({
       data: [LIVE, DRAFT, { ...DRAFT, _id: 'new1', title: 'Idea' }], isLoading: false,
     });
@@ -506,7 +532,7 @@ describe('the background — staged until SAVE', () => {
     await user.upload(fileInput(), webp());
     await user.click(btn('SAVE AS DRAFT'));
 
-    expect(await screen.findByText(/Draft saved\. Background: File storage is not configured/)).toBeInTheDocument();
+    expect(await screen.findByText(/Draft saved\. Background: Pictures can't be uploaded right now/)).toBeInTheDocument();
     expect(hooks.showFlash).not.toHaveBeenCalled();
     expect(screen.getByRole('heading', { name: 'Edit project' })).toBeInTheDocument();
     expect(field('Title')).toHaveValue('Idea');
@@ -521,7 +547,7 @@ describe('the background — staged until SAVE', () => {
     await user.type(field('Title'), 'Idea');
     await user.click(btn('SAVE AS DRAFT'));
 
-    expect(await screen.findByText(/server could not be reached/)).toBeInTheDocument();
+    expect(await screen.findByText(/We can't connect right now/)).toBeInTheDocument();
     expect(hooks.uploadBg.mutateAsync).not.toHaveBeenCalled();
   });
 });
@@ -531,6 +557,29 @@ describe('the tech picker', () => {
   it('reads the TECH vocabulary', () => {
     render(<AdminProjectsPanel />);
     expect(hooks.vocab).toHaveBeenCalledWith('tech');
+  });
+
+  // Found in the browser: the plural was built as `${one}s` → "categorys".
+  it('an empty CATEGORY list says "No categories", spelled right', () => {
+    hooks.vocab.mockImplementation((type) => ({ data: type === 'category' ? [] : TECH, isLoading: false }));
+    render(<AdminProjectsPanel />);
+    expect(screen.getByText(/No categories in the list yet/)).toBeInTheDocument();
+  });
+
+  // PF-144 — the label on the card's picture.
+  it('the CATEGORY picker takes ONE value: a second pick replaces the first', async () => {
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+    expect(hooks.vocab).toHaveBeenCalledWith('category');
+
+    const picker = within(formCard()).getByRole('group', { name: 'Category' });
+    await user.click(within(picker).getByRole('button', { name: '+ Web App' }));
+    await user.click(within(picker).getByRole('button', { name: '+ API' }));
+    await user.type(field('Title'), 'X');
+    await user.click(btn('SAVE AS DRAFT'));
+
+    await waitFor(() => expect(hooks.create.mutateAsync).toHaveBeenCalled());
+    expect(hooks.create.mutateAsync.mock.calls[0][0].categories).toEqual(['API']);
   });
 
   it('picking a chip writes it into the tech field and makes the form dirty', async () => {
@@ -704,7 +753,7 @@ describe('the row PUBLISH / UNPUBLISH', () => {
     expect(hooks.update.mutateAsync).not.toHaveBeenCalled();
     expect(field('Title')).toHaveValue('Half-written');
     expect(field('GitHub URL')).toHaveAttribute('aria-invalid', 'true');
-    expect(field('Description')).toHaveAttribute('aria-invalid', 'true');
+    expect(field(SUMMARY)).toHaveAttribute('aria-invalid', 'true');
     expect(field('Title')).not.toHaveAttribute('aria-invalid', 'true');
   });
 
@@ -717,5 +766,92 @@ describe('the row PUBLISH / UNPUBLISH', () => {
 
     expect(await screen.findByText(/Unpublish: GitHub URL is required/)).toBeInTheDocument();
     expect(hooks.showFlash).not.toHaveBeenCalled();
+  });
+});
+
+// ── PF-144 part 2 — pictures inside a section ──────────────────────────────
+describe('section pictures', () => {
+  const png = (name) => new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], name, { type: 'image/png' });
+  const pictureInput = (section) => formCard().querySelector(`#project-section-${section}-picture`);
+
+  it('a pick is STAGED: previewed, PENDING SAVE, nothing uploaded, the form dirty', async () => {
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+    await user.click(editRow('ClearDrive'));
+    await user.upload(pictureInput(0), png('dash.png'));
+
+    expect(within(formCard()).getByText('PENDING SAVE')).toBeInTheDocument();
+    expect(hooks.uploadPic.mutateAsync).not.toHaveBeenCalled();
+    expect(btn('SAVE CHANGES')).toBeEnabled();
+  });
+
+  it('SAVE uploads the picture FIRST, then ONE save names it with its caption', async () => {
+    const user = userEvent.setup();
+    const order = [];
+    hooks.uploadPic.mutateAsync = vi.fn(async ({ id }) => { order.push(`upload:${id}`);
+      return { publicId: 'p/dash', url: 'https://res.cloudinary.com/x/dash.png', width: 1920, height: 1080 }; });
+    hooks.update.mutateAsync = vi.fn(async () => { order.push('update'); });
+    render(<AdminProjectsPanel />);
+    await user.click(editRow('ClearDrive'));
+    await user.upload(pictureInput(0), png('dash.png'));
+    await user.type(field('Section 01, picture 1 caption'), 'Dashboard');
+    await user.click(btn('SAVE CHANGES'));
+
+    await waitFor(() => expect(hooks.showFlash).toHaveBeenCalledWith('Project updated'));
+    expect(order).toEqual(['upload:p1', 'update']);
+    expect(hooks.update.mutateAsync.mock.calls[0][0].data.sections[0].images)
+      .toEqual([{ publicId: 'p/dash', caption: 'Dashboard' }]);
+  });
+
+  it('a NEW project with a picture: created as a DRAFT, picture uploaded, THEN published', async () => {
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+    await fillComplete(user);
+    await user.upload(pictureInput(0), png('shot.png'));
+    await user.click(btn('ADD PROJECT'));
+
+    await waitFor(() => expect(hooks.update.mutateAsync).toHaveBeenCalled());
+    expect(hooks.create.mutateAsync.mock.calls[0][0].published).toBe(false);
+    expect(hooks.uploadPic.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ id: 'new1' }));
+    const final = hooks.update.mutateAsync.mock.calls[0][0];
+    expect(final).toMatchObject({ id: 'new1', data: { published: true } });
+    expect(final.data.sections[0].images).toEqual([{ publicId: 'p/shot.png', caption: '' }]);
+  });
+
+  it('a failed upload: nothing published, the owner stays on it, the picture still staged', async () => {
+    const user = userEvent.setup();
+    hooks.uploadPic.mutateAsync = vi.fn().mockRejectedValue(httpError(503, "Pictures can't be uploaded right now. Please try again later."));
+    render(<AdminProjectsPanel />);
+    await user.click(editRow('ClearDrive'));
+    await user.upload(pictureInput(0), png('dash.png'));
+    await user.click(btn('SAVE CHANGES'));
+
+    expect(await screen.findByText(/Picture: Pictures can't be uploaded right now/)).toBeInTheDocument();
+    expect(hooks.update.mutateAsync).not.toHaveBeenCalled();
+    expect(within(formCard()).getByText('PENDING SAVE')).toBeInTheDocument();
+  });
+
+  it('× removes a picture from the form; REVERT brings a saved one back', async () => {
+    const withPic = { ...LIVE, sections: [{ heading: 'Description', body: ['x'], bullets: [],
+      images: [{ publicId: 'p/a', url: 'https://res.cloudinary.com/x/a.png', width: 1, height: 1, caption: 'A' }] }] };
+    hooks.useAdminProjects.mockReturnValue({ data: [withPic, DRAFT], isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+    await user.click(editRow('ClearDrive'));
+    expect(field('Section 01, picture 1 caption')).toHaveValue('A');
+
+    await user.click(within(formCard()).getByRole('button', { name: 'Remove picture 1 from section 01' }));
+    expect(within(formCard()).queryByLabelText('Section 01, picture 1 caption')).toBeNull();
+    await user.click(btn('REVERT CHANGES'));
+    expect(field('Section 01, picture 1 caption')).toHaveValue('A');
+  });
+
+  it('at most 4: the ADD PICTURE control goes once a section is full', async () => {
+    const user = userEvent.setup();
+    render(<AdminProjectsPanel />);
+    await user.click(editRow('ClearDrive'));
+    for (const n of [1, 2, 3, 4]) await user.upload(pictureInput(0), png(`s${n}.png`));
+    expect(pictureInput(0)).toBeNull();
+    expect(within(formCard()).getAllByText('PENDING SAVE')).toHaveLength(4);
   });
 });

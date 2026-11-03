@@ -157,7 +157,7 @@ describe('the card (Admin.dc.html:538-568)', () => {
     render(<AdminMessagesPanel />);
 
     await user.click(screen.getByRole('button', { name: '✓ MARK READ' }));
-    expect(screen.getByRole('alert')).toHaveTextContent(/Cannot reach the server/);
+    expect(screen.getByRole('alert')).toHaveTextContent(/We can't connect right now/);
   });
 });
 

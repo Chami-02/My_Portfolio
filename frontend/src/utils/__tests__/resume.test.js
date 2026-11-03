@@ -43,6 +43,6 @@ describe('cvAnchorProps', () => {
 
   it('keeps the empty anchor pointing inside the page', () => {
     expect(CV_EMPTY_HREF).toBe('#contact');
-    expect(CV_EMPTY_TITLE).toMatch(/admin panel/i);
+    expect(CV_EMPTY_TITLE).toMatch(/contact form/i);   // PF-144: written for the visitor
   });
 });

@@ -107,6 +107,8 @@ const PHASE_2_SHEETS = [
   'styles/admin.module.css',
   'components/admin/AdminLayout.module.css',
   'components/admin/AdminFooter.module.css',
+  'components/admin/SectionsEditor.module.css',   // PF-144
+  'components/admin/SectionPictures.module.css',  // PF-144 part 2
   'pages/AdminLoginPage.module.css',           // PF-109
   'components/admin/panels/AdminOverviewPanel.module.css', // PF-110
   'components/admin/panels/AdminAboutPanel.module.css',    // PF-112
@@ -231,6 +233,8 @@ const REBUILT_JSX = [
   'components/admin/panels/AdminProjectsPanel.jsx',
   'components/admin/ConfirmDialog.jsx',
   'components/admin/VocabularyPicker.jsx',
+  'components/admin/SectionsEditor.jsx',          // PF-144
+  'components/admin/SectionPictures.jsx',         // PF-144 part 2
   'components/admin/UploadPill.jsx',
   'components/admin/DropZone.jsx',          // PF-113 batch 2
   'components/admin/panels/AdminSkillsPanel.jsx',   // PF-114

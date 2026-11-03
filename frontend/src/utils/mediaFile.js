@@ -12,6 +12,7 @@
 // both of which the client chooses. A .jpg renamed .pdf passes every check below
 // and is refused with a 415 on SAVE, which is correct and must stay that way.
 
+import { friendlyError } from './friendlyError';
 import { resizeImage, UndecodableImageError } from './resizeImage';
 
 /** 4 MB — `MAX_IMAGE_BYTES` and `MAX_PDF_BYTES` (backend/src/middleware/upload.js).
@@ -54,28 +55,12 @@ export const rejectReason = (file, spec) => {
 };
 
 /**
- * Turn a failed mutation into something an operator can act on.
- *
- * The server already separates 415 / 413 / 503 with distinct messages
- * (aboutController.js), so its own text is used verbatim — three statuses, three
- * sentences, not one catch-all. The 503 gets an addition because its message
- * describes the server's state without saying that the operator is not the
- * person who can fix it.
- *
- * ⚠️ The `!err.response` branch is the one that would otherwise collapse into
- * the others — a dead backend and a rejected file are different problems, and
- * `utils/loginError.js` exists because that exact conflation shipped once.
+ * A failed upload/save → one plain sentence. Since PF-144 this is the shared
+ * `friendlyError` (utils/friendlyError.js): no internet, too many tries, our
+ * side, a file too big or of the wrong type each read the same everywhere,
+ * and a server message is shown only when it is already plain.
  */
-export const messageFor = (err) => {
-  const status = err?.response?.status;
-  const message = err?.response?.data?.message;
-  if (!err?.response) return 'the server could not be reached — check your connection and try again.';
-  if (status === 503) {
-    return `${message || 'file storage is unavailable.'} Nothing can be done from this panel — ` +
-           'the storage keys are missing on the server.';
-  }
-  return message || 'the request was rejected.';
-};
+export const messageFor = (err) => friendlyError(err);
 
 /** The résumé's spec — PDF, 4 MB. Not resizable: a PDF cannot be shrunk here. */
 export const RESUME_SPEC = {
