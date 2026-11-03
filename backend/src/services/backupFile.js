@@ -1,6 +1,7 @@
 const mongoose      = require('mongoose');
 const About         = require('../models/About');
 const Project       = require('../models/Project');
+const { planFor: planProjectPage } = require('../migrations/013-project-pages');
 const Skill         = require('../models/Skill');
 const SkillCategory = require('../models/SkillCategory');
 const Blog          = require('../models/Blog');
@@ -40,7 +41,11 @@ const AppError      = require('../utils/AppError');
 // prototype are refused, and media must point at our own Cloudinary folder.
 
 const FORMAT  = 'portfolio-backup';
-const VERSION = 2;
+
+/** A file key → words for a person: "skillCategories" → "skill sections". */
+const LIST_NAMES = { skillCategories: 'skill sections', blog: 'blog posts', vocabulary: 'tags and tech' };
+const listName = (key) => LIST_NAMES[key] || String(key).replace(/([A-Z])/g, ' $1').toLowerCase();
+const VERSION = 3;
 
 /** `UPGRADES[n]` : (file at version n+1) => file at version n+2. */
 const UPGRADES = [
@@ -53,6 +58,19 @@ const UPGRADES = [
     education:    [],
     certificates: [],
   }),
+  // 2 → 3 (PF-144): a published project now needs a slug and a page section.
+  // A v2 file's projects get exactly what migration 013 gave the database —
+  // the SAME function, so a restored project lands at the address the live
+  // one has.
+  (file) => {
+    const taken = new Set((file.projects || []).map((p) => p && p.slug).filter(Boolean));
+    return {
+      ...file,
+      version:  3,
+      projects: (file.projects || []).map((p) =>
+        (p && typeof p === 'object' ? { ...p, ...planProjectPage(p, taken) } : p)),
+    };
+  },
 ];
 
 /** Model name → key in the file. About is ONE document, the rest are lists. */
@@ -208,7 +226,7 @@ const mediaProblems = (row, where) => {
           && parsed.hostname === 'res.cloudinary.com'
           && (!cloud || parsed.pathname.startsWith(`/${cloud}/`));
         if (!id || !url || !ours || !id.startsWith(`${folder}/`) || !parsed.pathname.includes(`/${id}`)) {
-          problems.push(`${where}: ${path || 'media'} — the file link is not one this site uploaded`);
+          problems.push(`${where}: a picture or file link isn't one this site uploaded`);
         }
       }
     }
@@ -225,7 +243,9 @@ const validationProblems = async (doc, where) => {
     return [];
   } catch (err) {
     if (!(err instanceof mongoose.Error.ValidationError)) throw err;
-    return Object.values(err.errors).map((e) => `${where}: ${e.path} — ${e.kind === 'ObjectId' || e.name === 'CastError' ? 'not a valid value' : e.message}`);
+    // PF-144: plain words — the model's own sentence ("Project title is
+    // required"), never the internal field path ("sections.0.heading").
+    return Object.values(err.errors).map((e) => `${where}: ${e.kind === 'ObjectId' || e.name === 'CastError' ? "one of its values isn't valid" : e.message}`);
   }
 };
 
@@ -286,16 +306,16 @@ const validateBackup = async (input) => {
 
   // ── The envelope ──
   if (!isPlainObject(input) || input.format !== FORMAT) {
-    problems.push('This is not a portfolio backup file — choose a file DOWNLOAD BACKUP saved.');
+    problems.push("That isn't a backup from this site. Choose the file you saved with DOWNLOAD BACKUP.");
     return done();
   }
   const forbidden = findForbiddenKey(input);
   if (forbidden) {
-    problems.push(`The file contains a key the site never writes (“${forbidden}”) — it has been edited.`);
+    problems.push(`The file has been changed by hand (it contains “${forbidden}”), so it can't be restored.`);
     return done();
   }
   if (!Number.isInteger(input.version) || input.version < 1) {
-    problems.push('The file has no valid version number — it has been edited or damaged.');
+    problems.push('The file is missing its version, so it may have been changed or damaged.');
     return done();
   }
   if (input.version > VERSION) {
@@ -307,22 +327,22 @@ const validateBackup = async (input) => {
 
   const migrations = file.schema?.migrations;
   if (!Array.isArray(migrations) || !migrations.every((m) => typeof m === 'string')) {
-    problems.push('The file has no valid schema list — it has been edited or damaged.');
+    problems.push('The file is missing part of its information, so it may have been changed or damaged.');
     return done();
   }
   const applied = new Set(await Migration.distinct('name'));
   const newer = migrations.filter((m) => !applied.has(m));
   if (newer.length) {
-    problems.push(`This backup was made after a database update this site has not had yet (${newer.join(', ')}). Update the site, then restore it.`);
+    problems.push('This backup was made by a newer version of the site. Update the site, then restore it.');
     return done();
   }
 
-  if (file.about !== null && !isPlainObject(file.about)) problems.push('About — not a valid section.');
+  if (file.about !== null && !isPlainObject(file.about)) problems.push("The About section in the file isn't valid.");
   for (const key of LIST_KEYS) {
-    if (!Array.isArray(file[key])) problems.push(`The “${key}” list is missing — the file has been edited or damaged.`);
-    else if (file[key].length > MAX_ROWS) problems.push(`The “${key}” list has more than ${MAX_ROWS} rows.`);
+    if (!Array.isArray(file[key])) problems.push(`The ${listName(key)} list is missing, so the file may have been changed or damaged.`);
+    else if (file[key].length > MAX_ROWS) problems.push(`The ${listName(key)} list has more than ${MAX_ROWS} items.`);
     else if (file.counts?.[key] !== file[key].length) {
-      problems.push(`The “${key}” list should have ${file.counts?.[key]} rows but has ${file[key].length} — the file is incomplete or edited.`);
+      problems.push(`The ${listName(key)} list should have ${file.counts?.[key]} items but has ${file[key].length}, so the file may be incomplete or changed.`);
     }
   }
   if (problems.length) return done();
@@ -332,7 +352,7 @@ const validateBackup = async (input) => {
 
   if (file.about) {
     const where = 'About';
-    if (file.about._id !== undefined && !isObjectIdString(file.about._id)) problems.push(`${where}: _id — not a valid id`);
+    if (file.about._id !== undefined && !isObjectIdString(file.about._id)) problems.push(`${where}: has a broken link inside it, so the file may have been changed.`);
     else {
       const checked = await checkRow(About, file.about, where);
       problems.push(...checked.problems);
@@ -348,9 +368,9 @@ const validateBackup = async (input) => {
     for (let i = 0; i < file[list.key].length; i += 1) {
       const raw = file[list.key][i];
       const where = rowLabel(list, raw, i);
-      if (!isPlainObject(raw)) { problems.push(`${where}: not a valid row`); continue; }
-      if (!isObjectIdString(raw._id)) { problems.push(`${where}: _id — not a valid id`); continue; }
-      if (ids.has(raw._id.toLowerCase())) { problems.push(`${where}: _id — appears twice in the file`); continue; }
+      if (!isPlainObject(raw)) { problems.push(`${where}: isn't a valid item.`); continue; }
+      if (!isObjectIdString(raw._id)) { problems.push(`${where}: has a broken link inside it, so the file may have been changed.`); continue; }
+      if (ids.has(raw._id.toLowerCase())) { problems.push(`${where}: appears twice in the file.`); continue; }
       ids.add(raw._id.toLowerCase());
 
       const { problems: found, row } = await checkRow(list.Model, raw, where);
@@ -359,7 +379,7 @@ const validateBackup = async (input) => {
       // skillController's rule: a skill belongs to a section that exists.
       // Sections are checked first (LISTS order), so this sees every valid one.
       if (list.key === 'skills' && !sections.has(row.category)) {
-        problems.push(`${where}: category — the section “${row.category}” is not in the file`);
+        problems.push(`${where}: its section “${row.category}” isn't in the file.`);
         continue;
       }
 
@@ -445,7 +465,7 @@ const restoreBackup = async (rows) => {
     });
   } catch (err) {
     if (NO_TRANSACTIONS.test(err.message || '')) {
-      throw new AppError('Restore needs a database that supports transactions (a replica set). Nothing was changed.', 503);
+      throw new AppError("Restoring isn't available right now. Nothing was changed. Please try again later.", 503);
     }
     throw err;
   } finally {
