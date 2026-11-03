@@ -56,6 +56,12 @@ PF-121** (end of the ticket entries). The plan is in **Sprint 14 → The plan** 
 `new mds/E9/PF-107-121-sprint-14-plan.md`. **Next: Sprint 15** (planned, not
 started); GitHub Flow from here on.
 
+**⚠️ SPRINT 15 IS CLOSED** — owner, 2026-11-04. PF-123 → PF-125 and PF-127 → PF-144 shipped
+(PF-139 = the owner's epic, PF-140 passkeys → Sprint 16 after the domain). Last PR #81 (PF-138),
+merge commit `a5acdb0`. Close entry: **Sprint 15 closed — PF-138** (end of the file).
+**Next: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`,
+"Sprint 16").
+
 | Ticket | Pts | Inherits |
 | --- | --- | --- |
 | PF-96 | 8 | the `insertMany` ordering bug + `updatePost`'s middleware bypass |
@@ -10935,3 +10941,21 @@ Plan approved in chat (owner). Report: `new mds/Sprint 15/PF-138-sprint-15-gate.
     keeps its own. ≤768px only; header still 71px; desktop shows one toggle. Test: toggle is the
     hamburger's previous sibling; menu still has one.
   - Gates after: frontend 2,621 / 124, lint 0, build OK; E2E 85 / 85.
+
+## Sprint 15 closed — PF-138 (owner, 2026-11-04)
+
+**Closed by the owner, 2026-11-04.** GitHub Flow all sprint: one branch + PR per ticket.
+- **Shipped:** speed (PF-127 caching/splitting, PF-128 region + CDN cache), PF-129 hero blend,
+  PF-130 loading screens, PF-123 contact email (one mailer), PF-125 forgot password, PF-131
+  Settings, PF-124 change password, PF-141 shared rate-limit counter, PF-132 active sessions,
+  PF-133 sign-in history + alerts + leak check, PF-142 mobile pass, PF-134 logo, PF-135 backup +
+  restore, PF-136 code-scanning clean-up, PF-137 blog `content` contract, PF-143 Education +
+  Certificates, PF-144 projects rebuild + plain errors (18 SP), PF-138 gate (typo search, picture
+  reorder, opacity contract 014, phone polish).
+- **Last PR:** #81 → `master`, merge commit `a5acdb0`; every check green incl. `All Checks Pass`.
+- **Final local gates (PF-138):** frontend 2,621 / 124, backend 1,388 / 72, E2E 85 / 85.
+- **Owner's physical checks (2026-11-04):** all waiting items passed (see the PF-138 entry).
+- **Not in Sprint 15, by plan → Sprint 16:** domain → httpOnly cookie, Gmail → Resend (to the
+  standards), passkeys (PF-140), Analytics dashboard + the PUBLIC analytics box replacing the home
+  terminal, project README, the Security and API/QA handbooks. Light-theme upgrade: after launch.
+- **Local branches:** only `master` left (PF-138 branch deleted with `-d`, remote auto-deleted).

@@ -126,11 +126,11 @@ search the companions *before* explaining a surprise.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, sections, Blog | merged |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, 2026-10-14 |
 | PF-126 (+ 3 fixes) | migration guard, deploy pipeline | merged; `deploy.yml` = ONLY path to prod |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→144 live (sprint-log) |
+| Sprint 15 (PF-123 → PF-144) | speed + auth + email + Settings | **closed** 2026-11-04 — PR #81 `a5acdb0` |
 
 Sprint 14: sprint-log "Sprint 14 closed — PF-121".
 
-**▶ NEXT:** PF-138, the gate (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`), then Sprint 16.
+**▶ NEXT: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
 - Open from PF-113: keep the picture block's badge + `MAX 4 MB` caption?
 - **Every doc I create** (tickets, reports, plans, PDFs) goes to `new mds/Sprint 15/` (owner, 2026-10-16; outside the repo).
