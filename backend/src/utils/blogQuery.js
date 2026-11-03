@@ -52,19 +52,11 @@
 // ────────────────────────────────────────────────────────────────────────
 
 /** Field name the pipeline sorts on. Stripped before the response. */
+const { escapeRegex, searchCondition } = require('./searchTerms');
+
 const SORT_KEY = '_sortDate';
 
-/**
- * Escape regex metacharacters so a search term is matched LITERALLY.
- *
- * Without this a visitor typing `c++` or `(` sends an invalid or
- * pathological pattern straight into the query — a crash at best, a
- * catastrophic-backtracking stall at worst. The user's text is data, not
- * a pattern.
- */
-function escapeRegex(input) {
-  return String(input).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+// `escapeRegex` lives in ./searchTerms.js since PF-144 (shared by both searches).
 
 /**
  * Build the `$match` for a post list.
@@ -149,21 +141,16 @@ function buildMatch({ publishedOnly = true, q, tag } = {}) {
     }));
   }
 
-  const query = typeof q === 'string' ? q.trim() : '';
-  if (query) {
-    const rx = new RegExp(escapeRegex(query), 'i');
-    // On an array field, an $or arm matches if ANY element matches, which
-    // is what makes `tags: rx` behave like the design's `tags.join(' ')`
-    // and what makes the three `sections.*` arms cover every section.
-    match.$or = [
-      { title:              rx },
-      { excerpt:            rx },
-      { tags:               rx },
-      { 'sections.heading': rx },
-      { 'sections.body':    rx },
-      { 'sections.bullets': rx },
-    ];
-  }
+  // ── PF-144: word by word, separators optional (utils/searchTerms.js) ──
+  // Was ONE regex for the whole query, so "full stack" missed "full-stack".
+  // Now every word must match one of these fields. On an array field an $or
+  // arm matches if ANY element matches, which is what makes `tags` behave
+  // like the design's `tags.join(' ')` and the `sections.*` arms cover every
+  // section. Pushed into `$and` beside the tag conditions — both must hold.
+  const search = searchCondition(q, [
+    'title', 'excerpt', 'tags', 'sections.heading', 'sections.body', 'sections.bullets',
+  ]);
+  if (search) match.$and = [...(match.$and || []), ...search.$and];
 
   return match;
 }
