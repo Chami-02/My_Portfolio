@@ -919,12 +919,20 @@
   }
 
   /* The search box's × and magnifier were their 16px icon alone — under
-     WCAG 2.5.8's 24px on a phone (measured, PF-144 phone pass). 36px, as the
-     chips; the icon stays centred. */
+     WCAG 2.5.8's 24px on a phone (measured, PF-144 phone pass). PF-138
+     (owner, 2026-11-04: "reduce the search bar size a bit in mobile", then
+     "a tiny bit" more): a tighter box with 30px buttons — 64px tall → 40px
+     at 390px (measured). 30px stays above WCAG 2.5.8's 24px. The input
+     keeps its 14px text. */
+  .searchField {
+    gap: 4px;
+    padding: 4px 4px 4px 13px;
+  }
+
   .searchClear,
   .searchSubmit {
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 30px;
+    min-height: 30px;
   }
 
   /* 12+ tags wrapped into rows above the posts — one swipeable line, to the

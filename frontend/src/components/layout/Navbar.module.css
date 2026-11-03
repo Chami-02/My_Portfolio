@@ -325,11 +325,20 @@
   transform: translateY(-7px) rotate(-45deg);
 }
 
+/* PF-138 — the phone header's right end: theme toggle, then hamburger.
+   Both 44px, so --header-h stays 71px. */
+.mobileBar {
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+
 @media (max-width: 768px) {
   .nav {
     display: none;
   }
 
+  .mobileBar,
   .hamburger {
     display: flex;
   }
