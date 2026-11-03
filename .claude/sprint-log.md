@@ -10696,3 +10696,179 @@ pinned-group move rule; background reset.
 **Not run locally:** E2E (dotenv bin clash, Outstanding PF-127) — specs read; CI runs them.
 **Dev data (owner's dev DB only):** `[PF-143 DEMO]` rows, `cert` tags, a pin — scratch scripts
 `demo-rows.js remove`, `demo-tags.js remove`, `demo-pin.js unpin`.
+
+### PF-143 live checks (recorded on the PF-144 branch)
+- **Check 1 (mine, 2026-11-02, after PR #79 → merge `1537679`, CI + CodeQL + Deploy green; read-only,
+  no email):** health → `portfolio_prod`; `/api/education`, `/api/certificates`, `/api/vocabulary/cert`
+  = 0 items (no demo data); About has no `certificates*` fields; `GET /api/projects/:id` → 404;
+  `PUT /certificates/reorder` unauthenticated → 401; home typing line live (5 roles), no pills;
+  `/certificates` starfield + "No certificates to show yet.".
+- **Check 2 (2026-11-02, end of day): Education PASSED on prod** — 4 real entries newest first
+  (Westminster, IIT, NIBM, Mahinda College Galle), 4 logos load, 8 new-tab links, day dates, Mahinda
+  = school as title, no overflow. **Certificates: 0 published on prod yet** → check cards / pills /
+  pin / order once the owner publishes some (Outstanding work).
+- Dev clean-up done 2026-11-02 (demo rows, tags, pin and their Cloudinary files removed).
+
+## PF-144 — Projects rebuild: picture-on-top cards, a page per project, /projects with search (2026-11-03, `feat/PF-144-projects-rebuild`)
+
+Owner (2026-10-30, ticketed 11-02, plan approved 11-03): text over a background picture "can't be
+read" → picture ON TOP, words below (reference: pubuduishan.com — ideas only); each project its own
+page; home VIEW ALL → `/projects` with search like `/blog`. Owner's answers: keep big card +
+terminal; page = free sections like a blog post; a CATEGORY label on the picture; show dates, role,
+client. Report: `new mds/Sprint 15/PF-144-projects-rebuild.md`.
+
+**Backend**
+- `models/sectionSchema.js` (NEW) — Blog's section shape as a factory `makeSectionSchema(ownerIsPublished)`;
+  Blog passes `=== true`, Project `!== false`. Blog behaviour unchanged (its suites pass untouched).
+- `models/Project.js` — `slug` (Certificate's rule: unique by `-2` suffix, remade on rename ONLY while
+  a draft, sparse unique index), `sections[]` (≥1 when published), `categories` (≤1, list shape for
+  the vocabulary cascade), `role` / `client` (≤80), `startedOn` / `endedOn` (`fields.monthYear`) +
+  `ongoing` (end-before-start and ongoing+end refused). `description` stays = the card summary.
+- `utils/projectQuery.js` (NEW) — `?q=` (title, summary, role, client, category, tech, every section),
+  `?tech=` (repeat, ANDed, anchored), `?category=` (one); `escapeRegex` exported from `blogQuery.js`.
+- `projectController.js` — list filters; `getProjectBySlug` → `{ project, prev, next, index, total }`,
+  draft 404; `sanitiseProjectBody` drops `slug`. `projectRoutes.js` — `GET /:slug` with `publicCache`.
+- Vocabulary type `category` (model enum + `TARGETS`, cascade strips like `tech`).
+- Migration **013-project-pages** (EXPAND): slug + one `Description` section from `description` where
+  missing; raw driver, idempotent, `planFor` pure + exported. Dev applied 2026-11-03 (4 updated; rerun
+  0). **Production: runs through deploy.yml's Migrate gate.**
+- Backup **VERSION 3**: `UPGRADES[1]` (2→3) applies 013's `planFor` to a v2 file's projects —
+  without it every pre-PF-144 backup would be REFUSED ("a project needs a page").
+- `seed.js` — categories + a Description section per project; vocabulary seeds `category`.
+
+**Frontend**
+- `components/admin/SectionsEditor.jsx` + `.module.css` (NEW) — Blog's editor extracted; Blog AND
+  Projects use it. `blogForm.js` exports `sectionsToForm` / `sectionsPayload` / `sectionErrors`.
+- Projects panel: Summary, Category (picker `single`), Role, Client, Started / Finished + Ongoing
+  (`MonthYearField`), Sections (starter: Description / Key Features / Outcome & Impact), required `*`,
+  "This field is required.", banner NAMES fields in screen order; "Background" → "Project picture",
+  slider + `percentToOpacity` / `opacityToPercent` / `OPACITY_*` DELETED.
+- `components/projects/ProjectCard.jsx` (NEW) — picture top (`pictureAt` → Cloudinary
+  `c_limit,w_800|1200,f_auto,q_auto`), category + ★ FEATURED solid pills on it, 📅 date line, title
+  (ONE stretched link), 2-line summary, role · client, VIEW PROJECT. `CalendarIcon` added to icons.
+- Home section: big card + terminal kept, ≤ 4 projects (`HOME_PROJECTS`), VIEW ALL PROJECTS → .
+  `CardLayers`, `ProjectLinks`, numerals, scrim and their CSS DELETED.
+- `pages/ProjectsPage.jsx` (`/projects`) — BlogPage's mechanics; CATEGORY (one) + TECH (AND) chip rows;
+  styles COMPOSED from `BlogPage.module.css`. `pages/ProjectPage.jsx` (`/projects/:slug`) —
+  BlogPostPage's reading view composed from its sheet + header facts, GitHub / LIVE SITE, big picture
+  (16:9 reserved), Tech Stack. `nav.js` `isProjectsPath` (nav without PROJECTS, ← GO BACK).
+- `useProjects(params)` keyed `['projects','list',params]`, `useProject(slug)` `['projects','page',slug]`.
+
+**Verification:** backend 1320 / 68; frontend 2543 / 120; lint 0; build OK; **E2E 85 / 85 locally**
+(new `e2e/projects.spec.js`, 2 tests). Mutation: backend 10/10 killed (scratch copy + green control),
+frontend 13/13 killed (md5-checked restore). Browser (dev, temporary demo values removed after):
+home / `/projects` / a project page — dark + light, 1459px + 375px frame, scrollWidth 367 (no overflow).
+**Found in recheck:** the page's picture pushed the sections ~460px down on load → 16:9 reserved;
+a panel test raced the refusal's deferred focus (now Summary, not GitHub URL, comes first) → waits for it.
+Admin panel in the browser (owner signed in): picker said "No categorys" → `NOUNS[*].many`, test added;
+EDIT on a migrated project opens clean (SAVE dim).
+
+### Outstanding work added by PF-144
+- CONTRACT (a release after 013 is live): unset `backgroundImage.opacity` from projects + drop the
+  schema path (nothing reads it).
+- The big card is taller than the terminal now, so the terminal panel stretches with empty space
+  under its 8 lines (owner to judge on the live site).
+- Owner to fill real categories, roles, clients, dates and page sections in the panel (prod); until
+  then a migrated project shows its text twice (summary + Description section).
+- PF-143: check certificates on prod once some are published.
+
+### PF-144 part 2 — section pictures + smaller pills + forgiving search (2026-11-03, same branch)
+Owner asked after part 1 (choices: ≤4 per section, optional caption, big view like Certificates that
+closes on Esc / outside click, same ticket; pills too big; "full stack" found nothing; a mobile
+pass in both themes; explain the upload security in plain English → new
+`new mds/Sprint 15/Authentication-and-Security-Handbook-sources.md`).
+- Backend: `sectionSchema` `{ withImages }` (images ≤4, pictures count as content); `Project.media`
+  ledger; `POST /api/projects/:id/images` (protect → multer → magic bytes → 4 MB → ledger ceiling →
+  upload → atomic capped `$push`); `attachSectionImages` (ledger-only, 400 on unknown),
+  `sweepUnusedPictures` after save, delete destroys the ledger; `media`/`media.*` stripped.
+  `utils/searchTerms.js` (escapeRegex moved here) used by `blogQuery` and `projectQuery`.
+- Frontend: `SectionPictures` (staged picks via `prepareFile`, captions, ×, ≤4) in the shared
+  `SectionsEditor`'s new `aboveBody` slot; panel save order (upload → one PUT; new = draft first;
+  a failed upload keeps the rest staged and the uploaded ones swapped in); `ImageViewer`; ProjectPage
+  figures with reserved width/height; 404 vs load failure; pills 10.5px / 6px 12px (phones 36px);
+  search buttons 36px on phones.
+- **Found in recheck:** (1) mutation: the "client cannot write the ledger" test passed with the
+  strip removed — the sweep deleted the forged file → tests now pin "nothing destroyed" for both the
+  top-level and the dotted form; (2) phone pass: search magnifier 16px tall → 36px; (3) a 429 showed
+  "That project is not here" → split; (4) an old panel test grabbed "the first file input" → by id.
+- Phone audit (375 / 390, dark + light, 5 pages): scrollWidth = viewport everywhere, no element past
+  the edge. The audit itself hit the dev globalLimiter (429) — the limiter works.
+- Mutation: backend 12/12 (control green), frontend 8/8.
+- Session note: a scripted reload during an in-flight refresh sent two refreshes 90 ms apart → reuse
+  detection revoked the dev family (PF-108 working as designed); owner re-signs in.
+- **Phone pass, round 2 (fresh Vite on 5176 — the owner's 5173 served a STALE composed
+  BlogPage sheet, the recorded trap):** filter chips became ONE swipeable line on phones
+  (/projects `.chipList`; /blog `.chipList` is `display: contents` on desktop so its layout is
+  unchanged); `.chipGroup { min-width: 0 }` — without it the line was 1756px and could not be
+  swiped to its end (measured); search ×/magnifier 36px confirmed; big view `srcset`; the viewer is
+  handed its OPENER (Safari does not focus a clicked button).
+- **Real upload test (owner signed in, dev, Smart Campus API):** two pictures picked → staged →
+  SAVE → in Cloudinary, url/size from Cloudinary's answer, caption kept → page shows them →
+  big view (2 / 2, tall picture uncropped) → outside click closes, focus returns → both removed →
+  SAVE → ledger `[]` and both Cloudinary URLs 404. Project left as it was.
+  Found: the × and PENDING SAVE badge lost to the shared `.btnIcon` / `.badge` (equal weight,
+  emitted later) → `.item .remove` / `.thumbWrap .badge`. Public GETs now `select('-media')`.
+- **VIEW ALL PROJECTS / VIEW ALL CERTIFICATES (owner, 2026-11-03):** light orange glow + warm fill
+  at rest (literal accent rgba — orange in both themes), stronger on hover. Checked dark + light.
+- **E2E (local, 2026-11-03):** 83 passed + 2 flaky (13.6 min, usually ~3). Both flaky = "Tearing
+  down context exceeded the test timeout" AFTER their assertions passed (homepage `?nosplash`,
+  404 navbar — not PF-144 code). Cause measured: ffmpeg at 99% CPU — `video: 'retain-on-failure'`
+  records EVERY test and teardown waits for the encode; on a loaded machine it outlasts 30 s.
+  → Outstanding: consider `video: 'on-first-retry'` (records only a retried test) — owner's call.
+- Project page: ← ALL PROJECTS (top + bottom) and LIVE SITE got the VIEW ALL glow (owner, 2026-11-03); checked dark + light.
+- Light theme: VIEW ALL ×2, ← ALL PROJECTS, LIVE SITE switched to the dark accent #7E4800 (owner: too faint); checked in the browser.
+- Phones: cards, pills and buttons one size smaller than laptop (owner, 2026-11-03); targets ≥ 32px; measured on a 390px frame, no overflow.
+- **Owner-approved polish (2026-11-03, "all suggestions except certificates"):**
+  (1) `BlogPostPage` — only a 404 says "That note is not here"; 429/5xx/network → "This note is not
+  loading" + TRY AGAIN (ProjectPage's fix; 3 new tests); (2) terminal 8 → 14 static lines (API
+  requests, `npm test`, caret on a fresh `$` prompt) — gap under it ~260 → ~110px at 1512px;
+  (3) VIEW ON GITHUB joins the glow (dark + light); (4) Playwright `video: 'on-first-retry'`
+  (was 'retain-on-failure') → full E2E **85/85 in 2.9 min** (was 13.6 min with 2 teardown flakes).
+  Not done: owner's own content (5); the `backgroundImage.opacity` CONTRACT waits a release
+  after 013 is live (expand/contract rule).
+- **Plain error messages, site-wide (owner, 2026-11-03, added to PF-144):**
+  `utils/friendlyError.js` (NEW) — ONE translator: offline / slow / busy (429) / our side (5xx,
+  never the server's text) / session (401) / forbidden / not found / too big / file type /
+  generic; the server's sentence only when `isPlain` (no `JARGON`). `mediaFile.messageFor`,
+  `loginError`, `resetError`, Blog + Messages panels, VocabularyPicker and ContactSection all
+  route through it. ~70 backend messages rewritten (AppError, limiters, model URL rules, backup
+  problems — no field paths, "sign in" not "log in"). Fixed: ErrorBoundary printed the RAW JS
+  error to readers; ProtectedRoute "THE SERVER DIDN'T ANSWER"; LoadError "CAN'T REACH THE SERVER";
+  "could not be fetched"; a silent redirect to sign-in now says "Please sign in to continue."
+  Guards: `backend/src/__tests__/plainMessages.test.js` (scans 200+ messages) and
+  `utils/__tests__/friendlyError.test.js` (translator matrix + screen literals) — mutation 3/3.
+  Gates: frontend 2601/122, backend 1359/71, E2E 85/85 (one spec updated to the new wording).
+  Then (owner "yes fix that too"): `components/common/SectionLoadError` in Projects, Skills, Blog teaser and Education & Certificates (that one also fixed the `data = []` trap) — REVERSES PF-85's silent section; checked with a dead API in dark + light + 390px.
+- **About / CV (owner: "what about the about section not loading?"):** About already falls back
+  (bio, availability, email, portrait, stats) — verified in code. Two real gaps fixed:
+  (1) `GET /api/resume` — DOWNLOAD CV is a plain link, so a failure was the BROWSER showing raw
+  JSON; a browser (Accept: text/html) now gets a small plain page "The CV isn't available right
+  now" + "← Back to the portfolio" (404/502/500), API clients still get JSON (3 tests);
+  (2) `CV_EMPTY_TITLE` told VISITORS to "Upload a résumé in the admin panel" → "Ask me for my CV
+  through the contact form". Found: **production has no résumé uploaded** (`/api/resume` 404);
+  dev's résumé record points at a file storage cannot serve (502).
+- **Live error-message demo (owner watched, 2026-11-03):** 404 page; missing project/post; empty
+  search (/projects, /blog); contact form empty + bad email (nothing sent); no-connection copy on
+  :5177 (home sections, TRY AGAIN, /projects, a project page, contact send, admin session check,
+  sign-in); the CV link. **Found + fixed during it:** (1) `SectionLoadError` unmounted during a
+  retry (TanStack reports a refetching no-data query as loading) so it never said "still" →
+  `utils/queryState.js` `loadFailed` (errorUpdateCount + isFetching), re-shown live: "TRYING
+  AGAIN…" → "still didn't load"; (2) footer ELSEWHERE was an empty heading without About →
+  falls back to the fixed site email; (3) owner asked for a friendly CV page → NEW
+  `/cv-unavailable` site page (NotFoundPage's look; `?reason=missing|later`), `GET /api/resume`
+  sends a browser there with 303 when FRONTEND_URL is set (else the plain inline page).
+- **One error card (owner: "font size too big … same look and feel … buttons too big … mobile is
+  the most important … make the ! red"):** NEW `components/common/ErrorCard.jsx` (+ red mark) used
+  by `ErrorPage` (404 + CV; `NotFoundPage.module.css` DELETED) and the page-level error panels of
+  ProjectPage, BlogPostPage, ProjectsPage, BlogPage, CertificatesPage (all on `loadFailed`).
+  `ErrorPage.module.css`: title 20px, body 14.5px, buttons 10.5px / 9px 15px; ≤560px card at the
+  top (96px), stacked 36px buttons — measured at 390px: no overflow, buttons 36–37px, both
+  themes. `.card` renamed `.errorCard` (collided with BlogPage's `.card` in a test).
+  Handbook: `new mds/Sprint 15/Error-Handling-QA-Handbook.md` (theory, standards, our design,
+  QA checklist, interview answers).
+- **Certificate card pictures half-filled on the owner's phone (2026-11-03, prod):** `.picture`
+  had `height: 100%` inside `.frame` (grid, `place-items: center`, height from `aspect-ratio`) —
+  the percentage never resolved, the picture kept its own shape (prod, WebKit AND Chromium at
+  390px: 275 / 526 / 528px tall in a 252px frame). Fix: `position: absolute; inset: 0` (frame is
+  already `relative`). Re-measured 356×251 in 356×252 for all four, WebKit iPhone 13. Project
+  cards (block frame) were never affected (measured). See silent-failures.

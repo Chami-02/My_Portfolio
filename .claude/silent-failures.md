@@ -4265,3 +4265,15 @@ concluding "this is fine, I read the source".
 
 Where a mistake would be silent, add a test that would catch it.
 
+
+## `height: 100%` on an image in an `aspect-ratio` GRID frame does not fill it (PF-144, 2026-11-03)
+**Mechanism.** `.frame { display: grid; place-items: center; aspect-ratio: 1.414 / 1 }` gets its
+height from `aspect-ratio`, but its single grid ROW is `auto` and `place-items: center` stops the
+item stretching, so an `<img>`'s `height: 100%` has no definite height to resolve against and
+behaves like `auto`: the picture keeps its own ratio. `object-fit: cover` then does nothing useful.
+`overflow: hidden` hides the result, so a landscape scan close to √2 looks right on a laptop.
+**Measured** on prod `/certificates`, 390px wide, the same in WebKit and Chromium: 275, 526 and
+528px-tall pictures in a 252px frame. The owner saw it on an iPhone.
+**Fix / rule.** Fill a media frame with `position: absolute; inset: 0` (frame `position:
+relative`), never with a percentage height inside a grid/flex frame. A plain BLOCK frame with
+`aspect-ratio` (ProjectCard) does resolve it. Tell: compare the img's rect to the frame's.

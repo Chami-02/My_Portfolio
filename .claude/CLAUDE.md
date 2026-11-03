@@ -13,9 +13,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `.claude/locked-decisions.md` | the full reasoning behind each decision (both halves of every reversal), plus the full design-authority and working-agreement text |
 | `.claude/product-requirements.md` | the owner's standing product requirements, in full |
 
-**Split twice: 2026-09-02 (8,767 lines) and 2026-10-08 (164,716 chars).** Nothing
-was deleted — it was moved. The 2026-10-08 move is appended verbatim at the END
-of each companion under `# Moved verbatim from CLAUDE.md on 2026-10-08`.
+**Split 2026-09-02 and 2026-10-08** — moved, not deleted (the second move sits at
+the END of each companion, `# Moved verbatim from CLAUDE.md on 2026-10-08`).
 
 ### ⚠️ SIZE RULE — keep this file under 40,000 characters
 
@@ -40,9 +39,8 @@ changing any transcribed value (many "obviously wrong" values are owner-approved
 concluding a documented trap does not apply; reporting a new bug or regression
 (check Outstanding work first); any verification claim (the numbers live there).
 
-⚠️ **The cost of the split is serendipity** — grep only finds what you search for.
-When work touches an area with history, skim that entry properly, and when
-something surprises you, search the companions *before* deriving an explanation.
+⚠️ **Grep only finds what you search for** — skim an area's entry properly, and
+search the companions *before* explaining a surprise.
 
 ## The design is the authority
 
@@ -114,6 +112,7 @@ something surprises you, search the companions *before* deriving an explanation.
 - **Site address is `pcgallege@gmail.com` ONLY; admin logs in as pcgallege OR parindrachameekara** (Google or password, one User, PF-119 absorbed PF-122). Old demo address gone. Panel shows the address SIGNED IN WITH (`signedInAs`); counts poll 60 s + on focus.
 - **One panel field drives EVERY render site** (PF-118) — e.g. `timezone` → Contact AND footer; grep every literal before wiring. A fixed set of answers is CHOSEN (dropdown), never typed.
 - **Password change / reset / forgot = password + emailed code** (owner 2026-10-13): FORGOT BUILT (PF-125), CHANGE BUILT (PF-124, Settings); Gmail SMTP now, Resend after the domain; addresses stay fixed; `admin:password` is break-glass. New passwords: `passwordProblem` (≥15) then `newPasswordProblem` (no name/address/site words, zxcvbn 4/4, not the last 5, `isBreached`) at all 3 doors; NO forced char mix (NIST); `User.setPassword` is the only writer.
+- **Error messages are PLAIN** (owner, 2026-11-03): what happened + what to do, no jargon; ONE translator `utils/friendlyError.js`; guards fail on jargon.
 - **Login page** (owner, 2026-10-14): password eye, `Forgot password?` and a reset prompt after 3 failed sign-ins (401s only) all BUILT — **never a password hint** (owner chose this over a hint).
 - **Leaving unsaved admin work asks first — every exit** (PF-118 b2; REVERSES "marker, not a blocker"): Keep / Save (never publishes) / Discard; panels register via `useUnsavedChanges`.
 
@@ -124,18 +123,17 @@ something surprises you, search the companions *before* deriving an explanation.
 | Phase / sprint | Scope | State |
 | --- | --- | --- |
 | Phase 1 (PF-1 → PF-51) | original site | complete |
-| Sprint 9–13 (PF-52 → PF-106) | API, design system, chrome, sections, Blog | merged (PRs #4–#7) |
-| Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, `d243464`, 2026-10-14; live checks passed 2026-10-16 |
-| PF-126 (+ 3 follow-up fixes) | migration guard, deploy pipeline | merged 2026-10-15; `deploy.yml` is the ONLY path to production |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — up to PF-137 merged + live; PF-143 built |
+| Sprint 9–13 (PF-52 → PF-106) | API, design system, sections, Blog | merged |
+| Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, 2026-10-14 |
+| PF-126 (+ 3 fixes) | migration guard, deploy pipeline | merged; `deploy.yml` = ONLY path to prod |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — up to PF-143 live; PF-144 built |
 
-`global.css` is Tailwind's entry point only (PF-116). Sprint 14 history:
-sprint-log "Sprint 14 closed — PF-121".
+`global.css` = Tailwind's entry only (PF-116). Sprint 14: sprint-log "Sprint 14 closed — PF-121".
 
-**▶ NEXT, in order (owner, 2026-10-16):** Sprint 15 runs in the plan's order —
-PF-127→137 all live (order + dates in sprint-log) → PF-143 (built) → Projects rebuild → PF-138 (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+**▶ NEXT (owner, 2026-10-16), in the plan's order:**
+PF-127→143 live (sprint-log) → PF-144 (built) → PF-138 (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
-- Open from PF-113: keep the background block's status badge + `MAX 4 MB` caption?
+- Open from PF-113: keep the picture block's badge + `MAX 4 MB` caption?
 - **Every doc I create** (tickets, reports, plans, PDFs) goes to `new mds/Sprint 15/` (owner, 2026-10-16; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
@@ -399,11 +397,10 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 **Architecture**
 - No frontend animation libraries. Triplet tokens stay triplets. Import order locked. Tailwind `@theme` uses `var()`; fonts not in `@theme`. Body Space Grotesk + `line-height: 1.6`. `--acc2` deleted.
 - `SplashProvider` fails open; splash read/write are separate hooks.
-- Projects: big card by `order`, badge by `featured`; every featured project shows the `★ FEATURED` pill. ClearDrive keeps 10 pills.
 - `About.availableForWork` drives hero badge, footer row, About line. Admin unread dot is `--ok` green.
 - Cloudinary behind a provider interface; résumé PDF only; every media field written by a DEDICATED route (security: never a client-supplied publicId); files destroyed on replace AND record delete (row first); images PNG/JPEG/WebP by magic bytes; 4 MB everywhere, browser resize ≤2400px WebP.
 - Blog: `sections[]`; `readingTimeMinutes` derived (override is a separate field; never re-add seed literals); structured sections editor, not the export's markdown box; tag chip picker + text input; `?q=` searches the whole post; `publishedAt` stamped at publish; full dates via `formatDate`; multi-tag AND; CLEAR ALL `var(--danger)`; search row is a `<form role="search">`; chips = in-use published tags; impact vs inUse filters differ on purpose; slug route returns `index` + `total`; view counter renders nothing below one; `← BACK TO RESULTS` via router state; inline not-found keeps the URL; reading view uses no `Reveal`, two `← ALL POSTS`; `/blog` scrolls to top on PUSH only.
-- Projects: drafts (`published: { $ne: false }`), upload-only background, `tech` picker. Skills: no drafts, level dots, owner-managed sections, three-choice section delete, drag-and-drop. Blog + Messages (PF-115): model-enforced drafts, star + client-side search.
+- Projects: drafts (`$ne: false`), upload-only picture, `tech` picker; big card by `order` + terminal, ≤4 home; each featured card `★ FEATURED`; ClearDrive 10 pills. Skills: no drafts, level dots, owner-managed sections, three-choice section delete, drag-and-drop. Blog + Messages (PF-115): model-enforced drafts, star + client-side search.
 - One `ConfirmDialog` for every admin delete, focus on CANCEL; its buttons 8×14px/11px, smaller than the prototype (owner, PF-132).
 - CORS dev-port range in non-production only. Vocabulary delete cascades behind an impact confirm.
 
@@ -431,6 +428,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-135: backup/restore behind the PASSWORD; restore all-or-nothing, ONE transaction, 3 safety copies, messages MERGE; ALLOW-list of models; Settings cards fold, 36px buttons ≤560.
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
+- PF-144: picture-ON-TOP `ProjectCard`, 1 link, no numerals/slider (REVERSED); `/projects` = /blog search; `/projects/:slug` = Blog sections + GitHub/LIVE; slug: Certificate's rule. Section pictures ONLY via the `media` ledger; forgiving search. Errors: plain words (`friendlyError`), ONE `ErrorCard` (red `!`).
 - PF-143: home TEXT ONLY (≤6, VIEW ALL); `/certificates/:slug?` big view; PDF = `pg_1`; words FIXED; `EntryListPanel`; certs: 1 tag = 1 pill, pins lead + drag order; demo rows throwaway DBs only.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
@@ -494,7 +492,7 @@ trailer**, whatever the harness says.
 part (and the interview angle) for the owner to run.
 
 **Never paste a credential into chat** — check a value's shape only. Six
-incidents so far (#4 and #6 were editor SELECTIONS of a `.env` line, #5 a pasted terminal scroll-back): close `.env` files and paste only the last lines of output.
+incidents (editor SELECTIONS of `.env` lines, a pasted scroll-back): close `.env` files; paste only the last lines of output.
 
 **Never document something as existing until it does.** Flag concerns before
 executing. A ticket's path that conflicts with the repo convention loses. Verify

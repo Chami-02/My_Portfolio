@@ -5777,6 +5777,100 @@ Explain **why**, not just what. When something breaks, give the causal
 mechanism.
 
 
+## PF-144 — Projects rebuild (owner 2026-11-03) — REVERSES the PF-52/85/113 card design
+
+Owner: a card with its text over a background picture "user can't read". Picture ON TOP, words below
+(pubuduishan.com as an idea only); each project its own page; VIEW ALL → `/projects` with search.
+
+- **REVERSED: the picture behind the card (PF-52/85) and its "Image visibility" slider (PF-113).**
+  `backgroundImage.src` is now the picture at the top of the card and on the page; `opacity` is no
+  longer read (CONTRACT later). The upload stays upload-only on its dedicated route (PF-111 unchanged).
+- **REVERSED: the decorative `02·03·04` numerals** (the "six decorative numerals stay" entry no longer
+  covers Projects — there is no room on a picture card).
+- **MOVED: VIEW ON GITHUB / LIVE SITE (+ the 2026-08-29 mark and green dot) from the cards to the
+  project page**, values unchanged. Tech pills moved there too (Tech Stack section).
+- **KEPT: big first card by `order` + the terminal beside it; ★ FEATURED on every featured card**
+  (now a SOLID pill on the picture, both themes — the 2026-10-03 legibility reason).
+- **Home shows at most 4** (`HOME_PROJECTS`); `VIEW ALL PROJECTS →` always shown.
+- **ONE link per card** (the title, stretched over the card); VIEW PROJECT is `aria-hidden`.
+- **Slug = Certificate's rule, not Blog's:** unique by suffix, frozen once published (a shared link
+  must survive a rename); a client can never write it.
+- **Page = Blog's free sections** (owner chose over 3 fixed parts); a new project starts with
+  Description / Key Features / Outcome & Impact; `description` stays the 2-line card summary.
+- **Category: ONE optional label** from its own `category` vocabulary; deleting one strips it (not
+  refused like `cert`). Dates "FEB 2024 – PRESENT" (both ends carry their year); role · client.
+- **/projects mirrors /blog** (URL state, 300 ms debounce, in-use chips, disabled-when-empty, CLEAR ALL,
+  BACK TO RESULTS); two chip rows: CATEGORY (one) + TECH (ANDed). Styles COMPOSED from BlogPage /
+  BlogPostPage sheets — one search page, one reading view.
+- **The Projects panel follows the 2026-10-31 common-forms rule** (`*`, "This field is required.",
+  banner names fields in screen order).
+
+### PF-144 part 2 (owner 2026-11-03) — section pictures, smaller pills, forgiving search
+- **Section pictures, PROJECTS only:** ≤4 per section, optional caption (≤120, also the alt text),
+  shown UNCROPPED under the heading, above the text (1 full width, 2–4 two columns, one column on
+  phones). A picture counts as content (a heading + pictures section publishes). Blog: none.
+- **⚠️ The `media` LEDGER rule (security):** a section names a picture only by a `publicId` in the
+  project's own `media` list, written ONLY by `POST /api/projects/:id/images` from Cloudinary's
+  answer; url/size are rebuilt from the ledger; an unknown id → 400; `media` and `media.*` stripped
+  from every body. A forged entry would make the sweep DELETE a client-named file — mutation-tested.
+- **Sweep:** after each successful save, ledger files no section uses are destroyed (non-fatal);
+  deleting a project destroys cover + ledger. Ledger capped at 60, checked before upload AND in the
+  atomic `$push` filter.
+- **Save order:** staged in the browser → upload into the ledger (not public) → ONE save names them;
+  a NEW project with pictures is created as a DRAFT first and published only by that final save.
+- **Big view:** `ImageViewer` = Certificates' big view (look composed from its sheet), no route;
+  closes on ×, Esc, or a click on the backdrop (overlay root = backdrop, `target === currentTarget`);
+  ← → / PREV NEXT + "N / M" within the section; focus trapped and returned.
+- **Filter pills one size site-wide:** /blog + /projects (shared `.chip`) and /certificates →
+  10.5px, `6px 12px` (≈28px); phones 36px. Search × / magnifier 36px on phones (were 16px).
+- **Search is forgiving (both /blog and /projects, `utils/searchTerms.js`):** words in any order, all
+  required; separators (space - _ . /) optional ("full stack" = "full-stack" = "fullstack");
+  escaped; ≤100 chars / 8 words. No typo tolerance (needs Atlas Search).
+- **Project page errors:** only a 404 says "not here"; 429 / 5xx / network → "not loading — TRY AGAIN".
+- **Phones: filter chips are ONE swipeable line** (/projects + /blog) with a right-edge fade; the
+  chip group needs `min-width: 0` or the line cannot be swiped to its end.
+- **VIEW ALL buttons glow (owner, 2026-11-03):** `rgba(252,163,17,.07)` fill + `0 0 22px` orange glow
+  at rest, `.14` / `30px` on hover; LITERAL accent so light theme keeps an orange glow.
+- Public project reads exclude the `media` ledger.
+- **Project page: ← ALL PROJECTS (both, and BACK TO RESULTS), VIEW ON GITHUB + LIVE SITE carry the same
+  glow** (owner, 2026-11-03), at (0,2,0) over BlogPostPage's `.pillLink`.
+- **Blog post page: only a 404 says "not here"** (ProjectPage's rule). **Terminal panel: 14 static lines**
+  (was 8 — fills beside the taller picture card). **Playwright `video: 'on-first-retry'`.**
+- **Light theme: those glowing buttons use the DARK accent** (owner, 2026-11-03: orange too faint on paper):
+  text `var(--acc)` (#7E4800), border `rgba(126,72,0,.55)`, tint `.08`, glow `0 0 20px rgba(126,72,0,.22)`.
+- **Phones (≤560px): one size SMALLER than the laptop** (owner, 2026-11-03) — REVISES PF-142's 44px on
+  these surfaces: project cards (title 18 / big 26, pills 9px, summary 13.5), filter chips 10px /
+  32px (/projects, /blog, /certificates), project-page buttons 10.5px / 36px, tech pills 10px,
+  VIEW ALL ×2 10.5px / 40px. Every tap target stays ≥ 32px (WCAG 2.5.8 asks 24).
+
+## Plain error messages, site-wide (owner 2026-11-03, PF-144)
+"Use user friendly error messages for each and every error … no difficult technical terms."
+- **Every message says what happened + what to do, in everyday words.** Never a status code, a
+  field path, or `JARGON` (friendlyError.js: HTTP, IP, ID, token, server, backend, database,
+  format, configured, JSON…; backend guard adds array/string/document/schema/"log in").
+- **ONE translator, `utils/friendlyError.js`** — every caught error on every screen goes through it.
+  A 5xx NEVER shows the server's text; a 503 / 4xx / 429 shows it only when `isPlain`.
+- **The crash screen never shows the raw error** (console only). A redirect to sign-in says
+  "Please sign in to continue." Only a 404 says "not here".
+- **REVERSED (PF-85's silent section): a home section whose data fails SAYS so** — Projects, Skills,
+  Blog teaser, Education & Certificates show `SectionLoadError` ("The projects didn't load. This is
+  usually temporary." + TRY AGAIN, "still…" after a failed retry), `role="status"`, calm card in the
+  section's own space. Education & Certificates no longer treats a failure as "empty" (`data = []`
+  trap). About / Hero / Contact keep their built-in fallback text.
+- **A failed section stays failed while it retries** (`utils/queryState.js` `loadFailed`) — or its
+  "still didn't load" never shows. Footer ELSEWHERE falls back to the fixed site email.
+- **A failing DOWNLOAD CV lands on the site's own `/cv-unavailable` page** (303 from `/api/resume`
+  for a browser; JSON for an API client; a plain inline page only if FRONTEND_URL is unset).
+- **Guards fail the build on jargon:** `plainMessages.test.js` (backend source) and
+  `friendlyError.test.js` (frontend literals in error calls). Add a message → keep it plain.
+- **ONE error card for every full-page and page-level error** (owner 2026-11-03: "same look and
+  feel … smaller, like an error message"): `components/common/ErrorCard.jsx` — red `!` mark
+  (`--danger`, never the accent), small mono label, 20px title, 14.5px body, 10.5px buttons
+  (9px 15px). `ErrorPage` = ambient layer + the card (404, `/cv-unavailable`); ProjectPage,
+  BlogPostPage, ProjectsPage, BlogPage, CertificatesPage use the card in place. Phones ≤560:
+  card near the TOP (96px), 18px title, buttons a full-width 36px stack. `SectionLoadError`
+  carries the same red `!`. The 404's 64px display heading is GONE on purpose.
+
 ## (continued) Companion-files intro, engineering discipline, styling, React conventions — moved verbatim 2026-10-08
 
 ### ⚠️ Companion files — this file is a SUMMARY, and you must go read them
