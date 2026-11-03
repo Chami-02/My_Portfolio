@@ -3,10 +3,10 @@ import { readFileSync } from 'fs';
 import postcss from 'postcss';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MotionProvider } from '../../../providers/MotionProvider';
-import { leadsWithIcon } from '../../../test/leadsWithIcon';
 
 // vi.mock, not vi.spyOn on the module namespace — Vite's SSR transform
 // defines each export as a getter-only property, so spyOn cannot
@@ -18,7 +18,6 @@ const { ProjectsSection } = await import('../ProjectsSection');
 
 const here     = dirname(fileURLToPath(import.meta.url));
 const css      = readFileSync(resolve(here, '../ProjectsSection.module.css'), 'utf8');
-const patterns = readFileSync(resolve(here, '../../../styles/patterns.module.css'), 'utf8');
 
 /** The stylesheet with comments stripped.
  *
@@ -30,7 +29,6 @@ const patterns = readFileSync(resolve(here, '../../../styles/patterns.module.css
  *  reassures. Five of PF-83's raw-text guards were blind this way and
  *  every one was caught by mutation rather than by reading. */
 const cssRules      = css.replace(/\/\*[\s\S]*?\*\//g, '');
-const patternsRules = patterns.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /** The declaration block of a single rule, by exact selector, comments
  *  already stripped. */
@@ -69,7 +67,8 @@ const pickAll = (root, name) =>
   [...root.querySelectorAll('[class]')].filter((el) => has(el, name));
 const pick = (root, name) => pickAll(root, name)[0] ?? null;
 
-const withMotion = (ui) => <MotionProvider>{ui}</MotionProvider>;
+// PF-144: the cards are router Links.
+const withMotion = (ui) => <MemoryRouter><MotionProvider>{ui}</MotionProvider></MemoryRouter>;
 
 function mockMatchMedia(matches) {
   vi.stubGlobal('matchMedia', vi.fn(() => ({
@@ -89,28 +88,28 @@ function mockMatchMedia(matches) {
  */
 const PROJECTS = Object.freeze([
   Object.freeze({
-    _id: 'p1', title: 'ClearDrive.lk', description: 'Vehicle import platform.',
+    _id: 'p1', title: 'ClearDrive.lk', slug: 'cleardrivelk', description: 'Vehicle import platform.',
     tech: Object.freeze(['Python', 'FastAPI', 'Next.js']),
     githubUrl: 'https://github.com/ClearDrive-lk/cleardrive-lk',
     liveUrl: 'https://cleardrive.lk/', featured: true, order: 1,
     backgroundImage: Object.freeze({ src: '', opacity: 0.75 }),
   }),
   Object.freeze({
-    _id: 'p2', title: 'Personal Portfolio', description: 'MERN portfolio.',
+    _id: 'p2', title: 'Personal Portfolio', slug: 'personal-portfolio', description: 'MERN portfolio.',
     tech: Object.freeze(['React 19', 'Node.js']),
     githubUrl: 'https://github.com/Chami-02/My_Portfolio',
     liveUrl: null, featured: true, order: 2,
     backgroundImage: Object.freeze({ src: '', opacity: 0.75 }),
   }),
   Object.freeze({
-    _id: 'p3', title: 'Smart Campus API', description: 'JAX-RS API.',
+    _id: 'p3', title: 'Smart Campus API', slug: 'smart-campus-api', description: 'JAX-RS API.',
     tech: Object.freeze(['Java', 'JAX-RS']),
     githubUrl: 'https://github.com/Chami-02/CSA_CW_W2120595_smart-campus-api',
     liveUrl: null, featured: false, order: 3,
     backgroundImage: Object.freeze({ src: '', opacity: 0.75 }),
   }),
   Object.freeze({
-    _id: 'p4', title: 'Life Below Water', description: 'SDG 14 site.',
+    _id: 'p4', title: 'Life Below Water', slug: 'life-below-water', description: 'SDG 14 site.',
     tech: Object.freeze(['HTML', 'CSS']),
     githubUrl: 'https://github.com/Chami-02/WD-D_GP_Goal-14-Life-below-water',
     liveUrl: null, featured: false, order: 4,
@@ -163,32 +162,6 @@ describe('section selector', () => {
   });
 });
 
-// ── 3 · the pill is local, not the shared one ─────────────────────────
-describe('tech pill', () => {
-  it('does not compose the shared .pill', () => {
-    expect(cssRules).not.toMatch(/composes:\s*pill\b/);
-  });
-
-  it('differs from the shared .pill on at least three properties', () => {
-    const mine   = declarations(ruleBody(cssRules, '.techPill'));
-    const shared = declarations(ruleBody(patternsRules, '.pill'));
-    const differing = ['display', 'padding', 'font-size']
-      .filter((p) => mine[p] !== shared[p]);
-    // inline-block vs inline-flex, 6px 11px vs 10px 18px, 11px vs 11px…
-    expect(differing.length).toBeGreaterThanOrEqual(2);
-    expect(mine.display).toBe('inline-block');
-    expect(mine.padding).toBe('6px 11px');
-  });
-
-  it('declares its transition bare — it is not Reveal-wrapped', () => {
-    // The prototype wraps the CARD (line 357); pills arrive with it, so
-    // nothing competes for the transition property and no
-    // [data-reveal='in'] gate is needed. Contrast .rolePill/.statCard.
-    expect(ruleBody(cssRules, '.techPill')).toContain('transition:');
-    expect(cssRules).not.toContain(".techPill[data-reveal='in']");
-  });
-});
-
 // ── 4 · the scoped-keyframe silent failure ────────────────────────────
 describe('caret animation', () => {
   it('reaches the keyframe through a global carrier', () => {
@@ -224,257 +197,6 @@ describe('caret animation', () => {
   });
 });
 
-// ── 5 · hover easing stays the prototype's snap ───────────────────────
-describe('card hover', () => {
-  it.each(['.bigCard', '.card'])('%s declares no transition', (sel) => {
-    // The prototype supplies only a style-hover end state on both cards
-    // (lines 318, 357) — they snap. About and Skills ease at .25s under
-    // an owner approval from 2026-08-18 that covered those two sections
-    // and was NOT extended here. If it is extended later, `.card` is
-    // Reveal-wrapped and the transition must be gated
-    // `.card[data-reveal='in']` or it eats the 1.05s entrance easing.
-    expect(declarations(ruleBody(cssRules, sel)).transition).toBeUndefined();
-  });
-
-  it('still applies the prototype hover end state', () => {
-    expect(ruleBody(cssRules, '.card:hover')).toContain('translateY(-8px)');
-    expect(ruleBody(cssRules, '.bigCard:hover')).toContain('translateY(-8px)');
-  });
-});
-
-// ── 6 · content must clear both layers ────────────────────────────────
-describe('content stacking', () => {
-  it('excludes both layer classes from the z-index rule', () => {
-    // Dropping either from the :not() list puts z-index 2 on the layer
-    // itself, painting the background image over the text. Nothing
-    // errors and no element-counting test notices — the text is still
-    // in the DOM, just covered.
-    expect(cssRules).toContain('.card > *:not(.cardBg):not(.cardScrim)');
-    expect(cssRules).toContain('.bigCard > *:not(.cardBg):not(.cardScrim)');
-  });
-});
-
-// ── 7 · 8 · the background bridge ─────────────────────────────────────
-describe('card background layers', () => {
-  it('renders neither layer when src is empty', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(pickAll(container, 'cardBg')).toHaveLength(0);
-    expect(pickAll(container, 'cardScrim')).toHaveLength(0);
-  });
-
-  it('renders both layers with the prototype opacities when src is set', () => {
-    const withBg = PROJECTS.map((p, i) =>
-      i === 0
-        ? { ...p, backgroundImage: { src: 'https://cdn.example/a.png', opacity: 0.75 } }
-        : p,
-    );
-    useProjects.mockReturnValue(ok(withBg));
-    const { container } = render(withMotion(<ProjectsSection />));
-
-    const bg    = pick(container, 'cardBg');
-    const scrim = pick(container, 'cardScrim');
-    expect(bg.style.opacity).toBe('0.75');
-    expect(bg.style.backgroundImage).toBe('url("https://cdn.example/a.png")');
-    // ⚠️ 0.8999999999999999, NOT 0.9 — and that is correct, not a bug to
-    // round away. 0.45 + 0.75 * 0.6 is not exactly representable in IEEE
-    // 754, and the prototype's own `String(Math.min(1, 0.45 + vis*0.6))`
-    // (line 695) produces this identical string. Asserting '0.9' would
-    // force a deviation from the design to make the test look tidy.
-    // Verified in node against the prototype's expression.
-    expect(scrim.style.opacity).toBe('0.8999999999999999');
-  });
-
-  it('clamps the scrim at 1 for a fully opaque background', () => {
-    // 0.45 + 1 * 0.6 = 1.05 → Math.min(1, …) = 1.
-    const withBg = PROJECTS.map((p, i) =>
-      i === 0
-        ? { ...p, backgroundImage: { src: 'https://cdn.example/a.png', opacity: 1 } }
-        : p,
-    );
-    useProjects.mockReturnValue(ok(withBg));
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(pick(container, 'cardScrim').style.opacity).toBe('1');
-  });
-
-  it('does not emit url("[object Object]") — guards on .src, not the object', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(container.innerHTML).not.toContain('[object Object]');
-  });
-});
-
-// ── 9 · 10 · the badge and the numeral series ─────────────────────────
-describe('featured slot and numerals', () => {
-  it('gives the big card the FEATURED badge and no numeral', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    const big = pick(container, 'bigCard');
-    expect(big.textContent).toContain('FEATURED');
-    expect(pickAll(container, 'featuredBadge')).toHaveLength(1);
-    expect(pickAll(big, 'numeral')).toHaveLength(0);
-  });
-
-  // Owner decision 2026-09-16. The fixture has TWO featured projects and
-  // the second is not in the big slot; before this it rendered no badge
-  // anywhere and "featured" in the admin panel looked inert for it.
-  it('badges every featured project, in the grid as well as the big slot', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    // PF-113 batch 2: the admin list's '★ FEATURED' pill, on every featured card.
-    expect(screen.getAllByText('★ FEATURED')).toHaveLength(2);
-    const grid = pick(container, 'grid');
-    const small = pickAll(grid, 'featuredBadgeSm');
-    expect(small).toHaveLength(1);
-    // On the featured one, not on an arbitrary card.
-    expect(small[0].closest('[data-projectcard]').textContent).toContain('Personal Portfolio');
-    // And the grid keeps its numerals — the badge is added, not swapped in.
-    expect(pickAll(grid, 'numeral').map((n) => n.textContent)).toEqual(['02', '03', '04']);
-  });
-
-  it('keeps the slot rule: a featured project further down does NOT take the big card', () => {
-    // First by order is unfeatured, third is featured. The big slot still
-    // goes to the first; the badge appears once, in the grid.
-    const p = [
-      { ...PROJECTS[0], featured: false },
-      { ...PROJECTS[1], featured: false },
-      { ...PROJECTS[2], featured: true },
-      PROJECTS[3],
-    ];
-    useProjects.mockReturnValue(ok(p));
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(pick(container, 'bigCard').textContent).toContain(PROJECTS[0].title);
-    expect(pickAll(container, 'featuredBadge')).toHaveLength(0);
-    expect(pickAll(pick(container, 'grid'), 'featuredBadgeSm')).toHaveLength(1);
-  });
-
-  it('renders NOTHING in that slot when projects[0] is not featured', () => {
-    // Reachable by one untick in the admin panel. The prototype has no
-    // "01" anywhere — its series starts at 02 precisely because the big
-    // card does not participate — so inventing one would mean inventing
-    // type styling with no design source.
-    const unfeatured = [{ ...PROJECTS[0], featured: false }, ...PROJECTS.slice(1)];
-    useProjects.mockReturnValue(ok(unfeatured));
-    const { container } = render(withMotion(<ProjectsSection />));
-
-    expect(pickAll(container, 'featuredBadge')).toHaveLength(0);
-    expect(screen.queryByText('01')).toBeNull();
-    expect(pickAll(container, 'numeral').map((n) => n.textContent))
-      .toEqual(['02', '03', '04']);
-  });
-
-  it('hides the decorative numerals from the accessibility tree', () => {
-    // They carry no information the heading does not, and they announce as
-    // "02" before every project title.
-    const { container } = render(withMotion(<ProjectsSection />));
-    const numerals = pickAll(container, 'numeral');
-    expect(numerals).toHaveLength(3);
-    numerals.forEach((n) => expect(n.getAttribute('aria-hidden')).toBe('true'));
-  });
-
-  it('numbers the remaining cards 02 03 04', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(pickAll(container, 'numeral').map((n) => n.textContent))
-      .toEqual(['02', '03', '04']);
-  });
-
-  it('continues to 05 with a fifth project', () => {
-    const five = [...PROJECTS, {
-      _id: 'p5', title: 'Fifth', description: 'Added via the admin panel.',
-      tech: ['Go'], githubUrl: 'https://example.com', liveUrl: null,
-      featured: false, order: 5, backgroundImage: { src: '', opacity: 0.75 },
-    }];
-    useProjects.mockReturnValue(ok(five));
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(pickAll(container, 'numeral').map((n) => n.textContent))
-      .toEqual(['02', '03', '04', '05']);
-  });
-
-  it('puts the FIRST project by order in the big slot, not the featured one', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    const big = pick(container, 'bigCard');
-    expect(big.textContent).toContain('ClearDrive.lk');
-    // Personal Portfolio is also featured:true but is second by order,
-    // so it must render as a numbered card rather than a second big one.
-    expect(pickAll(container, 'bigCard')).toHaveLength(1);
-    expect(pick(container, 'grid').textContent).toContain('Personal Portfolio');
-  });
-});
-
-// ── 11 · both links on the big card ───────────────────────────────────
-describe('links', () => {
-  it('renders GitHub and LIVE SITE on the big card when liveUrl is set', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    const row = pick(container, 'featuredLinkRow');
-    const hrefs = [...row.querySelectorAll('a')].map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual([
-      'https://github.com/ClearDrive-lk/cleardrive-lk',
-      'https://cleardrive.lk/',
-    ]);
-  });
-
-  /*
-   * ⚠️ BOTH ADDITIONS ARE OWNER-REQUESTED (2026-08-29) AND ABSENT FROM
-   * THE PROTOTYPE, so both are guarded as presences — a fidelity pass
-   * diffing this row against the export sees two elements that "should
-   * not be there".
-   *
-   * The arrow assertions are the other half: the icon was added TO the
-   * label, not instead of its "→" / "↗", and trimming those to balance
-   * the row would be an unrequested transcription change.
-   */
-  it('fronts VIEW ON GITHUB with the GitHub mark, keeping the arrow', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    const link = pick(container, 'featuredLinkRow').querySelector('a');
-    const svg = link.querySelector('svg');
-
-    expect(svg).not.toBeNull();
-    expect(leadsWithIcon(link, svg)).toBe(true);
-    expect(svg).toHaveAttribute('aria-hidden', 'true');
-    expect(svg.getAttribute('fill')).toBe('currentColor');
-    expect(link.textContent).toContain('VIEW ON GITHUB →');
-  });
-
-  it('fronts LIVE SITE with the pulsing green dot, keeping the arrow', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    const link = [...pick(container, 'featuredLinkRow').querySelectorAll('a')][1];
-    const dot = link.querySelector('span');
-
-    // In FRONT of the label — and NOT via firstElementChild, which
-    // cannot see text nodes and so cannot see ordering at all.
-    expect(leadsWithIcon(link, dot)).toBe(true);
-    // A real <span> rather than a ::before, so `dot-ok` can animate it
-    // independently of the link's own hover treatment.
-    expect(dot.tagName).toBe('SPAN');
-    expect(has(dot, 'liveDot')).toBe(true);
-    // Decorative: "LIVE SITE" already carries the meaning.
-    expect(dot).toHaveAttribute('aria-hidden', 'true');
-    expect(link.textContent).toContain('LIVE SITE ↗');
-    // and it must not appear on a card with no liveUrl at all
-    expect(pickAll(container, 'linkRow')[0].querySelector('span')).toBeNull();
-  });
-
-  it('omits LIVE SITE when liveUrl is null', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    // Personal Portfolio (card 02) has liveUrl null.
-    const rows = pickAll(container, 'linkRow');
-    expect(rows[0].querySelectorAll('a')).toHaveLength(1);
-  });
-
-  it('pins the big card link row to the bottom without shrinking it', () => {
-    const decls = declarations(ruleBody(cssRules, '.featuredLinkRow'));
-    expect(decls['margin-top']).toBe('auto');
-    expect(decls['flex-wrap']).toBe('wrap');
-    // align-self: flex-start would shrink the row to its content and
-    // stop flex-wrap working on a narrow card.
-    expect(decls['align-self']).toBeUndefined();
-  });
-
-  it('closes the reverse-tabnabbing hole on every external link', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    [...container.querySelectorAll('a[target="_blank"]')].forEach((a) => {
-      expect(a.getAttribute('rel')).toContain('noreferrer');
-    });
-  });
-});
-
-// ── 12 · the light-theme shadow hook ──────────────────────────────────
 describe('terminal panel', () => {
   it('carries data-terminal', () => {
     // tokens.css:229's html[data-theme="light"] [data-terminal] rule is
@@ -487,10 +209,12 @@ describe('terminal panel', () => {
     expect(container.querySelectorAll('[data-terminal]')).toHaveLength(1);
   });
 
-  it('renders eight static lines, not the Phase 1 typing sequence', () => {
+  // PF-144: 8 → 14 — the run continues so the panel fills beside the taller
+  // picture card (owner, 2026-11-03). Still static, still no typing.
+  it('renders fourteen static lines, not the Phase 1 typing sequence', () => {
     const { container } = render(withMotion(<ProjectsSection />));
     const body = pick(container, 'terminalBody');
-    expect(body.querySelectorAll('div')).toHaveLength(8);
+    expect(body.querySelectorAll('div')).toHaveLength(14);
     expect(body.textContent).toContain('$ docker compose up --build');
     expect(body.textContent).toContain('VITE v8 ready in 420ms');
   });
@@ -611,20 +335,6 @@ describe('terminal panel', () => {
       expect(offenders).toEqual([]);
     });
 
-    /*
-     * The counterpart, so the narrowing above cannot be read as "this
-     * module may not use --ok". `.liveDot` MUST, for the same reason
-     * the terminal must not: it is on themed surface.
-     */
-    it('keeps --ok on the LIVE SITE dot, which IS on themed surface', () => {
-      let bg = null;
-      root.walkRules((rule) => {
-        if (rule.selector !== '.liveDot') return;
-        rule.walkDecls('background', (decl) => { bg = decl.value.trim(); });
-      });
-      expect(bg).toBe('var(--ok)');
-    });
-
     it('keeps --shd on the DROP SHADOW, which should track the theme', () => {
       // The counterweight. "Literal ink" must not be over-applied into
       // literalising the shadow this panel casts onto the PAGE behind it
@@ -671,7 +381,7 @@ describe('error state', () => {
     expect(container.querySelector('#projects')).toBeTruthy();
     expect(screen.getByText(/Built/)).toBeTruthy();
     expect(pickAll(container, 'grid')).toHaveLength(0);
-    expect(pickAll(container, 'bigCard')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-projectcard]')).toHaveLength(0);
   });
 
   it('logs once from an effect, not per render', () => {
@@ -685,26 +395,62 @@ describe('error state', () => {
   });
 });
 
-// ── PF-113 batch 2: the FEATURED pill stays readable on a photo in dark ─────
-// Parsed with postcss, not matched as text — this stylesheet explains the
-// measurement in a comment that names the very values being asserted.
-describe('the FEATURED pill in dark theme (stylesheet)', () => {
-  it('gets a SOLID raised-surface fill, scoped to dark, for both card sizes', async () => {
-    const { readFileSync } = await import('fs');
-    const { resolve, dirname } = await import('path');
-    const { fileURLToPath } = await import('url');
-    const postcss = (await import('postcss')).default;
-    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../ProjectsSection.module.css'), 'utf8');
+// ── PF-144 — picture-on-top cards, at most four, VIEW ALL ──────────────────
+describe('the cards (PF-144)', () => {
+  const titles = () => screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
 
-    const darkFills = [];
-    postcss.parse(css).walkRules((rule) => {
-      if (!rule.selector.includes("data-theme='dark'")) return;
-      rule.walkDecls('background', (d) => darkFills.push([rule.selector, d.value]));
-    });
-    const sel = darkFills.map(([s]) => s).join(' ');
-    expect(sel).toMatch(/\.featuredBadge\b/);
-    expect(sel).toMatch(/\.featuredBadgeSm\b/);
-    expect(darkFills.every(([, v]) => v === 'rgb(var(--srf))')).toBe(true);
+  it('puts the FIRST project by order in the big slot, the rest in the grid', () => {
+    const { container } = render(withMotion(<ProjectsSection />));
+    const cards = container.querySelectorAll('[data-projectcard]');
+    expect(titles()).toEqual(['ClearDrive.lk', 'Personal Portfolio', 'Smart Campus API', 'Life Below Water']);
+    expect(has(cards[0], 'big')).toBe(true);
+    expect([...cards].slice(1).some((c) => has(c, 'big'))).toBe(false);
+    // The big card shares its row with the terminal.
+    expect(pick(container, 'featuredRow').contains(cards[0])).toBe(true);
+  });
+
+  it('shows at most FOUR — a fifth project is only on /projects', () => {
+    const fifth = { ...PROJECTS[3], _id: 'p5', title: 'Fifth', slug: 'fifth', order: 5 };
+    useProjects.mockReturnValue(ok([...PROJECTS, fifth]));
+    render(withMotion(<ProjectsSection />));
+    expect(titles()).toHaveLength(4);
+    expect(titles()).not.toContain('Fifth');
+  });
+
+  it('each card is ONE link, to its own page', () => {
+    render(withMotion(<ProjectsSection />));
+    const card = screen.getByRole('link', { name: 'ClearDrive.lk' });
+    expect(card).toHaveAttribute('href', '/projects/cleardrivelk');
+  });
+
+  it('VIEW ALL PROJECTS goes to /projects', () => {
+    render(withMotion(<ProjectsSection />));
+    expect(screen.getByRole('link', { name: 'VIEW ALL PROJECTS →' })).toHaveAttribute('href', '/projects');
+  });
+
+  it('no numerals and no GitHub links on the home cards any more', () => {
+    render(withMotion(<ProjectsSection />));
+    expect(screen.queryByText(/^0[2-5]$/)).toBeNull();
+    expect(screen.queryByRole('link', { name: /GITHUB/ })).toBeNull();
+  });
+
+  it('badges every FEATURED project, big slot or not', () => {
+    render(withMotion(<ProjectsSection />));
+    const badged = screen.getAllByText('★ FEATURED').map((b) => b.closest('[data-projectcard]'));
+    expect(badged.map((c) => within(c).getByRole('heading').textContent))
+      .toEqual(['ClearDrive.lk', 'Personal Portfolio']);
   });
 });
 
+// PF-144 (owner, 2026-11-03): a failed load SAYS so, with TRY AGAIN.
+describe('a failed load', () => {
+  it('shows "didn\u2019t load" with TRY AGAIN, which refetches', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const refetch = vi.fn();
+    useProjects.mockReturnValue({ data: undefined, isLoading: false, isError: true, error: new Error('x'), refetch, isFetching: false });
+    render(withMotion(<ProjectsSection />));
+    expect(screen.getByRole('status')).toHaveTextContent('The projects didn’t load.');
+    screen.getByRole('button', { name: 'TRY AGAIN' }).click();
+    expect(refetch).toHaveBeenCalled();
+  });
+});
