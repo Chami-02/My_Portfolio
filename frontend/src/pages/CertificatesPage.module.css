@@ -99,14 +99,15 @@
 
 .chip {
   font-family: var(--font-mono);
-  font-size: 11px;
   letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--muted);
   background: rgba(var(--srf), .5);
   border: 1px solid rgba(var(--ln), .16);
   border-radius: 999px;
-  padding: 8px 15px;
+  /* PF-144: one filter-pill size site-wide (owner, 2026-11-03) — was 11px / 8px 15px. */
+  font-size: 10.5px;
+  padding: 6px 12px;
   cursor: pointer;
   transition: color .25s, border-color .25s, background .25s;
 }
@@ -189,7 +190,15 @@
   border-bottom: 1px solid rgba(var(--ln), .1);
 }
 
+/* Pinned to the frame's four edges. `height: 100%` alone did NOT fill it:
+   the frame's height comes from `aspect-ratio` on an auto grid row, so the
+   percentage had nothing to resolve against and the picture kept its own
+   shape — a portrait photo ran 528px tall in a 252px frame, a scan showed
+   only part of itself (owner's phone, 2026-11-03; measured the same in
+   WebKit and Chromium). */
 .picture {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -454,7 +463,14 @@
    ⚠️ LAST: a @media rule above the base rule it overrides never applies
    (mediaOrder.test.js, PF-142). 44px targets, PF-142's phone rule. */
 @media (max-width: 560px) {
-  .chip,
+  /* PF-144: filter pills 36px (smaller, owner 2026-11-03); the big view's
+     controls keep PF-142's 44px. */
+  .chip {
+    min-height: 32px;
+    font-size: 10px;
+    padding: 5px 11px;
+  }
+
   .step,
   .close {
     min-height: 44px;
