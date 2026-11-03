@@ -30,9 +30,17 @@ export const projectCategory = ({ categories } = {}) =>
  * asked for at most `width` px, in the best format the browser takes
  * (`f_auto`, `q_auto`) — a card never downloads the 2400px original. Any
  * other address is returned as it is.
+ *
+ * The HOST is compared exactly (CodeQL js/incomplete-url-substring-
+ * sanitization): `res.cloudinary.com` anywhere in the text would also match
+ * `https://other.test/res.cloudinary.com/image/upload/…`.
  */
 export const pictureAt = (src, width) => {
   const marker = '/image/upload/';
-  if (typeof src !== 'string' || !src.includes('res.cloudinary.com') || !src.includes(marker)) return src;
-  return src.replace(marker, `${marker}c_limit,w_${width},f_auto,q_auto/`);
+  if (typeof src !== 'string') return src;
+  let url;
+  try { url = new URL(src); } catch { return src; }
+  if (url.protocol !== 'https:' || url.hostname !== 'res.cloudinary.com' || !url.pathname.includes(marker)) return src;
+  url.pathname = url.pathname.replace(marker, `${marker}c_limit,w_${width},f_auto,q_auto/`);
+  return url.toString();
 };

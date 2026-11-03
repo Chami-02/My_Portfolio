@@ -44,4 +44,15 @@ describe('pictureAt', () => {
     expect(pictureAt('', 800)).toBe('');
     expect(pictureAt(undefined, 800)).toBeUndefined();
   });
+  it('matches the HOST exactly, never the text anywhere in the address', () => {
+    for (const trick of [
+      'https://other.test/res.cloudinary.com/image/upload/a.webp',
+      'https://res.cloudinary.com.other.test/x/image/upload/a.webp',
+      'https://other.test/x/image/upload/a.webp?res.cloudinary.com',
+      'http://res.cloudinary.com/x/image/upload/a.webp',
+      'not a url res.cloudinary.com/image/upload/',
+    ]) {
+      expect(pictureAt(trick, 800)).toBe(trick);
+    }
+  });
 });

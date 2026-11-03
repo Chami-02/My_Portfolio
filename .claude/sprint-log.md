@@ -10872,3 +10872,7 @@ pass in both themes; explain the upload security in plain English → new
   390px: 275 / 526 / 528px tall in a 252px frame). Fix: `position: absolute; inset: 0` (frame is
   already `relative`). Re-measured 356×251 in 356×252 for all four, WebKit iPhone 13. Project
   cards (block frame) were never affected (measured). See silent-failures.
+- **PR #80 CodeQL (2026-11-03):** `js/incomplete-url-substring-sanitization` on
+  `utils/projectMeta.js` `pictureAt` — `src.includes('res.cloudinary.com')` matched the text
+  anywhere. Now `new URL()` + exact `hostname` + `https:` (stored URLs are `secure_url`). Test with
+  five trick addresses; mutation (back to `includes`) → 1 failed, restored.
