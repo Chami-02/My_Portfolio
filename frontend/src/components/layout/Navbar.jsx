@@ -173,18 +173,25 @@ export function Navbar() {
             </Link>
           </nav>
 
-          <button
-            type="button"
-            className={styles.hamburger}
-            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={mobileOpen}
-            data-open={mobileOpen || undefined}
-            onClick={() => setMobileOpen((v) => !v)}
-          >
-            <span />
-            <span />
-            <span />
-          </button>
+          {/* PF-138 (owner, 2026-11-04): on phones the theme toggle sits in
+              the header too, LEFT of the hamburger, so switching theme needs
+              no menu. The menu keeps its own toggle as well. Hidden above
+              768px, where the nav's toggle shows. */}
+          <div className={styles.mobileBar}>
+            <ThemeToggle />
+            <button
+              type="button"
+              className={styles.hamburger}
+              aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileOpen}
+              data-open={mobileOpen || undefined}
+              onClick={() => setMobileOpen((v) => !v)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
+          </div>
         </div>
 
         <div className={styles.progressTrack}>

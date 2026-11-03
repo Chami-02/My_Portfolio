@@ -6050,3 +6050,23 @@ reload on every edit instead of a hot swap. `providers/SplashContext.js`
 follows the same split, added in PF-75. Any future provider must too, or it
 lands on a red CI for the identical reason.
 
+
+## PF-138 (owner, 2026-11-03)
+- **Search forgives ONE mistake** in a word of 5–12 letters (swap, missing, extra, wrong letter), on
+  /projects and /blog, built from regexes (`utils/searchTerms.js`) — NOT Atlas Search: free on any
+  MongoDB and testable in the in-memory test DB. Short words stay exact ("css" must not match half the
+  site). ⚠️ Every separator gap must FOLLOW a required letter and the "wrong letter" excludes
+  separators — the alternative is ReDoS (measured cubic). Guarded by a timing test.
+- **Section pictures reorder** by drag + ← → over the picture, STAGED until SAVE (owner rule).
+- **`backgroundImage.opacity` removed** (migration 014, contract of PF-144). No client-writable part
+  of `backgroundImage` remains; `sanitiseProjectBody` strips it whole.
+- **Overview JUMP BACK IN gains `+ NEW CERTIFICATE` only** (owner: the others are rarely used — no
+  Education button).
+- **The home Projects terminal stays until Sprint 16**, then becomes a PUBLIC analytics box built with
+  the private Analytics dashboard: totals only (visitors rounded, countries reached + top 5 with a
+  5-visitor minimum, top 3 most viewed, blog reads, LIVE/last updated). Replacing it removes the
+  `data-terminal` decision — record it then.
+- **Phones (≤560px): every search pill is 40px tall** (/blog, /projects, admin Messages), its
+  buttons 30px (owner, 2026-11-04). Desktop unchanged.
+- **Phones (≤768px): a theme toggle in the header, left of the hamburger; the menu keeps its own**
+  (owner, 2026-11-04). Both 44px — `--header-h` stays 71px.

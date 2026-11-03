@@ -259,6 +259,14 @@ describe('GET /api/blog?q= — search', () => {
     expect(names(res)).toEqual(['Echo']);
   });
 
+  // PF-138 (owner, 2026-11-03): one spelling mistake is forgiven, on /blog
+  // as on /projects (one shared searchTerms.js), through the real MongoDB.
+  it('forgives one spelling mistake — "dokcer" finds the Docker posts', async () => {
+    await seedPosts();
+    const res = await request(app).get('/api/blog?q=dokcer');
+    expect(names(res)).toEqual(['Charlie', 'Alpha']);
+  });
+
   it('still returns nothing for a term that is in no post at all', async () => {
     // The control. A widened search that matched everything would pass
     // every assertion above and be just as broken as one matching nothing.

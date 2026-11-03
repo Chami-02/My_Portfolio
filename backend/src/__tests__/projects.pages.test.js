@@ -159,6 +159,14 @@ describe('GET /api/projects ?q= ?tech= ?category=', () => {
     expect(await titles({ q: 'full stack mobile' })).toEqual([]);
   });
 
+  // PF-138 (owner, 2026-11-03): "dokcer" should find Docker — through the
+  // REAL MongoDB regex engine, not only JavaScript's.
+  it('?q= forgives one spelling mistake in a longer word, never two', async () => {
+    expect(await titles({ q: 'dokcer' })).toEqual(['Alpha', 'Gamma']);
+    expect(await titles({ q: 'sqlitte' })).toEqual(['Beta']);
+    expect(await titles({ q: 'dcokr' })).toEqual([]);
+  });
+
   it('?q= never finds a draft', async () => {
     expect(await titles({ q: 'secret' })).toEqual([]);
   });

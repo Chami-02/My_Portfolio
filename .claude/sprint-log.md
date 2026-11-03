@@ -10876,3 +10876,62 @@ pass in both themes; explain the upload security in plain English → new
   `utils/projectMeta.js` `pictureAt` — `src.includes('res.cloudinary.com')` matched the text
   anywhere. Now `new URL()` + exact `hostname` + `https:` (stored URLs are `secure_url`). Test with
   five trick addresses; mutation (back to `includes`) → 1 failed, restored.
+
+### PF-144 live (recorded on the PF-138 branch)
+- **2026-11-03:** PR #80 merged as merge commit `a765f25` (18 commits; CodeQL fix `6690950`).
+  Deploy run 41668908355 green; the Migrate gate ran **013** on prod — slugs `personal-portfolio`,
+  `cleardrivelk`, `smart-campus-api`, `life-below-water`; `GET /api/projects/personal-portfolio` 200.
+- Owner filled Personal Portfolio on prod and uploaded the CV (`/api/resume` 200 PDF). The other
+  three projects' content is still the owner's (Outstanding work).
+- Final gates: frontend 2,611 / 124 files, backend 1,363 / 71 suites, E2E 85 / 85.
+- **Owner gave PF-144 18 story points. TICKET CLOSED.**
+- Leftovers moved to PF-138: CONTRACT `backgroundImage.opacity`, typo-tolerant search, picture
+  reorder in a section. The terminal panel change moved to **Sprint 16** (owner, 2026-11-03): it
+  becomes a PUBLIC analytics box built with the private Analytics dashboard.
+
+## PF-138 — Sprint 15 gate + PF-144 leftovers (2026-11-03, `feat/PF-138-sprint-15-gate`)
+Plan approved in chat (owner). Report: `new mds/Sprint 15/PF-138-sprint-15-gate.md`.
+- **Typo-tolerant search** (`backend/src/utils/searchTerms.js`, shared by /projects and /blog): a word
+  of 5–12 letters also matches anything ONE edit away (Damerau–Levenshtein 1: swap, missing, extra,
+  wrong letter), separators still optional — "dokcer" → Docker, "nodjs" → Node.js. No Atlas Search.
+  ⚠️ **ReDoS found in recheck:** the first version let two `GAP`s share a separator run (cubic:
+  0.8 s on 1,600 chars of "- - -"). Fix: every gap FOLLOWS a required letter; the wrong/extra letter
+  is `[^separators]`. Linear now (~0.1 ms on 16k). Guard: time test sized to FAIL in seconds
+  (50 s measured on the mutant), not hang. Mutation 5/5. Route tests through real Mongo (projects + blog).
+- **Picture reorder in a project section** (`components/admin/SectionPictures.jsx`): drag (mouse) +
+  ← → buttons over the picture's top-left (30px, 36px ≤560). Staged: the form order IS the payload's,
+  so dirty/REVERT work unchanged; reuses `moveId`/`dropId` from `utils/entryForm.js`. `<img
+  draggable={false}>` — Chrome drags an img as a FILE, which the DropZone would stage. 6 panel tests
+  (both drop halves, DragEvent polyfill). Mutation 3/4 (survivor: a lone picture `draggable` — harmless).
+- **CONTRACT `backgroundImage.opacity`:** migration **014** (raw `$unset`, idempotent, picture
+  untouched), path removed from `models/Project.js`, seed, and `sanitiseProjectBody` (now strips the
+  WHOLE `backgroundImage` + every dotted path). An old backup with opacity restores WITHOUT it
+  (`new Model(raw)` is strict). Mutation 4/4. Ran on `portfolio_dev` (status → dry → real: 4 unset).
+- **+ NEW CERTIFICATE** in Overview's JUMP BACK IN (owner, mid-ticket: only that one — Education is
+  rarely touched). Checked in the browser: opens "Add new certificate" at the top; dark + light;
+  390px = 2-col grid, 44px, no overflow.
+- **Moved to Sprint 16 (owner):** the home terminal panel becomes a PUBLIC analytics box built with
+  the private Analytics dashboard (totals only; a country shows after 5+ visitors).
+- **Gates (2026-11-03/04):** frontend `npm run check` 2,620 / 124 files, lint 0, build OK (was 2,611);
+  backend `test:coverage` 1,388 / 72 suites (was 1,363 / 71), cov 87.97 / 79.46 / 91.71 / 88.62;
+  E2E 85 / 85 locally (servers by hand: `dotenv-cli/cli.js -e .env.e2e` + Vite 5174, `CI=1`).
+  Browser (dev, owner signed in): /projects?q=dokcer → the 2 Docker projects, /blog same 3 as
+  "docker", "dcokr" → none; reorder by real mouse drag + ← → in dark and light, REVERT restored,
+  nothing saved (dev API still 0 section pictures).
+- **Still to do after merge + deploy:** Migrate gate runs 014 on prod; live checks of every Sprint 15
+  feature (no emails); Sprint 15 close-out.
+- **Owner's waiting items — checked by the owner, no problems (owner, 2026-11-04):** content of the
+  other 3 projects; PF-142 on a real phone (iOS Safari + Android Chrome); Settings → Sessions on prod;
+  the PF-137 auth & security post read and published; certificates published on prod. (Owner-reported;
+  my post-deploy live sweep re-reads them, read-only.)
+- **Owner additions, 2026-11-04 (same branch):**
+  - **Phone search pill smaller, everywhere** ("reduce the search bar size a bit", then "a tiny bit"
+    more, "apply everywhere"): /blog + /projects (one shared rule, `BlogPage.module.css` phone block)
+    64px → 40px, buttons 36 → 30px; admin Messages search (`AdminMessagesPanel.module.css`, NEW
+    phone block, LAST) 40px with or without the ×, × gets a 30px target. Measured at 320px, no overflow.
+    ⚠️ The open dev page kept a STALE copy of the composes-shared sheet (documented trap) — measured
+    on a fresh Vite on 5177.
+  - **Theme toggle in the phone header, LEFT of the hamburger** (`Navbar.jsx` `.mobileBar`), the menu
+    keeps its own. ≤768px only; header still 71px; desktop shows one toggle. Test: toggle is the
+    hamburger's previous sibling; menu still has one.
+  - Gates after: frontend 2,621 / 124, lint 0, build OK; E2E 85 / 85.

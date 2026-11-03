@@ -14,11 +14,16 @@ describe('Project — backgroundImage (PF-52)', () => {
     slug:        'test',
   };
 
-  it('defaults to empty src and 0.75 opacity', () => {
+  it('defaults to an empty src', () => {
     const p = new Project(BASE);
-
     expect(p.backgroundImage.src).toBe('');
-    expect(p.backgroundImage.opacity).toBe(0.75);
+  });
+
+  // PF-138 — the CONTRACT half of PF-144: `opacity` left the schema.
+  it('has no opacity: a value an old client or backup still sends is dropped', () => {
+    const p = new Project({ ...BASE, backgroundImage: { src: '', opacity: 0.5 } });
+    expect(p.toObject().backgroundImage).not.toHaveProperty('opacity');
+    expect(Project.schema.path('backgroundImage.opacity')).toBeUndefined();
   });
 
   // ── PF-111 ────────────────────────────────────────────────────────────────
@@ -36,7 +41,6 @@ describe('Project — backgroundImage (PF-52)', () => {
       backgroundImage: {
         src: 'https://res.cloudinary.com/demo/image/upload/v1/portfolio/projects/a.png',
         publicId: 'portfolio/projects/a',
-        opacity: 0.5,
       },
     });
 
@@ -47,7 +51,7 @@ describe('Project — backgroundImage (PF-52)', () => {
   it('accepts a valid https URL', async () => {
     const p = new Project({
       ...BASE,
-      backgroundImage: { src: 'https://example.com/bg.jpg', opacity: 0.5 },
+      backgroundImage: { src: 'https://example.com/bg.jpg' },
     });
 
     const err = (await validationError(p));
@@ -57,34 +61,12 @@ describe('Project — backgroundImage (PF-52)', () => {
   it('rejects a data: URI', async () => {
     const p = new Project({
       ...BASE,
-      backgroundImage: { src: 'data:image/svg+xml;base64,AAA', opacity: 0.5 },
+      backgroundImage: { src: 'data:image/svg+xml;base64,AAA' },
     });
 
     const err = (await validationError(p));
     expect(err).toBeDefined();
     expect(err.errors['backgroundImage.src']).toBeDefined();
-  });
-
-  it('rejects opacity above 1.0', async () => {
-    const p = new Project({
-      ...BASE,
-      backgroundImage: { src: 'https://example.com/bg.jpg', opacity: 5 },
-    });
-
-    const err = (await validationError(p));
-    expect(err).toBeDefined();
-    expect(err.errors['backgroundImage.opacity']).toBeDefined();
-  });
-
-  it('rejects opacity below 0.1', async () => {
-    const p = new Project({
-      ...BASE,
-      backgroundImage: { src: 'https://example.com/bg.jpg', opacity: 0.05 },
-    });
-
-    const err = (await validationError(p));
-    expect(err).toBeDefined();
-    expect(err.errors['backgroundImage.opacity']).toBeDefined();
   });
 
 });

@@ -132,6 +132,7 @@ describe('AdminOverviewPanel — quick actions', () => {
     ['+ NEW PROJECT', 'projects', false],
     ['+ NEW POST',    'blog',     true ],
     ['+ NEW SKILL',   'skills',   false],
+    ['+ NEW CERTIFICATE', 'certificates', false],   // PF-138
     ['EDIT PROFILE',  'about',    false],
   ])('%s navigates to %s (compose: %s)', async (label, tab, compose) => {
     const onNavigate = vi.fn();
@@ -141,6 +142,15 @@ describe('AdminOverviewPanel — quick actions', () => {
     await user.click(screen.getByRole('button', { name: label }));
     expect(onNavigate).toHaveBeenCalledTimes(1);
     expect(onNavigate).toHaveBeenCalledWith(tab, { compose });
+  });
+
+  // PF-138 (owner): one new button, Certificates — and no other panel's.
+  it('offers exactly these five, in this order', () => {
+    render(<AdminOverviewPanel onNavigate={vi.fn()} />);
+    const row = screen.getByRole('heading', { name: 'JUMP BACK IN' }).closest('section');
+    expect(within(row).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      '+ NEW PROJECT', '+ NEW POST', '+ NEW SKILL', '+ NEW CERTIFICATE', 'EDIT PROFILE',
+    ]);
   });
 
   // A <button> with no type is a submit button. None of these are inside

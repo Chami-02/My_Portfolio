@@ -326,3 +326,21 @@
    panel card is under AA in DARK. (0,2,1); light untouched. */
 :global(html[data-theme='dark']) .date,
 :global(html[data-theme='dark']) .status { color: var(--muted); }
+
+/* PF-138 (owner, 2026-11-04: the search bar a bit smaller on phones,
+   "everywhere that component is used"): the same 40px pill as /blog and
+   /projects. `min-height` keeps it 40px with or without the × (which shows
+   only while typing), and the × gets a 30px tap target (WCAG 2.5.8 ≥ 24px).
+   ⚠️ LAST in the file (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .searchField {
+    gap: 4px;
+    min-height: 40px;
+    padding: 4px 4px 4px 13px;
+  }
+
+  .searchClear {
+    min-width: 30px;
+    min-height: 30px;
+  }
+}

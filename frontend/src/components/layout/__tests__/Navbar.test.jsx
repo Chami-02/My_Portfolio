@@ -1,5 +1,5 @@
 // frontend/src/components/layout/__tests__/Navbar.test.jsx
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -232,6 +232,19 @@ describe('Navbar (PF-79)', () => {
       toggles[toggles.length - 1].click();
     });
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  // PF-138 (owner, 2026-11-04): on phones a toggle sits LEFT of the
+  // hamburger in the header, and the menu keeps its own.
+  it('puts a theme toggle right before the hamburger, and keeps the one in the menu', () => {
+    render(withProviders(<Navbar />));
+    const hamburger = screen.getByLabelText('Open menu');
+    expect(hamburger.previousElementSibling).toHaveAttribute('data-testid', 'theme-toggle');
+    expect(screen.getAllByTestId('theme-toggle')).toHaveLength(2);   // nav + phone bar
+
+    act(() => { hamburger.click(); });
+    expect(within(screen.getByRole('dialog')).getByTestId('theme-toggle')).toBeInTheDocument();
+    expect(screen.getAllByTestId('theme-toggle')).toHaveLength(3);
   });
 
   it('keeps exactly two controls named "Close menu"', () => {

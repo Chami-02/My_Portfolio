@@ -10,44 +10,31 @@ const { MAX_IMAGE_BYTES } = require('../middleware/upload');
 const BACKGROUND_FOLDER = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/projects`;
 
 /**
- * Strip the media half of `backgroundImage` out of a client payload and flatten
- * what remains onto DOT PATHS (PF-111).
+ * Strip what a client may never write out of a project payload (PF-111).
  *
- * ⚠️ TWO SEPARATE BUGS ARE FIXED HERE, and they are easy to conflate.
+ * `backgroundImage` (`src`, `publicId`) is written only by
+ * PUT /api/projects/:id/background, which derives the publicId from
+ * Cloudinary's own upload response. A client that could send a publicId could
+ * aim a delete at any file in the bucket.
  *
- * 1. `src` and `publicId` are removed because they are written only by
- *    PUT /api/projects/:id/background, which derives the publicId from
- *    Cloudinary's own upload response. A client that could send a publicId
- *    could aim a delete at any file in the bucket.
- *
- * 2. `opacity` is rewritten as the dot path `backgroundImage.opacity`, because
- *    Mongoose turns a nested OBJECT in an update into `$set` of the WHOLE
- *    sub-document. `{ backgroundImage: { opacity: 0.5 } }` therefore replaces
- *    the sub-document and wipes `src` and `publicId` — the image vanishes from
- *    the card and its file is orphaned, from an ordinary save. This has no
- *    symptom today only because nothing sends opacity yet; PF-113's slider
- *    would have hit it on its very first save.
+ * PF-138: `opacity`, its one client-writable part, is gone (migration 014), so
+ * the WHOLE sub-document is stripped. Until then this function rewrote opacity
+ * onto the dot path `backgroundImage.opacity`, because Mongoose turns a nested
+ * OBJECT into `$set` of the whole sub-document and would have wiped `src` and
+ * `publicId` from an ordinary save.
  */
 const sanitiseProjectBody = (body) => {
   // PF-144: `slug` is DERIVED by the model (from the title, frozen once
   // published), never written by a client.
   // PF-144: `media` (the picture ledger) is written only by the upload route.
   const { backgroundImage, slug, media, ...rest } = body ?? {};
-  // ⚠️ PF-120 — and every DOTTED path into it. `set()` treats
+  // ⚠️ PF-120 — and every DOTTED path into them. `set()` treats
   // `"backgroundImage.publicId"` as that nested path, so stripping only the
   // top-level key let a raw request set the publicId (and `src`) anyway —
-  // measured. Opacity, the one client-writable part, is re-added below.
-  const update = Object.fromEntries(
+  // measured.
+  return Object.fromEntries(
     Object.entries(rest).filter(([key]) => !key.startsWith('backgroundImage.') && !key.startsWith('media.'))
   );
-
-  if (backgroundImage && typeof backgroundImage === 'object' &&
-      !Array.isArray(backgroundImage) &&
-      backgroundImage.opacity !== undefined) {
-    update['backgroundImage.opacity'] = backgroundImage.opacity;
-  }
-
-  return update;
 };
 
 /**
@@ -182,15 +169,10 @@ const getAllProjectsAdmin = async (req, res, next) => {
 // Protected route — JWT required (added in PF-35)
 const createProject = async (req, res, next) => {
   try {
-    // Same strip as updateProject, for the same reason — but flattened dot
-    // paths are meaningless to create(), so rebuild the nested shape. A new
-    // project has no old file to orphan; what this prevents is a client
-    // planting a publicId the delete path would later act on.
+    // Same strip as updateProject, for the same reason. A new project has no
+    // old file to orphan; what this prevents is a client planting a publicId
+    // the delete path would later act on.
     const safe = sanitiseProjectBody(req.body);
-    if (safe['backgroundImage.opacity'] !== undefined) {
-      safe.backgroundImage = { opacity: safe['backgroundImage.opacity'] };
-      delete safe['backgroundImage.opacity'];
-    }
 
     // PF-144: a NEW project has no ledger yet, so it cannot name a picture —
     // the panel creates it first, then uploads, then saves the sections.
@@ -222,9 +204,8 @@ const createProject = async (req, res, next) => {
 // slip through when only `published` is sent. A document save evaluates the
 // condition against the merged document, which is the only correct answer.
 //
-// sanitiseProjectBody()'s output is reused unchanged: `doc.set()` accepts the
-// dot path `backgroundImage.opacity`, so the sub-document clobber PF-111 fixed
-// stays fixed (pinned by project.backgroundImage.test.js).
+// sanitiseProjectBody()'s output is reused unchanged — it never holds any
+// part of `backgroundImage` (pinned by project.background.routes.test.js).
 const updateProject = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.id);
@@ -344,8 +325,7 @@ const uploadBackground = async (req, res, next) => {
       folder:       BACKGROUND_FOLDER(),
     });
 
-    // 2. Save the new metadata — opacity is content and is left untouched, so
-    //    replacing the image does not reset a value the admin already tuned.
+    // 2. Save the new metadata.
     project.backgroundImage.src      = result.url;
     project.backgroundImage.publicId = result.publicId;
     await project.save();
@@ -446,8 +426,8 @@ const uploadSectionImage = async (req, res, next) => {
 };
 
 // ── DELETE /api/projects/:id/background ──────────────────────────────────────
-// Protected. Clears the background and deletes the file. The project itself,
-// and its opacity setting, survive.
+// Protected. Clears the background and deletes the file. The project itself
+// survives.
 const removeBackground = async (req, res, next) => {
   try {
     const project = await Project.findById(req.params.id);

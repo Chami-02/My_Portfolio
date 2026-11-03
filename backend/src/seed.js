@@ -32,7 +32,7 @@ const PROJECTS = [
     // Empty on purpose — real background images are uploaded through the
     // admin panel in Sprint 14. Stated explicitly rather than left to the
     // schema defaults so re-seeding visibly clears any previous upload.
-    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '' },
   },
   {
     title:       'ClearDrive.lk',
@@ -43,7 +43,7 @@ const PROJECTS = [
     liveUrl:     'https://cleardrive.lk/' ,
     featured:    true,
     order:       2,
-    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '' },
   },
   {
     title:       'Smart Campus API',
@@ -54,7 +54,7 @@ const PROJECTS = [
     liveUrl:     null,
     featured:    false,
     order:       3,
-    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '' },
   },
    {
     title:       'Life Below Water',
@@ -65,7 +65,7 @@ const PROJECTS = [
     liveUrl:     null,
     featured:    false,
     order:       4,
-    backgroundImage: { src: '', publicId: '', opacity: 0.75 },
+    backgroundImage: { src: '', publicId: '' },
   }
 ].map((project) => ({
   // PF-144 — a published project needs a page. The seed's page is one

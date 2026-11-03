@@ -8,7 +8,7 @@
 // never sends anything. Same discipline as AdminAboutPanel.test.jsx.
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { renderWithGuard } from '../../../../test/renderWithGuard';
 
 // Mocked at the MODULE level: Vite's SSR transform makes exports getter-only,
@@ -844,6 +844,100 @@ describe('section pictures', () => {
     expect(within(formCard()).queryByLabelText('Section 01, picture 1 caption')).toBeNull();
     await user.click(btn('REVERT CHANGES'));
     expect(field('Section 01, picture 1 caption')).toHaveValue('A');
+  });
+
+  // ── PF-138: reordering, staged like everything else ──
+  describe('reordering', () => {
+    const pic = (id, caption) => ({ publicId: `p/${id}`, url: `https://res.cloudinary.com/x/${id}.png`, width: 1, height: 1, caption });
+    const withPics = { ...LIVE, sections: [{ heading: 'Description', body: ['x'], bullets: [],
+      images: [pic('a', 'A'), pic('b', 'B'), pic('c', 'C')] }] };
+    const captions = () => [1, 2, 3].map((n) => field(`Section 01, picture ${n} caption`).value);
+    const moveBtn = (n, way) =>
+      within(formCard()).getByRole('button', { name: `Move picture ${n} of section 01 ${way}` });
+    const items = () => within(formCard()).getAllByLabelText(/^Section 01, picture \d caption$/)
+      .map((input) => input.closest('li'));
+
+    beforeEach(() => {
+      hooks.useAdminProjects.mockReturnValue({ data: [withPics, DRAFT], isLoading: false });
+    });
+    // ⚠️ jsdom has no DragEvent: without this testing-library drops clientX
+    // and every drop reads as "before" (AdminSkillsPanel.test.jsx found it).
+    beforeAll(() => {
+      if (!window.DragEvent) window.DragEvent = class DragEvent extends MouseEvent {};
+    });
+    const dragOnto = (from, onto, clientX) => {
+      const data = { effectAllowed: '', dropEffect: '', types: ['text/plain'], setData: vi.fn(), files: [] };
+      fireEvent.dragStart(from, { dataTransfer: data });
+      fireEvent.dragOver(onto, { dataTransfer: data, clientX });
+      fireEvent.drop(onto, { dataTransfer: data });
+    };
+
+    it('← → move a picture, the form turns dirty, SAVE sends the NEW order', async () => {
+      const user = userEvent.setup();
+      render(<AdminProjectsPanel />);
+      await user.click(editRow('ClearDrive'));
+      expect(btn('SAVE CHANGES')).toBeDisabled();
+
+      await user.click(moveBtn(3, 'earlier'));
+      expect(captions()).toEqual(['A', 'C', 'B']);
+      await user.click(moveBtn(1, 'later'));
+      expect(captions()).toEqual(['C', 'A', 'B']);
+      expect(btn('SAVE CHANGES')).toBeEnabled();
+
+      await user.click(btn('SAVE CHANGES'));
+      await waitFor(() => expect(hooks.update.mutateAsync).toHaveBeenCalled());
+      expect(hooks.update.mutateAsync.mock.calls[0][0].data.sections[0].images.map((i) => i.publicId))
+        .toEqual(['p/c', 'p/a', 'p/b']);
+    });
+
+    it('the ends cannot move further: first has no ←, last has no →', async () => {
+      const user = userEvent.setup();
+      render(<AdminProjectsPanel />);
+      await user.click(editRow('ClearDrive'));
+      expect(moveBtn(1, 'earlier')).toBeDisabled();
+      expect(moveBtn(3, 'later')).toBeDisabled();
+      expect(moveBtn(2, 'earlier')).toBeEnabled();
+    });
+
+    it('REVERT puts the saved order back', async () => {
+      const user = userEvent.setup();
+      render(<AdminProjectsPanel />);
+      await user.click(editRow('ClearDrive'));
+      await user.click(moveBtn(1, 'later'));
+      await user.click(btn('REVERT CHANGES'));
+      expect(captions()).toEqual(['A', 'B', 'C']);
+      expect(btn('SAVE CHANGES')).toBeDisabled();
+    });
+
+    it('drag one picture onto another\'s place (mouse), and the drop never stages a file', async () => {
+      const user = userEvent.setup();
+      render(<AdminProjectsPanel />);
+      await user.click(editRow('ClearDrive'));
+      const [first, , third] = items();
+      // jsdom boxes are 0×0: clientX 1 is the right half (AFTER), -1 the left (BEFORE).
+      dragOnto(first, third, 1);
+      expect(captions()).toEqual(['B', 'C', 'A']);
+      expect(within(formCard()).queryByText('PENDING SAVE')).toBeNull();
+      expect(hooks.uploadPic.mutateAsync).not.toHaveBeenCalled();
+    });
+
+    it('dropped on the LEFT half of a picture, it lands BEFORE that one', async () => {
+      const user = userEvent.setup();
+      render(<AdminProjectsPanel />);
+      await user.click(editRow('ClearDrive'));
+      const [first, , third] = items();
+      dragOnto(first, third, -1);
+      expect(captions()).toEqual(['B', 'A', 'C']);
+      expect(btn('SAVE CHANGES')).toBeEnabled();
+    });
+
+    it('one picture alone: nothing to move, no arrows', async () => {
+      hooks.useAdminProjects.mockReturnValue({ data: [{ ...withPics, sections: [{ ...withPics.sections[0], images: [pic('a', 'A')] }] }, DRAFT], isLoading: false });
+      const user = userEvent.setup();
+      render(<AdminProjectsPanel />);
+      await user.click(editRow('ClearDrive'));
+      expect(within(formCard()).queryByRole('button', { name: /^Move picture/ })).toBeNull();
+    });
   });
 
   it('at most 4: the ADD PICTURE control goes once a section is full', async () => {
