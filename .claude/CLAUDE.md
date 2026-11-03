@@ -13,8 +13,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `.claude/locked-decisions.md` | the full reasoning behind each decision (both halves of every reversal), plus the full design-authority and working-agreement text |
 | `.claude/product-requirements.md` | the owner's standing product requirements, in full |
 
-**Split 2026-09-02 and 2026-10-08** — moved, not deleted (the second move sits at
-the END of each companion, `# Moved verbatim from CLAUDE.md on 2026-10-08`).
+**Split 2026-09-02 / 10-08** — moved, not deleted (2nd move at each companion's END,
+`# Moved verbatim from CLAUDE.md on 2026-10-08`).
 
 ### ⚠️ SIZE RULE — keep this file under 40,000 characters
 
@@ -126,12 +126,11 @@ search the companions *before* explaining a surprise.
 | Sprint 9–13 (PF-52 → PF-106) | API, design system, sections, Blog | merged |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, 2026-10-14 |
 | PF-126 (+ 3 fixes) | migration guard, deploy pipeline | merged; `deploy.yml` = ONLY path to prod |
-| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — up to PF-143 live; PF-144 built |
+| **Sprint 15 (PF-123 → PF-125, new from PF-127)** | **speed + auth + email + Settings** | **in progress** — PF-127→144 live (sprint-log) |
 
-`global.css` = Tailwind's entry only (PF-116). Sprint 14: sprint-log "Sprint 14 closed — PF-121".
+Sprint 14: sprint-log "Sprint 14 closed — PF-121".
 
-**▶ NEXT (owner, 2026-10-16), in the plan's order:**
-PF-127→143 live (sprint-log) → PF-144 (built) → PF-138 (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+**▶ NEXT:** PF-138, the gate (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`), then Sprint 16.
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
 - Open from PF-113: keep the picture block's badge + `MAX 4 MB` caption?
 - **Every doc I create** (tickets, reports, plans, PDFs) goes to `new mds/Sprint 15/` (owner, 2026-10-16; outside the repo).
@@ -305,7 +304,7 @@ Where a mistake would be silent, add a test that would catch it.
 - `cookie` 2.x is ESM-only → Jest cannot load it (every backend suite fails); majors ignored in `dependabot.yml` (#39).
 - A required check that never started looks like nothing failing — confirm `All Checks Pass` is listed AND `pass`.
 - After a re-trigger, read the LATEST run, not the merged check list.
-- Piping a long run through `tail` buffers to the end; `timeout` does not exist on macOS (`gtimeout`).
+- Piping a long run through `tail` buffers to the end; no `timeout`/`gtimeout` here: background + kill.
 - Name the lint SCRIPT, never a path; an absent file in a report ≠ clean.
 - `playwright-report/`, `test-results/`, `dist-*/` must stay ESLint-ignored.
 - Root `.gitignore` has no `node_modules`; tests under `src/` can leak Tailwind classes.
@@ -429,6 +428,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
 - PF-144: picture-ON-TOP `ProjectCard`, 1 link, no numerals/slider (REVERSED); `/projects` = /blog search; `/projects/:slug` = Blog sections + GitHub/LIVE; slug: Certificate's rule. Section pictures ONLY via the `media` ledger; forgiving search. Errors: plain words (`friendlyError`), ONE `ErrorCard` (red `!`).
+- PF-138: 1-typo search (5–12 letters; gaps follow REQUIRED letters = no ReDoS); picture reorder staged; opacity gone (014); terminal → public stats box (S16).
 - PF-143: home TEXT ONLY (≤6, VIEW ALL); `/certificates/:slug?` big view; PDF = `pg_1`; words FIXED; `EntryListPanel`; certs: 1 tag = 1 pill, pins lead + drag order; demo rows throwaway DBs only.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
