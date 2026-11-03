@@ -97,8 +97,8 @@
   align-items: center;
 }
 
-/* The live preview. `background-image` and `opacity` are written inline — the
- * only two values that change — so the rest stays here, transcribed. */
+/* The live preview. `background-image` is written inline — the
+ * only value that changes (PF-144: no opacity any more) — the rest is here. */
 .bgPreview {
   flex: none;
   width: 132px;
@@ -162,37 +162,9 @@
 }
 
 /* Admin.dc.html:264-268. */
-.opacityRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  padding-top: 4px;
-}
 
-.opacityLabel {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--muted2);
-}
 
-.range {
-  flex: 1;
-  min-width: 150px;
-  accent-color: var(--acc, #FCA311);
-  cursor: pointer;
-}
 
-.opacityValue {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 12px;
-  color: var(--acc, #FCA311);
-  min-width: 44px;
-  text-align: right;
-}
 
 .caption {
   margin: 0;
@@ -203,6 +175,34 @@
 }
 
 /* ── Save row ─────────────────────────────────────────────────────────────── */
+
+/* ── PF-144 — required marks (EntryListPanel's, owner 2026-10-31) ────── */
+
+/* "* Indicates required", above the first field. */
+.requiredNote {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* The " *" after a required label — empty alt text, so a screen reader says
+   "Title" and reads `required` from the box itself. */
+.required::after {
+  content: ' *';
+  content: ' *' / '';
+}
+
+/* The end date and "Ongoing" side by side. */
+.dateRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.ongoing {
+  margin-top: 8px;
+}
 
 .saveRow {
   display: flex;
@@ -227,4 +227,4 @@
 :global(html[data-theme='dark']) .caption,
 :global(html[data-theme='dark']) .bgLabel,
 :global(html[data-theme='dark']) .bgMeta,
-:global(html[data-theme='dark']) .opacityLabel { color: var(--muted); }
+:global(html[data-theme='dark']) .requiredNote { color: var(--muted); }
