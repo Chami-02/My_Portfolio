@@ -184,15 +184,16 @@ describe('PUT /api/about/resume', () => {
     expect(storage.upload).not.toHaveBeenCalled();
   });
 
-  it('names the offending field when the wrong form field is used', async () => {
+  // PF-144: plain words — the old text named the form field ("resume" /
+  // "file"), which only a developer could act on. Still a 400, still refused.
+  it('refuses a file sent under the wrong form field, in plain words', async () => {
     const res = await request(app)
       .put('/api/about/resume')
       .set(await authHeader())
       .attach('resume', PDF, 'CV.pdf');     // should be "file"
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toContain('"resume"');
-    expect(res.body.message).toContain('"file"');
+    expect(res.body.message).toBe('Please upload one file at a time.');
   });
 
   it('returns 503 when storage is not configured', async () => {
@@ -392,6 +393,51 @@ describe('GET /api/resume', () => {
 
     expect(res.status).toBe(404);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // PF-144 — DOWNLOAD CV is a plain link: a failure is a PAGE the browser
+  // opens. It must be the site's friendly page (or a plain one), never raw JSON.
+  describe('a browser that opens the link (asks for HTML)', () => {
+    const asBrowser = () => request(app).get('/api/resume').set('Accept', 'text/html,application/xhtml+xml,*/*;q=0.8');
+    const original = process.env.FRONTEND_URL;
+    afterEach(() => {
+      if (original === undefined) delete process.env.FRONTEND_URL;
+      else process.env.FRONTEND_URL = original;
+    });
+
+    it('no CV yet → sent to the site\'s own "CV not available" page (reason=missing)', async () => {
+      process.env.FRONTEND_URL = 'https://site.example/';
+      await About.create({});
+      const res = await asBrowser();
+      expect(res.status).toBe(303);
+      expect(res.headers.location).toBe('https://site.example/cv-unavailable?reason=missing');
+    });
+
+    it('storage down → the same page, offering to try again (reason=later)', async () => {
+      process.env.FRONTEND_URL = 'https://site.example';
+      fetchSpy.mockResolvedValue(pdfResponse(500));
+      await seed('cv.pdf');
+      const res = await asBrowser();
+      expect(res.status).toBe(303);
+      expect(res.headers.location).toBe('https://site.example/cv-unavailable?reason=later');
+    });
+
+    it('no site address configured → a plain page of its own, never raw JSON', async () => {
+      delete process.env.FRONTEND_URL;
+      await About.create({});
+      const res = await asBrowser();
+      expect(res.status).toBe(404);
+      expect(res.headers['content-type']).toMatch(/text\/html/);
+      expect(res.text).toContain("The CV isn't available right now");
+      expect(res.text).not.toMatch(/"status"|"fail"/);
+    });
+
+    it('an API client still gets the JSON error', async () => {
+      await About.create({});
+      const res = await request(app).get('/api/resume').set('Accept', 'application/json');
+      expect(res.status).toBe(404);
+      expect(res.body.message).toMatch(/no CV to download yet/);
+    });
   });
 
 });
