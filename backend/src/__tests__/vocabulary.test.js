@@ -23,7 +23,7 @@ describe('Vocabulary model (PF-61)', () => {
   });
 
   it('rejects an invalid type', async () => {
-    const v = new Vocabulary({ type: 'category', value: 'React' });
+    const v = new Vocabulary({ type: 'colour', value: 'React' })  // PF-144: 'category' is real now;
     const err = (await validationError(v));
     expect(err).toBeDefined();
     expect(err.errors.type).toBeDefined();
@@ -83,6 +83,7 @@ const VALID_PROJECT = {
   description: 'A project used to prove the cascade delete works.',
   tech:        ['React'],
   githubUrl:   'https://github.com/test/cascade',
+  sections: [{ heading: 'About', body: ['What it does.'] }],  // PF-144: a published project needs a page
 };
 
 describe('Vocabulary API (PF-62)', () => {
@@ -107,7 +108,7 @@ describe('Vocabulary API (PF-62)', () => {
   });
 
   it('GET rejects an invalid type', async () => {
-    const res = await request(app).get('/api/vocabulary/category');
+    const res = await request(app).get('/api/vocabulary/colour');
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/tag.*tech|tech.*tag/i);
   });
@@ -419,7 +420,7 @@ describe('GET /api/vocabulary/:type?inUse=true (PF-97)', () => {
   });
 
   it('still rejects an invalid type', async () => {
-    const res = await request(app).get('/api/vocabulary/category?inUse=true');
+    const res = await request(app).get('/api/vocabulary/colour?inUse=true');
     expect(res.status).toBe(400);
   });
 });

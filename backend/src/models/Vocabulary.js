@@ -8,8 +8,9 @@ const vocabularySchema = new mongoose.Schema(
       enum: {
         // `cert` — certificate tags (owner, 2026-11-02): their OWN list, so
         // deleting a blog tag never touches a certificate, or the reverse.
-        values:  ['tag', 'tech', 'cert'],
-        message: '{VALUE} is not a valid vocabulary type — use "tag", "tech" or "cert"',
+        // `category` — the label on a project's picture (PF-144).
+        values:  ['tag', 'tech', 'cert', 'category'],
+        message: '{VALUE} is not a valid vocabulary type — use "tag", "tech", "cert" or "category"',
       },
     },
     value: {
