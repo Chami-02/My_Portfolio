@@ -97,6 +97,52 @@
   line-height: 1;
 }
 
+/* PF-138 — ← → over the picture's top-left corner, the × 's twin. Same
+   (0,2,0) weight as `.item .remove`, for the same reason. */
+.moves {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  gap: 6px;
+}
+
+.move {
+  composes: btnIcon from '../../styles/admin.module.css';
+}
+
+.item .move {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  padding: 0;
+  background: rgb(var(--srf));
+  border: 1px solid rgba(var(--ln), .2);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.item .move:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+/* The drag, as Certificates shows it (EntryListPanel.module.css): the
+   dragged picture dims, an accent bar marks where it will land. */
+.item[draggable='true'] .thumbWrap { cursor: grab; }
+
+.dragging {
+  opacity: .45;
+}
+
+.dropBefore .thumbWrap {
+  box-shadow: -3px 0 0 0 var(--acc, #FCA311);
+}
+
+.dropAfter .thumbWrap {
+  box-shadow: 3px 0 0 0 var(--acc, #FCA311);
+}
+
 .caption {
   margin: 8px 0 0;
   font-family: var(--font-mono);
@@ -111,7 +157,8 @@
 
 /* Phones: the × gets PF-142's 36px target. ⚠️ LAST (mediaOrder.test.js). */
 @media (max-width: 560px) {
-  .item .remove {
+  .item .remove,
+  .item .move {
     width: 36px;
     height: 36px;
   }

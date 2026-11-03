@@ -43,11 +43,15 @@ const CARDS = [
 // action; NEW POST opens the blog editor, which mounts in list view, so
 // it carries `compose`. AdminPage turns that into the panel's
 // `initialView`.
+// PF-138 (owner, 2026-11-03): + NEW CERTIFICATE joins them — Certificates
+// (PF-143) also mounts with its create form showing. Only this one: Education
+// is written once and rarely changes, so it does not earn a button.
 const ACTIONS = [
-  { label: '+ NEW PROJECT', tab: 'projects', compose: false },
-  { label: '+ NEW POST',    tab: 'blog',     compose: true  },
-  { label: '+ NEW SKILL',   tab: 'skills',   compose: false },
-  { label: 'EDIT PROFILE',  tab: 'about',    compose: false },
+  { label: '+ NEW PROJECT',     tab: 'projects',     compose: false },
+  { label: '+ NEW POST',        tab: 'blog',         compose: true  },
+  { label: '+ NEW SKILL',       tab: 'skills',       compose: false },
+  { label: '+ NEW CERTIFICATE', tab: 'certificates', compose: false },
+  { label: 'EDIT PROFILE',      tab: 'about',        compose: false },
 ];
 
 export function AdminOverviewPanel({ onNavigate }) {
