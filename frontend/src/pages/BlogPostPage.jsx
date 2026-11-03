@@ -28,6 +28,7 @@ import { useBlogPost, useRecordView } from '../hooks/useBlog';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { formatDate, formatReadTime } from '../utils/blogMeta';
 import styles from './BlogPostPage.module.css';
+import { ErrorCard } from '../components/common/ErrorCard';
 
 /** `1` → `01`. The prototype's own line, for both the post numeral and
  *  the per-section ones (Blog.dc.html:594). */
@@ -70,7 +71,11 @@ export function BlogPostPage() {
   const location = useLocation();
   const reduced  = useReducedMotion();
 
-  const { data, isLoading, isError } = useBlogPost(slug);
+  const { data, isLoading, isError, error, refetch, isFetching } = useBlogPost(slug);
+  // PF-144 (same fix as ProjectPage): only a 404 means "not here". A 429, a
+  // dead server or no network means "not loading" — never tell a reader a
+  // real post does not exist because the server was busy.
+  const notFound = isError && error?.response?.status === 404;
   // ⚠️ `mutate` destructured out rather than holding the whole mutation
   // object. TanStack Query returns a NEW object every render but a STABLE
   // `mutate`, so this is what lets the effect below declare an honest
@@ -172,28 +177,28 @@ export function BlogPostPage() {
                 `role="status"` announces it without stealing focus, the
                 same treatment BlogPage.jsx gives its filtered empty
                 state. */}
-            {isError && (
-              <div className={styles.notFound} role="status">
-                <p className={styles.notFoundHeading}>That note is not here</p>
-                <p className={styles.notFoundBody}>
-                  It may have been renamed, or it may not be published yet.
-                </p>
-                {/* ⚠️ DISTINCT COPY from the back link above it, and
-                    that is a correctness fix rather than a flourish. Both
-                    controls are on screen at once in this state, and the
-                    first version labelled both `← ALL POSTS` — two links,
-                    same accessible name, same destination. A screen
-                    reader announces them identically, and Playwright's
-                    strict mode caught it as a two-element resolution.
+            {/* PF-144: the shared error card — the same look as every error. */}
+            {isError && !notFound && (
+              <ErrorCard
+                role="alert"
+                title="This note is not loading"
+                actions={[{ label: isFetching ? 'TRYING AGAIN…' : 'TRY AGAIN', onClick: () => refetch(), disabled: isFetching }]}
+              >
+                It didn’t load this time. This is usually temporary — please try again.
+              </ErrorCard>
+            )}
 
-                    Always plain `/blog`, even when a filter came through:
-                    the post the reader wanted is gone, so the useful
-                    offer is everything, not the subset that did not
-                    contain it. */}
-                <Link to="/blog" className={styles.notFoundLink}>
-                  {'BROWSE FIELD NOTES →'}
-                </Link>
-              </div>
+            {/* Inline, keeping the URL (owner, 2026-09-06). Its one link is
+                worded differently from ← ALL POSTS above it — two links with
+                one name was a screen-reader and strict-mode trap. */}
+            {notFound && (
+              <ErrorCard
+                role="status"
+                title="That note is not here"
+                actions={[{ label: 'BROWSE FIELD NOTES →', to: '/blog' }]}
+              >
+                It may have been renamed, or it may not be published yet.
+              </ErrorCard>
             )}
 
             {post && (

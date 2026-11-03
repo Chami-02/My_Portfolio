@@ -26,6 +26,8 @@ import { formatDate, formatReadTime } from '../utils/blogMeta';
 import { SearchIcon, CloseIcon } from '../components/icons/BrandIcons';
 import { ViewCount } from '../components/blog/ViewCount';
 import styles from './BlogPage.module.css';
+import { ErrorCard } from '../components/common/ErrorCard';
+import { loadFailed } from '../utils/queryState';
 
 /**
  * The chip that means "no tag filter".
@@ -203,8 +205,10 @@ export function BlogPage() {
   // calls, so while no filter is active the two produce an identical query
   // key and React Query issues exactly ONE request. A filter costs one extra
   // fetch, already cached from the unfiltered first paint in the common case.
-  const { data: posts, isLoading, isError, error, refetch, isFetching } =
-    useBlogPosts({ q, tag: tags });
+  const postsQuery = useBlogPosts({ q, tag: tags });
+  const { data: posts, isLoading, isError, error, refetch, isFetching } = postsQuery;
+  // PF-144: stays failed while it retries (utils/queryState.js).
+  const failed = loadFailed(postsQuery);
   const { data: everyPost } = useBlogPosts();
 
   // ⚠️ NOT derived from the fetched posts, which is what the prototype does
@@ -233,7 +237,7 @@ export function BlogPage() {
   // sort: a second rule that drifts from the server's is the PF-96 bug.
   const [featured, ...rest] = list;
 
-  const showGrid  = !isError;
+  const showGrid  = !failed;
   const hasData   = !isLoading && !!featured;
   const isEmpty   = !isLoading && !isError && list.length === 0;
 
@@ -443,6 +447,9 @@ export function BlogPage() {
                 </button>
               </label>
 
+              {/* PF-144 phone pass: invisible to layout on a wide screen
+                  (`display: contents`), ONE swipeable line on a phone. */}
+              <div className={styles.chipList}>
               {chips.map((label) => {
                 // `All` is active when nothing is selected — it is the
                 // absence of a filter, not a tag of its own.
@@ -480,6 +487,7 @@ export function BlogPage() {
                   </button>
                 );
               })}
+              </div>
             </Reveal>
 
             {/* ── The active-filter summary (PF-104) ────────────────────
@@ -656,21 +664,14 @@ export function BlogPage() {
                 live search fires it on almost every keystroke; this one is
                 not keystroke-driven and is a genuine failure, so it should
                 interrupt. */}
-            {isError && (
-              <div className={styles.empty} role="alert">
-                <p className={styles.emptyHeading}>Field notes are not loading</p>
-                <p className={styles.emptyBody}>
-                  The posts could not be fetched. This is usually temporary.
-                </p>
-                <button
-                  type="button"
-                  className={styles.resetButton}
-                  onClick={() => refetch()}
-                  disabled={isFetching}
-                >
-                  {isFetching ? 'RETRYING…' : 'TRY AGAIN'}
-                </button>
-              </div>
+            {failed && (
+              <ErrorCard
+                role="alert"
+                title="Field notes are not loading"
+                actions={[{ label: isFetching ? 'TRYING AGAIN…' : 'TRY AGAIN', onClick: () => refetch(), disabled: isFetching }]}
+              >
+                The posts didn’t load this time. This is usually temporary — please try again.
+              </ErrorCard>
             )}
 
             {/* TWO empty states, owner-approved 2026-09-05.
