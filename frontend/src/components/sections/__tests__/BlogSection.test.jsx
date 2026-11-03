@@ -273,8 +273,9 @@ describe('the tag pill', () => {
   const skills = postcss.parse(
     readFileSync(resolve(here, '../SkillsSection.module.css'), 'utf8'),
   );
+  // PF-144: the Projects pill moved to the project page with the tech list.
   const projects = postcss.parse(
-    readFileSync(resolve(here, '../ProjectsSection.module.css'), 'utf8'),
+    readFileSync(resolve(here, '../../../pages/ProjectPage.module.css'), 'utf8'),
   );
   const declsOf = (parsed, selector) => {
     let out = null;
@@ -1208,5 +1209,16 @@ describe('view counts', () => {
     expect(pick(c, 'featuredFooter').firstElementChild.textContent)
       .toBe('READ THE POST →');
     expect(pick(c, 'featuredFooter').textContent).not.toMatch(/views/);
+  });
+});
+
+// PF-144 (owner, 2026-11-03): a failed load SAYS so, with TRY AGAIN.
+describe('a failed load (PF-144)', () => {
+  it('shows "didn\u2019t load" with TRY AGAIN, and BROWSE ALL WRITING still renders', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    draw({ data: undefined, isLoading: false, isError: true, error: new Error('x'), refetch: vi.fn(), isFetching: false });
+    expect(screen.getByRole('status')).toHaveTextContent('The latest posts didn’t load.');
+    expect(screen.getByRole('button', { name: 'TRY AGAIN' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /BROWSE ALL WRITING/ })).toBeInTheDocument();
   });
 });

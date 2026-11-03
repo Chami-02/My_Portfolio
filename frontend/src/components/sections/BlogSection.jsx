@@ -3,9 +3,11 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Reveal } from '../motion';
 import { useBlogPosts } from '../../hooks/useBlog';
+import { SectionLoadError } from '../common/SectionLoadError';
 import { ViewCount } from '../blog/ViewCount';
 import { formatDate, formatReadTime } from '../../utils/blogMeta';
 import styles from './BlogSection.module.css';
+import { loadFailed } from '../../utils/queryState';
 
 /**
  * How many posts the teaser shows: one featured card plus three compact
@@ -138,7 +140,9 @@ function TagRow({ tags, className }) {
  * server happened to send.
  */
 export function BlogSection() {
-  const { data: posts, isLoading, isError, error } = useBlogPosts();
+  const postsQuery = useBlogPosts();
+  const { data: posts, isLoading, isError, error, refetch, isFetching } = postsQuery;
+  const failed = loadFailed(postsQuery);
 
   // Logged from an effect keyed on the error, not from the render body.
   // A render-phase console.error fires again on every unrelated
@@ -163,7 +167,7 @@ export function BlogSection() {
   // loading"; the gate above it quietly said otherwise, so a failed fetch
   // left the section with a heading and NO route onward to /blog. Renamed
   // so the name states what it actually governs.
-  const showCards = !isError;
+  const showCards = !failed;
   const hasData  = !isLoading && !!featured;
 
   // ⚠️ WITHOUT THIS THE TEASER SKELETONS FOREVER. Added PF-101.
@@ -210,6 +214,10 @@ export function BlogSection() {
             `auto-fit, minmax(min(100%, 340px), 1fr)`, so when the cards
             are gone it collapses to the single remaining track and the
             browse link below spans the section cleanly — no empty cell. */}
+        {/* PF-144 (owner, 2026-11-03): a failed load SAYS so, with TRY
+            AGAIN, above the grid — BROWSE ALL WRITING still renders below. */}
+        {failed && <SectionLoadError what="The latest posts" retry={refetch} busy={isFetching} />}
+
         <div className={styles.grid}>
           {!showCards ? null : hasData ? (
             <Reveal
