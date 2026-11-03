@@ -406,7 +406,7 @@ describe('deleting', () => {
     render(<AdminSkillsPanel />);
     await user.click(screen.getByRole('button', { name: 'Delete Docker' }));
     await user.click(screen.getByRole('button', { name: 'YES, DELETE' }));
-    expect(await screen.findByText(/Delete: the server could not be reached/)).toBeInTheDocument();
+    expect(await screen.findByText(/Delete: We can't connect right now/)).toBeInTheDocument();
   });
 });
 

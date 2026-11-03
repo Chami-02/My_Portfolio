@@ -105,8 +105,13 @@ export function AdminLoginPage() {
   // Show / hide the typed password (owner, 2026-10-14). Hidden by default.
   const [showPassword, setShowPassword] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(Boolean(google.handoff));
-  const [notice, setNotice] = useState(() =>
-    (location.state?.passwordReset ? 'Password changed. Sign in with your new password.' : ''));
+  // PF-144: arriving here from an admin page (signed out, or the session
+  // ended) now SAYS so, instead of a silent jump to this page.
+  const [notice, setNotice] = useState(() => {
+    if (location.state?.passwordReset) return 'Password changed. Sign in with your new password.';
+    if (location.state?.from) return 'Please sign in to continue.';
+    return '';
+  });
   // Only a WRONG PASSWORD counts (a 401). An unreachable server says
   // nothing about the password, so it must not push anyone towards a reset.
   const [failures, setFailures] = useState(0);
@@ -210,7 +215,9 @@ export function AdminLoginPage() {
 
           {notice && !error && (
             <div role="status" className={styles.notice}>
-              <span aria-hidden="true" className={styles.noticeMark}>✓</span>
+              <span aria-hidden="true" className={styles.noticeMark}>
+                {location.state?.passwordReset ? '✓' : 'i'}
+              </span>
               <p className={styles.noticeText}>{notice}</p>
             </div>
           )}

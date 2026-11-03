@@ -154,7 +154,7 @@ describe('ProtectedRoute', () => {
     });
     renderAt();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/couldn.t check your session/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(/couldn.t check that you.re signed in/i);
     expect(screen.queryByTestId('login')).not.toBeInTheDocument();
     expect(screen.queryByText('the panel')).not.toBeInTheDocument();
 

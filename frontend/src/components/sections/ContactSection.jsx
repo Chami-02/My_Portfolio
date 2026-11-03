@@ -7,6 +7,7 @@ import { timezoneLabel } from '../../utils/timezone';
 import { contactService } from '../../services/contactService';
 import { cvAnchorProps } from '../../utils/resume';
 import styles from './ContactSection.module.css';
+import { friendlyError } from '../../utils/friendlyError';
 
 /*
  * ── The DOWNLOAD CV constants MOVED to utils/resume.js in PF-112 ────────────
@@ -193,10 +194,13 @@ export function ContactSection() {
       // fallback covers the no-response case — a backend that is down
       // produces no `err.response` at all, and `loginError.js` exists
       // because that case once rendered as a credential rejection.
-      setFormError(
-        err.response?.data?.message ||
-        'Could not send that — check your connection and try again.'
-      );
+      // PF-144: the shared plain wording (utils/friendlyError.js) — the
+      // server's sentence when it is plain ("Please enter a valid email
+      // address"), and never "server" or a status code. The visitor's
+      // message is kept either way (above).
+      setFormError(friendlyError(err, {
+        fallback: "Your message couldn't be sent. Please try again.",
+      }));
     } finally {
       setSending(false);
     }

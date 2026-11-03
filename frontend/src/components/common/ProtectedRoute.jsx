@@ -63,7 +63,8 @@ export function ProtectedRoute({ children }) {
       <div className={a.gate}>
         <div className={a.bannerError} role="alert">
           <span aria-hidden="true" className={a.bannerDot} />
-          COULDN&rsquo;T CHECK YOUR SESSION — THE SERVER DIDN&rsquo;T ANSWER
+          {/* PF-144: plain words — was "…THE SERVER DIDN'T ANSWER". */}
+          COULDN&rsquo;T CHECK THAT YOU&rsquo;RE SIGNED IN — PLEASE TRY AGAIN
           <button type="button" onClick={() => refetch()} className={a.bannerAction}>
             RETRY
           </button>

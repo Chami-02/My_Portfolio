@@ -199,7 +199,7 @@ describe('HeroSection (PF-80)', () => {
       // ⚠️ `download` must be ABSENT here, not merely falsy — left on an inert
       // `#contact` href the browser tries to download the page itself.
       expect(cv()).not.toHaveAttribute('download');
-      expect(cv()).toHaveAttribute('title', expect.stringMatching(/admin panel/i));
+      expect(cv()).toHaveAttribute('title', expect.stringMatching(/contact form/i));
     });
 
     it('matches what Contact renders, which is the bug that existed', () => {

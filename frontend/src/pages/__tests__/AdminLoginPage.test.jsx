@@ -117,10 +117,10 @@ describe('AdminLoginPage — behaviour (PF-109)', () => {
     const user = userEvent.setup();
     renderAt();
     await fillAndSubmit(user);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password. Please try again.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Incorrect email or password. Please try again.');
   });
 
-  it('no response at all says the server is unreachable — a DIFFERENT sentence', async () => {
+  it('no response at all says the connection failed — a DIFFERENT sentence', async () => {
     // The whole reason utils/loginError.js exists: a single fallback
     // string once made a stopped backend read as a wrong password.
     login.mockRejectedValueOnce(new Error('Network Error'));
@@ -128,7 +128,7 @@ describe('AdminLoginPage — behaviour (PF-109)', () => {
     renderAt();
     await fillAndSubmit(user);
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent(/cannot reach the server/i);
+    expect(alert).toHaveTextContent(/We can't connect right now/i);
     expect(alert).not.toHaveTextContent(/invalid email or password/i);
   });
 
@@ -566,5 +566,18 @@ describe('AdminLoginPage — the way back from a forgotten password (PF-125)', (
     );
     expect(screen.getByRole('status')).toHaveTextContent('Password changed. Sign in with your new password.');
     expect(screen.getByLabelText('Email address')).toHaveValue('me@example.com');
+  });
+});
+
+// PF-144 — arriving from an admin page SAYS why you are here.
+describe('AdminLoginPage — sent here from an admin page', () => {
+  it('says "Please sign in to continue." instead of a silent jump', async () => {
+    renderAt({ pathname: '/admin/login', state: { from: { pathname: '/admin' } } });
+    expect(await screen.findByRole('status')).toHaveTextContent('Please sign in to continue.');
+  });
+
+  it('a plain visit to the sign-in page shows no notice', () => {
+    renderAt('/admin/login');
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });

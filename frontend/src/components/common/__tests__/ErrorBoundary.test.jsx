@@ -109,7 +109,8 @@ describe('ErrorBoundary', () => {
     expect(screen.getByRole('button', { name: /try again/i })).toHaveAttribute('type', 'button');
   });
 
-  it('announces the failure and prints the error message', () => {
+  // PF-144: the raw error text is for the console, never the reader.
+  it('announces the failure in plain words — never the raw error text', () => {
     shouldThrow = true;
     render(
       <ErrorBoundary>
@@ -118,7 +119,8 @@ describe('ErrorBoundary', () => {
     );
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent(/something went wrong/i);
-    expect(alert).toHaveTextContent('Test render error');
+    expect(alert).toHaveTextContent('Please try again. If it keeps happening, refresh the page.');
+    expect(alert).not.toHaveTextContent('Test render error');
   });
 
   it('carries no inline style — every colour comes from the module', () => {

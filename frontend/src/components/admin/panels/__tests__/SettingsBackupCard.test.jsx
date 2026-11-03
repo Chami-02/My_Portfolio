@@ -223,7 +223,7 @@ describe('SettingsBackupCard — restore', () => {
     await unfold(user);
     await choose(user, new File(['x'], 'photo.png', { type: 'image/png' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Choose the .json file that DOWNLOAD BACKUP saved.');
+    expect(await screen.findByRole('alert')).toHaveTextContent("That isn't a backup file. Choose the file you saved with DOWNLOAD BACKUP.");
     expect(mocks.checkRestore).not.toHaveBeenCalled();
   });
 
@@ -233,7 +233,7 @@ describe('SettingsBackupCard — restore', () => {
     await unfold(user);
     await choose(user, jsonFile('big.json', 4 * 1024 * 1024 + 1));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/bigger than 4 MB/);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/too large to be a backup/);
     expect(mocks.checkRestore).not.toHaveBeenCalled();
   });
 
