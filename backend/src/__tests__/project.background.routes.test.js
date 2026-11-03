@@ -50,7 +50,7 @@ const uploaded = (id) => ({
 });
 
 const makeProject = (over = {}) => Project.create({
-  title: 'ClearDrive', description: 'd', githubUrl: 'https://github.com/x/y',
+  title: 'ClearDrive', description: 'd', githubUrl: 'https://github.com/x/y', sections: [{ heading: 'About', body: ['What it does.'] }],
   tech: ['React'], ...over,
 });
 
@@ -366,7 +366,7 @@ describe('PUT /api/projects/:id — an ordinary save cannot touch the media (PF-
       .post('/api/projects')
       .set(await authHeader())
       .send({
-        title: 'New', description: 'd', githubUrl: 'https://github.com/a/b', tech: ['React'],
+        title: 'New', description: 'd', githubUrl: 'https://github.com/a/b', tech: ['React'], sections: [{ heading: 'About', body: ['What it does.'] }],
         'backgroundImage.publicId': 'portfolio/profile/victim',
       });
 
@@ -379,7 +379,7 @@ describe('PUT /api/projects/:id — an ordinary save cannot touch the media (PF-
       .post('/api/projects')
       .set(await authHeader())
       .send({
-        title: 'New', description: 'd', githubUrl: 'https://github.com/a/b', tech: ['React'],
+        title: 'New', description: 'd', githubUrl: 'https://github.com/a/b', tech: ['React'], sections: [{ heading: 'About', body: ['What it does.'] }],
         backgroundImage: { src: 'https://evil/a.png', publicId: 'portfolio/profile/victim', opacity: 0.6 },
       });
 

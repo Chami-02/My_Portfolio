@@ -4,19 +4,22 @@ const { publicCache } = require('../middleware/cache'); // PF-128
 const { uploadSingle } = require('../middleware/upload');
 const {
   getAllProjects,
+  getProjectBySlug,
   getAllProjectsAdmin,
   createProject,
   updateProject,
   deleteProject,
   uploadBackground,
   removeBackground,
+  uploadSectionImage,
 } = require('../controllers/projectController');
 
 router.get('/',    publicCache, getAllProjects);
 // PF-113 — drafts included.
 router.get('/admin/all', protect, getAllProjectsAdmin);
-// ⚠️ No public GET /:id since 2026-11-02 — nothing on the site called it (only
-// the Postman collection). The Projects rebuild reads a project by its slug.
+// PF-144 — a project's own page. By SLUG: the public GET /:id went on
+// 2026-11-02. `/admin/all` is two segments, so `/:slug` cannot capture it.
+router.get('/:slug', publicCache, getProjectBySlug);
 router.post('/',      protect, createProject);   
 router.put('/:id',    protect, updateProject);
 router.delete('/:id', protect, deleteProject);
@@ -29,6 +32,9 @@ router.delete('/:id', protect, deleteProject);
 // a free denial-of-service.
 router.put('/:id/background',    protect, uploadSingle, uploadBackground);
 router.delete('/:id/background', protect, removeBackground);
+// PF-144 — a section picture into the project's ledger. `protect` before
+// multer, for the same reason as above.
+router.post('/:id/images',       protect, uploadSingle, uploadSectionImage);
 // ─────────────────────────────────────────────────────────────
 
 module.exports = router;

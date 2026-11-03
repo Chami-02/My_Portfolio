@@ -35,6 +35,7 @@ const project = (n) => ({
   description: 'A valid test project description for the dashboard suite.',
   tech:        ['JavaScript'],
   githubUrl:   `https://github.com/test/project-${n}`,
+  sections: [{ heading: 'About', body: ['What it does.'] }],  // PF-144: a published project needs a page
 });
 
 const skill = (n) => ({ name: `Skill ${n}`, category: 'language', level: 'intermediate', order: n });

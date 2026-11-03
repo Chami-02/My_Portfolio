@@ -10,6 +10,7 @@ const VALID_PROJECT = {
   description: 'A valid test project description for our integration tests.',
   tech:        ['JavaScript', 'Node.js'],
   githubUrl:   'https://github.com/test/project',
+  sections: [{ heading: 'About', body: ['What it does.'] }],  // PF-144: a published project needs a page
 };
 
 const ADMIN = { email: 'admin@test.com', password: 'TestPass@1234!' };

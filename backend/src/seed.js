@@ -21,6 +21,7 @@ const { DEFAULT_CATEGORIES } = require('./controllers/skillCategoryController');
 const PROJECTS = [
   {
     title:       'Personal Portfolio',
+    categories:  ['Web App'],   // PF-144 — the label on the card's picture
     description: 'A full-stack MERN portfolio tracked in Jira, containerized with Docker, tested with Vitest and Jest, deployed via GitHub Actions CI/CD. Built the way a professional engineering team would build it.',
     tech:        ['React 19', 'Node.js', 'Express.js', 'MongoDB', 'Docker', 'Tailwind CSS', 'GitHub Actions'],
     githubUrl:   'https://github.com/Chami-02/My_Portfolio',
@@ -35,6 +36,7 @@ const PROJECTS = [
   },
   {
     title:       'ClearDrive.lk',
+    categories:  ['Web App'],   // PF-144 — the label on the card's picture
     description: 'A full-stack vehicle import platform connecting Sri Lankan buyers with Japanese auctions, built with FastAPI, PostgreSQL, Next.js, Docker, and Redis. Developed using Agile workflows with Jira, GitHub, CI/CD, secure APIs, and scalable cloud-ready architecture.',
     tech:        ['Python', 'FastAPI','Next.js', 'PostgreSQL', 'Docker', 'Redis', 'GitHub Actions', 'Tailwind CSS', 'SQLAlchemy','Alembic'],
     githubUrl:   'https://github.com/ClearDrive-lk/cleardrive-lk',
@@ -45,6 +47,7 @@ const PROJECTS = [
   },
   {
     title:       'Smart Campus API',
+    categories:  ['API'],   // PF-144 — the label on the card's picture
     description: 'A RESTful API for a "Smart Campus" managing rooms and IoT sensors. Built strictly with Java and JAX-RS using in-memory data structures. Features sub-resource routing, custom exception mapping, and logging filters.',
     tech:        ['Java', 'JAX-RS'],
     githubUrl:   'https://github.com/Chami-02/CSA_CW_W2120595_smart-campus-api',
@@ -55,6 +58,7 @@ const PROJECTS = [
   },
    {
     title:       'Life Below Water',
+    categories:  ['Website'],   // PF-144 — the label on the card's picture
     description: 'The website was developed using HTML, CSS, JavaScript, and XML to create an interactive, visually appealing, and user-friendly platform. It includes multiple pages such as a Splash Screen, Home Page, Volunteer Page, User Profile, Feedback Form, Sitemap, and more, each designed to provide a seamless user experience.',
     tech:        ['HTML', 'CSS', 'JavaScript', 'XML'],
     githubUrl:   'https://github.com/Chami-02/WD-D_GP_Goal-14-Life-below-water',
@@ -63,7 +67,14 @@ const PROJECTS = [
     order:       4,
     backgroundImage: { src: '', publicId: '', opacity: 0.75 },
   }
-];
+].map((project) => ({
+  // PF-144 — a published project needs a page. The seed's page is one
+  // Description section holding the summary — the same thing migration 013
+  // gives every existing project. Role, client and dates are left for the
+  // owner to fill in (nothing here would be true).
+  ...project,
+  sections: [{ heading: 'Description', body: [project.description], bullets: [] }],
+}));
 
 const SKILLS = [
   // ── PF-82 ────────────────────────────────────────────────────────────────
@@ -470,14 +481,17 @@ async function seedVocabulary() {
   posts.forEach(   p => (p.tags || []).forEach(t => tags.add(String(t).trim())));
   certs.forEach(   c => (c.tags || []).forEach(t => cert.add(String(t).trim())));
 
+  const categories = new Set(PROJECTS.flatMap((p) => p.categories || []));   // PF-144
+
   const docs = [
+    ...[...categories].map(value => ({ type: 'category', value })),
     ...[...tech].filter(Boolean).map(value => ({ type: 'tech', value })),
     ...[...tags].filter(Boolean).map(value => ({ type: 'tag',  value })),
     ...[...cert].filter(Boolean).map(value => ({ type: 'cert', value })),
   ];
 
   if (docs.length) await Vocabulary.insertMany(docs);
-  console.log(`🏷  Seeded vocabulary: ${tech.size} tech, ${tags.size} tags, ${cert.size} certificate tags`);
+  console.log(`🏷  Seeded vocabulary: ${categories.size} categories, ${tech.size} tech, ${tags.size} tags, ${cert.size} certificate tags`);
 }
 // ───────────────────────────────────────────────────────────────────────────
 

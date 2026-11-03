@@ -141,7 +141,7 @@ describe('Project.imageUrl and Blog.coverImage are gone (PF-111)', () => {
     // leaves data arriving from an old client sitting in the collection.
     const Project = require('../models/Project');
     const p = await Project.create({
-      title: 'x', description: 'd', githubUrl: 'https://github.com/a/b',
+      title: 'x', description: 'd', githubUrl: 'https://github.com/a/b', sections: [{ heading: 'About', body: ['What it does.'] }],
       tech: ['React'], imageUrl: 'https://example.com/old.png',
     });
 

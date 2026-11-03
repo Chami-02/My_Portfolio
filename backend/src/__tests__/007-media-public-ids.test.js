@@ -68,7 +68,7 @@ const plantAbout = async (fields) => {
 const plantProject = async (fields) => {
   const doc = await Project.create({
     title: 'ClearDrive', description: 'd',
-    githubUrl: 'https://github.com/a/b', tech: ['React'],
+    githubUrl: 'https://github.com/a/b', tech: ['React'], sections: [{ heading: 'About', body: ['What it does.'] }],
   });
   await mongoose.connection.collection('projects')
     .updateOne({ _id: doc._id }, fields);
