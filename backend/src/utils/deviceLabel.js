@@ -48,4 +48,31 @@ const deviceLabel = (userAgent) => {
   return browser ?? system ?? 'Unknown device';
 };
 
-module.exports = { deviceLabel };
+// PF-145 — the visitor counter's halves of the same header. Only these short
+// words are counted, never the header itself.
+
+// Crawlers, link previews, uptime checks and scripted browsers. A browser
+// always sends a User-Agent, so a missing one counts as a bot too.
+const BOT = /bot\b|bot[/;-]|crawl|spider|slurp|facebookexternalhit|embedly|preview|headless|lighthouse|pagespeed|pingdom|uptime|monitor|curl\/|wget|python|node-fetch|axios\/|go-http|java\/|okhttp|postman|insomnia|phantomjs|selenium|puppeteer|playwright/i;
+
+const isBot = (userAgent) => typeof userAgent !== 'string'
+  || userAgent.length === 0
+  || BOT.test(userAgent.slice(0, 512));
+
+/** "Chrome", or "Other" when it is none of the browsers above. */
+const browserName = (userAgent) => first(BROWSERS, String(userAgent).slice(0, 512)) ?? 'Other';
+
+/**
+ * 'phone' | 'tablet' | 'desktop'. An Android tablet leaves "Mobile" out of its
+ * header (Google's own advice to site owners); an iPad claims to be a Mac, so
+ * it reads as desktop — see the note at the top of this file.
+ */
+const deviceType = (userAgent) => {
+  const ua = String(userAgent).slice(0, 512);
+  if (/iPad|Tablet/.test(ua)) return 'tablet';
+  if (/iPhone|iPod|Mobile/.test(ua)) return 'phone';
+  if (/Android/.test(ua)) return 'tablet';
+  return 'desktop';
+};
+
+module.exports = { deviceLabel, isBot, browserName, deviceType };

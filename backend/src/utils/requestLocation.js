@@ -51,4 +51,18 @@ const requestLocation = (req) => {
   return parts.length > 0 ? parts.join(', ') : null;
 };
 
-module.exports = { requestLocation };
+/**
+ * PF-145 — the same headers for the visitor counter, which keeps a place as
+ * two separate totals: `{ country: 'LK', city: 'Galle, LK' }`. The city carries
+ * its country because two countries can share a city name. Null off Vercel,
+ * for the same reason as above.
+ */
+const requestPlace = (req) => {
+  if (!process.env.VERCEL) return null;
+  const code = header(req, 'x-vercel-ip-country');
+  if (!/^[A-Z]{2}$/.test(code)) return null;
+  const city = header(req, 'x-vercel-ip-city');
+  return { country: code, city: city ? `${city}, ${code}` : null };
+};
+
+module.exports = { requestLocation, requestPlace };
