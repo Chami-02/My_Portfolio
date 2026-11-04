@@ -154,11 +154,21 @@ describe('vercel.json caches hashed assets (PF-127)', () => {
 describe('vercel.json moves the site to its own address (PF-146)', () => {
   it('forwards only the exact old address, permanently, keeping the path', () => {
     expect(vercel.redirects).toEqual([{
-      source: '/:path*',
+      source: '/(.*)',
       has: [{ type: 'host', value: 'my-portfoliofrontend-henna.vercel.app' }],
-      destination: 'https://parindragallage.com/:path*',
+      destination: 'https://parindragallage.com/$1',
       permanent: true,
     }]);
+  });
+
+  // Measured on production: `/:path*` forwarded every deep link but left the
+  // old HOME page serving a 200, the one address most people have saved. The
+  // headers block's own `/(.*)` is seen applying to `/` on the live site.
+  it('forwards the old home page as well as deep links', () => {
+    const source = new RegExp(`^${vercel.redirects[0].source}$`);
+    for (const route of ['/', '/blog', '/blog/some-post']) {
+      expect(source.test(route)).toBe(true);
+    }
   });
 
   it('serves /sitemap.xml from the API named in .env.production, ahead of the catch-all', () => {

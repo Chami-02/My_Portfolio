@@ -4308,3 +4308,6 @@ relative`), never with a percentage height inside a grid/flex frame. A plain BLO
   `${m}:path`, never echo `=`, and re-check what is staged.
 - **`printf` with a `%r` Python template broke a mutation harness:** 14 of 15 mutants reported "NOT
   APPLIED". The "not applied" check is what caught it. Write harnesses as a Python file.
+- **Vercel: a `/:path*` redirect source forwarded every deep link but NOT `/`.** Measured on production: `/`
+  answered 200 from cache, `/blog` 308. A preview cannot show it (host-conditioned), so a passing deep-link
+  check hides it: test the home page too. Rule: `/(.*)` + `$1` for a whole-site forward.
