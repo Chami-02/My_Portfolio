@@ -138,12 +138,34 @@ describe('vercel.json caches hashed assets (PF-127)', () => {
   });
 
   it('never rewrites a missing asset to index.html, but still rewrites every route', () => {
-    expect(vercel.rewrites).toHaveLength(1);
-    const { source, destination } = vercel.rewrites[0];
+    // The catch-all stays LAST: rewrites run in order, and anything after it
+    // would never be reached.
+    const { source, destination } = vercel.rewrites.at(-1);
     expect(destination).toBe('/index.html');
     expect(matches(source, '/assets/index-OLDHASH.js')).toBe(false);
     for (const route of ['/', '/blog', '/blog/some-post', '/admin', '/admin/login', '/nope']) {
       expect(matches(source, route)).toBe(true);
     }
+  });
+});
+
+// PF-146 — the move to parindragallage.com. A preview runs on its own address,
+// so none of this can be seen working before it reaches production.
+describe('vercel.json moves the site to its own address (PF-146)', () => {
+  it('forwards only the exact old address, permanently, keeping the path', () => {
+    expect(vercel.redirects).toEqual([{
+      source: '/:path*',
+      has: [{ type: 'host', value: 'my-portfoliofrontend-henna.vercel.app' }],
+      destination: 'https://parindragallage.com/:path*',
+      permanent: true,
+    }]);
+  });
+
+  it('serves /sitemap.xml from the API named in .env.production, ahead of the catch-all', () => {
+    const api = read('.env.production').match(/^VITE_API_URL=(.+)$/m)[1].trim();
+    expect(vercel.rewrites).toEqual([
+      { source: '/sitemap.xml', destination: `${api}/sitemap.xml` },
+      expect.objectContaining({ destination: '/index.html' }),
+    ]);
   });
 });
