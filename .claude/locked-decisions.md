@@ -4644,6 +4644,8 @@ Google sign-in confirms with it too.
 
 ## PF-134 — The site logo is Orbit PG in the site's sky, shipped as files (owner 2026-10-30)
 
+**⚠️ The logo and tab icon were REVERSED by the owner in PF-146 (2026-11-04), see that entry. Kept here for the reasoning.**
+
 - **No upload** (owner: "a logo rarely changes") — REVERSES the Sprint 15 plan's upload ticket.
   Changing it = swap `src/assets/logo-{dark,light}.svg` + the three `public/` favicon files.
 - **The mark** (owner picked concept D, Rubik Dirt, from five): "PG" as Rubik Dirt OUTLINES, P in
@@ -6102,3 +6104,48 @@ lands on a red CI for the identical reason.
   buttons 30px (owner, 2026-11-04). Desktop unchanged.
 - **Phones (≤768px): a theme toggle in the header, left of the hamburger; the menu keeps its own**
   (owner, 2026-11-04). Both 44px — `--header-h` stays 71px.
+
+## PF-146 — own web address, site name, slogan, logo (owner, 2026-11-04)
+
+**Status 2026-11-04: built and pushed on `feat/PF-146-switch`; the switch is NOT yet deployed.**
+
+**The address**
+- `parindragallage.com` is the main name; `www` forwards to it (308, set in Vercel); the API is
+  `api.parindragallage.com`. Vercel recommends `www` as main; the owner approved the shorter name.
+- **Registrar: Cloudflare, not Porkbun** (owner's choice, at-cost price, $11.17/yr, auto-renew on,
+  expires 2027-11-04). Cloudflare Registrar REQUIRES Cloudflare nameservers, so DNS lives there.
+- **Every DNS line is DNS only (GREY), never Proxied.** Vercel must see the real visitor:
+  `requestLocation.js` reads Vercel's headers and `trust proxy` is 1, so orange would break visitor
+  locations, per-visitor limits and the PF-145 counter. Orange is possible later as its own ticket
+  (real-IP headers, blocking direct `vercel.app` access, cache rules). Ignore Cloudflare's "proxying
+  is required" banner. Vercel issues the certificates (Let's Encrypt, TLS 1.3, renewed automatically).
+- **Expand, switch, contract:** release 1 (PR #84) allowed both addresses; release 2 switches and
+  forwards the old address (`vercel.json` `redirects`, exact host only, so previews still work);
+  a later release (PF-153) removes the old address from CORS, `connect-src` and Google's list.
+  The forward stays. The old API address stays up.
+- **Sitemap comes from the API** (`GET /api/sitemap.xml`, cached, published only), reached at
+  `/sitemap.xml` through a rewrite, because a static file would miss new posts.
+- **Not done, on purpose:** HSTS preload list (very hard to undo); per-page preview cards (a
+  single-page app shows one card for every link).
+
+**Name, slogan, logo: all owner, all override the prototype and earlier decisions**
+- **Name:** `PARINDRA GALLAGE` with `GALLAGE` in the accent colour, everywhere `PARINDRA.DEV` was.
+  Reason: the owner does not hold `parindra.dev`, so it looked like an address that reaches nothing.
+- **Slogan:** `LET'S MAKE IT REAL` under the name in the public header and phone menu. Admin and
+  sign-in pages keep `ADMIN PANEL` / `PORTFOLIO CMS`.
+- **Slogan replaces the job title** on the splash, footer, `<title>`, `og:title`. The description no
+  longer says "Full-Stack Developer". **Kept by owner:** the hero's typing role `Full-Stack Web
+  Developer`. Kept because a slogan cannot replace words in a sentence: hero intro, About text,
+  project descriptions. Trade-off told to the owner: weaker for searches on the job title.
+- **Logo: the PHOTO is back, REVERSING PF-134's Orbit PG** (both halves stay in this file). PF-134
+  retired it as an AI image that blurs at 16px, is not ownable and repeats the face on the site;
+  the owner, shown those trade-offs, prefers it. Cropped from `docs/design/assets/logo.png`: centre
+  (144,160), side 272 of 320, chosen by eye with the owner ("too much zoomed" at 232).
+- **Tab icon is the same photo** (owner), with an amber rim. One image, so the icon no longer follows
+  the theme: `applyTheme()` swap and the SVG favicons are deleted. `favicon.ico` holds 16/32/48,
+  plus `favicon-96.png` and `apple-touch-icon.png`.
+- **Preview card** (`public/og-image.png`, owner approved after two rounds): real hero image in a gold
+  orbit on a starfield, logo + address, name, `— LET'S MAKE IT REAL —`. No job title on the image.
+- **Header below 860px:** tighter link spacing, and the nav pill never wraps. Without this the longer
+  name overflowed by 31px at 769, and `← GO BACK` wrapped to make the `/blog` header 86px, not the
+  locked 71 (that wrap already existed up to about 880px).

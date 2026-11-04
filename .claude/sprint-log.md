@@ -2231,6 +2231,14 @@ retrospective document** — this section is the record, matching Sprint 10,
 
 ### Outstanding work — deferred deliberately, not lost
 
+- **PF-146 follow-ups (2026-11-04).** (1) **Sign-in renewal, fix in PF-147:** `refreshSession()` in
+  `api.js` clears the session on ANY failure (network, 429, 5xx), not only a real 401; and two tabs
+  renewing together trip reuse detection and sign out both (accepted in PF-108). The owner reports
+  signing in more often; the cause is NOT confirmed. (2) **Contract in PF-153:** remove the old address
+  from `corsOptions.js`, `connect-src` and Google's list. (3) **Owner after the switch:** sign in on each
+  device (the owner mark is per address), PF-128 SAVE check, Search Console + sitemap, turn on DNSSEC.
+  (4) `session.js` / `sessionService.js` comments still explain the vercel.app cookie limit; PF-147 rewrites them.
+
 - **⚠️ MIGRATIONS 001–006 CAPTURE `--dry-run` AT MODULE SCOPE.** Found in
   PF-111, 2026-09-23, by 007's own control test — which passed `--dry-run`
   and watched the script WRITE. `const DRY_RUN = process.argv.includes(…)`
@@ -10986,3 +10994,19 @@ its first run. Live check after deploy: totals move in Atlas; signed-in browser 
 PF-148. A `jest … searchTerms.test.js -t linear` process orphaned since ~2026-11-03 was found spinning at 100%
 CPU (PID 51993); not started this session, reported to the owner, left running.
 
+#### PF-146 — own web address, new name, slogan and logo · BUILT 2026-11-04, switch NOT yet deployed
+
+Decisions: `locked-decisions.md` "PF-146". Traps: `silent-failures.md` "PF-146". Owner bought
+`parindragallage.com` at Cloudflare; DNS lines added, all grey; certificates live (Let's Encrypt, TLS
+1.3, HSTS `max-age=63072000` on site names, helmet's on the API); old Google URI kept, new one added.
+
+- **Release 1, PR #84 `e26643a`, deployed:** CORS + `connect-src` accept the new names. Live check: both
+  addresses get their own `Access-Control-Allow-Origin` on MISS and on HIT, `Vary: Origin`; lookalikes
+  403. Password sign-in on the new address stays there (owner, 2026-11-04).
+- **Release 2, branch `feat/PF-146-switch`, `7df6ea2` + `e284fa2`, pushed, no PR yet:** API address
+  moved, old address forwards 308, `robots.txt`, `GET /api/sitemap.xml`, preview card and tags; name,
+  slogan, photo logo, tab icons, tablet header fix, `siteName.test.js`.
+- **Gates before release 2's commits:** frontend `npm run check` 2,660 / 128 files; backend
+  `test:coverage` 1,485 / 74. Mutation: 22 of 22 (address), 7 of 7 (name). E2E not run locally; CI runs it.
+- **Browser:** header 71px, no overflow, 320–1440 on the home page and 769–1000 on `/blog`.
+- **Still to verify live after the deploy:** forward, sitemap, Google sign-in, preview tags, health check.
