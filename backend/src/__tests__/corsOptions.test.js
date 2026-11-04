@@ -33,6 +33,7 @@ describe('CORS origin policy (PF-85)', () => {
     const ORIGINS = [
       'http://localhost:5173',
       'http://localhost:5174',
+      'https://parindragallage.com',
       'https://my-portfoliofrontend-henna.vercel.app',
     ];
 
@@ -42,6 +43,17 @@ describe('CORS origin policy (PF-85)', () => {
 
     it.each(ORIGINS)('allows %s in development', (o) => {
       expect(allowed(o, 'development')).toBe(true);
+    });
+
+    // PF-146 — exact match: only the one address, not everything that looks
+    // like it. www forwards to the main name, so it never calls the API.
+    it.each([
+      'http://parindragallage.com',
+      'https://www.parindragallage.com',
+      'https://evil.parindragallage.com',
+      'https://parindragallage.com.evil.com',
+    ])('rejects %s in production', (origin) => {
+      expect(check(origin, 'production')).toBeInstanceOf(Error);
     });
   });
 
