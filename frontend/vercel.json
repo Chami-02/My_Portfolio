@@ -2,9 +2,9 @@
   "git": { "deploymentEnabled": { "master": false } },
   "redirects": [
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "has": [{ "type": "host", "value": "my-portfoliofrontend-henna.vercel.app" }],
-      "destination": "https://parindragallage.com/:path*",
+      "destination": "https://parindragallage.com/$1",
       "permanent": true
     }
   ],
