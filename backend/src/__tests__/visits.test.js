@@ -154,6 +154,13 @@ describe('POST /api/visits — what a client cannot do', () => {
     expect(await total('path', '/blog')).toBe(1);
   });
 
+  it('a path of many slashes is (other), and answers at once', async () => {
+    await view('/blog//');
+    await view(`/${'/'.repeat(2000)}`);
+    expect(await total('path', '(other)')).toBe(2);
+    expect(await total('path', '/blog')).toBe(0);
+  });
+
   it.each([
     ['an unknown type',      { type: 'evil', path: '/' }],
     ['an array type',        { type: ['view'], path: '/' }],

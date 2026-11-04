@@ -105,7 +105,8 @@ const isAdminPath = (path) => path === '/admin' || path.startsWith('/admin/');
 
 /** A public route as written, or OTHER — never the client's own text. */
 const pathKey = (raw) => {
-  const path = raw.length > 1 ? raw.replace(/\/+$/, '') : raw;
+  // One slash only, and no regex: a path of thousands of slashes is client text.
+  const path = raw.length > 1 && raw.endsWith('/') ? raw.slice(0, -1) : raw;
   return LISTED_PATHS.has(path) || SLUG_PATH.test(path) ? path : OTHER;
 };
 
