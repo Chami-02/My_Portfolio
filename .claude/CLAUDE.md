@@ -128,12 +128,10 @@ search the companions *before* explaining a surprise.
 | PF-126 (+ 3 fixes) | migration guard, deploy pipeline | merged; `deploy.yml` = ONLY path to prod |
 | Sprint 15 (PF-123 → PF-144) | speed + auth + email + Settings | **closed** 2026-11-04 — PR #81 `a5acdb0` |
 
-Sprint 14: sprint-log "Sprint 14 closed — PF-121".
-
-**▶ NEXT: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 15/PF-123-138-sprint-15-plan.md`).
+**▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
 - Open from PF-113: keep the picture block's badge + `MAX 4 MB` caption?
-- **Every doc I create** (tickets, reports, plans, PDFs) goes to `new mds/Sprint 15/` (owner, 2026-10-16; outside the repo).
+- **Every doc I create** goes to `new mds/Sprint 16/` (owner; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
 - `frontend/src/styles/`: `global.css` (Tailwind only), `tokens.css`,
@@ -430,6 +428,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-144: picture-ON-TOP `ProjectCard`, 1 link, no numerals/slider (REVERSED); `/projects` = /blog search; `/projects/:slug` = Blog sections + GitHub/LIVE; slug: Certificate's rule. Section pictures ONLY via the `media` ledger; forgiving search. Errors: plain words (`friendlyError`), ONE `ErrorCard` (red `!`).
 - PF-138: 1-typo search (5–12 letters; gaps follow REQUIRED letters = no ReDoS); picture reorder staged; opacity gone (014); terminal → public stats box (S16).
 - PF-143: home TEXT ONLY (≤6, VIEW ALL); `/certificates/:slug?` big view; PDF = `pg_1`; words FIXED; `EntryListPanel`; certs: 1 tag = 1 pill, pins lead + drag order; demo rows throwaway DBs only.
+- PF-145: own visitor counter, daily totals only; /privacy's words are PROMISES — change them with the behaviour.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment

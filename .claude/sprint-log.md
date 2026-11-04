@@ -10959,3 +10959,30 @@ Plan approved in chat (owner). Report: `new mds/Sprint 15/PF-138-sprint-15-gate.
   standards), passkeys (PF-140), Analytics dashboard + the PUBLIC analytics box replacing the home
   terminal, project README, the Security and API/QA handbooks. Light-theme upgrade: after launch.
 - **Local branches:** only `master` left (PF-138 branch deleted with `-d`, remote auto-deleted).
+
+## Sprint 15 live read-through (2026-11-04, recorded on the PF-145 branch)
+
+Read-only, curl only, no email. Health ok on `portfolio_prod`; 6 public GETs 200, CDN HIT on repeat ~0.2 s;
+opacity gone; 4 project slugs; protected routes 401 + no-store; pages + icons 200; hashed assets immutable;
+HSTS on both vercel.app hosts (re-check on the custom domain). PF-128's SAVE check needs the owner signed in:
+still open. Dependabot #73–78 were red only on a stale 11-02 audit (`follow-redirects`).
+
+## PF-145 — Visitor counter + privacy page (2026-11-04, `feat/PF-145-visitor-counter`)
+
+**Built:** `POST /api/visits` → daily totals (`VisitTotal`), with `VisitorDay` + `VisitSalt` expiring at 48 h;
+`visitLimiter`; `requestPlace`, `isBot`, `browserName`, `deviceType`; `VisitTracker` + `utils/visits.js`;
+`pg-owner-device` mark; `/privacy`; footer `PRIVACY` line; `Contact me` on the page's Questions line. Decisions:
+`locked-decisions.md` "PF-145". Traps: `silent-failures.md` "PF-145".
+
+**Gates:** frontend `check` 2,660 / 127 files, coverage 93.76 / 89.88 / 89.71 / 95.55, build OK. Backend
+`test:coverage` 1,470 / 73 suites, coverage 88.31 / 79.95 / 91.96 / 88.92, 410 s. Mutation 33/33 (15 + 18).
+Browser: real page → 204 → rows in `portfolio_dev`, TTL indexes present, limiter row holds a hash; both themes;
+390px iframe no overflow; owner mark 0 sends vs control 1.
+
+**Not run:** E2E locally (`dev:e2e`, Outstanding PF-127). `footer.spec.js` was edited for the new line, so CI is
+its first run. Live check after deploy: totals move in Atlas; signed-in browser adds nothing.
+
+**Outstanding:** totals have no backup of their own (PF-149 to decide). Gmail line on /privacy changes with
+PF-148. A `jest … searchTerms.test.js -t linear` process orphaned since ~2026-11-03 was found spinning at 100%
+CPU (PID 51993); not started this session, reported to the owner, left running.
+
