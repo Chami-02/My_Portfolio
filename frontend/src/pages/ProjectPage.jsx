@@ -161,7 +161,7 @@ export function ProjectPage() {
                     </a>
                   )}
                   {project.liveUrl && (
-                    <a className={styles.liveLink} href={project.liveUrl} target="_blank" rel="noreferrer">
+                    <a className={styles.liveLink} href={project.liveUrl} target="_blank" rel="noreferrer" data-visit-link="live">
                       <span aria-hidden="true" className={styles.liveDot} />
                       LIVE SITE ↗
                     </a>
