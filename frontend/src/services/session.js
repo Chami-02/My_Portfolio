@@ -32,6 +32,15 @@ const REFRESH_EXP_KEY = 'portfolio_refresh_expires';
  */
 export const ME_KEY = ['auth', 'me'];
 
+/**
+ * PF-145 — "the owner uses this browser", so the visitor counter leaves it out.
+ * Written on every sign-in and refresh, and deliberately NOT removed by
+ * `clear()`: the owner looking at the site after signing out is still not a
+ * visitor. A mark of its own rather than `hasRefreshToken()`, which stops
+ * telling us anything once PF-147 moves the token into a cookie.
+ */
+const OWNER_DEVICE_KEY = 'pg-owner-device';
+
 let accessToken     = null;
 let accessExpiresAt = null;   // ms since epoch, or null
 
@@ -61,6 +70,7 @@ export const session = {
   set(payload) {
     accessToken     = payload.accessToken ?? null;
     accessExpiresAt = toMs(payload.accessExpiresAt);
+    write(OWNER_DEVICE_KEY, '1');
     if (payload.refreshToken) {
       write(REFRESH_KEY, payload.refreshToken);
       const exp = toMs(payload.refreshExpiresAt);
@@ -82,6 +92,7 @@ export const session = {
   getAccessExpiresAt: () => accessExpiresAt,
   getRefreshToken:    () => read(REFRESH_KEY),
   hasRefreshToken:    () => read(REFRESH_KEY) !== null,
+  isOwnerDevice:      () => read(OWNER_DEVICE_KEY) !== null,
 
   /** ms since epoch, or null when there is no stored session. */
   getRefreshExpiresAt() {

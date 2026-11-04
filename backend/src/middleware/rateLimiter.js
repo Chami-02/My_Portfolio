@@ -49,13 +49,20 @@ const MongoStore = require('./mongoRateLimitStore');
  * A future test that wants to exercise it must call `rateLimit` directly
  * rather than going through `app`.
  */
+// PF-145 — the visitor counter has its own limiter (`visitLimiter`). Counted
+// here too, every page a visitor opens would spend the budget the site itself
+// needs, and this limiter's row would keep their IP address for the count that
+// promises not to.
+const skipGlobalLimiter = (req) => process.env.NODE_ENV === 'test'
+  || (req.method === 'POST' && req.path === '/api/visits');
+
 const globalLimiter = rateLimit({
   store:          new MongoStore('global'),
   windowMs:       15 * 60 * 1000,  // 15 minutes in milliseconds
   max:            100,              // Max requests per IP per window
   standardHeaders: true,           // Send RateLimit-* headers to client
   legacyHeaders:  false,
-  skip:           () => process.env.NODE_ENV === 'test',
+  skip:           skipGlobalLimiter,
   // PF-141 — FAILS OPEN. This limiter runs before `/api/health`, which must
   // still answer 200 with `database: null` during an outage (health-check.yml
   // reads it). The per-route limiters keep the default and fail closed: their
@@ -260,4 +267,28 @@ const backupLimiter = rateLimit({
   },
 });
 
-module.exports = { globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter, backupLimiter };
+/**
+ * Limiter for the visitor counter, `POST /api/visits` (PF-145). One page view
+ * is one request; 120 per 15 minutes leaves room for a whole office behind one
+ * address. It bounds how fast one source can write, not how much (the daily row
+ * cap in visitController does that).
+ *
+ * ⚠️ Keyed on `req.visitorSource`, a SCRAMBLED form of the address, because
+ * this row is stored: the raw address here would break what the privacy page
+ * says about the count. It leaves out the User-Agent on purpose — a script
+ * changing that header on every request must still land in one bucket.
+ */
+const visitLimiter = rateLimit({
+  store:           new MongoStore('visit'),
+  windowMs:        15 * 60 * 1000,
+  max:             120,
+  keyGenerator:    (req) => req.visitorSource,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: "You're going a little fast. Please wait a few minutes and try again.",
+  },
+});
+
+module.exports = { skipGlobalLimiter, visitLimiter, globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter, backupLimiter };

@@ -1,5 +1,5 @@
 // PF-123 — the sender's approximate location, from Vercel's IP headers.
-const { requestLocation } = require('../utils/requestLocation');
+const { requestLocation, requestPlace } = require('../utils/requestLocation');
 
 const ORIGINAL = { ...process.env };
 afterEach(() => { process.env = { ...ORIGINAL }; });
@@ -58,5 +58,27 @@ describe('requestLocation', () => {
   it('ignores the headers OFF Vercel — there, anyone could send them', () => {
     delete process.env.VERCEL;
     expect(requestLocation(reqWith(FULL))).toBeNull();
+  });
+});
+
+describe('requestPlace (PF-145)', () => {
+  beforeEach(() => { process.env.VERCEL = '1'; });
+
+  it('gives the country code and a city tagged with it', () => {
+    expect(requestPlace(reqWith(FULL))).toEqual({ country: 'US', city: 'New York, US' });
+  });
+
+  it('a country with no city has a null city', () => {
+    expect(requestPlace(reqWith({ 'x-vercel-ip-country': 'LK' }))).toEqual({ country: 'LK', city: null });
+  });
+
+  it('no usable country means no place', () => {
+    expect(requestPlace(reqWith({ 'x-vercel-ip-city': 'Galle' }))).toBeNull();
+    expect(requestPlace(reqWith({ 'x-vercel-ip-country': 'not-a-code' }))).toBeNull();
+  });
+
+  it('off Vercel it is null even when the headers are sent', () => {
+    delete process.env.VERCEL;
+    expect(requestPlace(reqWith(FULL))).toBeNull();
   });
 });

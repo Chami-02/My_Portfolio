@@ -551,6 +551,22 @@
   align-self: center;
 }
 
+.privacyLink {
+  /* Its own line, centred under the copyright; fit-content so only the word
+     is clickable, not the whole row. */
+  display: block;
+  width: fit-content;
+  margin-inline: auto;
+  padding-block: 2px; /* with the line height, a 24px target (WCAG 2.5.8) */
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.privacyLink:hover {
+  color: var(--acc);
+}
+
 .scrollUp:hover {
   color: var(--acc);
   border-color: var(--acc);
@@ -623,6 +639,7 @@
      wraps only where it genuinely cannot. */
   display: inline-block;
   line-height: 1.9;
+  text-align: center;
 }
 
 /* ⚠️ PF-142 (2026-10-29) — THIS BLOCK MUST STAY LAST IN THE FILE.

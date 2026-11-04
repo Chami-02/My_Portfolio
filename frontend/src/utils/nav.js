@@ -74,6 +74,11 @@ export function isProjectsPath(pathname) {
   return pathname === '/projects' || pathname.startsWith('/projects/');
 }
 
+/** PF-145 — the admin area, sign-in pages included. */
+export function isAdminPath(pathname) {
+  return pathname === '/admin' || pathname.startsWith('/admin/');
+}
+
 /** PF-143 — `/certificates` and `/certificates/:slug`. */
 export function isCertificatesPath(pathname) {
   return pathname === '/certificates' || pathname.startsWith('/certificates/');
@@ -115,7 +120,8 @@ export function navModel(pathname) {
   // PF-143 — /certificates is a sub-page like /blog: the same '← GO BACK'
   // pill, and every home section as a plain link (BLOG included — you are not
   // on it) plus CONTACT.
-  if (isCertificatesPath(pathname)) {
+  // PF-145 — /privacy is the same kind of sub-page.
+  if (isCertificatesPath(pathname) || pathname === '/privacy') {
     return {
       variant: 'blog',
       brandHref: HOME,

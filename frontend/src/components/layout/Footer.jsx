@@ -1,5 +1,5 @@
 // frontend/src/components/layout/Footer.jsx
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Reveal, Marquee } from '../motion';
 // PF-112 — one lookup instead of five named imports: the row set is data-driven
 // now, so the component cannot know which glyphs it will need.
@@ -324,7 +324,12 @@ export function Footer() {
               See .bottomBar in the module for why the grid came back. */}
           <span aria-hidden="true" className={styles.barSpacer} />
 
-          <span className={styles.copyright}>{COPYRIGHT}</span>
+          {/* PF-145 — PRIVACY on its own centred line under the copyright (owner,
+              2026-11-04). The copyright keeps its own span, one exact string. */}
+          <span className={styles.copyright}>
+            <span>{COPYRIGHT}</span>
+            <Link to="/privacy" className={styles.privacyLink}>PRIVACY</Link>
+          </span>
 
           {/* ⚠️ The prototype's own control (line 601), restored
               2026-08-27. An <a href="#hero">, not a <button> + scrollTo:

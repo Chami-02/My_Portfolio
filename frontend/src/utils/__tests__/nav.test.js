@@ -1,6 +1,6 @@
 // frontend/src/utils/__tests__/nav.test.js
 import { describe, it, expect } from 'vitest';
-import { navModel, isBlogPath, isCertificatesPath, isProjectsPath, sectionHref } from '../nav';
+import { navModel, isBlogPath, isCertificatesPath, isProjectsPath, sectionHref, isAdminPath } from '../nav';
 
 /**
  * ⚠️ THE BUG THIS COVERS. App.jsx mounts <Navbar /> on `path="*"`, and
@@ -129,5 +129,19 @@ describe('PF-144 — /projects', () => {
   it('a path that only STARTS with the word is not the page', () => {
     expect(isProjectsPath('/projectsx')).toBe(false);
     expect(navModel('/projectsx').variant).toBe('portfolio');
+  });
+});
+
+describe('PF-145 — /privacy and the admin area', () => {
+  it('/privacy gets every home section, CONTACT and ← GO BACK', () => {
+    const model = navModel('/privacy');
+    expect(model.links.map((l) => l.label)).toEqual(['ABOUT', 'SKILLS', 'PROJECTS', 'BLOG', 'CONTACT']);
+    expect(model.pillLabel).toBe('\u2190 GO BACK');
+  });
+
+  it('isAdminPath knows the admin area from a look-alike', () => {
+    expect(isAdminPath('/admin')).toBe(true);
+    expect(isAdminPath('/admin/login')).toBe(true);
+    expect(isAdminPath('/administrator')).toBe(false);
   });
 });

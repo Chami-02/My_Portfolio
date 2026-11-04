@@ -780,6 +780,13 @@ describe('Footer (PF-88)', () => {
     expect(hover['border-color']).toBe('var(--acc)');
   });
 
+  it('links to the privacy page from the copyright line (PF-145)', () => {
+    renderFooter({ path: '/blog' });
+    const link = screen.getByRole('link', { name: 'PRIVACY' });
+    expect(link).toHaveAttribute('href', '/privacy');
+    expect(link.closest('[data-footer-bottom]')).not.toBeNull();
+  });
+
   it('states all rights reserved, on every route', () => {
     for (const path of ['/', '/blog', '/nope']) {
       const { unmount } = renderFooter({ path });

@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider, Routes, Route } from 'react-router
 import { Navbar }          from './components/layout/Navbar';
 import { Footer }          from './components/layout/Footer';
 import { ScrollToTop }     from './components/layout/ScrollToTop';
+import { VisitTracker }    from './components/layout/VisitTracker';
 import { SkipLink }        from './components/layout/SkipLink';
 import { ProtectedRoute }  from './components/common/ProtectedRoute';
 import { LoadingScreen }   from './components/common/LoadingScreen';
@@ -24,6 +25,7 @@ const CertificatesPage = lazy(() => import('./pages/CertificatesPage').then((m) 
 const ProjectsPage   = lazy(() => import('./pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage })));
 const ProjectPage    = lazy(() => import('./pages/ProjectPage').then((m) => ({ default: m.ProjectPage })));
 const CvUnavailablePage = lazy(() => import('./pages/CvUnavailablePage').then((m) => ({ default: m.CvUnavailablePage })));
+const PrivacyPage    = lazy(() => import('./pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then((m) => ({ default: m.AdminLoginPage })));
 const AdminForgotPasswordPage = lazy(() =>
   import('./pages/AdminForgotPasswordPage').then((m) => ({ default: m.AdminForgotPasswordPage })));
@@ -88,6 +90,8 @@ function AppLayout() {
               <Route path="/projects/:slug" element={<ProjectPage />} />
               {/* PF-144 — where DOWNLOAD CV lands when the CV can't be served. */}
               <Route path="/cv-unavailable" element={<CvUnavailablePage />} />
+              {/* PF-145 — what the visitor counter keeps, in plain words. */}
+              <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/admin/login" element={<AdminLoginPage />} />
               {/* PF-125. Public, like sign-in: ranked above `/admin/*`, so it
                   never reaches ProtectedRoute. */}
@@ -124,6 +128,7 @@ function AppLayout() {
         </Routes>
 
         <ScrollToTop />
+        <VisitTracker />
       </div>
     </>
   );

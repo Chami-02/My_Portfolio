@@ -3761,6 +3761,17 @@ Each was found by a test going red (round trip, flaky order, mutation run), neve
    a guard too: a refusal case that ALSO trips another rule cannot prove its own rule —
    build each case so only one rule can catch it (the media rules, PF-135).
 
+## PF-145 (2026-11-04) — three traps found building the visitor counter
+
+- **A limiter row can break a privacy promise.** `MongoStore` writes `<limiter>:<key>` to the database, and
+  the default key is the IP. A counter promising no stored address must skip `globalLimiter` AND key its
+  own limiter on a scrambled value. Guard: `visits.test.js` searches EVERY collection for the raw values,
+  with a control proving the scan reads real data.
+- **An instance-cached value survives `clearDB`.** `saltFor` caches today's salt per instance, so after the
+  first test `VisitSalt.findOne()` is null. Harmless in production. A test must use a fresh day.
+- **`document.referrer` never changes in a single-page app.** Sent on every view, it credits all later pages
+  to the outside site. Sent on the first view only.
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Silent failures
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

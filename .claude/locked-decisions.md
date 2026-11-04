@@ -4791,6 +4791,38 @@ Plan approved in chat; the layout was CHOSEN by the owner from samples (AskUserQ
 - **Demo education/certificates never reach a real database** (seed writes them on throwaway DBs
   only); the owner adds the real ones on production after the merge.
 
+## PF-145 — visitor counter + privacy page (owner, 2026-11-04)
+
+- **Our own counter, no third party.** REPLACES September's "Both" in `new mds/E9/analytics-panel-plan.md`.
+- **Daily totals only** (`VisitTotal`, flat rows `{day, dim, key, count}`, kept with no end date). One
+  dimension per row, so nothing can rebuild one visit. Per view: views, path, hour. Once per visitor per
+  day: visitors, country, city, device, browser, referrer. Per click: email, cv, github, live.
+- **Telling visitors apart:** HMAC of address + User-Agent with a random per-day salt stored in its own
+  row. Codes and salts expire at 48 h. Deleting the salt is what makes old codes unrecoverable, which is
+  why it is a stored row, not derived from a config secret.
+- **Sri Lanka time, fixed** (`Asia/Colombo`), decided at write time: a UTC hour could never be moved onto
+  a +5:30 clock afterwards. Deliberately not `About.timezone`: one extra read per count, and changing it
+  would split the history.
+- **Left out:** bots (a bare 204, no writes), `/admin*`, automated browsers, Do Not Track and Global
+  Privacy Control, and any browser the owner has signed in on.
+- **The owner's mark is `pg-owner-device`,** written by `session.set()` and kept by `session.clear()`.
+  NOT `hasRefreshToken()`: that stops working when PF-147 moves the token to a cookie.
+- **`globalLimiter` skips `POST /api/visits`;** `visitLimiter` (120 per 15 min) keys on a SCRAMBLED source
+  without the User-Agent, so its stored row holds no address and a script changing its header stays in
+  one bucket.
+- **"IP addresses are never stored" was narrowed:** true of the counter, false of the site (other rate
+  limits hold an address up to 1 h, hosting logs, outside services). /privacy says so.
+- **Paths and referrers are client text:** route list + slug shape, else `(other)`; hostname only; 1,000
+  rows a day, then only existing rows go up.
+- **Not in the Settings backup** (`NEVER_BACKED_UP`): codes and salts must die within 2 days, and a restore
+  puts the site back without rewinding the totals. Consequence, accepted for now: totals have no backup
+  of their own — revisit in PF-149.
+- **Footer:** `PRIVACY` on its own centred line UNDER the copyright (owner, 2026-11-04, changed from "after
+  ALL RIGHTS RESERVED" during the build). `/privacy` gets the sub-page `← GO BACK` nav. No prototype exists
+  for the page.
+- **/privacy's words are promises, owner-approved, not admin-editable.** The Gmail line changes with PF-148.
+
+
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
 
 CLAUDE.md had regrown to 164,716 chars (the load warning fires at 40k). These

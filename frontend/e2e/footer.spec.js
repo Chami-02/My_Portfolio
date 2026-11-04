@@ -105,7 +105,8 @@ test.describe('Footer (PF-88)', () => {
       const bar = document.querySelector('footer').children[1].lastElementChild;
       const cs = getComputedStyle(bar);
       const copy = [...bar.children].find((e) => /ALL RIGHTS RESERVED/.test(e.textContent));
-      const link = bar.querySelector('a');
+      // lastElementChild, not the first <a>: PF-145's PRIVACY sits in the copy.
+      const link = bar.lastElementChild;
       const c = copy.getBoundingClientRect();
       const box = bar.getBoundingClientRect();
       return {
