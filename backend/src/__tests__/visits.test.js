@@ -285,7 +285,6 @@ describe('POST /api/visits — nothing personal is saved', () => {
 describe('POST /api/visits — limits', () => {
   it('stops one source after 120 in the window, whatever User-Agent it claims', async () => {
     for (let i = 0; i < 120; i += 1) {
-      // eslint-disable-next-line no-await-in-loop
       const ok = await view('/', { ua: `${CHROME_MAC} v${i}` });
       expect(ok.status).toBe(204);
     }
