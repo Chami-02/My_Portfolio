@@ -56,7 +56,7 @@ export function AdminFooter({ email, counts, onSignOut }) {
             </span>
           </div>
           <p className={styles.description}>
-            Content control room for parindra.dev — projects, skills, profile,
+            Content control room for parindragallage.com — projects, skills, profile,
             writing and inbound messages.
           </p>
         </div>

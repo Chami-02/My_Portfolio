@@ -146,7 +146,8 @@ export function Navbar() {
               className={styles.logo}
             />
             <span className={styles.brandText}>
-              PARINDRA<span className={styles.brandDot}>.</span>DEV
+              <span>PARINDRA <span className={styles.brandAccent}>GALLAGE</span></span>
+              <span className={styles.brandSlogan}>LET&apos;S MAKE IT REAL</span>
             </span>
           </NavAnchor>
 
@@ -327,7 +328,10 @@ function MobileOverlay({ model, onClose }) {
           card's rows already go everywhere it could. */}
       <div className={styles.overlayTop} aria-hidden="true">
         <img src={logo} alt="" width="34" height="34" className={styles.overlayLogo} />
-        <span className={styles.overlayBrand}>PARINDRA<span className={styles.overlayBrandDot}>.</span>DEV</span>
+        <span className={styles.overlayBrand}>
+          <span>PARINDRA <span className={styles.brandAccent}>GALLAGE</span></span>
+          <span className={styles.overlaySlogan}>LET&apos;S MAKE IT REAL</span>
+        </span>
       </div>
 
       <button

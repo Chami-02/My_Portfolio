@@ -207,7 +207,7 @@ export function Footer() {
                 <span className={styles.name}>
                   Parindra <span className={styles.nameAccent}>Gallage</span>
                 </span>
-                <span className={styles.role}>FULL-STACK DEVELOPER</span>
+                <span className={styles.role}>LET&apos;S MAKE IT REAL</span>
               </span>
             </div>
 

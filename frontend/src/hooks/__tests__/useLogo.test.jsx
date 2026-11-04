@@ -1,15 +1,13 @@
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { resolve, dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
-import { render, screen, act } from '@testing-library/react';
-import { describe, it, expect, afterEach } from 'vitest';
-import { ThemeProvider } from '../../providers/ThemeProvider';
-import { useTheme } from '../useTheme';
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
 import { useLogo } from '../useLogo';
 
 /*
- * PF-134 — one logo, two skies. The theme picks the file, and every logo on
- * the site reads it through useLogo(), so a new logo is two file swaps.
+ * PF-134, PF-146 — every logo on the site reads useLogo(), so a new logo is
+ * one file swap. The owner brought the photo logo back in PF-146.
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -18,37 +16,15 @@ const ROOT = resolve(SRC, '..');
 
 function Probe() {
   const logo = useLogo();
-  const { toggle } = useTheme();
-  return <img alt="probe" src={logo} onClick={toggle} />;
+  return <img alt="probe" src={logo} />;
 }
 
 const srcOf = () => screen.getByAltText('probe').getAttribute('src');
 
-describe('useLogo (PF-134)', () => {
-  afterEach(() => {
-    document.documentElement.removeAttribute('data-theme');
-    localStorage.clear();
-  });
-
-  it('serves the night-sky logo on the dark theme', () => {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    render(<ThemeProvider><Probe /></ThemeProvider>);
-    expect(srcOf()).toMatch(/logo-dark\.svg/);
-  });
-
-  it('serves the paper-sky logo on the light theme FROM THE FIRST RENDER (no flash)', () => {
-    // The head script sets data-theme before React; the first src must
-    // already be the light file, not dark-then-light.
-    document.documentElement.setAttribute('data-theme', 'light');
-    render(<ThemeProvider><Probe /></ThemeProvider>);
-    expect(srcOf()).toMatch(/logo-light\.svg/);
-  });
-
-  it('follows the theme toggle', () => {
-    document.documentElement.setAttribute('data-theme', 'dark');
-    render(<ThemeProvider><Probe /></ThemeProvider>);
-    act(() => { screen.getByAltText('probe').click(); });
-    expect(srcOf()).toMatch(/logo-light\.svg/);
+describe('useLogo (PF-146)', () => {
+  it('serves the photo logo', () => {
+    render(<Probe />);
+    expect(srcOf()).toMatch(/logo\.webp/);
   });
 });
 
@@ -86,25 +62,23 @@ describe('the logo has one source (PF-134)', () => {
     expect(code).toMatch(/src=\{logo\}/);
   });
 
-  it('the photo logo is gone', () => {
-    expect(existsSync(resolve(SRC, 'assets/logo.webp'))).toBe(false);
+  it('the Orbit PG site files are gone', () => {
+    expect(existsSync(resolve(SRC, 'assets/logo.webp'))).toBe(true);
+    expect(existsSync(resolve(SRC, 'assets/logo-dark.svg'))).toBe(false);
+    expect(existsSync(resolve(SRC, 'assets/logo-light.svg'))).toBe(false);
   });
 
-  it('index.html links every favicon file, and each one exists in public/', () => {
+  it('index.html links every icon file, and each one exists in public/', () => {
     const html = readFileSync(resolve(ROOT, 'index.html'), 'utf8');
-    // the SVG link starts on the dark file — the default theme
-    for (const file of ['favicon.ico', 'favicon-dark.svg', 'apple-touch-icon.png']) {
+    for (const file of ['favicon.ico', 'favicon-96.png', 'apple-touch-icon.png']) {
       expect(html).toContain(`href="/${file}"`);
       expect(existsSync(resolve(ROOT, 'public', file))).toBe(true);
     }
   });
 
-  // applyTheme() builds `/favicon-${theme}.svg` — every theme needs its file.
-  it.each([['dark', '#14213D'], ['light', '#FBF8F3']])(
-    'public/favicon-%s.svg exists and is that sky', (theme, sky) => {
-      const svg = readFileSync(resolve(ROOT, `public/favicon-${theme}.svg`), 'utf8');
-      expect(svg).toContain(sky);
-      expect(svg).not.toMatch(/<script/i);
-    },
-  );
+  it('the PG tab icons are gone', () => {
+    expect(readFileSync(resolve(ROOT, 'index.html'), 'utf8')).not.toContain('favicon-dark');
+    expect(existsSync(resolve(ROOT, 'public/favicon-dark.svg'))).toBe(false);
+    expect(existsSync(resolve(ROOT, 'public/favicon-light.svg'))).toBe(false);
+  });
 });

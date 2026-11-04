@@ -1,6 +1,17 @@
 {
   "git": { "deploymentEnabled": { "master": false } },
-  "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "my-portfoliofrontend-henna.vercel.app" }],
+      "destination": "https://parindragallage.com/:path*",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    { "source": "/sitemap.xml", "destination": "https://api.parindragallage.com/api/sitemap.xml" },
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

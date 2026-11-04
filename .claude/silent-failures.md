@@ -4288,3 +4288,23 @@ behaves like `auto`: the picture keeps its own ratio. `object-fit: cover` then d
 **Fix / rule.** Fill a media frame with `position: absolute; inset: 0` (frame `position:
 relative`), never with a percentage height inside a grid/flex frame. A plain BLOCK frame with
 `aspect-ratio` (ProjectCard) does resolve it. Tell: compare the img's rect to the frame's.
+
+
+## PF-146 (2026-11-04) — traps found moving to a custom domain
+- **Cloudflare turns every new record ORANGE by default, and warns when you choose grey.** The site
+  still loads when orange, so nothing looks wrong; only visitor data and limits quietly go wrong.
+  Check the list after adding. Its "Recommendations" panel also lagged behind records already added.
+- **Vercel's "Valid Configuration" can show minutes before or after HTTPS works.** The API name worked
+  while the main name failed with `SSL_ERROR_SYSCALL` for a few minutes. Test the name, not the badge.
+- **Google sign-in returns to `FRONTEND_URL`, not to the address you started from.** Before the switch,
+  Google on the new address lands on the old one and looks like a redirect bug. Password sign-in does not.
+- **A brand name split across markup hides from grep:** `PARINDRA<span>.</span>DEV` is not found by
+  searching `PARINDRA.DEV`. `siteName.test.js` allows for the split.
+- **Our browser probes can take the LOCAL API down for the owner.** Two dozen page loads use up
+  `globalLimiter`'s 100/15 min, the local site then looks broken, and the counts survive a restart
+  (PF-141). A refused refresh also signs the owner out (see Outstanding work). Keep probes to a few loads.
+- **zsh eats shell one-liners silently.** `$m:frontend/x` applies the `:f` modifier, and a bare
+  `echo ======` aborts the whole line with `===== not found`, so a `git add` after it never ran. Use
+  `${m}:path`, never echo `=`, and re-check what is staged.
+- **`printf` with a `%r` Python template broke a mutation harness:** 14 of 15 mutants reported "NOT
+  APPLIED". The "not applied" check is what caught it. Write harnesses as a Python file.

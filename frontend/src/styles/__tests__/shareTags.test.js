@@ -9,8 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 
-const html = fs.readFileSync(
-  path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../index.html'), 'utf8');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 const meta = (attr, name) => {
   const m = html.match(new RegExp(`<meta ${attr}="${name}" content="([^"]*)"`));
@@ -32,13 +32,29 @@ describe('link-preview tags', () => {
   it('declares the basics', () => {
     expect(meta('property', 'og:type')).toBe('website');
     expect(meta('property', 'og:site_name')).toBe('Parindra Gallage');
-    expect(meta('name', 'twitter:card')).toBe('summary');
+    expect(meta('name', 'twitter:card')).toBe('summary_large_image');
   });
 
-  // Until the custom domain: an absolute vercel.app address would be stale
-  // the day the domain lands. Remove this case when og:url/og:image are added.
-  it('pins no absolute address yet', () => {
-    expect(meta('property', 'og:url')).toBeNull();
-    expect(meta('property', 'og:image')).toBeNull();
+  // PF-146 — these must be absolute, and on the real address.
+  it('points at the live address', () => {
+    expect(meta('property', 'og:url')).toBe('https://parindragallage.com/');
+    expect(meta('property', 'og:image')).toBe('https://parindragallage.com/og-image.png');
+  });
+
+  // A PNG states its size in its first bytes: width at 16, height at 20.
+  it('the preview image exists at the size the tags promise', () => {
+    const png = fs.readFileSync(path.join(root, 'public/og-image.png'));
+    expect(png.subarray(1, 4).toString()).toBe('PNG');
+    expect(String(png.readUInt32BE(16))).toBe(meta('property', 'og:image:width'));
+    expect(String(png.readUInt32BE(20))).toBe(meta('property', 'og:image:height'));
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630]);
+  });
+
+  // PF-146 — what search engines read first.
+  it('robots.txt keeps crawlers out of the admin and names the sitemap', () => {
+    const robots = fs.readFileSync(path.join(root, 'public/robots.txt'), 'utf8');
+    expect(robots).toMatch(/^User-agent: \*$/m);
+    expect(robots).toMatch(/^Disallow: \/admin$/m);
+    expect(robots).toMatch(/^Sitemap: https:\/\/parindragallage\.com\/sitemap\.xml$/m);
   });
 });

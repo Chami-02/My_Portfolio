@@ -79,10 +79,10 @@ describe('Splash (PF-78)', () => {
     // Queried by tag, not by alt text: PF-83 emptied this image's alt (see
     // the next test), so there is no accessible name left to find it by.
     const img = container.querySelector('img');
-    // Imported through Vite rather than referenced as /assets/logo-dark.svg:
+    // Imported through Vite rather than referenced as /assets/logo.webp:
     // a missing import fails the build, a missing public path 404s in
-    // silence. (PF-134: the theme picks the file; dark is the default.)
-    expect(img.getAttribute('src')).toMatch(/logo-dark\.svg/);
+    // silence.
+    expect(img.getAttribute('src')).toMatch(/logo\.webp/);
   });
 
   it('treats the logo as decorative rather than announcing the name twice', () => {
@@ -105,7 +105,7 @@ describe('Splash (PF-78)', () => {
     expect(screen.queryByAltText('Parindra Gallage')).toBeNull();
 
     // The name is still on screen, as text, so nothing was lost.
-    expect(screen.getByText('Full-Stack Developer')).toBeInTheDocument();
+    expect(screen.getByText("Let's make it real")).toBeInTheDocument();
   });
 
   it('reveals the four boot lines spread across the sequence', () => {

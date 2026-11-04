@@ -246,8 +246,8 @@ export default function Splash() {
               this one was found by grepping alt= rather than from the
               brief. It gets the opposite answer to the hero portrait,
               on purpose: this is a brand mark whose own .nameBlock
-              sibling below renders "Parindra Gallage" and "Full-Stack
-              Developer" as real text, so a description here announces
+              sibling below renders "Parindra Gallage" and the slogan
+              as real text, so a description here announces
               the name twice in a row inside one cluster. Empty alt, and
               the surrounding text carries the meaning. */}
           <img src={logo} alt="" className={styles.logoImg} />
@@ -257,7 +257,7 @@ export default function Splash() {
           <span className={styles.name}>
             Parindra <span className={styles.nameAccent}>Gallage</span>
           </span>
-          <span className={styles.role}>Full-Stack Developer</span>
+          <span className={styles.role}>Let&apos;s make it real</span>
         </div>
       </div>
 

@@ -130,7 +130,7 @@ search the companions *before* explaining a surprise.
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
-- Open from PF-113: keep the picture block's badge + `MAX 4 MB` caption?
+- **PF-146** BUILT, not switched: `parindragallage.com`, `api.` (Cloudflare, GREY DNS).
 - **Every doc I create** goes to `new mds/Sprint 16/` (owner; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
@@ -421,7 +421,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
 - PF-133: history in Sessions card (90 d, 10 + SHOW MORE ≤50); alert on NEW device only (30 d); daily digest of failures (Cron + `CRON_SECRET`); leak check at sign-in → banner on every admin page.
 - PF-142: phones ≤560 — 44px CTAs, hero pair one line, footers + admin header centred/one row, card-list menu, no "FROM SCRATCH".
-- PF-134: logo = Orbit PG (Rubik Dirt outlines) in the site sky, dark/light via `useLogo()` only; NO upload; tab icon follows the SITE toggle (`applyTheme`).
+- PF-146 (REVERSES PF-134's logo): photo logo via `useLogo()`, also the tab icon; name `PARINDRA GALLAGE`, slogan replaces the job title.
 - PF-135: backup/restore behind the PASSWORD; restore all-or-nothing, ONE transaction, 3 safety copies, messages MERGE; ALLOW-list of models; Settings cards fold, 36px buttons ≤560.
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).

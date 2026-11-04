@@ -99,7 +99,7 @@
   color: var(--strong);
 }
 
-.brandDot {
+.brandAccent {
   color: var(--acc, #FCA311);
 }
 

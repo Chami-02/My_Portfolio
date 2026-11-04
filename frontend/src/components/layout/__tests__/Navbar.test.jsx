@@ -116,11 +116,10 @@ describe('Navbar (PF-79)', () => {
     const src = container.querySelector('img').getAttribute('src');
     // docs/design/assets/ is not served by anything, and public/ has no
     // logo. A literal "/assets/logo.webp" renders a broken image with no
-    // error — the exact silent 404 CLAUDE.md documents. (PF-127: .png → .webp;
-    // PF-134: → one SVG per theme. The positive match keeps this from passing
-    // vacuously on a rename.)
-    expect(src).not.toBe('/assets/logo-dark.svg');
-    expect(src).toMatch(/logo-dark\.svg/);
+    // error — the exact silent 404 CLAUDE.md documents. (PF-146: the photo logo
+    // is back. The positive match keeps this from passing vacuously on a rename.)
+    expect(src).not.toBe('/assets/logo.webp');
+    expect(src).toMatch(/logo\.webp/);
   });
 
   it('reflects scroll position immediately on mount, not just after the first scroll event', () => {
@@ -657,7 +656,9 @@ describe('the phone menu card list (PF-142)', () => {
 
   it('shows the brand, but adds no focusable to the trap', () => {
     const dialog = open();
-    expect(dialog).toHaveTextContent('PARINDRA.DEV');
+    const brand = dialog.querySelector('[class*="overlayTop"]');
+    expect(brand).toHaveTextContent('PARINDRA GALLAGE');
+    expect(brand).toHaveTextContent("LET'S MAKE IT REAL");
     expect(dialog.querySelector('[class*="overlayTop"]').querySelectorAll('a, button')).toHaveLength(0);
   });
 
