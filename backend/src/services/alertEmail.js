@@ -62,7 +62,7 @@ const renderAlert = ({ tone, title, intro, highlight, details = [], note, steps 
     ...(steps.length ? ['', 'NOT YOU? DO THIS NOW', ...steps.map((step, i) => `${i + 1}. ${step}`)] : []),
     ...(button ? ['', `${button.label}: ${button.url}`] : []),
     '',
-    '— PARINDRA.DEV · Portfolio CMS security',
+    '— PARINDRA GALLAGE · Portfolio CMS security',
   ].join('\n');
 
   const rows = details.map(([label, value]) => `
@@ -79,7 +79,7 @@ const renderAlert = ({ tone, title, intro, highlight, details = [], note, steps 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border-radius:14px;overflow:hidden;border:1px solid #DDE1E8">
 
 <tr><td style="background:${NAVY};padding:20px 28px">
-<span style="font-family:${MONO};font-size:14px;font-weight:bold;letter-spacing:2px;color:#FFFFFF">PARINDRA<span style="color:${ACCENT}">.</span>DEV</span>
+<span style="font-family:${MONO};font-size:14px;font-weight:bold;letter-spacing:2px;color:#FFFFFF">PARINDRA <span style="color:${ACCENT}">GALLAGE</span></span>
 <span style="font-family:${MONO};font-size:10px;letter-spacing:2px;color:#AEB6C6;padding-left:10px">PORTFOLIO CMS</span>
 </td></tr>
 <tr><td style="background:${ACCENT};height:4px;line-height:4px;font-size:0">&nbsp;</td></tr>
@@ -116,7 +116,7 @@ ${button ? `
 
 <tr><td style="padding:24px 28px 26px">
 <p style="margin:0;padding-top:16px;border-top:1px solid #E6E9EF;font-family:${SANS};font-size:12px;line-height:1.6;color:${MUTED}">
-You receive this because this address is an admin login for parindra.dev's Portfolio CMS.
+You receive this because this address is an admin login for the parindragallage.com Portfolio CMS.
 </p>
 </td></tr>
 

@@ -225,9 +225,7 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
           <Link to="/?nosplash=1" className={styles.brand}>
             <img src={logo} alt="Parindra Gallage" width="40" height="40" className={styles.logo} />
             <span className={styles.brandText}>
-              <span className={styles.brandName}>
-                PARINDRA<span className={styles.brandDot}>.</span>DEV
-              </span>
+              <span className={styles.brandName}>PARINDRA <span className={styles.brandAccent}>GALLAGE</span></span>
               <span className={styles.brandSub}>ADMIN PANEL</span>
             </span>
           </Link>

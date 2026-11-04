@@ -84,15 +84,26 @@
 }
 
 .brandText {
+  display: grid;
+  gap: 2px;
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
   font-size: 14px;
   letter-spacing: .02em;
+  white-space: nowrap;
   color: var(--strong);
 }
 
-.brandDot {
+.brandAccent {
   color: var(--acc, #FCA311);
+}
+
+/* PF-146 (owner) — sizes follow the admin header's `.brandSub`. */
+.brandSlogan {
+  font-weight: 400;
+  font-size: 9px;
+  letter-spacing: .2em;
+  color: var(--muted);
 }
 
 .nav {
@@ -143,6 +154,7 @@
   text-shadow: 0 0 14px rgba(252, 163, 17, .55);
   box-shadow: 0 0 18px rgba(252, 163, 17, .18);
   text-decoration: none;
+  white-space: nowrap;   /* PF-146 — '← GO BACK' on two lines made the header 86px, not 71 */
   animation-duration: 3s;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
@@ -333,6 +345,27 @@
   gap: 6px;
 }
 
+/* PF-146 — the longer site name needs the room back just above the phone
+   layout, or the header runs past its edge (measured: 31px at 769). */
+@media (max-width: 860px) {
+  .inner {
+    gap: 12px;
+  }
+
+  .nav {
+    gap: 2px;
+  }
+
+  .navLink {
+    padding: 9px 7px;
+  }
+
+  .contactPill {
+    margin-left: 0;
+    padding: 10px 11px;
+  }
+}
+
 @media (max-width: 768px) {
   .nav {
     display: none;
@@ -405,15 +438,21 @@
 }
 
 .overlayBrand {
+  display: grid;
+  gap: 2px;
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
   font-size: 13px;
   letter-spacing: .12em;
+  white-space: nowrap;
   color: var(--strong);
 }
 
-.overlayBrandDot {
-  color: var(--acc, #FCA311);
+.overlaySlogan {
+  font-weight: 400;
+  font-size: 9px;
+  letter-spacing: .2em;
+  color: var(--muted);
 }
 
 /* 44px — the site's touch minimum; the control a visitor reaches for to

@@ -143,9 +143,7 @@ export function AdminForgotPasswordPage() {
           <div className={styles.brand}>
             <BrandMark alt="Parindra Gallage" />
             <span className={styles.brandText}>
-              <span className={styles.brandName}>
-                PARINDRA<span className={styles.brandDot}>.</span>DEV
-              </span>
+              <span className={styles.brandName}>PARINDRA <span className={styles.brandAccent}>GALLAGE</span></span>
               <span className={styles.brandSub}>PORTFOLIO CMS</span>
             </span>
           </div>
