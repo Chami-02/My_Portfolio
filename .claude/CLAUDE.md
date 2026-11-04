@@ -130,7 +130,7 @@ search the companions *before* explaining a surprise.
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **PF-146** BUILT, not switched: `parindragallage.com`, `api.` (Cloudflare, GREY DNS).
+- **PF-146** LIVE 11-04: `parindragallage.com`, `api.` (Cloudflare, GREY DNS).
 - **Every doc I create** goes to `new mds/Sprint 16/` (owner; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):

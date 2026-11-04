@@ -6107,7 +6107,7 @@ lands on a red CI for the identical reason.
 
 ## PF-146 — own web address, site name, slogan, logo (owner, 2026-11-04)
 
-**Status 2026-11-04: built and pushed on `feat/PF-146-switch`; the switch is NOT yet deployed.**
+**Status 2026-11-04: LIVE. Releases #84, #85, #86 deployed.**
 
 **The address**
 - `parindragallage.com` is the main name; `www` forwards to it (308, set in Vercel); the API is
@@ -6120,7 +6120,7 @@ lands on a red CI for the identical reason.
   (real-IP headers, blocking direct `vercel.app` access, cache rules). Ignore Cloudflare's "proxying
   is required" banner. Vercel issues the certificates (Let's Encrypt, TLS 1.3, renewed automatically).
 - **Expand, switch, contract:** release 1 (PR #84) allowed both addresses; release 2 switches and
-  forwards the old address (`vercel.json` `redirects`, exact host only, so previews still work);
+  forwards the old address (`vercel.json` `redirects`, `/(.*)` + `$1`, exact host only, so previews still work; `/:path*` missed the home page, #86);
   a later release (PF-153) removes the old address from CORS, `connect-src` and Google's list.
   The forward stays. The old API address stays up.
 - **Sitemap comes from the API** (`GET /api/sitemap.xml`, cached, published only), reached at
