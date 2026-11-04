@@ -10994,19 +10994,21 @@ its first run. Live check after deploy: totals move in Atlas; signed-in browser 
 PF-148. A `jest … searchTerms.test.js -t linear` process orphaned since ~2026-11-03 was found spinning at 100%
 CPU (PID 51993); not started this session, reported to the owner, left running.
 
-#### PF-146 — own web address, new name, slogan and logo · BUILT 2026-11-04, switch NOT yet deployed
+#### PF-146 — own web address, new name, slogan and logo · ✅ LIVE 2026-11-04
 
-Decisions: `locked-decisions.md` "PF-146". Traps: `silent-failures.md` "PF-146". Owner bought
+**Report: `new mds/Sprint 16/PF-146-custom-domain.md`.** Decisions: `locked-decisions.md` "PF-146". Traps: `silent-failures.md` "PF-146". Owner bought
 `parindragallage.com` at Cloudflare; DNS lines added, all grey; certificates live (Let's Encrypt, TLS
 1.3, HSTS `max-age=63072000` on site names, helmet's on the API); old Google URI kept, new one added.
 
 - **Release 1, PR #84 `e26643a`, deployed:** CORS + `connect-src` accept the new names. Live check: both
   addresses get their own `Access-Control-Allow-Origin` on MISS and on HIT, `Vary: Origin`; lookalikes
   403. Password sign-in on the new address stays there (owner, 2026-11-04).
-- **Release 2, branch `feat/PF-146-switch`, `7df6ea2` + `e284fa2`, pushed, no PR yet:** API address
+- **Release 2, PR #85 `83c71fc`, deployed on the second try:** merged before the settings were changed, so `deploy.yml`'s bundle check stopped the frontend (the guard worked; no visitor impact); settings changed, failed jobs re-run. API address
   moved, old address forwards 308, `robots.txt`, `GET /api/sitemap.xml`, preview card and tags; name,
   slogan, photo logo, tab icons, tablet header fix, `siteName.test.js`.
 - **Gates before release 2's commits:** frontend `npm run check` 2,660 / 128 files; backend
   `test:coverage` 1,485 / 74. Mutation: 22 of 22 (address), 7 of 7 (name). E2E not run locally; CI runs it.
 - **Browser:** header 71px, no overflow, 320–1440 on the home page and 769–1000 on `/blog`.
-- **Still to verify live after the deploy:** forward, sitemap, Google sign-in, preview tags, health check.
+- **Release 3, PR #86 `8dde063`:** the live check found the old HOME page not forwarding (`/:path*`); now `/(.*)`. Gate: frontend 2,661; mutation 1 of 1.
+- **Verified live 2026-11-04:** old `/`, `/?a=1` and deep links forward 308 keeping path and query; `www` 308; sitemap XML, 14 pages, no drafts; `robots.txt`, preview tags and image, tab icon; both deploy smoke tests. Owner: password and Google sign-in stay on the new address.
+- **Not yet verified:** the hourly health check on the new address (its latest listed run predates the switch); LinkedIn's Post Inspector; the owner's after-switch list in Outstanding work.
