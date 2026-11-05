@@ -13,9 +13,10 @@ const {
 const {
   getSessions, getSignIns, revokeRules, revokeSessionById, revokeOthersRules, revokeOtherSessions,
 } = require('../controllers/sessionController');
+const passkey = require('../controllers/passkeyController');
 const {
   authLimiter, refreshLimiter, googleLimiter, forgotLimiter, resetLimiter, changeLimiter,
-  sessionsLimiter,
+  sessionsLimiter, passkeyLimiter, passkeyChangeLimiter,
 } = require('../middleware/rateLimiter');
 
 // Public — rate limited (10 attempts per 15 minutes)
@@ -38,6 +39,11 @@ router.get('/google/start',     googleLimiter, googleStart);
 router.get('/google/callback',  googleLimiter, googleCallback);
 router.post('/google/exchange', googleLimiter, googleExchange);
 
+// Passkey sign-in (PF-140). Public and cookie-bound, so `fromOurSite` too. The
+// limiter first, as on /login.
+router.post('/passkey/login/options', passkeyLimiter, fromOurSite, passkey.loginOptions);
+router.post('/passkey/login/verify',  passkeyLimiter, fromOurSite, passkey.loginRules, validate, passkey.loginVerify);
+
 // Forgot password (PF-125). Public, each with its own limiter — limiter
 // first, as on /login, so a malformed body still spends an attempt.
 router.post('/password/forgot', forgotLimiter, forgotRules, validate, forgotPassword);
@@ -58,5 +64,12 @@ router.get('/sessions', protect, getSessions);
 router.get('/sign-ins', protect, getSignIns);
 router.post('/sessions/revoke',        protect, sessionsLimiter, revokeRules,       validate, revokeSessionById);
 router.post('/sessions/revoke-others', protect, sessionsLimiter, revokeOthersRules, validate, revokeOtherSessions);
+
+// Passkeys in Settings (PF-140). Adding and removing need the password; `protect`
+// first, as on the change routes.
+router.get('/passkeys', protect, passkey.listPasskeys);
+router.post('/passkey/register/options', protect, passkeyChangeLimiter, passkey.registerOptionsRules, validate, passkey.registerOptions);
+router.post('/passkey/register/verify',  protect, passkeyChangeLimiter, passkey.registerVerifyRules,  validate, passkey.registerVerify);
+router.post('/passkeys/remove',          protect, passkeyChangeLimiter, passkey.removeRules,          validate, passkey.removePasskey);
 
 module.exports = router;
