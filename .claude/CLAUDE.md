@@ -13,8 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `.claude/locked-decisions.md` | the full reasoning behind each decision (both halves of every reversal), plus the full design-authority and working-agreement text |
 | `.claude/product-requirements.md` | the owner's standing product requirements, in full |
 
-**Split 2026-09-02 / 10-08** — moved, not deleted (2nd move at each companion's END,
-`# Moved verbatim from CLAUDE.md on 2026-10-08`).
+**Split 2026-09-02 / 10-08** — moved, not deleted (2nd move at each companion's END).
 
 ### ⚠️ SIZE RULE — keep this file under 40,000 characters
 
@@ -111,7 +110,7 @@ search the companions *before* explaining a surprise.
   form over missing data (About), no count until loaded (PF-117).
 - **Site address is `pcgallege@gmail.com` ONLY; admin logs in as pcgallege OR parindrachameekara** (Google or password, one User, PF-119 absorbed PF-122). Old demo address gone. Panel shows the address SIGNED IN WITH (`signedInAs`); counts poll 60 s + on focus.
 - **One panel field drives EVERY render site** (PF-118) — e.g. `timezone` → Contact AND footer; grep every literal before wiring. A fixed set of answers is CHOSEN (dropdown), never typed.
-- **Password change / reset / forgot = password + emailed code** (owner 2026-10-13): FORGOT BUILT (PF-125), CHANGE BUILT (PF-124, Settings); Gmail SMTP now, Resend after the domain; addresses stay fixed; `admin:password` is break-glass. New passwords: `passwordProblem` (≥15) then `newPasswordProblem` (no name/address/site words, zxcvbn 4/4, not the last 5, `isBreached`) at all 3 doors; NO forced char mix (NIST); `User.setPassword` is the only writer.
+- **Password change / reset / forgot = password + emailed code** (owner 2026-10-13): FORGOT BUILT (PF-125), CHANGE BUILT (PF-124, Settings); addresses stay fixed; `admin:password` is break-glass. New passwords: `passwordProblem` (≥15) then `newPasswordProblem` (no name/address/site words, zxcvbn 4/4, not the last 5, `isBreached`) at all 3 doors; NO forced char mix (NIST); `User.setPassword` is the only writer.
 - **Error messages are PLAIN** (owner, 2026-11-03): what happened + what to do, no jargon; ONE translator `utils/friendlyError.js`; guards fail on jargon.
 - **Login page** (owner, 2026-10-14): password eye, `Forgot password?` and a reset prompt after 3 failed sign-ins (401s only) all BUILT — **never a password hint** (owner chose this over a hint).
 - **Leaving unsaved admin work asks first — every exit** (PF-118 b2; REVERSES "marker, not a blocker"): Keep / Save (never publishes) / Discard; panels register via `useUnsavedChanges`.
@@ -130,7 +129,7 @@ search the companions *before* explaining a surprise.
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **PF-146** LIVE 11-04: `parindragallage.com`, `api.` (Cloudflare, GREY DNS).
+- **PF-146** LIVE 11-04: `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-147 LIVE 11-05.
 - **Every doc I create** goes to `new mds/Sprint 16/` (owner; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
@@ -410,8 +409,9 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - Leftovers 2026-10-14: hero cut-out uploadable (`imageSlot` + `imageSlotHandlers` shared with the portrait — never fork), bundled hero is WebP, `↺ MARK UNREAD` (explicit `{ read }`), project row PUBLISH/UNPUBLISH (Blog's rule), backend `GET /`, `og:` tags (url/image only WITH the domain), dates stay reader-local, nginx mirrors vercel.json headers.
 - PF-128: API in `bom1` (Atlas Mumbai); public GETs CDN-cached (tag `public-data`), a signed-in write DELETES the tag (SAVE is instant); everything else `no-store`.
 - PF-129: bundled hero image never changes (its oval is in its ALPHA); only an UPLOAD gets `.portraitImgUploaded` = measured oval + PF-80's layers.
-- PF-123: contact email sent in the BACKGROUND (`waitUntil`), text + ESCAPED html, 12-hour `YYYY/MM/DD` in About's zone, TO the Gmail account itself, Reply-To the visitor; blank `GMAIL_*` = mail off; no retry queue; `location` from Vercel IP headers ONLY when `VERCEL` is set; card mirrors the email (red reminder unread-only).
-- PF-125: forgot = OWASP — same answer + timing for any address (work after the response), HMAC'd 6-digit code, 5 guesses capped IN the query, no account lockout, reset signs nobody in; HIBP only after a right code, fails open; login runs a dummy bcrypt for an unknown address (timing). Security emails = `services/alertEmail.js` `renderAlert` (contact keeps its own); "changed" alert → the MAIN address + the one used (never a copy to the second when the main reset). Passkeys = PF-140 (after domain), Mongo limiter = PF-141.
+- PF-123: contact email sent in the BACKGROUND (`waitUntil`), text + ESCAPED html, 12-hour `YYYY/MM/DD` in About's zone, TO the main address, Reply-To the visitor; blank `RESEND_API_KEY` = mail off; no retry queue; `location` from Vercel IP headers ONLY when `VERCEL` is set; card mirrors the email (red reminder unread-only).
+- PF-125: forgot = OWASP — same answer + timing for any address (work after the response), HMAC'd 6-digit code, 5 guesses capped IN the query, no account lockout, reset signs nobody in; HIBP only after a right code, fails open; login runs a dummy bcrypt for an unknown address (timing). Security emails = `services/alertEmail.js` `renderAlert` (contact keeps its own); "changed" alert → the MAIN address + the one used (never a copy to the second when the main reset). Passkeys = PF-140 (after domain).
+- PF-148: Resend SMTP; senders on `mail.` subdomain (no-reply default, contact); key Vercel only; DMARC `p=none` first.
 - PF-131: Settings = own ACCOUNT nav group (`⚙︎` + U+FE0E) under MANAGE; ONE real card per ticket, never "coming soon"; `/auth/me` `addresses` sends a Google BOOLEAN, never the `sub`; `Session.signInMethod` → `signedInWith` (rotation copies it).
 - PF-124: change = current password + code to `signedInAs`, every check BEFORE the code; step 2 = code ONLY (new pw's bcrypt hash parked on the row, session-bound); email + hash in the BACKGROUND; refusals 400 never 401; THIS device stays (`except: family`); codes in OWN `PasswordChange` collection; any change voids all codes; codes live 10 min (NIST max, owner); card FOLDS and joins the guard with NO save.
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
@@ -463,7 +463,7 @@ message and stop. A ticket I authored has no independent authority — if it pro
 wrong, say so and re-plan with the owner. Never invent PF numbers.
 
 **The ticket report** — required after EVERY ticket, written to TEACH:
-`/Users/chami02/Documents/Personal/Projects/Portfolio/new mds/Sprint 15/PF-NN-short-description.md`
+`/Users/chami02/Documents/Personal/Projects/Portfolio/new mds/Sprint 16/PF-NN-short-description.md`
 (older reports stay in `new mds/E<N>/`; never `docs/tickets/`). Answer WHAT, HOW, WHY separately; show
 every changed file's path and before/after code; the trace; what was rejected;
 real test numbers from both passes; bugs found in recheck; what was deliberately

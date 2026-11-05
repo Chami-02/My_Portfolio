@@ -4822,7 +4822,22 @@ Plan approved in chat; the layout was CHOSEN by the owner from samples (AskUserQ
 - **Footer:** `PRIVACY` on its own centred line UNDER the copyright (owner, 2026-11-04, changed from "after
   ALL RIGHTS RESERVED" during the build). `/privacy` gets the sub-page `← GO BACK` nav. No prototype exists
   for the page.
-- **/privacy's words are promises, owner-approved, not admin-editable.** The Gmail line changes with PF-148.
+- **/privacy's words are promises, owner-approved, not admin-editable.** Services line changed by PF-148, owner-approved 2026-11-05. Owner's Questions line, same day: "Send an email to: … · Or send a message", with "Last updated" on its own line.
+
+## PF-148 — email through Resend (owner, 2026-11-05)
+
+Plan approved in chat; full explanation in the Deployment handbook sources, chapter "PF-148".
+- **Resend, not SendGrid:** the owner asked. Resend has a lasting free plan (100 a day, 3,000 a month, checked 11-05); SendGrid is a 60-day trial, then from $19.95 a month.
+- **SMTP through `nodemailer`, not Resend's web API:** no new package; only `mailer.js` and settings change.
+- **Sender subdomain `mail.parindragallage.com`, REPLACES the sprint plan's `@parindragallage.com`:** Resend's recommendation, owner agreed. Addresses are constants in `mailer.js`, not settings.
+- **Security is the DEFAULT sender;** only the contact email passes `sender: 'contact'`. Security mail has no Reply-To.
+- **Contact recipient = the account's main address** (`User.findOne().sort({ createdAt: 1 })`, digestController's lookup). This replaces PF-123's "the sender is the inbox"; no `MAIL_TO` setting was needed after all.
+- **`Auto-Submitted: auto-generated` on every email** (RFC 3834).
+- **`RESEND_API_KEY` lives in Vercel only,** sending-only and limited to the domain. Never on the owner's computer, so local runs and tests cannot send.
+- **DMARC reports go to Cloudflare's DMARC Management:** not the owner's full inbox, and RFC 9990 makes receivers ignore a report address on another domain unless that domain agrees. Starts at `p=none`.
+- **Tokyo region:** closest of the four to the API in Mumbai. Changing it means deleting and re-adding the domain.
+- **Accepted risk:** the 100-a-day allowance is shared, so a contact flood from many addresses could delay password codes that day. Messages still save, and `admin:password` needs no email.
+- **Google's rule, corrected:** SPF or DKIM for all senders; all three only at 5,000+ a day. We chose all three, Gmail doesn't force us.
 
 
 # Moved verbatim from CLAUDE.md on 2026-10-08 — Locked decisions, design authority, working agreement
