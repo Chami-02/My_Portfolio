@@ -1,5 +1,6 @@
 const crypto   = require('crypto');
 const jwt      = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const Session  = require('../models/Session');
 const User     = require('../models/User');
 const AppError = require('../utils/AppError');
@@ -14,17 +15,17 @@ const AppError = require('../utils/AppError');
  * Shape:
  *   - a SHORT-LIVED access JWT (`ACCESS_TOKEN_TTL`, default 15 minutes) that
  *     the client holds in memory and sends as `Authorization: Bearer`;
- *   - an OPAQUE refresh token (32 random bytes) that the client stores and
- *     presents to `POST /api/auth/refresh` when the access token dies. Only
- *     its SHA-256 is stored server-side.
+ *   - an OPAQUE refresh token (32 random bytes) that the browser holds in an
+ *     httpOnly cookie (PF-147, set by authController) and sends to
+ *     `POST /api/auth/refresh` when the access token dies. Only its SHA-256
+ *     is stored server-side.
  *
- * Rotation with reuse detection: every refresh revokes the token presented
- * and issues a successor in the same `family`. If a token that has ALREADY
- * been rotated is presented again, someone holds a copy that the legitimate
- * client no longer has — so the whole family is revoked and both parties are
- * signed out. That is the standard trade for a browser app that cannot use
- * an httpOnly cookie (frontend and backend are different sites on
- * vercel.app): not prevention of theft, but detection on first use.
+ * Rotation with reuse detection (RFC 9700 §4.14.2): every refresh revokes the
+ * token presented and issues a successor in the same `family`. If a token
+ * that has ALREADY been rotated is presented again, someone holds a copy that
+ * the legitimate client no longer has — so the whole family is revoked and
+ * both parties are signed out. PF-147 tolerates one innocent case, a repeat
+ * inside REPEAT_WINDOW_MS — see `answerUsedToken`.
  *
  * ⚠️ Read the TTL env vars at CALL time, not module load, so a test can set
  * them per case and so a missing value falls back the same way everywhere.
@@ -41,18 +42,26 @@ const hashToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
 
 const SESSION_ENDED = 'Your session has ended. Please sign in again.';
+const TRY_AGAIN     = "We couldn't renew your sign-in just now. Please try again.";
+
+// PF-147 — how long a rotated token may be presented again without counting
+// as theft. A reload or a dropped connection can lose the reply that carried
+// its successor, and the browser then still holds the old token. The top of
+// Okta's 0–60 s range, long enough for a person to press RETRY.
+const REPEAT_WINDOW_MS = 60 * 1000;
 
 /**
  * Create a fresh refresh-token row for `user` and sign an access token that
- * names its family. `family` is only passed by `rotateSession`; a login
- * starts a new one. The rest describes the sign-in and is copied forward by
- * every rotation:
+ * names its family. `family` and `id` are only passed by a rotation (the id
+ * was already written to the row being replaced); a login starts a new family.
+ * The rest describes the sign-in and is copied forward by every rotation:
  *   - `signedInAs` — the address the login used (PF-119 follow-up);
  *   - `signInMethod` — 'password' | 'google' (PF-131);
  *   - `device`, `location`, `startedAt` — the Sessions card (PF-132). A login
  *     leaves `startedAt` out and gets "now".
  */
 const issueSession = async (user, {
+  id,
   family = crypto.randomUUID(),
   signedInAs,
   signInMethod,
@@ -64,6 +73,7 @@ const issueSession = async (user, {
   const refreshExpiresAt = new Date(Date.now() + refreshTtlMs());
 
   const session = await Session.create({
+    ...(id && { _id: id }),
     user:      user._id,
     tokenHash: hashToken(refreshToken),
     family,
@@ -93,15 +103,91 @@ const issueSession = async (user, {
   };
 };
 
+const newRowId = () => new mongoose.Types.ObjectId();
+
+const endFamily = (family, now) =>
+  Session.updateMany({ family, revokedAt: null }, { $set: { revokedAt: now } });
+
+// The row `replaced` already names `id` as its successor. Create that row.
+const issueSuccessor = async (replaced, id) => {
+  const user = await User.findById(replaced.user);
+  if (!user) {
+    throw new AppError(SESSION_ENDED, 401);
+  }
+
+  const next = await issueSession(user, {
+    id,
+    family:       replaced.family,
+    signedInAs:   replaced.signedInAs,
+    signInMethod: replaced.signInMethod,
+    device:       replaced.device,
+    location:     replaced.location,
+    // A session from before PF-132 has no start; its first rotation since
+    // then is the earliest moment known, and it is kept from there on.
+    startedAt:    replaced.startedAt ?? replaced.createdAt,
+  });
+
+  // The user rides along so the controller does not query it a second time.
+  return { ...next, user };
+};
+
+/**
+ * PF-147 — a token that is already revoked was presented.
+ *
+ *   no `replacedBy`            signed out, not rotated: refused, never revived
+ *   rotated over the window ago  theft: the family ends
+ *   in the window, successor live  the reply was lost: replace the successor,
+ *                                  so the family keeps exactly ONE live row
+ *                                  (the Sessions card relies on that, PF-132)
+ *   in the window, no successor yet  the first request is still working:
+ *                                    503, nothing changes, the client retries
+ *   in the window, successor revoked  signed out since, or rotated again by
+ *                                     whoever holds it: the family ends
+ */
+const answerUsedToken = async (used, now) => {
+  if (!used.replacedBy) {
+    throw new AppError(SESSION_ENDED, 401);
+  }
+
+  const inWindow  = now - used.revokedAt <= REPEAT_WINDOW_MS;
+  const successor = inWindow ? await Session.findById(used.replacedBy) : null;
+
+  if (inWindow && !successor) {
+    throw new AppError(TRY_AGAIN, 503);
+  }
+
+  if (!inWindow || successor.revokedAt) {
+    await endFamily(used.family, now);
+    // No token here: this line is how a later sign-out gets explained.
+    console.warn('[session] A used refresh token was presented again; signed the session out.');
+    throw new AppError(SESSION_ENDED, 401);
+  }
+
+  const id = newRowId();
+  const claimed = await Session.findOneAndUpdate(
+    { _id: successor._id, revokedAt: null },
+    { $set: { revokedAt: now, replacedBy: id } },
+    { returnDocument: 'after' }
+  );
+  if (!claimed) {
+    throw new AppError(TRY_AGAIN, 503);
+  }
+
+  const next = await issueSuccessor(claimed, id);
+  await Session.updateOne({ _id: used._id }, { $set: { replacedBy: id } });
+  return next;
+};
+
 /**
  * Exchange a refresh token for a new access + refresh pair, revoking the one
- * presented. Throws a 401 AppError for every failure — the client treats
- * them all the same way (clear the session, go to login), and a more
- * specific message would only tell an attacker which part they got right.
+ * presented. A 401 AppError means the session is over, and a more specific
+ * message would only tell an attacker which part they got right. Anything
+ * else (the 503 above, a database failure) is temporary, and the client keeps
+ * its session.
  */
 const rotateSession = async (refreshToken) => {
   if (typeof refreshToken !== 'string' || refreshToken.length === 0) {
-    throw new AppError('Your session has ended. Please sign in again.', 401);
+    throw new AppError(SESSION_ENDED, 401);
   }
 
   const now     = new Date();
@@ -111,57 +197,28 @@ const rotateSession = async (refreshToken) => {
     throw new AppError(SESSION_ENDED, 401);
   }
 
-  // Reuse: this token was already rotated (or revoked by logout). Someone is
-  // presenting a copy the real client no longer holds. Kill the family.
   if (session.revokedAt) {
-    await Session.updateMany(
-      { family: session.family, revokedAt: null },
-      { $set: { revokedAt: now } }
-    );
-    throw new AppError(SESSION_ENDED, 401);
+    return answerUsedToken(session, now);
   }
 
   if (session.expiresAt <= now) {
     throw new AppError(SESSION_ENDED, 401);
   }
 
-  // Atomic claim. Two requests racing with the same token (two tabs) both
-  // pass the reads above; only one wins this update. The loser sees `null`
-  // and is treated as reuse — the family dies, both tabs go to login. For a
-  // single operator that is the correct, conservative outcome.
+  // Atomic claim. Two requests racing with the same token both pass the reads
+  // above; only one wins this update. `revokedAt` and `replacedBy` are written
+  // TOGETHER, so a revoked row can always be told apart: rotated, or signed out.
+  const id = newRowId();
   const claimed = await Session.findOneAndUpdate(
     { _id: session._id, revokedAt: null },
-    { $set: { revokedAt: now } },
+    { $set: { revokedAt: now, replacedBy: id } },
     { returnDocument: 'after' }
   );
   if (!claimed) {
-    await Session.updateMany(
-      { family: session.family, revokedAt: null },
-      { $set: { revokedAt: now } }
-    );
-    throw new AppError(SESSION_ENDED, 401);
+    return answerUsedToken(await Session.findById(session._id), now);
   }
 
-  const user = await User.findById(session.user);
-  if (!user) {
-    throw new AppError('Your session has ended. Please sign in again.', 401);
-  }
-
-  const next = await issueSession(user, {
-    family:       session.family,
-    signedInAs:   session.signedInAs,
-    signInMethod: session.signInMethod,
-    device:       session.device,
-    location:     session.location,
-    // A session from before PF-132 has no start; its first rotation since
-    // then is the earliest moment known, and it is kept from there on.
-    startedAt:    session.startedAt ?? session.createdAt,
-  });
-  claimed.replacedBy = next.sessionId;
-  await claimed.save();
-
-  // The user rides along so the controller does not query it a second time.
-  return { ...next, user };
+  return issueSuccessor(claimed, id);
 };
 
 /**

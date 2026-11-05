@@ -270,6 +270,26 @@ describe('AdminLayout — sign out', () => {
     expect(navigate).toHaveBeenCalledWith('/admin/login');
   });
 
+  // PF-147: page code cannot delete the refresh cookie, so a sign-out the server
+  // never heard must not look like one.
+  it('a FAILED sign-out stays on the page, keeps the cache and says so', async () => {
+    logout.mockRejectedValueOnce(new Error('Network Error'));
+    const user = userEvent.setup();
+    const { client } = renderShell();
+    client.setQueryData(['projects'], [{ _id: 'kept' }]);
+
+    await user.click(screen.getAllByRole('button', { name: /SIGN OUT/i })[0]);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/COULDN.T SIGN YOU OUT/);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(client.getQueryData(['projects'])).toEqual([{ _id: 'kept' }]);
+
+    logout.mockResolvedValueOnce(undefined);
+    await user.click(screen.getAllByRole('button', { name: /SIGN OUT/i })[0]);
+    expect(navigate).toHaveBeenCalledWith('/admin/login');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   // PF-108: logout is now a server call (it revokes the session), and the
   // cache wipe and navigate must WAIT for it. A handler that fired all
   // three synchronously would pass the test above — logout is a mock that
@@ -522,6 +542,30 @@ describe('AdminLayout — sidebar and SIGN OUT ask before unsaved work is lost',
     return { onTabChange };
   };
   const leaveBtn = (name) => within(screen.getByRole('dialog')).getByRole('button', { name });
+
+  // PF-147 — the guard switches itself off for a sign-out, expecting the page to
+  // go. If the sign-out fails the page stays, and so must the guard.
+  // A browser exit, because that and a blocked link are what read the flag: the
+  // sidebar's own dialog asks whatever the flag says, so it proves nothing here.
+  it('after a FAILED sign-out the guard is back on: closing the tab still asks', async () => {
+    const browserAsks = () => {
+      const e = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    let failSignOut;
+    logout.mockImplementationOnce(() => new Promise((_, reject) => { failSignOut = reject; }));
+    renderGuarded();
+    expect(browserAsks()).toBe(true);   // the control
+
+    await userEvent.click(screen.getAllByRole('button', { name: /SIGN OUT/i })[0]);
+    await userEvent.click(leaveBtn('DISCARD & LEAVE'));
+    expect(browserAsks()).toBe(false);  // on the way out, it must not ask twice
+
+    failSignOut(new Error('Network Error'));
+    await screen.findByRole('alert');
+    expect(browserAsks()).toBe(true);
+  });
 
   it('another panel: asks first, switches only on DISCARD', async () => {
     const { onTabChange } = renderGuarded();

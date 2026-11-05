@@ -8,7 +8,7 @@
 // the NEW token? does the interceptor see `error.response.status`?) live in
 // how axios wires config → adapter → interceptors, and a stub of `api` would
 // pass while asserting nothing about that.
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AxiosError } from 'axios';
 import api, { refreshSession } from '../api';
 import { session, ME_KEY }     from '../session';
@@ -16,13 +16,11 @@ import { queryClient }         from '../../lib/queryClient';
 
 const PAIR = {
   accessToken:      'access-1',
-  refreshToken:     'refresh-1',
   accessExpiresAt:  '2026-09-16T10:15:00.000Z',
   refreshExpiresAt: '2026-09-23T10:00:00.000Z',
 };
 const NEXT = {
   accessToken:      'access-2',
-  refreshToken:     'refresh-2',
   accessExpiresAt:  '2026-09-16T10:30:00.000Z',
   refreshExpiresAt: '2026-09-23T10:15:00.000Z',
 };
@@ -55,13 +53,17 @@ const install = (plan) => {
   api.defaults.adapter = async (config) => {
     const url = config.url;
     seen[url] = (seen[url] ?? 0) + 1;
-    calls.push({ url, bearer: bearerOf(config), body: config.data });
+    calls.push({ url, bearer: bearerOf(config), body: config.data, withCredentials: config.withCredentials, timeout: config.timeout });
     const handler = plan[url];
     if (!handler) throw new Error(`unplanned request: ${url}`);
     return handler(config, seen[url]);
   };
 };
 const count = (url) => calls.filter((c) => c.url === url).length;
+
+const statusError = (config, status) =>
+  new AxiosError(`Request failed with status code ${status}`, AxiosError.ERR_BAD_RESPONSE, config, null,
+    { data: {}, status, statusText: '', headers: {}, config });
 
 beforeEach(() => {
   localStorage.clear();
@@ -98,13 +100,14 @@ describe('response interceptor — silent refresh', () => {
 
     expect(res.data).toEqual({ after: 'refresh' });
     expect(calls.map((c) => c.url)).toEqual(['/x', '/auth/refresh', '/x']);
-    // The refresh presented the STORED refresh token…
-    expect(JSON.parse(calls[1].body)).toEqual({ refreshToken: 'refresh-1' });
+    // The refresh asked the browser to send its cookie, with nothing in the body…
+    expect(calls[1].withCredentials).toBe(true);
+    expect(calls[1].body == null).toBe(true);
     // …the replay carried the token the refresh returned, not the dead one…
     expect(calls[2].bearer).toBe('Bearer access-2');
     // …and the store now holds the rotated pair.
     expect(session.getAccessToken()).toBe('access-2');
-    expect(session.getRefreshToken()).toBe('refresh-2');
+    expect(session.getRefreshExpiresAt()).toBe(Date.parse(NEXT.refreshExpiresAt));
   });
 
   it('SINGLE-FLIGHT: five concurrent 401s produce exactly ONE refresh', async () => {
@@ -145,7 +148,7 @@ describe('response interceptor — silent refresh', () => {
     });
 
     expect(session.getAccessToken()).toBeNull();
-    expect(session.getRefreshToken()).toBeNull();
+    expect(session.getRefreshExpiresAt()).toBeNull();
     // null, NOT removed: removal would make an active useMe refetch and
     // 401 straight back into this path. ProtectedRoute treats null as
     // signed out without another request.
@@ -153,12 +156,52 @@ describe('response interceptor — silent refresh', () => {
     expect(count('/x')).toBe(1);   // no replay after a failed refresh
   });
 
-  it('with no stored refresh token, rejects immediately and never calls /auth/refresh', async () => {
-    session.set({ accessToken: 'stale-only' });   // memory half, nothing in storage
-    install({ '/x': (c) => { throw unauthorized(c); } });
+  it('with nothing stored, still asks: only the browser knows whether it holds the cookie', async () => {
+    // localStorage can be blocked while cookies work, so storage must not decide.
+    install({
+      '/x': (c, n) => { if (n === 1) throw unauthorized(c); return ok(c, 'fine'); },
+      '/auth/refresh': (c) => ok(c, NEXT),
+    });
 
-    await expect(api.get('/x')).rejects.toMatchObject({ response: { status: 401 } });
-    expect(count('/auth/refresh')).toBe(0);
+    const res = await api.get('/x');
+
+    expect(res.data).toBe('fine');
+    expect(count('/auth/refresh')).toBe(1);
+  });
+
+  // PF-147 — only a 401 ends a session. Each of these used to sign the admin out.
+  describe.each([
+    ['no answer at all', (c) => new AxiosError('Network Error', AxiosError.ERR_NETWORK, c), undefined],
+    ['a timeout', (c) => new AxiosError('timeout', AxiosError.ECONNABORTED, c), undefined],
+    ['too many requests', (c) => statusError(c, 429), 429],
+    ['a server failure', (c) => statusError(c, 500), 500],
+    ['the repeat window’s "try again"', (c) => statusError(c, 503), 503],
+    ['a refused origin', (c) => statusError(c, 403), 403],
+  ])('when the refresh fails with %s', (_name, failure, status) => {
+    beforeEach(() => {
+      session.set(PAIR);
+      queryClient.setQueryData(ME_KEY, { email: 'owner@example.com' });
+      install({
+        '/x': (c) => { throw unauthorized(c); },
+        '/auth/refresh': (c) => { throw failure(c); },
+      });
+    });
+
+    it('keeps the session and the me cache', async () => {
+      await expect(api.get('/x')).rejects.toBeDefined();
+
+      expect(session.getRefreshExpiresAt()).toBe(Date.parse(PAIR.refreshExpiresAt));
+      expect(session.probablySignedIn()).toBe(true);
+      expect(queryClient.getQueryData(ME_KEY)).toEqual({ email: 'owner@example.com' });
+    });
+
+    it('rejects with the REFRESH error, never the original 401 that means "signed out"', async () => {
+      const err = await api.get('/x').catch((e) => e);
+
+      expect(err.response?.status).toBe(status);
+      expect(err.config.url).toBe('/auth/refresh');
+      expect(count('/x')).toBe(1);   // no replay
+    });
   });
 
   it('a 401 from /auth/login is a wrong password, not a dead session — no refresh', async () => {
@@ -167,7 +210,7 @@ describe('response interceptor — silent refresh', () => {
 
     await expect(api.post('/auth/login', {})).rejects.toMatchObject({ response: { status: 401 } });
     expect(count('/auth/refresh')).toBe(0);
-    expect(session.getRefreshToken()).toBe('refresh-1');   // untouched
+    expect(session.probablySignedIn()).toBe(true);   // untouched
   });
 
   it('a 401 from the Google exchange is a spent handoff, not a dead session — no refresh (PF-119)', async () => {
@@ -176,7 +219,7 @@ describe('response interceptor — silent refresh', () => {
 
     await expect(api.post('/auth/google/exchange', {})).rejects.toMatchObject({ response: { status: 401 } });
     expect(count('/auth/refresh')).toBe(0);
-    expect(session.getRefreshToken()).toBe('refresh-1');   // untouched
+    expect(session.probablySignedIn()).toBe(true);   // untouched
   });
 
   it('replays at most ONCE — a second 401 after a good refresh is surfaced, not looped', async () => {
@@ -202,7 +245,13 @@ describe('response interceptor — silent refresh', () => {
 
     await expect(api.get('/x')).rejects.toMatchObject({ response: { status: 500 } });
     expect(count('/auth/refresh')).toBe(0);
-    expect(session.getRefreshToken()).toBe('refresh-1');
+    expect(session.probablySignedIn()).toBe(true);
+  });
+
+  it('an ordinary request never asks for the cookie', async () => {
+    install({ '/x': (c) => ok(c, {}) });
+    await api.get('/x');
+    expect(calls[0].withCredentials).toBeFalsy();
   });
 });
 
@@ -226,9 +275,69 @@ describe('refreshSession (the export authService.refresh uses)', () => {
     expect(count('/auth/refresh')).toBe(2);
   });
 
-  it('rejects without a network call when nothing is stored', async () => {
-    install({});
-    await expect(refreshSession()).rejects.toThrow(/no refresh token/i);
-    expect(calls).toHaveLength(0);
+  it('gives a slow renewal longer than the 12 s every other call gets', async () => {
+    install({ '/x': (c) => ok(c, {}), '/auth/refresh': (c) => ok(c, NEXT) });
+    await api.get('/x');
+    await refreshSession();
+    expect(calls[0].timeout).toBe(12000);
+    expect(calls[1].timeout).toBe(30000);
+  });
+
+  it('releases the lock after a failure too, so the next try is a new request', async () => {
+    install({
+      '/auth/refresh': (c, n) => {
+        if (n === 1) throw new AxiosError('Network Error', AxiosError.ERR_NETWORK, c);
+        return ok(c, NEXT);
+      },
+    });
+    await expect(refreshSession()).rejects.toBeDefined();
+    await expect(refreshSession()).resolves.toBe('access-2');
+  });
+});
+
+// PF-147 — two TABS are two copies of this module, so the in-tab lock above
+// cannot stop them. The browser's own lock can.
+describe('refreshSession across tabs', () => {
+  afterEach(() => { delete navigator.locks; });
+
+  // Hands the lock to one holder at a time, as the browser does.
+  const fakeLocks = () => {
+    const log = [];
+    let tail = Promise.resolve();
+    return {
+      log,
+      request(name, work) {
+        log.push(name);
+        const turn = tail.then(work);
+        tail = turn.catch(() => {});
+        return turn;
+      },
+    };
+  };
+
+  it('renews inside the browser lock, and the other tab waits its turn', async () => {
+    const locks = fakeLocks();
+    Object.defineProperty(navigator, 'locks', { value: locks, configurable: true });
+
+    // Another tab holds the lock until this is released.
+    let releaseOtherTab;
+    locks.request('pf-session-refresh', () => new Promise((r) => { releaseOtherTab = r; }));
+    await Promise.resolve();
+
+    install({ '/auth/refresh': (c) => ok(c, NEXT) });
+    const mine = refreshSession();
+    await new Promise((r) => { setTimeout(r, 10); });
+    expect(count('/auth/refresh')).toBe(0);   // still waiting
+
+    releaseOtherTab();
+    await expect(mine).resolves.toBe('access-2');
+    expect(count('/auth/refresh')).toBe(1);
+    expect(locks.log).toEqual(['pf-session-refresh', 'pf-session-refresh']);
+  });
+
+  it('a browser without the lock renews anyway', async () => {
+    expect(navigator.locks).toBeUndefined();
+    install({ '/auth/refresh': (c) => ok(c, NEXT) });
+    await expect(refreshSession()).resolves.toBe('access-2');
   });
 });

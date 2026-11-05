@@ -4,6 +4,7 @@ const app     = require('../app');
 const User    = require('../models/User');
 const { issueSession } = require('../services/sessionService');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
+const { refreshCookieOf } = require('./helpers/refreshCookie');
 
 beforeAll(connectTestDB);
 afterEach(clearDB);
@@ -26,9 +27,10 @@ describe('POST /api/auth/login', () => {
     // The access token is a JWT: 3 dot-separated base64 parts
     expect(typeof res.body.accessToken).toBe('string');
     expect(res.body.accessToken.split('.').length).toBe(3);
-    // The refresh token is opaque — 32 random bytes, base64url
-    expect(typeof res.body.refreshToken).toBe('string');
-    expect(res.body.refreshToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    // The refresh token is opaque — 32 random bytes, base64url — and PF-147
+    // moved it out of the body, where a script could read it, into a cookie.
+    expect(refreshCookieOf(res)).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(res.body.refreshToken).toBeUndefined();
     // PF-108: the pre-PF-108 bare `token` is gone, not merely joined
     expect(res.body.token).toBeUndefined();
   });

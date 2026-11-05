@@ -1,4 +1,4 @@
-import api, { refreshSession, apiUrl } from './api';
+import api, { refreshSession, apiUrl, WITH_COOKIE } from './api';
 import { session, ME_KEY }     from './session';
 import { queryClient }         from '../lib/queryClient';
 
@@ -7,14 +7,14 @@ import { queryClient }         from '../lib/queryClient';
  * `getMe` is how the app asks whether it still has one.
  *
  * ⚠️ `getToken` and `isLoggedIn` are GONE. Both read a token out of
- * localStorage, and the access token no longer lives there — after a reload
- * they would say "signed out" while a valid refresh token sat one key away,
- * and after an expiry they would say "signed in" for a token the server had
- * already refused. ProtectedRoute now asks the server (useMe) instead.
+ * localStorage, and neither token lives there — after a reload they would say
+ * "signed out" while a valid refresh cookie was waiting, and after an expiry
+ * "signed in" for a token the server had already refused. ProtectedRoute now
+ * asks the server (useMe) instead.
  */
 export const authService = {
   login: async (email, password) => {
-    const { data } = await api.post('/auth/login', { email, password });
+    const { data } = await api.post('/auth/login', { email, password }, WITH_COOKIE);
     session.set(data);
     // A failed refresh writes `null` into this entry so ProtectedRoute
     // redirects; a fresh sign-in must clear that or the next /admin visit
@@ -38,7 +38,7 @@ export const authService = {
    * model, whichever door was used. Resolves to where the admin was going.
    */
   googleExchange: async (code) => {
-    const { data } = await api.post('/auth/google/exchange', { code });
+    const { data } = await api.post('/auth/google/exchange', { code }, WITH_COOKIE);
     session.set(data);
     queryClient.removeQueries({ queryKey: ME_KEY });
     return data.returnTo;
@@ -54,19 +54,14 @@ export const authService = {
   refresh: () => refreshSession(),
 
   /**
-   * Tell the server, then forget locally — in that order, because the
-   * server call needs the refresh token that `clear` deletes. A failed
-   * network call still signs the browser out; the session row then dies
-   * on its own expiry rather than immediately, which is the right way
-   * round for a user who has clicked SIGN OUT.
+   * Tell the server, then forget locally. Only the server can remove the
+   * httpOnly cookie (PF-147), so a call that fails REJECTS and forgets nothing:
+   * pretending otherwise would show the login page over a key that still works,
+   * on what may be a shared computer. The caller says so and offers it again.
    */
   logout: async () => {
-    const refreshToken = session.getRefreshToken();
-    try {
-      if (refreshToken) await api.post('/auth/logout', { refreshToken });
-    } finally {
-      session.clear();
-    }
+    await api.post('/auth/logout', undefined, WITH_COOKIE);
+    session.clear();
   },
 
   getMe: () => api.get('/auth/me').then((r) => r.data.data),

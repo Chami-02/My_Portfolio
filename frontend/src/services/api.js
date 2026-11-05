@@ -3,7 +3,7 @@ import { session, ME_KEY } from './session';
 import { queryClient }     from '../lib/queryClient';
 
 // In development: Vite proxy forwards /api/* → backend:5000/api/*
-// In production:  VITE_API_URL points directly to the backend's own origin
+// In production:  VITE_API_URL points directly to the backend's own host
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 12000,   // 12 seconds before timing out
@@ -50,42 +50,55 @@ api.interceptors.request.use(
 const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/google/exchange'];
 const isAuthPath = (url = '') => AUTH_PATHS.some((p) => url.includes(p));
 
+const isSessionOver = (err) => err?.response?.status === 401;
+
+// PF-147 — the API is on another HOST, so a browser only stores or sends its
+// cookie when a call asks. Only the four calls that deal with the refresh
+// cookie do; every other request carries the Bearer token alone.
+export const WITH_COOKIE = { withCredentials: true };
+
+// A cold start plus a slow database can pass the 12 s every other call gets,
+// and a renewal that gives up early is a renewal whose reply gets lost.
+const REFRESH_TIMEOUT_MS = 30000;
+
+// PF-147 — tabs renew one at a time. The browser attaches whichever cookie it
+// holds NOW, so the tab that waited sends the newest token. The in-tab lock
+// below cannot do this. A browser without Web Locks simply runs without one,
+// and the server's repeat window covers it.
+const oneTabAtATime = (work) =>
+  (navigator.locks ? navigator.locks.request('pf-session-refresh', work) : work());
+
 // Single-flight. When an access token dies, every query in flight 401s at
 // once — a panel load is four or five of them — and each one lands here.
 // Only the FIRST starts a refresh; the rest await the same promise, then
-// replay. Without this, N concurrent 401s would post N refreshes with the
-// same refresh token, and the backend's reuse detection would read the
-// second one as theft and revoke the session the first one just renewed.
+// replay, so one panel load is one renewal.
 let refreshInFlight = null;
 
 /**
  * Rotate the refresh token. Exported for authService.refresh (the expiry
  * banner's STAY SIGNED IN) so that a deliberate renewal and an interceptor-
- * driven one share the lock AND the failure path — a direct call that
- * bypassed this would leave a dead token in storage when it 401'd.
+ * driven one share the lock AND the failure path.
  */
 export const refreshSession = () => {
   if (refreshInFlight) return refreshInFlight;
 
-  const refreshToken = session.getRefreshToken();
-  if (!refreshToken) {
-    return Promise.reject(new Error('No refresh token'));
-  }
-
-  refreshInFlight = api
-    .post('/auth/refresh', { refreshToken })
+  refreshInFlight = oneTabAtATime(() =>
+    api.post('/auth/refresh', undefined, { ...WITH_COOKIE, timeout: REFRESH_TIMEOUT_MS }))
     .then(({ data }) => {
       session.set(data);
       return data.accessToken;
     })
     .catch((err) => {
-      // The session is over. Forget it, and tell the cache so that
-      // ProtectedRoute — which watches ['auth','me'] — performs ONE router
-      // navigate to /admin/login. `null` rather than removing the entry:
-      // removal would make an active useMe refetch, 401 again, and land
-      // right back here.
-      session.clear();
-      queryClient.setQueryData(ME_KEY, null);
+      // ONLY a 401 means the session is over (PF-147): no answer, too many
+      // requests or a server problem says nothing about it, and keeps it.
+      // Forget it, and tell the cache so that ProtectedRoute — which watches
+      // ['auth','me'] — performs ONE router navigate to /admin/login. `null`
+      // rather than removing the entry: removal would make an active useMe
+      // refetch, 401 again, and land right back here.
+      if (isSessionOver(err)) {
+        session.clear();
+        queryClient.setQueryData(ME_KEY, null);
+      }
       throw err;
     })
     .finally(() => {
@@ -121,8 +134,12 @@ api.interceptors.response.use(
 
     try {
       await refreshSession();
-    } catch {
-      return Promise.reject(error);   // the ORIGINAL 401, not the refresh's
+    } catch (refreshError) {
+      // ⚠️ A temporary failure must surface as ITSELF (PF-147). Passing on the
+      // original 401 would tell ProtectedRoute "signed out" while the session
+      // is kept, so login would send the user back, and the two pages would
+      // bounce until the network returned.
+      return Promise.reject(isSessionOver(refreshError) ? error : refreshError);
     }
 
     config._retried = true;

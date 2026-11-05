@@ -32,6 +32,7 @@ const SignInEvent = require('../models/SignInEvent');
 const google    = require('../services/googleAuth');
 const { safeReturnTo } = require('../controllers/authController');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
+const { refreshCookieOf } = require('./helpers/refreshCookie');
 
 const ENV = {
   GOOGLE_CLIENT_ID:     'test-client-id.apps.googleusercontent.com',
@@ -204,7 +205,8 @@ describe('a complete sign-in', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.accessToken.split('.')).toHaveLength(3);
-    expect(res.body.refreshToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(refreshCookieOf(res)).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(res.body.refreshToken).toBeUndefined();
     expect(res.body.data.email).toBe(PRIMARY);
 
     const me = await request(app)

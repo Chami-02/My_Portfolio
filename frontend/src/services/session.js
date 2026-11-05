@@ -8,12 +8,15 @@
  *     starts with none, and api.js's interceptor silently trades the
  *     refresh token for a new one. Keeping it out of storage means a
  *     script that reads localStorage gets nothing it can use directly.
- *   - The REFRESH token lives in localStorage, because it has to survive a
- *     reload and an httpOnly cookie is not available to this deployment
- *     (frontend and backend are different sites on vercel.app — see the
- *     PF-108 report). It is single-use: the server rotates it on every
- *     refresh and revokes the whole session if a used one is presented
- *     again.
+ *   - The REFRESH token lives in an httpOnly cookie (PF-147), which no code
+ *     here can read: the server sets it, and the browser sends it on the
+ *     calls in api.js that ask for it. It is single-use: the server rotates
+ *     it on every refresh and revokes the whole session if a used one is
+ *     presented again.
+ *
+ * What this file does keep is the refresh token's EXPIRY. It is not a secret,
+ * the expiry banner counts down to it, and its presence is the only hint a
+ * page has that this browser is probably signed in (`probablySignedIn`).
  *
  * `subscribe` exists for the one React consumer that needs to know when the
  * refresh expiry moves (SessionExpiryBanner, via useSyncExternalStore).
@@ -21,8 +24,14 @@
  * two places that notify.
  */
 
-const REFRESH_KEY     = 'portfolio_refresh';
 const REFRESH_EXP_KEY = 'portfolio_refresh_expires';
+
+/**
+ * PF-147 — where the refresh token lived before. Removed on load so no readable
+ * copy stays behind on a browser that signed in before the move. It can go a
+ * release later (Outstanding work).
+ */
+const OLD_REFRESH_KEY = 'portfolio_refresh';
 
 /**
  * The TanStack key for "who is signed in". Defined HERE rather than in
@@ -36,8 +45,7 @@ export const ME_KEY = ['auth', 'me'];
  * PF-145 — "the owner uses this browser", so the visitor counter leaves it out.
  * Written on every sign-in and refresh, and deliberately NOT removed by
  * `clear()`: the owner looking at the site after signing out is still not a
- * visitor. A mark of its own rather than `hasRefreshToken()`, which stops
- * telling us anything once PF-147 moves the token into a cookie.
+ * visitor. A mark of its own, because scripts cannot see the refresh cookie.
  */
 const OWNER_DEVICE_KEY = 'pg-owner-device';
 
@@ -60,19 +68,20 @@ const remove = (key) => {
   try { localStorage.removeItem(key); } catch { /* see above */ }
 };
 
+remove(OLD_REFRESH_KEY);
+
 const toMs = (iso) => {
   const ms = Date.parse(iso);
   return Number.isNaN(ms) ? null : ms;
 };
 
 export const session = {
-  /** Store a freshly issued pair — the shape login and refresh both return. */
+  /** Store a freshly issued session — the shape login and refresh both return. */
   set(payload) {
     accessToken     = payload.accessToken ?? null;
     accessExpiresAt = toMs(payload.accessExpiresAt);
     write(OWNER_DEVICE_KEY, '1');
-    if (payload.refreshToken) {
-      write(REFRESH_KEY, payload.refreshToken);
+    if (payload.refreshExpiresAt) {
       const exp = toMs(payload.refreshExpiresAt);
       if (exp === null) remove(REFRESH_EXP_KEY);
       else write(REFRESH_EXP_KEY, String(exp));
@@ -83,15 +92,13 @@ export const session = {
   clear() {
     accessToken     = null;
     accessExpiresAt = null;
-    remove(REFRESH_KEY);
     remove(REFRESH_EXP_KEY);
     notify();
   },
 
   getAccessToken:     () => accessToken,
   getAccessExpiresAt: () => accessExpiresAt,
-  getRefreshToken:    () => read(REFRESH_KEY),
-  hasRefreshToken:    () => read(REFRESH_KEY) !== null,
+  probablySignedIn:   () => read(REFRESH_EXP_KEY) !== null,
   isOwnerDevice:      () => read(OWNER_DEVICE_KEY) !== null,
 
   /** ms since epoch, or null when there is no stored session. */

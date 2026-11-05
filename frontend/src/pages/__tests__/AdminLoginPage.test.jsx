@@ -179,8 +179,8 @@ describe('AdminLoginPage — behaviour (PF-109)', () => {
     expect(await screen.findByTestId('landing')).toHaveTextContent('/admin/projects?tab=2#p3');
   });
 
-  it('with a stored refresh token, redirects without rendering the form', async () => {
-    session.set({ accessToken: 'a', refreshToken: 'r', refreshExpiresAt: Date.now() + 60_000 });
+  it('with a stored expiry, redirects without rendering the form', async () => {
+    session.set({ accessToken: 'a', refreshExpiresAt: new Date(Date.now() + 60_000).toISOString() });
     renderAt();
     await waitFor(() => expect(screen.getByTestId('landing')).toHaveTextContent('/admin'));
     expect(screen.queryByLabelText('Email address')).toBeNull();

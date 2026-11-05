@@ -23,13 +23,13 @@ import a from '../../styles/admin.module.css';
  *   any OTHER error (server down, network off) → an inline retry panel.
  *
  * ⚠️ That last line is load-bearing. "Cannot reach the server" is not
- * "not signed in": with a refresh token still stored, redirecting to login
+ * "not signed in": with the session kept, redirecting to login
  * would have login send the user straight back here (it forwards anyone
  * holding a token), and the two pages would bounce a failing request
  * between them until the network came back.
  *
  * On a cold reload the in-memory access token is gone, so the first
- * /auth/me 401s, api.js's interceptor trades the stored refresh token for
+ * /auth/me 401s, api.js's interceptor trades the refresh cookie for
  * a new pair and replays, and this component sees `success` — the user
  * never sees the login page. That IS "validate on entry".
  *

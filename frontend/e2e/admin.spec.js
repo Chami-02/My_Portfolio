@@ -10,12 +10,7 @@ const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || 'Admin@1234!';
 
 test.describe('Admin Authentication Flow', () => {
   test('unauthenticated users are redirected to login', async ({ page }) => {
-    // Clear any existing auth. PF-108: the refresh token is what persists
-    // now (the access token lives in memory only); 'portfolio_token' no
-    // longer exists and removing it would clear nothing.
-    await page.goto('/');
-    await page.evaluate(() => localStorage.removeItem('portfolio_refresh'));
-
+    // A fresh Playwright context has no refresh cookie (PF-147) and no session.
     await page.goto('/admin');
     // Should redirect to login
     await expect(page).toHaveURL('/admin/login');

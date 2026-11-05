@@ -15,7 +15,7 @@ const originalAdapter = api.defaults.adapter;
 
 const PAYLOAD = {
   status: 'success',
-  accessToken: 'access-g', refreshToken: 'refresh-g',
+  accessToken: 'access-g',
   accessExpiresAt: new Date(Date.now() + 900e3).toISOString(),
   refreshExpiresAt: new Date(Date.now() + 7 * 864e5).toISOString(),
   data: { id: 'u1', email: 'pcgallege@gmail.com', role: 'admin' },
@@ -49,12 +49,13 @@ describe('authService.googleExchange', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].method).toBe('post');
     expect(calls[0].url).toBe('/auth/google/exchange');
+    expect(calls[0].withCredentials).toBe(true);   // PF-147: or the browser drops the cookie
     expect(JSON.parse(calls[0].data)).toEqual({ code: 'one-time' });
   });
 
   it('stores the session exactly as password login does', async () => {
     await authService.googleExchange('one-time');
-    expect(session.getRefreshToken()).toBe('refresh-g');
+    expect(session.getRefreshExpiresAt()).toEqual(expect.any(Number));
     expect(session.getAccessToken()).toBe('access-g');
   });
 
