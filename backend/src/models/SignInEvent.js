@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
  *            | 'backup-download' | 'backup-restore'   (PF-135 — high-value
  *            actions are logged too: OWASP Logging, ASVS 5.0 V16. `failed` =
  *            the password re-check refused it.)
+ *            | 'passkey-add' | 'passkey-remove'   (PF-140, the same rule)
  *   outcome  'ok' | 'failed'
  *
  * A failed sign-in or a reset request for an address that matches NO account
@@ -27,9 +28,9 @@ const RETENTION_DAYS = 90;
 const signInEventSchema = new mongoose.Schema(
   {
     user:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    kind:     { type: String, required: true, enum: ['sign-in', 'reset-request', 'password-reset', 'password-change', 'backup-download', 'backup-restore'] },
+    kind:     { type: String, required: true, enum: ['sign-in', 'reset-request', 'password-reset', 'password-change', 'backup-download', 'backup-restore', 'passkey-add', 'passkey-remove'] },
     outcome:  { type: String, required: true, enum: ['ok', 'failed'] },
-    method:   { type: String, enum: ['password', 'google'] },
+    method:   { type: String, enum: ['password', 'google', 'passkey'] },
     address:  { type: String, maxlength: 254 },
     device:   { type: String },
     location: { type: String },

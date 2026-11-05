@@ -50,6 +50,7 @@
     "node": "24.x"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^14.0.3",
     "@vercel/functions": "^3.10.5",
     "@zxcvbn-ts/core": "^4.2.0",
     "@zxcvbn-ts/language-common": "^4.1.3",

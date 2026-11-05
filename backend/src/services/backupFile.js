@@ -89,6 +89,7 @@ const BACKED_UP = {
 /** Accounts, credentials, sign-in records, plumbing and the safety copies — never in a backup. */
 const NEVER_BACKED_UP = [
   'User', 'Session', 'PasswordReset', 'PasswordChange', 'OAuthFlow',
+  'Passkey', 'PasskeyChallenge', // PF-140
   'SignInEvent', 'RateLimit', 'Migration', 'BackupSnapshot',
   // PF-145 — codes and salts must die within 2 days, so never into a file. The
   // totals stay out too: a restore puts the SITE back and must not rewind them.

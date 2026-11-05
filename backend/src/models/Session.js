@@ -58,7 +58,7 @@ const sessionSchema = new mongoose.Schema(
     // from before it existed; the card then shows no method rather than a guess.
     signInMethod: {
       type: String,
-      enum: ['password', 'google'],
+      enum: ['password', 'google', 'passkey'],
     },
     // PF-132 — what the Settings Sessions card shows about this sign-in. All
     // three are set at login and copied forward by every rotation, like
