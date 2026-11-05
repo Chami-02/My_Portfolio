@@ -89,15 +89,15 @@ export function PrivacyPage() {
         <h2 className={styles.title}>Services this site uses</h2>
         <p className={styles.text}>
           Vercel (hosting), MongoDB Atlas (database), Cloudinary (images), Google
-          Fonts (fonts) and Gmail (message emails). Your browser or message
+          Fonts (fonts), and Resend and Gmail (message emails). Your browser or message
           reaches some of them directly, so they see your IP address and handle
           data under their own privacy policies.
         </p>
 
         <p className={styles.footnote}>
-          Questions? <a className={styles.link} href={`mailto:${ADDRESS}`}>{ADDRESS}</a>
-          {' · '}<Link className={styles.link} to={sectionHref('/privacy', 'contact')}>Contact me</Link>
-          {' · '}Last updated: November 2026
+          Questions? Send an email to: <a className={styles.link} href={`mailto:${ADDRESS}`}>{ADDRESS}</a>
+          {' · Or '}<Link className={styles.link} to={sectionHref('/privacy', 'contact')}>send a message</Link>
+          <span className={styles.updated}>Last updated: November 2026</span>
         </p>
       </article>
 

@@ -2,7 +2,8 @@ const { body }   = require('express-validator');
 const { waitUntil } = require('@vercel/functions');
 const Contact    = require('../models/Contact');
 const About      = require('../models/About');
-const AppError   = require('../utils/AppError');
+const User       = require('../models/User');
+const AppError  = require('../utils/AppError');
 const mailer     = require('../services/mailer');
 const { requestLocation } = require('../utils/requestLocation');
 const { escapeHtml }      = require('../utils/escapeHtml');
@@ -78,9 +79,11 @@ const notifyOwner = async (contact) => {
     const zone  = about?.timezone || DEFAULT_ZONE;
     const { date, time } = formatSent(contact.createdAt, zone);
     const e = escapeHtml;
+    const owner = await User.findOne().sort({ createdAt: 1 }).select('email').lean();
 
     await mailer.send({
-      to:      mailer.address(),
+      sender:  'contact',
+      to:      owner.email,
       replyTo: contact.email,   // Reply in Gmail answers the visitor
       // Collapse line breaks: a name must never be able to start a new header.
       subject: `New portfolio message from ${contact.name.replace(/\s+/g, ' ')}`,

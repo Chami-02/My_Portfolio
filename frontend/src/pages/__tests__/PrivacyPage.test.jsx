@@ -51,9 +51,11 @@ describe('PrivacyPage', () => {
 
   it('offers the contact form right after the address on the Questions line', () => {
     renderPage();
-    const contact = screen.getByRole('link', { name: 'Contact me' });
+    const contact = screen.getByRole('link', { name: 'send a message' });
     expect(contact).toHaveAttribute('href', '/?nosplash=1#contact');
-    expect(contact.closest('p')).toHaveTextContent(/^Questions\? pcgallege@gmail\.com · Contact me · Last updated/);
+    expect(contact.closest('p')).toHaveTextContent(/^Questions\? Send an email to: pcgallege@gmail\.com · Or send a message/);
+    // Its own line (owner, 2026-11-05): `.updated` is display: block.
+    expect(screen.getByText('Last updated: November 2026').tagName).toBe('SPAN');
   });
 
   it('opens at the top when arriving by a link, but keeps the place on Back', () => {

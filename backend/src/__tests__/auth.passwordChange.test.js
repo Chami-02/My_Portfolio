@@ -89,8 +89,7 @@ let error;
 
 beforeAll(connectTestDB);
 beforeEach(async () => {
-  process.env.GMAIL_USER = PRIMARY;
-  process.env.GMAIL_APP_PASSWORD = 'abcdabcdabcdabcd';
+  process.env.RESEND_API_KEY = 're_test_key';
   sendMail.mockReset().mockResolvedValue({ messageId: 'x' });
   nodemailer.createTransport.mockReset().mockReturnValue({ sendMail });
   isBreached.mockReset().mockResolvedValue(false);
@@ -193,7 +192,7 @@ describe('POST /api/auth/password/change/code', () => {
   });
 
   it('says so with 503 when mail is not configured', async () => {
-    delete process.env.GMAIL_APP_PASSWORD;
+    delete process.env.RESEND_API_KEY;
     const res = await askCode({ currentPassword: OLD, password: NEW });
     expect(res.status).toBe(503);
     expect(res.body.message).toMatch(/admin:password/);

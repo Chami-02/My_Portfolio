@@ -64,3 +64,8 @@
   padding-top: 20px;
   border-top: 1px solid rgba(var(--ln), .14);
 }
+
+.updated {
+  display: block;
+  margin-top: 6px;
+}

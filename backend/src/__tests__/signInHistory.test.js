@@ -65,8 +65,7 @@ let user, error;
 
 beforeAll(connectTestDB);
 beforeEach(async () => {
-  process.env.GMAIL_USER = PRIMARY;
-  process.env.GMAIL_APP_PASSWORD = 'abcdabcdabcdabcd';
+  process.env.RESEND_API_KEY = 're_test_key';
   process.env.FRONTEND_URL = `${SITE}/`;
   sendMail.mockReset().mockResolvedValue({ messageId: 'x' });
   nodemailer.createTransport.mockReset().mockReturnValue({ sendMail });
@@ -157,6 +156,8 @@ describe('the new-device email', () => {
     const [mail] = await eventually(() => mails().length === 1 && mails());
 
     expect(mail.to).toEqual([PRIMARY, ALIAS]);
+    expect(mail.from.address).toBe('no-reply@mail.parindragallage.com');
+    expect(mail.replyTo).toBeUndefined();
     expect(mail.subject).toBe('New sign-in to your admin: Chrome on macOS');
     expect(mail.text).toContain(`last ${NEW_DEVICE_DAYS} days`);
     expect(mail.html).toContain('Chrome on macOS');
@@ -239,7 +240,7 @@ describe('the new-device email', () => {
   });
 
   it('nothing is sent with mail off — and the sign-in still works', async () => {
-    delete process.env.GMAIL_APP_PASSWORD;
+    delete process.env.RESEND_API_KEY;
     expect((await login(PRIMARY)).status).toBe(200);
     await settle();
     expect(nodemailer.createTransport).not.toHaveBeenCalled();
@@ -448,7 +449,7 @@ describe('GET /api/cron/digest', () => {
   });
 
   it('with mail off nothing is claimed — the rows wait', async () => {
-    delete process.env.GMAIL_APP_PASSWORD;
+    delete process.env.RESEND_API_KEY;
     await fail();
     expect((await cron(`Bearer ${SECRET}`)).body).toMatchObject({ sent: false, reason: 'mail-off' });
     expect(await SignInEvent.countDocuments({ digestedAt: null })).toBe(1);
