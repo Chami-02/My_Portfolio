@@ -12,6 +12,7 @@ const app     = require('../app');
 const User    = require('../models/User');
 const { issueSession } = require('../services/sessionService');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
+const { asOurSite, refreshCookieOf } = require('./helpers/refreshCookie');
 
 beforeAll(connectTestDB);
 afterEach(clearDB);
@@ -58,8 +59,7 @@ describe('GET /api/auth/me — signedInAs', () => {
 
   it('keeps naming the same address after a refresh rotates the session', async () => {
     const first = await login(SECOND);
-    const next  = await request(app).post('/api/auth/refresh')
-      .send({ refreshToken: first.body.refreshToken });
+    const next  = await asOurSite(request(app).post('/api/auth/refresh'), refreshCookieOf(first));
     expect(next.status).toBe(200);
     expect((await me(next.body.accessToken)).body.data.signedInAs).toBe(SECOND);
   });
@@ -132,8 +132,7 @@ describe('GET /api/auth/me — signedInWith', () => {
 
   it('keeps naming it after a refresh rotates the session', async () => {
     const first = await login(SECOND);
-    const next  = await request(app).post('/api/auth/refresh')
-      .send({ refreshToken: first.body.refreshToken });
+    const next  = await asOurSite(request(app).post('/api/auth/refresh'), refreshCookieOf(first));
     expect(next.status).toBe(200);
     expect((await me(next.body.accessToken)).body.data.signedInWith).toBe('password');
   });

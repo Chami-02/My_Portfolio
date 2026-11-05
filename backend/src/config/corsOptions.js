@@ -23,16 +23,16 @@ const ALLOWED_ORIGINS = [
 // API accepts. Covers localhost:5170-5199 plus 5200.
 const DEV_ORIGIN = /^http:\/\/localhost:(51[7-9][0-9]|5200)$/;
 
+const isAllowedOrigin = (origin) =>
+  ALLOWED_ORIGINS.includes(origin)
+  || (process.env.NODE_ENV !== 'production' && DEV_ORIGIN.test(origin));
+
 const corsOptions = {
   origin: (incomingOrigin, callback) => {
     // Allow requests with no origin (e.g. Postman, curl, mobile apps)
     if (!incomingOrigin) return callback(null, true);
 
-    if (ALLOWED_ORIGINS.includes(incomingOrigin)) {
-      return callback(null, true);
-    }
-
-    if (process.env.NODE_ENV !== 'production' && DEV_ORIGIN.test(incomingOrigin)) {
+    if (isAllowedOrigin(incomingOrigin)) {
       return callback(null, true);
     }
 
@@ -46,3 +46,4 @@ const corsOptions = {
 };
 
 module.exports = corsOptions;
+module.exports.isAllowedOrigin = isAllowedOrigin;

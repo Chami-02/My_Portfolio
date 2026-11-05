@@ -7,6 +7,7 @@ const User    = require('../models/User');
 const Session = require('../models/Session');
 const { issueSession, rotateSession, isFamilyLive, revokeFamily } = require('../services/sessionService');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
+const { asOurSite } = require('./helpers/refreshCookie');
 
 const PASSWORD = 'Owner-Password-123';
 const CHROME_MAC =
@@ -67,7 +68,7 @@ describe('GET /api/auth/sessions', () => {
   });
 
   it('leaves out ended and expired sessions, and other users', async () => {
-    await request(app).post('/api/auth/logout').send({ refreshToken: phone.refreshToken });
+    await asOurSite(request(app).post('/api/auth/logout'), phone.refreshToken);
     await Session.updateOne({ family: familyOf(laptop) }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
     const stranger = await User.create({ email: 'stranger@example.com', password: PASSWORD });
     await issueSession(stranger, { device: 'Edge on Linux' });

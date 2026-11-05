@@ -25,12 +25,27 @@ const signInDetails = (req) => ({
   location: requestLocation(req) ?? undefined,
 });
 
-// One shape for every response that hands the client a session — login and
-// refresh — so the frontend has a single place that stores it.
+// PF-147 — the refresh token's home: a cookie page scripts cannot read, never a
+// response body. Settings from RFC 10017 §6.1.3.2. `api.` and the site are one
+// SITE since PF-146, so `SameSite=Strict` still reaches this API from the site.
+// No `Domain`, so it stays on the API's host. The `__Host-Http-` prefix makes
+// the browser enforce all of that and refuse a copy planted by a sibling
+// subdomain. It needs HTTPS, so local http uses the plain name.
+const REFRESH_COOKIE = 'pg_refresh';
+const refreshCookieName = (req) => (req.secure ? `__Host-Http-${REFRESH_COOKIE}` : REFRESH_COOKIE);
+const refreshCookieOptions = (req) => ({
+  httpOnly: true,
+  secure:   req.secure,
+  sameSite: 'strict',
+  path:     '/',
+});
+const readRefreshCookie = (req) => parseCookies(req.headers.cookie || '')[refreshCookieName(req)];
+
+// One shape for every response that hands the client a session — login, Google
+// and refresh — so the frontend has a single place that stores it.
 const sessionPayload = (session, user) => ({
   status:           'success',
   accessToken:      session.accessToken,
-  refreshToken:     session.refreshToken,
   accessExpiresAt:  session.accessExpiresAt,
   refreshExpiresAt: session.refreshExpiresAt,
   data: {
@@ -39,6 +54,13 @@ const sessionPayload = (session, user) => ({
     role:  user.role,
   },
 });
+const sendSession = (req, res, session, user, extra) => {
+  res.cookie(refreshCookieName(req), session.refreshToken, {
+    ...refreshCookieOptions(req),
+    maxAge: Date.parse(session.refreshExpiresAt) - Date.now(),
+  });
+  res.json({ ...sessionPayload(session, user), ...extra });
+};
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 // One rule, one message: both fields present and both strings.
@@ -103,7 +125,7 @@ const login = async (req, res, next) => {
     const event = await recordEvent(req, { user, kind: 'sign-in', outcome: 'ok', method: 'password', address: signedInAs });
     // PF-133: the new-device email and the leak check, after the response.
     waitUntil(afterSignIn(user, event, { password }));
-    res.json(sessionPayload(session, user));
+    sendSession(req, res, session, user);
   } catch (err) {
     next(err);
   }
@@ -114,19 +136,21 @@ const login = async (req, res, next) => {
 // is expected to be dead by the time this is called.
 const refresh = async (req, res, next) => {
   try {
-    const { user, ...session } = await rotateSession(req.body?.refreshToken);
-    res.json(sessionPayload(session, user));
+    const { user, ...session } = await rotateSession(readRefreshCookie(req));
+    sendSession(req, res, session, user);
   } catch (err) {
     next(err);
   }
 };
 
 // ── POST /api/auth/logout ─────────────────────────────────────────────────────
-// Revokes the session family. Always 200 — a client that has lost its token
-// has nothing to do with an error here except retry the same thing.
+// Revokes the session family and removes the cookie. Always 200 — a client
+// that has lost its token has nothing to do with an error here except retry
+// the same thing.
 const logout = async (req, res, next) => {
   try {
-    await revokeSession(req.body?.refreshToken);
+    await revokeSession(readRefreshCookie(req));
+    res.clearCookie(refreshCookieName(req), refreshCookieOptions(req));
     res.json({ status: 'success' });
   } catch (err) {
     next(err);
@@ -390,7 +414,7 @@ const googleExchange = async (req, res, next) => {
       user, kind: 'sign-in', outcome: 'ok', method: 'google', address: handoff.signedInAs,
     });
     waitUntil(afterSignIn(user, event));
-    res.json({ ...sessionPayload(session, user), returnTo: safeReturnTo(handoff.returnTo) });
+    sendSession(req, res, session, user, { returnTo: safeReturnTo(handoff.returnTo) });
   } catch (err) {
     next(err);
   }
