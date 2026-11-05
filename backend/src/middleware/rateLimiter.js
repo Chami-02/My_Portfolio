@@ -251,6 +251,41 @@ const sessionsLimiter = rateLimit({
 });
 
 /**
+ * Limiters for passkeys (PF-140).
+ *
+ * `passkeyLimiter`: the two public sign-in routes. One real sign-in spends two,
+ * and a passkey is not a guess at a password (the attacker needs the device),
+ * so it has Google's budget rather than `authLimiter`'s.
+ *
+ * `passkeyChangeLimiter`: adding and removing. Behind `protect`, like
+ * `sessionsLimiter` and for the same reason: two of the three routes check the
+ * current password, so this bounds guesses by someone holding a stolen session.
+ */
+const passkeyLimiter = rateLimit({
+  store:           new MongoStore('passkey'),
+  windowMs:        15 * 60 * 1000,
+  max:             30,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many passkey attempts. Please wait 15 minutes before trying again.',
+  },
+});
+
+const passkeyChangeLimiter = rateLimit({
+  store:           new MongoStore('passkey-change'),
+  windowMs:        15 * 60 * 1000,
+  max:             10,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: 'Too many passkey changes. Please wait 15 minutes before trying again.',
+  },
+});
+
+/**
  * Limiter for the backup download (PF-135). Behind `protect`, like
  * `sessionsLimiter` and for the same reason: each request checks the current
  * password, so this bounds guesses by someone holding a stolen session.
@@ -291,4 +326,4 @@ const visitLimiter = rateLimit({
   },
 });
 
-module.exports = { skipGlobalLimiter, visitLimiter, globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter, backupLimiter };
+module.exports = { skipGlobalLimiter, visitLimiter, globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter, backupLimiter, passkeyLimiter, passkeyChangeLimiter };

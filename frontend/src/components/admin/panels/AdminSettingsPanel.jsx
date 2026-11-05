@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useMe } from '../../../hooks/useMe';
 import { SettingsPasswordCard } from './SettingsPasswordCard';
+import { SettingsPasskeysCard } from './SettingsPasskeysCard';
 import { SettingsSessionsCard } from './SettingsSessionsCard';
 import { SettingsBackupCard }   from './SettingsBackupCard';
 import styles from './AdminSettingsPanel.module.css';
@@ -25,6 +26,7 @@ import a from '../../../styles/admin.module.css';
  * with a form, and registers with the unsaved-changes guard itself. The
  * Sessions card (PF-132) fetches its own list and has its own LoadError.
  * The Backup card (PF-135) fetches only when asked, behind the password.
+ * The Passkeys card (PF-140) fetches its own list, like Sessions.
  */
 export function AdminSettingsPanel() {
   const { data: me } = useMe();
@@ -68,6 +70,8 @@ export function AdminSettingsPanel() {
 
       <SettingsPasswordCard />
 
+      <SettingsPasskeysCard />
+
       <SettingsSessionsCard />
 
       <SettingsBackupCard />
@@ -75,13 +79,17 @@ export function AdminSettingsPanel() {
   );
 }
 
-const METHOD_LABELS = { password: 'Password', google: 'Google' };
+const METHOD_LABELS = { password: 'Password', google: 'Google', passkey: 'Passkey' };
 
 function AccountFacts({ me }) {
   // `addresses` arrived with PF-131; a backend from before it sends only the
   // primary, which is still a true (if shorter) answer.
   const addresses = me.addresses ?? [{ address: me.email, primary: true, google: false }];
-  const methods = ['Password', ...(addresses.some((x) => x.google) ? ['Google'] : [])];
+  const methods = [
+    'Password',
+    ...(addresses.some((x) => x.google) ? ['Google'] : []),
+    ...(me.passkey ? ['Passkey'] : []),
+  ];
 
   return (
     <>

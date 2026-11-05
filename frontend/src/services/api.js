@@ -45,16 +45,18 @@ api.interceptors.request.use(
 // ── Silent refresh (PF-108) ───────────────────────────────────────────────────
 // The endpoints that must never trigger a refresh of their own: a 401 from
 // login is a wrong password, from refresh is a dead session, logout is
-// answered 200 regardless, and from the Google exchange (PF-119) it is a
-// spent or expired one-time handoff — none of them is fixed by a new token.
-const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/google/exchange'];
+// answered 200 regardless, from the Google exchange (PF-119) it is a spent or
+// expired one-time handoff, and from a passkey sign-in (PF-140) a refused
+// passkey — none of them is fixed by a new token.
+const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/google/exchange', '/auth/passkey/login'];
 const isAuthPath = (url = '') => AUTH_PATHS.some((p) => url.includes(p));
 
 const isSessionOver = (err) => err?.response?.status === 401;
 
 // PF-147 — the API is on another HOST, so a browser only stores or sends its
-// cookie when a call asks. Only the four calls that deal with the refresh
-// cookie do; every other request carries the Bearer token alone.
+// cookie when a call asks. Only the calls that deal with the refresh cookie do,
+// plus a passkey sign-in's two (PF-140); every other request carries the Bearer
+// token alone.
 export const WITH_COOKIE = { withCredentials: true };
 
 // A cold start plus a slow database can pass the 12 s every other call gets,

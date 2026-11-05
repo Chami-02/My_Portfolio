@@ -309,23 +309,25 @@
 
 /* Same geometry and type as .submit below — so the two doors read as a
    pair — but outlined. Enters with the same typeIn, just before the form
-   rule (.3s). */
+   rule (.3s). PF-140 (owner, 2026-11-05): smaller than .submit on every
+   screen, 44px, so the two side doors don't outweigh the main one. */
 .google {
   composes: kf-typeIn from global;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  padding: 15px 24px;            /* 16px less the 1px border */
+  min-height: 44px;
+  padding: 10px 20px;
   border-radius: 999px;
   border: 1px solid rgba(var(--ln), .22);
   background: rgba(var(--srf), .5);
   color: var(--text);
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 12.5px;
-  letter-spacing: .1em;
+  font-size: 12px;
+  letter-spacing: .08em;
   text-decoration: none;
   cursor: pointer;
   transition: transform .25s, border-color .25s, box-shadow .25s;
@@ -335,7 +337,19 @@
   animation-fill-mode: both;
 }
 
+/* PF-140 — the passkey door: the same pill, right under Google's. A <button>,
+   so it resets what a link never had. */
+.passkey {
+  margin-top: 10px;
+  animation-delay: .28s;
+}
+
+button.passkey:disabled {
+  cursor: progress;
+}
+
 /* `a.google` only — the busy <span> must not lift or glow. */
+button.passkey:not(:disabled):hover,
 a.google:hover {
   transform: translateY(-3px);
   border-color: var(--acc, #FCA311);
@@ -601,4 +615,22 @@ a.google:hover {
 
 :global(html[data-theme='dark']) .input::placeholder {
   color: var(--muted);
+}
+
+/* PF-140 (owner, 2026-11-05): small buttons on a phone. The main button joins
+   the other two at PF-142's 44px. Last in the file, or it would not apply. */
+@media (max-width: 560px) {
+  .submit {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  /* One line even on a 320px screen. */
+  .google {
+    padding-left: 12px;
+    padding-right: 12px;
+    font-size: 11.5px;
+    letter-spacing: .05em;
+  }
 }

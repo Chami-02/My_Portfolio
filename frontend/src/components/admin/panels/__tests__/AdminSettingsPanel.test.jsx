@@ -20,6 +20,13 @@ vi.mock('../../../../hooks/useSessions', () => ({
   SIGN_INS_KEY: ['auth', 'sign-ins'],
 }));
 
+// PF-140: the Passkeys card has its own suite; here it only has to render.
+vi.mock('../../../../hooks/usePasskeys', () => ({
+  usePasskeys:          () => ({ isSuccess: true, data: [] }),
+  usePrepareAddPasskey: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useFinishAddPasskey:  () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRemovePasskey:     () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 // PF-135: the Backup card has its own suite; here it only has to render.
 vi.mock('../../../../hooks/useBackup', () => ({
   useDownloadBackup:     () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -86,11 +93,13 @@ describe('AdminSettingsPanel — the Account fold (owner, 2026-10-30)', () => {
 });
 
 describe('AdminSettingsPanel — Account card', () => {
-  it('renders only the BUILT cards — Account, Password, Sessions, Backup — no placeholders', () => {
+  it('renders only the BUILT cards — Account, Password, Passkeys, Sessions, Backup — no placeholders', () => {
     render(<AdminSettingsPanel />);
     expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-labelledby')))
       .toEqual([
-        'settings-account-title', 'settings-password-title', 'settings-sessions-title',
+        'settings-account-title', 'settings-password-title',
+        'settings-passkeys-title',   // PF-140
+        'settings-sessions-title',
         'settings-backup-title',   // PF-135
       ]);
     expect(card()).toBeInTheDocument();
@@ -107,18 +116,27 @@ describe('AdminSettingsPanel — Account card', () => {
   it.each([
     ['google',   'Google'],
     ['password', 'Password'],
+    ['passkey',  'Passkey'],     // PF-140
   ])('names the method THIS login used (%s)', (method, label) => {
     useMe.mockReturnValue({ data: { ...ME, signedInWith: method } });
     render(<AdminSettingsPanel />);
     expect(fact('Signed in with')).toHaveTextContent(new RegExp(`^${label}$`));
   });
 
-  it.each([null, undefined, 'passkey'])(
+  it.each([null, undefined, 'carrier-pigeon'])(
     'shows no method line when the session recorded none it knows (%s)', (method) => {
       useMe.mockReturnValue({ data: { ...ME, signedInWith: method } });
       render(<AdminSettingsPanel />);
       expect(screen.queryByText('Signed in with')).toBeNull();
       expect(fact('Signed in as')).toHaveTextContent(SECOND);
+    });
+
+  // PF-140 — follows /auth/me's boolean; never claims one that isn't there.
+  it.each([[true, /Passkey/], [false, /^(?!.*Passkey)/]])(
+    'sign-in methods with passkey = %s', (passkey, shown) => {
+      useMe.mockReturnValue({ data: { ...ME, passkey } });
+      render(<AdminSettingsPanel />);
+      expect(fact('Sign-in methods').textContent).toMatch(shown);
     });
 
   it('lists every login address, primary first and tagged PRIMARY', () => {

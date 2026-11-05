@@ -6,6 +6,7 @@ const { waitUntil } = require('@vercel/functions');
 const User      = require('../models/User');
 const Session   = require('../models/Session');
 const OAuthFlow = require('../models/OAuthFlow');
+const Passkey   = require('../models/Passkey');
 const AppError  = require('../utils/AppError');
 const {
   issueSession,
@@ -174,10 +175,11 @@ const logout = async (req, res, next) => {
 // `req.user` does not carry it; it is read beside the session.
 const getMe = async (req, res, next) => {
   try {
-    const [session, identities] = await Promise.all([
+    const [session, identities, hasPasskey] = await Promise.all([
       Session.findOne({ family: req.auth.family, revokedAt: null })
         .select('signedInAs signInMethod'),
       User.findById(req.user._id).select('googleIdentities').lean(),
+      Passkey.exists({ user: req.user._id }),
     ]);
     const used = session?.signedInAs;
     const addresses = [req.user.email, ...req.user.loginEmails];
@@ -201,6 +203,8 @@ const getMe = async (req, res, next) => {
         // stamped it) and the admin's leaked-password banner — a boolean
         // only; when it was found says nothing the owner can act on.
         passwordChangedAt: req.user.passwordChangedAt ?? null,
+        // PF-140: the Account card's "Sign-in methods" line.
+        passkey:           Boolean(hasPasskey),
         passwordLeaked:    Boolean(req.user.passwordLeakedAt),
       },
     });
@@ -424,4 +428,6 @@ module.exports = {
   loginRules, login, refresh, logout, getMe,
   googleStart, googleCallback, googleExchange,
   safeReturnTo,
+  // PF-140: every door ends the same way.
+  sendSession, signInDetails,
 };

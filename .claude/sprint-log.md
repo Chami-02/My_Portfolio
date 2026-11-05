@@ -2234,8 +2234,8 @@ retrospective document** — this section is the record, matching Sprint 10,
 - **PF-146 follow-ups (2026-11-04).** (1) Sign-in renewal: FIXED in PF-147. (2) **Contract in PF-153:** remove the old address
   from `corsOptions.js`, `connect-src` and Google's list. (3) The owner's after-switch steps are all DONE. (4) Comments rewritten in PF-147.
 
-- **PF-148 follow-ups (2026-11-05).** (1) **Before merge, owner:** Resend domain Verified and `RESEND_API_KEY` in Vercel, or password codes stop.
-  (2) **After one real contact email passes, owner:** delete `GMAIL_*` from Vercel, revoke the Google app password, remove those lines from local `.env`.
+- **PF-148 follow-ups (2026-11-05).** (1) DONE: Resend domain Verified and `RESEND_API_KEY` in Vercel before merge.
+  (2) DONE: one real contact email, 12:26 UTC: SPF, DKIM, DMARC pass; Reply-To and To correct; `GMAIL_*` removed, app password revoked, local lines removed. A `no-reply@` email hasn't been seen live yet.
   (3) **After a few weeks of clean reports:** DMARC to `p=quarantine`. (4) E2E wasn't run locally (mail is off there); CI runs it.
 - **PF-147 follow-ups (2026-11-05).** (1) **DONE:** owner confirmed Chrome and Safari, with Google sign-in; settles the Safari check. A phone and the DevTools cookie view
   weren't mentioned, so they aren't recorded as passed. (2) **A release later (PF-153):** delete
@@ -11025,9 +11025,25 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 (`node node_modules/dotenv-cli/cli.js -e .env.e2e -- node src/server.js` + Vite on 5174, `CI=1`). **Mutants 53/53** caught after one test rewrite (33 backend, 20 frontend).
 **Browser:** Chromium and WebKit via Playwright; owner shown it in Chrome. Live: owner confirmed Chrome and Safari, 2026-11-05.
 
-#### PF-148 — email through Resend, to the standards · BUILT 2026-11-05, release pending (needs the owner's Resend setup first)
+#### PF-148 — email through Resend, to the standards · LIVE 2026-11-05, PR #89 `940d2a2`
 
 **Report: `new mds/Sprint 16/PF-148-email-through-resend.md`.** Explained in the Deployment handbook sources. Decisions: `locked-decisions.md` "PF-148". Branch `feat/PF-148-resend`.
 **Files:** `services/mailer.js`, `contactController.js`, `scripts/run-jest.js`, both `.env` examples, `PrivacyPage.jsx`, seven test suites.
 **Gate:** frontend 2,690 tests, 130 files, branches 89.94%; backend 1,526, 75 suites, branches 80.23%; lint 0; build OK. **Mutants 7/7** caught. E2E not run locally (mail is off there); CI runs it.
 **Browser:** privacy sentence checked in dark and light on the dev server, no sideways overflow. **Live setup, 2026-11-05:** domain Verified at Resend (Forge enabled, Tokyo); `dig` confirms CNAME `send.mail`, CNAME `rsend.mail`, TXT DKIM and `_dmarc` `p=none`. Owner reports the key is in Vercel; I can't read it. **Not yet proven:** a real send.
+
+#### PF-140 — passkeys · BUILT 2026-11-05, release pending, then the owner's live check
+
+**Report: `new mds/Sprint 16/PF-140-passkeys.md`.** Explained in the Authentication & Security handbook sources. Decisions: `locked-decisions.md` "PF-140". Traps: `silent-failures.md` "PF-140". Branch `feat/PF-140-passkeys`. No migration.
+**Files:** backend NEW `models/Passkey.js`, `models/PasskeyChallenge.js`, `services/passkeyService.js`, `controllers/passkeyController.js`, `__tests__/passkey.routes.test.js`, `__tests__/helpers/softAuthenticator.js`; changed `authController`, `authRoutes`, `rateLimiter`, `digestController`, `signInLog`, `Session`, `SignInEvent`, `backupFile`, `seed`. Frontend NEW `services/passkeyService.js`, `hooks/usePasskeys.js`, `utils/passkeyError.js`, `panels/SettingsPasskeysCard.jsx`, passkey suite in `e2e/admin.spec.js` (CI's credential scan allows the fixture password only there); changed `AdminLoginPage` + CSS, `AdminSettingsPanel` + CSS, `SettingsSessionsCard`, `api.js`, `BrandIcons`, `adminFoundation.test.js`. Libraries: `@simplewebauthn/server`, `@simplewebauthn/browser`.
+**Gate:** backend 1,594 tests, 76 suites, branches 80.56%; frontend 2,740 tests, 133 files, branches 90.05%; lint 0; build OK. **E2E** 87/87 locally on the final code (`dev:e2e` worked around). **Mutants** backend 37/37 (33 on the first pass), frontend 25/25 (23 on the first pass).
+**Browser:** Chromium via Playwright with a virtual authenticator: dark, light, 388 px, 320 px; no sideways overflow. A real fingerprint hasn't been tested by me; Safari and phones not run.
+
+### Outstanding from PF-140
+
+- **Owner, after release:** add a passkey on the real site and sign in with it in Chrome, Safari and on a phone. Open question: does Safari refuse the prompt after the one request at sign-in? Add a workaround only if measured.
+- **PF-153/PF-156:** reword the chapter's "we would" at PF-156. **After PF-140 closes:** remind the owner with the full list of sign-in tickets before the security handbook.
+- **PF-152:** six new routes for the API docs; `login/*` need an allowed `Origin`.
+- **Not built, by decision:** passkeys in the email box's autofill; renaming; closing the password door.
+- **Deploy risk:** the library's load on Vercel is proven only by the deploy; check health right after.
+- **DMARC to `quarantine`** (PF-148): a date check after a few weeks of clean reports.

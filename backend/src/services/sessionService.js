@@ -56,7 +56,7 @@ const REPEAT_WINDOW_MS = 60 * 1000;
  * was already written to the row being replaced); a login starts a new family.
  * The rest describes the sign-in and is copied forward by every rotation:
  *   - `signedInAs` — the address the login used (PF-119 follow-up);
- *   - `signInMethod` — 'password' | 'google' (PF-131);
+ *   - `signInMethod` — 'password' | 'google' | 'passkey' (PF-131, PF-140);
  *   - `device`, `location`, `startedAt` — the Sessions card (PF-132). A login
  *     leaves `startedAt` out and gets "now".
  */

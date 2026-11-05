@@ -6230,3 +6230,35 @@ own call to the API is same-site even after arriving through an outside link).
 
 **The owner's extra sign-ins stay UNCONFIRMED as to cause.** The bugs are real, but nothing ties them to the reports.
 The log line exists so a later sign-out by the alarm is visible in Vercel's logs.
+
+## PF-140 — passkeys (owner approved the chapter and the build, 2026-11-05)
+
+Explained first in `new mds/Sprint 16/Authentication-and-Security-Handbook-sources.md`, "PF-140: Passkeys, explained from zero".
+
+**What the owner chose.**
+- **Fingerprint wording, no face wording.** "no need a face i think Fingerprint is fine". A website can't choose the unlock method: it asks the device to verify the person and learns only yes or no. So a Face ID-only iPhone still uses face and a device with neither uses its PIN. Told to the owner; no code tries to restrict it.
+- **Password and Google stay.** A passkey doesn't remove the password's phishing risk while that door is open; the chapter says so (section 11). Passkey-only would be a later decision and needs tested recovery first.
+- **Button under Google's, above OR, same pill.** A visible addition to the design. Offered as my suggestion; the owner said to start building without objecting. Easy to move.
+- **Smaller buttons (owner, 2026-11-05: "small buttons and user friendly", "reduce the size of the google sign in button and the passkey button ... in lap top view a bit").** Both door pills 52 → 44 px on every screen, text 12.5 → 12 px, so they no longer match SIGN IN's size: REVERSES PF-119's "same geometry as `.submit`". SIGN IN stays 52 on laptop and drops to PF-142's 44 at ≤560 px, my reading of "small buttons" on phones. One line even at 320 px. `+ ADD A PASSKEY` keeps its own width on a phone (`.actionsCompact`).
+- **The privacy note stays not admin-editable** (owner asked, 2026-11-05; PF-145's decision, unchanged). Passkeys change nothing there: visitors still get no cookies.
+
+**Settings, and why.**
+- `userVerification: 'required'`, enforced on the server. OWASP's MFA sheet says passkey MFA should require it and check the flag. Chrome's guide and NIST's syncable appendix suggest `preferred` for general sites; this door is an admin account and stands alone. Cost: a device with no screen lock can't use it.
+- `residentKey: 'required'`, empty allow-list: nobody types an address, so nothing to probe (WebAuthn §14.6.2).
+- `attestationType: 'none'`: no list of approved devices. Security keys would work if the owner ever bought one.
+- Synced and single-device both accepted. NIST SP 800-63B-4 allows syncable up to AAL2. The site doesn't choose.
+- **Challenge life 10 minutes, not the 5 first planned.** WebAuthn §13.4.3 asks for "similar to the upper limit" of the ceremony range, which §15 gives as 5–10 minutes. The prompt's own timeout is the 5-minute default.
+- **Single use, spent right or wrong.** Sign-in rows are bound to the browser by httpOnly `pf_passkey` (SHA-256 stored, `Strict`, path `/api/auth/passkey/login`, same shape as `pf_oauth`); add rows to user + session family.
+- `rpID` and origin from `FRONTEND_URL`, never the request; unset means 503. Production's value confirmed from the live sitemap. Passkeys tie to `parindragallage.com`, so losing the domain loses them.
+- Cap of 10. Label = the adding device's `deviceLabel`; rename is out of scope. `signedInAs` = the main address, since none is typed.
+- **Add and remove need the password** (400, never 401) and email the main address + the one used. Wrong passwords are logged and appear in the digest.
+- **A password reset or change leaves passkeys alone.** They're a separate way in; the "not you?" steps gained "Remove any passkey you don't recognise".
+- A failed sign-in row has `user: null`: an answer that failed proves nothing about whose passkey it was.
+- A removed passkey ends no session. Sessions is where a device gets signed out; the chapter's lost-device table says both.
+
+**Frontend.**
+- **Static import, not the planned `import()` at the press.** `services/passkeyService.js` is imported only by lazy admin pages, so public pages still pay nothing (bundle checked: its own chunk, none of it in `index-*.js`), and no download sits between the press and the prompt.
+- **Adding takes two presses** (password, then CREATE PASSKEY), so the prompt follows a fresh press. Sign-in is one press with one request before the prompt; sources on Safari disagree, so it's checked live. A workaround gets added only if measured.
+- Closing the prompt is a NOTICE, not an error, and the server never hears of it.
+
+**Rejected:** authenticator apps (OWASP: susceptible to phishing), SMS (OWASP: not for high-value), email links (only as safe as the mailbox), buying security keys (free-tiers rule). **Out of scope:** passkeys in the email box's autofill; renaming.

@@ -10,6 +10,7 @@ const Skill   = require('./models/Skill');
 const Blog    = require('./models/Blog');
 const About   = require('./models/About');
 const User    = require('./models/User');
+const Passkey = require('./models/Passkey'); // PF-140
 const Vocabulary = require('./models/Vocabulary');
 const SkillCategory = require('./models/SkillCategory');
 const RateLimit = require('./models/RateLimit');
@@ -551,6 +552,7 @@ async function seed() {
       Blog.deleteMany({}),
       About.deleteMany({}),
       User.deleteMany({}),
+      Passkey.deleteMany({}),
       // PF-141 — limiter counts live in the database now and survive a
       // backend restart; a reseed (before a local E2E run) starts them fresh.
       RateLimit.deleteMany({}),

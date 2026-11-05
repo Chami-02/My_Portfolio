@@ -1,7 +1,7 @@
 // ── The security-alert email template (PF-125, owner 2026-10-27) ─────────────
 // One look for every security email the site sends: the reset code and
-// "password changed" now; PF-124's change, PF-133's sign-in alerts and PF-140's
-// passkey alerts later. The CONTACT email keeps its own plain template
+// "password changed", PF-124's change, PF-133's sign-in alerts and PF-140's
+// passkey alerts. The CONTACT email keeps its own plain template
 // (contactController) — the owner asked for the two to differ.
 //
 // Built the way email has to be: tables + inline styles only (Gmail strips
