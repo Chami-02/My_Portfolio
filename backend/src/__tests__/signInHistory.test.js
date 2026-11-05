@@ -428,6 +428,20 @@ describe('GET /api/cron/digest', () => {
     expect(mail.text).toContain('Backup download — wrong password');
   });
 
+  // PF-140 — counted by kind: these used to be whatever was left, so a refused
+  // passkey change would have been reported as a backup attempt.
+  it('counts a refused passkey change as that, never as a backup attempt', async () => {
+    await SignInEvent.create({ user: user._id, kind: 'passkey-add', outcome: 'failed' });
+    await SignInEvent.create({ user: user._id, kind: 'passkey-remove', outcome: 'failed' });
+
+    await cron(`Bearer ${SECRET}`);
+    const [mail] = digests();
+    expect(mail.text).toContain('2 attempts to add or remove a passkey had the wrong password');
+    expect(mail.text).toContain('Adding a passkey — wrong password');
+    expect(mail.text).toContain('Removing a passkey — wrong password');
+    expect(mail.text).not.toMatch(/backup/i);
+  });
+
   it('with no refused backup attempt the summary says nothing about backups', async () => {
     await fail();
     await cron(`Bearer ${SECRET}`);

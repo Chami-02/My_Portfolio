@@ -21,12 +21,13 @@ const { requestLocation } = require('../utils/requestLocation');
 //     for Gmail or Have I Been Pwned.
 
 /**
- * "NOT YOU? DO THIS NOW" (owner, 2026-10-29) — the same three steps in the
- * new-sign-in email and the daily digest, and a button to the admin.
+ * "NOT YOU? DO THIS NOW" (owner, 2026-10-29) — the same steps in the new-sign-in
+ * email and the daily digest, and a button to the admin.
  */
 const NOT_YOU_STEPS = [
   'Change your password: Settings → Password.',
   "Sign out any device you don't recognise: Settings → Sessions.",
+  "Remove any passkey you don't recognise: Settings → Passkeys.",
   "Can't sign in? Use \"Forgot password?\" on the sign-in page.",
 ];
 /**
@@ -37,6 +38,8 @@ const adminAction = () => ({
   label: 'OPEN ADMIN',
   url:   `${(process.env.FRONTEND_URL || '').replace(/\/+$/, '')}/admin`,
 });
+
+const METHOD_NAMES = { password: 'Password', google: 'Google', passkey: 'Passkey' };
 
 /** A sign-in from the same device AND place within this many days is not new. */
 const NEW_DEVICE_DAYS = 30;
@@ -91,7 +94,6 @@ const seenBefore = (event) =>
  */
 const alertIfNewDevice = async (user, event) => {
   if (!mailer.isConfigured() || await seenBefore(event)) return;
-  const method = event.method === 'google' ? 'Google' : 'Password';
   await mailer.send({
     to:      [...new Set([user.email, event.address])],
     subject: `New sign-in to your admin: ${event.device}`,
@@ -102,7 +104,7 @@ const alertIfNewDevice = async (user, event) => {
       details: [
         ['Address', event.address],
         ['Device', event.device],
-        ['Method', method],
+        ['Method', METHOD_NAMES[event.method]],
         ...(event.location ? [['From', `${event.location} (approx.)`]] : []),
       ],
       note:   'If this was you, there is nothing to do.',
@@ -131,7 +133,7 @@ const checkLeak = async (user, password) => {
 /**
  * Background work after a successful sign-in. Never throws: the response has
  * gone. `password` only for a password sign-in (`user` loaded with
- * `+password`); Google sign-ins have none to check.
+ * `+password`); Google and passkey sign-ins have none to check.
  */
 const afterSignIn = async (user, event, { password } = {}) => {
   await Promise.all([

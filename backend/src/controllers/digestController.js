@@ -34,6 +34,9 @@ const KIND_TEXT = {
   // PF-135 — refused by the password re-check, so someone was SIGNED IN.
   'backup-download': 'Backup download — wrong password',
   'backup-restore':  'Backup restore — wrong password',
+  // PF-140 — the same check, so the same meaning.
+  'passkey-add':     'Adding a passkey — wrong password',
+  'passkey-remove':  'Removing a passkey — wrong password',
 };
 
 const sameSecret = (given, expected) => {
@@ -80,8 +83,12 @@ const sendDigest = async (req, res, next) => {
     const resets  = rows.filter((r) => r.kind === 'reset-request').length;
     // PF-135 — a wrong password on a backup route comes from a signed-in
     // session, so it gets its own sentence rather than hiding in a count.
-    const backups = rows.length - signIns - resets;
+    const backups = rows.filter((r) => r.kind.startsWith('backup-')).length;
     const backupText = backups === 0 ? '' : ` ${backups} backup download or restore attempt${backups === 1 ? '' : 's'} had the wrong password — someone signed in to your admin tried it.`;
+    // PF-140 — the same reasoning, and the riskier of the two: a passkey added
+    // is a way back in.
+    const keys = rows.filter((r) => r.kind.startsWith('passkey-')).length;
+    const keyText = keys === 0 ? '' : ` ${keys} attempt${keys === 1 ? '' : 's'} to add or remove a passkey had the wrong password — someone signed in to your admin tried it.`;
     const details = rows.slice(0, SHOWN).map((row) => [utc(row.createdAt), line(row)]);
     if (rows.length > SHOWN) details.push(['…', `${rows.length - SHOWN} more in Settings → Sessions`]);
 
@@ -92,7 +99,7 @@ const sendDigest = async (req, res, next) => {
         ...renderAlert({
           tone:  'warning',
           title: 'Failed attempts on your admin',
-          intro: `Since the last summary: ${signIns} failed sign-in${signIns === 1 ? '' : 's'} and ${resets} reset request${resets === 1 ? '' : 's'} for unknown addresses. Nobody got in through these — each one was refused.${backupText}`,
+          intro: `Since the last summary: ${signIns} failed sign-in${signIns === 1 ? '' : 's'} and ${resets} reset request${resets === 1 ? '' : 's'} for unknown addresses. Nobody got in through these — each one was refused.${backupText}${keyText}`,
           details,
           note:   'A few a day is normal: the addresses are public.',
           steps:  NOT_YOU_STEPS,
