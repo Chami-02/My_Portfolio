@@ -246,6 +246,7 @@ const REBUILT_JSX = [
   'components/admin/panels/SettingsPasswordCard.jsx', // PF-124
   'components/admin/PasswordStrength.jsx', // PF-124
   'components/admin/panels/SettingsSessionsCard.jsx', // PF-132 (added in PF-133)
+  'components/admin/panels/SettingsPasskeysCard.jsx', // PF-140
   'components/admin/PasswordLeakBanner.jsx', // PF-133
   'components/admin/panels/SettingsBackupCard.jsx', // PF-135
   'components/admin/PasswordConfirmForm.jsx',       // PF-135

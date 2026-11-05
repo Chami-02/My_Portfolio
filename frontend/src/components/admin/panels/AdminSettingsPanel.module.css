@@ -41,6 +41,11 @@
   gap: 8px 10px;
 }
 
+/* PF-140 — a note that leads a section, with something right under it. */
+.noteIntro {
+  margin-bottom: 16px;
+}
+
 .note {
   margin: 20px 0 0;
   font-size: 13px;
@@ -300,6 +305,11 @@
   /* Side by side when they fit, each its fair share; wraps on a 320px screen. */
   .actions > button {
     flex: 1 1 auto;
+  }
+
+  /* PF-140 (owner, 2026-11-05): a lone button keeps its own small size. */
+  .actionsCompact > button {
+    flex: none;
   }
 
   .lede,
