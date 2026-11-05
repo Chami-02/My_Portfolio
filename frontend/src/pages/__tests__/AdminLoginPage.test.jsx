@@ -40,6 +40,15 @@ vi.mock('../../services/authService', () => ({
   },
 }));
 
+// PF-140: the device is the edge. `passkeySupported` is false in jsdom anyway;
+// the passkey suite below turns it on.
+const passkeySignIn = vi.hoisted(() => vi.fn());
+const passkeySupported = vi.hoisted(() => vi.fn(() => false));
+vi.mock('../../services/passkeyService', () => ({
+  passkeySupported,
+  passkeyService: { signIn: passkeySignIn },
+}));
+
 const { AdminLoginPage } = await import('../AdminLoginPage');
 
 /* Prints where the router ended up, search and hash included, so the
@@ -570,6 +579,77 @@ describe('AdminLoginPage — the way back from a forgotten password (PF-125)', (
 });
 
 // PF-144 — arriving from an admin page SAYS why you are here.
+describe('AdminLoginPage — passkey sign-in (PF-140)', () => {
+  const button = () => screen.getByRole('button', { name: 'SIGN IN WITH A PASSKEY' });
+  const deviceStop = (name) => Object.assign(new Error('x'), { name });
+
+  beforeEach(() => {
+    passkeySignIn.mockReset();
+    passkeySupported.mockReturnValue(true);
+  });
+  afterEach(() => { passkeySupported.mockReturnValue(false); });
+
+  it('is hidden where the browser cannot do it', () => {
+    passkeySupported.mockReturnValue(false);
+    renderAt('/admin/login');
+    expect(screen.queryByRole('button', { name: /PASSKEY/ })).toBeNull();
+  });
+
+  it('sits between the Google door and the OR', () => {
+    renderAt('/admin/login');
+    const google = screen.getByRole('link', { name: 'CONTINUE WITH GOOGLE' });
+    const or = screen.getByText('OR');
+    expect(google.compareDocumentPosition(button()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(button().compareDocumentPosition(or) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('is not a submit button: pressing it never posts the password form', async () => {
+    passkeySignIn.mockReturnValue(new Promise(() => {}));
+    renderAt('/admin/login');
+    expect(button()).toHaveAttribute('type', 'button');
+    await userEvent.click(button());
+    expect(login).not.toHaveBeenCalled();
+  });
+
+  it('a successful sign-in goes where the admin was headed', async () => {
+    passkeySignIn.mockResolvedValue({});
+    renderAt('/admin/login');
+    await userEvent.click(button());
+    expect(await screen.findByTestId('landing')).toHaveTextContent('/admin');
+    expect(passkeySignIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('says it is waiting, and stops a second press and the form while it does', async () => {
+    passkeySignIn.mockReturnValue(new Promise(() => {}));
+    renderAt('/admin/login');
+    await userEvent.click(button());
+    expect(screen.getByRole('button', { name: 'WAITING FOR YOUR PASSKEY…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'SIGN IN →' })).toBeDisabled();
+  });
+
+  it('closing the prompt is a quiet notice, not an error', async () => {
+    passkeySignIn.mockRejectedValue(deviceStop('NotAllowedError'));
+    renderAt('/admin/login');
+    await userEvent.click(button());
+    expect(await screen.findByRole('status')).toHaveTextContent('Passkey sign-in was cancelled.');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(button()).toBeEnabled();
+  });
+
+  it('a refused passkey is an error in its own words, and blames no password', async () => {
+    const said = "We couldn't sign you in with that passkey. Please try again, or use your password or Google.";
+    passkeySignIn.mockRejectedValue(Object.assign(new Error('x'), {
+      isAxiosError: true, response: { status: 401, data: { message: said } },
+    }));
+    renderAt('/admin/login');
+    await userEvent.click(button());
+    expect(await screen.findByRole('alert')).toHaveTextContent(said);
+    expect(screen.queryByText(/Incorrect email or password/)).toBeNull();
+    // Nor does it count towards "Having trouble?": no password was typed.
+    expect(screen.queryByText('Having trouble?')).toBeNull();
+  });
+});
+
 describe('AdminLoginPage — sent here from an admin page', () => {
   it('says "Please sign in to continue." instead of a silent jump', async () => {
     renderAt({ pathname: '/admin/login', state: { from: { pathname: '/admin' } } });

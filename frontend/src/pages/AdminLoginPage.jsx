@@ -48,18 +48,25 @@
  * — chosen over a password hint, which this page must never show). The
  * count is this page visit's only; the server's authLimiter is the real
  * gate. A finished reset lands here with "Password changed".
+ *
+ * PF-140 adds the passkey door under Google's (owner-approved 2026-11-05 — the
+ * prototype has none): one press, then the device's own prompt, no address
+ * typed. Hidden where the browser can't do it. Closing the prompt is a NOTICE,
+ * not an error: nothing went wrong.
  */
 import { useEffect, useRef, useState }              from 'react';
 import { useNavigate, useLocation, Navigate, Link } from 'react-router-dom';
 import { authService }       from '../services/authService';
 import { session }           from '../services/session';
+import { passkeyService, passkeySupported } from '../services/passkeyService';
 import {
   loginErrorMessage,
   googleErrorMessage,
   googleExchangeErrorMessage,
 } from '../utils/loginError';
+import { passkeyCancelled, passkeySignInMessage } from '../utils/passkeyError';
 import { ThemeToggle }       from '../components/layout/ThemeToggle';
-import { EyeIcon, EyeOffIcon } from '../components/icons/BrandIcons';
+import { EyeIcon, EyeOffIcon, FingerprintIcon } from '../components/icons/BrandIcons';
 import {
   PageShell,
   StarfieldCanvas,
@@ -105,6 +112,7 @@ export function AdminLoginPage() {
   // Show / hide the typed password (owner, 2026-10-14). Hidden by default.
   const [showPassword, setShowPassword] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(Boolean(google.handoff));
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
   // PF-144: arriving here from an admin page (signed out, or the session
   // ended) now SAYS so, instead of a silent jump to this page.
   const [notice, setNotice] = useState(() => {
@@ -170,6 +178,22 @@ export function AdminLoginPage() {
       setError(loginErrorMessage(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasskey = async () => {
+    setPasskeyBusy(true);
+    setError('');
+    setNotice('');
+
+    try {
+      await passkeyService.signIn();
+      navigate(destination, { replace: true });
+    } catch (err) {
+      if (passkeyCancelled(err)) setNotice(passkeySignInMessage(err));
+      else setError(passkeySignInMessage(err));
+    } finally {
+      setPasskeyBusy(false);
     }
   };
 
@@ -243,6 +267,18 @@ export function AdminLoginPage() {
               <GoogleMark />
               <span>CONTINUE WITH GOOGLE</span>
             </a>
+          )}
+
+          {passkeySupported() && (
+            <button
+              type="button"
+              className={`${styles.google} ${styles.passkey}`}
+              disabled={passkeyBusy || googleBusy || loading}
+              onClick={handlePasskey}
+            >
+              <FingerprintIcon size={18} className={styles.googleMark} />
+              <span>{passkeyBusy ? 'WAITING FOR YOUR PASSKEY…' : 'SIGN IN WITH A PASSKEY'}</span>
+            </button>
           )}
 
           <p className={styles.divider}>
@@ -320,7 +356,7 @@ export function AdminLoginPage() {
                 The sheen is decorative-only, so under reduced motion it
                 is removed rather than frozen — frozen, it is a white
                 stripe parked over the label. */}
-            <button type="submit" disabled={loading || googleBusy} className={styles.submit}>
+            <button type="submit" disabled={loading || googleBusy || passkeyBusy} className={styles.submit}>
               <span aria-hidden="true" data-motion-decorative="" className={styles.sheen} />
               <span className={styles.submitLabel}>
                 {loading ? 'SIGNING IN…' : 'SIGN IN →'}
