@@ -80,7 +80,7 @@ describe('VisitTracker', () => {
   });
 
   it('sends nothing, views or clicks, from the owner\'s browser', async () => {
-    session.set({ accessToken: 'a', refreshToken: 'r' });
+    session.set({ accessToken: 'a' });
     session.clear();
     renderAt('/');
     await settle();

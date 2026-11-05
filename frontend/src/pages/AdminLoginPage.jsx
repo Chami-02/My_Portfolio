@@ -142,14 +142,14 @@ export function AdminLoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // A stored refresh token means "probably signed in" — send them through
-  // ProtectedRoute, which asks the server. If the token is dead the silent
-  // refresh clears it and ProtectedRoute sends them back here with nothing
-  // in storage, so this cannot loop. Rendered, not an effect: the old
+  // A stored expiry means "probably signed in" — send them through
+  // ProtectedRoute, which asks the server. If the session is dead the silent
+  // refresh clears the expiry and ProtectedRoute sends them back here with
+  // nothing in storage, so this cannot loop. Rendered, not an effect: the old
   // `useEffect` + `isLoggedIn()` painted the form for one frame first.
-  // Not while a Google handoff is being traded: its own success stores a
-  // refresh token, and this would race the effect's navigate.
-  if (session.hasRefreshToken() && !googleBusy) {
+  // Not while a Google handoff is being traded: its own success stores an
+  // expiry, and this would race the effect's navigate.
+  if (session.probablySignedIn() && !googleBusy) {
     return <Navigate to={destination} replace />;
   }
 

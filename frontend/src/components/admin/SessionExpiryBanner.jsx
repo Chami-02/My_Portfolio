@@ -58,7 +58,8 @@ export function SessionExpiryBanner({ className = '' }) {
       await authService.refresh();   // the store notifies → expiresAt moves → banner goes
     } catch {
       // A dead session: api.js has already cleared the store and told the
-      // cache, so ProtectedRoute is about to navigate. Nothing to show here.
+      // cache, so ProtectedRoute is about to navigate. A temporary failure
+      // (PF-147) keeps the session: the banner stays, and the button works again.
     } finally {
       setBusy(false);
     }

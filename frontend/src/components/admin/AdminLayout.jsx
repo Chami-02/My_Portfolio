@@ -1,5 +1,5 @@
 // frontend/src/components/admin/AdminLayout.jsx
-import { Fragment, useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { authService } from '../../services/authService';
@@ -190,12 +190,22 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
   const title = NAV_ITEMS.find((i) => i.id === activeTab)?.label ?? 'Dashboard';
   const meta  = TAB_META[activeTab] ?? '';
 
+  // PF-147 — only the server can remove the refresh cookie. A sign-out it never
+  // heard leaves this browser signed in, so the page stays and says so.
+  const [signOutFailed, setSignOutFailed] = useState(false);
+
   const handleLogout = async () => {
+    setSignOutFailed(false);
     // PF-108: the server revokes the session (so the still-valid access
     // token dies with it), THEN the browser forgets. Awaited, because
     // qc.clear() below would otherwise race a request that still needs
     // the token.
-    await authService.logout();
+    try {
+      await authService.logout();
+    } catch {
+      setSignOutFailed(true);
+      return false;
+    }
     // Drop every cached admin response with the token that fetched it.
     // Without this, signing out and back in paints the previous
     // session's data for as long as the stale entries stay fresh.
@@ -333,6 +343,13 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
               useAdminFlash — that holds ONE message and belongs to
               panel saves. */}
           <SessionExpiryBanner className={styles.flashRow} />
+
+          {signOutFailed && (
+            <div className={`${a.bannerError} ${styles.flashRow}`} role="alert">
+              <span aria-hidden="true" className={a.bannerDot} />
+              WE COULDN&rsquo;T SIGN YOU OUT — PLEASE CHECK YOUR CONNECTION AND TRY AGAIN
+            </div>
+          )}
 
           {/* PF-133. Nothing unless the password signed in with is in a
               known leak; stays until it is changed. */}

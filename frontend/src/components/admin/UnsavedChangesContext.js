@@ -12,7 +12,8 @@
 //                   provider keeps it in a REF and reads it at the moment
 //                   someone tries to leave, so typing never re-renders the shell.
 //   requestLeave  — `(proceed, { leavingAdmin }?) => void`. Runs `proceed` at
-//                   once when nothing is unsaved; otherwise asks first.
+//                   once when nothing is unsaved; otherwise asks first. A
+//                   leavingAdmin `proceed` that fails resolves `false`.
 import { createContext } from 'react';
 
 export const UnsavedChangesContext = createContext(null);

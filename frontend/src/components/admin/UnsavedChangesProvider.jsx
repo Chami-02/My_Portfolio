@@ -34,8 +34,9 @@ export function UnsavedChangesProvider({ children }) {
   const entryRef = useRef(null);
   // Set while an approved exit that LEAVES /admin is under way (sign out, a
   // blocked link the owner chose to follow), so the navigation it triggers is
-  // not stopped a second time by the blocker or by beforeunload. It never needs
-  // resetting: leaving /admin unmounts this provider.
+  // not stopped a second time by the blocker or by beforeunload. Leaving /admin
+  // unmounts this provider; an exit that FAILS (PF-147: a sign-out the server
+  // never heard) says so by resolving `false`, and the guard comes back on.
   const leavingRef = useRef(false);
   const [pending, setPending] = useState(null);
   // The words for a router-blocked navigation, captured when the router asks.
@@ -57,9 +58,9 @@ export function UnsavedChangesProvider({ children }) {
     () => Boolean(entryRef.current?.dirty) && !leavingRef.current, []);
 
   const requestLeave = useCallback((proceed, { leavingAdmin = false } = {}) => {
-    const go = () => {
+    const go = async () => {
       if (leavingAdmin) leavingRef.current = true;
-      proceed();
+      if (await proceed() === false) leavingRef.current = false;
     };
     if (!(entryRef.current?.dirty)) { go(); return; }
     setPending({ proceed: go, cancel: () => {}, words: words() });

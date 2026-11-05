@@ -29,7 +29,7 @@ describe('shouldCount', () => {
   });
 
   it('stops counting a browser once it has signed in, and stays stopped after sign-out', () => {
-    session.set({ accessToken: 'a', refreshToken: 'r' });
+    session.set({ accessToken: 'a' });
     expect(shouldCount('/')).toBe(false);
     session.clear();
     expect(shouldCount('/')).toBe(false);

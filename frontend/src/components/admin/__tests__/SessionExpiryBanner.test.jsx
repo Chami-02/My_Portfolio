@@ -18,7 +18,6 @@ const T0  = Date.parse('2026-09-16T10:00:00.000Z');
 const storeExpiring = (msFromNow) =>
   session.set({
     accessToken:      'a',
-    refreshToken:     'r',
     accessExpiresAt:  new Date(Date.now() + 15 * MIN).toISOString(),
     refreshExpiresAt: new Date(Date.now() + msFromNow).toISOString(),
   });
