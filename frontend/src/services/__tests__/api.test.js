@@ -222,6 +222,15 @@ describe('response interceptor — silent refresh', () => {
     expect(session.probablySignedIn()).toBe(true);   // untouched
   });
 
+  it('a 401 from a passkey sign-in is a refused passkey, not a dead session — no refresh (PF-140)', async () => {
+    session.set(PAIR);
+    install({ '/auth/passkey/login/verify': (c) => { throw unauthorized(c); } });
+
+    await expect(api.post('/auth/passkey/login/verify', {})).rejects.toMatchObject({ response: { status: 401 } });
+    expect(count('/auth/refresh')).toBe(0);
+    expect(session.probablySignedIn()).toBe(true);   // untouched
+  });
+
   it('replays at most ONCE — a second 401 after a good refresh is surfaced, not looped', async () => {
     session.set(PAIR);
     install({
