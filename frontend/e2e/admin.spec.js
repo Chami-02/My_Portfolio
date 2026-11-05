@@ -341,3 +341,120 @@ test.describe('Unsaved changes guard (PF-118 batch 2)', () => {
     expect(await prompt).toBe('beforeunload');
   });
 });
+
+// PF-140 — the whole loop in a real browser, against the real server, with
+// Chromium's own virtual authenticator standing in for the fingerprint reader:
+// the browser's WebAuthn, the real signature, the real checks. Nothing is mocked.
+// In this file because CI's credential scan allows the fixture password only here.
+test.describe('Passkeys (PF-140)', () => {
+  const openSettings = async (page) => {
+    await page.getByRole('navigation', { name: 'Admin sections' })
+      .getByRole('button', { name: /Settings/ }).click();
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
+  };
+
+  const signOut = async (page) => {
+    await page.getByRole('button', { name: /SIGN OUT/ }).first().click();
+    await expect(page).toHaveURL(/\/admin\/login/);
+  };
+
+  test('add a passkey, sign out, sign in with it, remove it, and it stops working', async ({ page, context }) => {
+    // A device with a fingerprint reader that always says "yes, it's them".
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    await cdp.send('WebAuthn.addVirtualAuthenticator', {
+      options: {
+        protocol: 'ctap2',
+        transport: 'internal',
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: true,
+        automaticPresenceSimulation: true,
+      },
+    });
+
+    await page.goto('/admin/login');
+    await page.fill('input[type="email"]',    ADMIN_EMAIL);
+    await page.fill('input[type="password"]', ADMIN_PASSWORD);
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL('/admin', { timeout: 8000 });
+
+    // ── Add: password first, then its own press ────────────────────────────
+    await openSettings(page);
+    const card = page.getByRole('region', { name: 'Passkeys', exact: true });
+    const dialog = page.getByRole('dialog');
+    await card.getByRole('button', { name: /MANAGE PASSKEYS/ }).click();
+
+    await card.getByRole('button', { name: '+ ADD A PASSKEY', exact: true }).click();
+    await dialog.getByLabel('Your password', { exact: true }).fill('not the password');
+    await dialog.getByRole('button', { name: 'CONTINUE', exact: true }).click();
+    await expect(dialog.getByText('Your password is wrong.', { exact: true })).toBeVisible();
+
+    await dialog.getByLabel('Your password', { exact: true }).fill(ADMIN_PASSWORD);
+    await dialog.getByRole('button', { name: 'CONTINUE', exact: true }).click();
+    await dialog.getByRole('button', { name: 'CREATE PASSKEY', exact: true }).click();
+    await expect(dialog).toBeHidden();
+
+    const rows = card.getByRole('list', { name: 'Your passkeys' }).getByRole('listitem');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('NOT USED YET');
+
+    // ── Sign in with it: no address, no password ───────────────────────────
+    await signOut(page);
+    await page.getByRole('button', { name: 'SIGN IN WITH A PASSKEY', exact: true }).click();
+    await expect(page).toHaveURL('/admin', { timeout: 8000 });
+
+    await openSettings(page);
+    const account = page.getByRole('region', { name: 'Account', exact: true });
+    await account.getByRole('button', { name: /VIEW DETAILS/ }).click();
+    await expect(account.getByText('Signed in with', { exact: true }).locator('xpath=following-sibling::dd'))
+      .toHaveText('Passkey');
+    await expect(account.getByText('Sign-in methods', { exact: true }).locator('xpath=following-sibling::dd'))
+      .toContainText('Passkey');
+
+    // ── Survives a reload: the same session and cookie as any other door ───
+    await page.reload();
+    await expect(page.getByRole('heading', { name: /Overview|Settings/ }).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/admin/);
+    await expect(page).not.toHaveURL(/login/);
+
+    // ── Remove it ──────────────────────────────────────────────────────────
+    await openSettings(page);
+    await card.getByRole('button', { name: /MANAGE PASSKEYS/ }).click();
+    await expect(rows.first()).toContainText('LAST USED');
+    await rows.first().getByRole('button', { name: 'REMOVE', exact: true }).click();
+    await dialog.getByLabel('Your password', { exact: true }).fill(ADMIN_PASSWORD);
+    await dialog.getByRole('button', { name: 'REMOVE', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(card.getByRole('list', { name: 'Your passkeys' })).toBeHidden();
+
+    // ── The device still holds it, and the site now refuses it ─────────────
+    await signOut(page);
+    await page.getByRole('button', { name: 'SIGN IN WITH A PASSKEY', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText("We couldn't sign you in with that passkey.");
+    await expect(page).toHaveURL(/\/admin\/login/);
+  });
+
+  test('a browser with no passkey on it: closing the prompt is a quiet notice', async ({ page, context }) => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    // No fingerprint check available and no stored key: the browser ends the
+    // attempt with the same answer as the person pressing Cancel.
+    await cdp.send('WebAuthn.addVirtualAuthenticator', {
+      options: {
+        protocol: 'ctap2',
+        transport: 'internal',
+        hasResidentKey: true,
+        hasUserVerification: true,
+        isUserVerified: false,
+        automaticPresenceSimulation: true,
+      },
+    });
+
+    await page.goto('/admin/login');
+    await page.getByRole('button', { name: 'SIGN IN WITH A PASSKEY', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Passkey sign-in was cancelled.' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'SIGN IN WITH A PASSKEY', exact: true })).toBeEnabled();
+  });
+});
