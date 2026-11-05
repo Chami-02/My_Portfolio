@@ -4328,3 +4328,17 @@ relative`), never with a percentage height inside a grid/flex frame. A plain BLO
 - **A forged-request probe from an `https://` page proves nothing locally.** The browser blocks it as mixed/private-network
   traffic before SameSite is ever involved. Use a true cross-site page that can reach the API (`http://127.0.0.1:5999`
   against `localhost`), read the request's headers, and run the same call from the site's own page as the control.
+
+## PF-140 (2026-11-05) — traps found building passkeys
+
+- **A new sign-in method silently reads as "Password".** `signInLog.js` had `event.method === 'google' ? 'Google' : 'Password'`; the else was the bug waiting. Now a map, and the new-device email is tested.
+- **"Everything else" arithmetic.** The digest computed `backups = rows.length - signIns - resets`, so a refused passkey change would have been reported as a backup attempt. Now counted by kind.
+- **A test can pin the old world.** `AdminSettingsPanel.test.jsx` used `'passkey'` as its example of an UNKNOWN method; it would have failed correctly, and the fix is a different unknown word, not deleting the case.
+- **A 401 from passkey sign-in is not a dead session.** Without `/auth/passkey/login` in `AUTH_PATHS`, the interceptor tries a refresh and the reader sees "Your session has ended" instead of the real refusal. Guarded in `api.test.js`.
+- **`friendlyError` treats any error with no `response` as being offline.** A device failure (`SecurityError`) would have said "check your internet connection". `passkeyError.js` separates them on `isAxiosError`.
+- **`loginErrorMessage` maps every 401 to "Incorrect email or password"**, which blames a password nobody typed. Passkey sign-in has its own message function.
+- **The library's default prompt timeout is 60 s;** WebAuthn's recommended default is 300 s. Set explicitly and tested.
+- **Browsers give "cancelled" and "no passkey here" the same `NotAllowedError` on purpose**, so a page can't probe for passkeys. The page can't say which happened, and mustn't try.
+- **A virtual authenticator with `isUserVerified: false` is how E2E reaches that branch;** there is no real Cancel button to press in headless Chromium.
+- **Empty gate output isn't a pass or a fail.** During this ticket a second Claude session on the same folder killed my runs by PID, and a filtered log looked like a run that printed nothing, while the mutation control read as RED. Keep the full log and check that a result line exists.
+- **`pkill -f cat -x` on macOS hit unrelated programs** (Vite, the IDE link, a system app). "cat" is inside "Applications". Kill by exact PID, port or task only.

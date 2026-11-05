@@ -356,3 +356,15 @@ zone."*
   A future section of this kind follows the same rule: no hardcoded visitor-facing words.
 - Home: up to 6 certificates, VIEW ALL always visible; the certificates page has a picture per
   certificate, its own link, and a verify button when the issuer offers one.
+
+## Passkeys (owner, 2026-11-05, PF-140)
+
+- **Fingerprint is the wording; no face wording.** A website can't choose the unlock method, so a Face ID-only phone still uses face, and that is accepted.
+- **Password and Google stay.** A lost device must never lock the owner out. Passkey-only would be a new decision, with tested recovery first.
+- **Adding or removing a passkey needs the password and emails an alert.** Never a bare click: a borrowed open laptop must not be able to add a way back in.
+- **Small buttons, friendly look.** The Google and passkey buttons are smaller than SIGN IN on a laptop; every sign-in button is 44 px on a phone and stays on one line down to 320 px.
+- **Live test on the real address.** A passkey made on localhost can't work on the real site, and the other way round.
+
+## The privacy note (owner asked, 2026-11-05)
+
+Not editable in the admin panel, and that stays: its words are promises about what the site does, so they change only together with the behaviour (PF-145).

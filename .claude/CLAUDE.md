@@ -13,8 +13,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `.claude/locked-decisions.md` | the full reasoning behind each decision (both halves of every reversal), plus the full design-authority and working-agreement text |
 | `.claude/product-requirements.md` | the owner's standing product requirements, in full |
 
-**Split 2026-09-02 / 10-08** — moved, not deleted (2nd move at each companion's END).
-
 ### ⚠️ SIZE RULE — keep this file under 40,000 characters
 
 Claude Code warns above 40k, and every char here is paid by every session before
@@ -129,16 +127,14 @@ search the companions *before* explaining a surprise.
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **PF-146** LIVE 11-04: `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-147 LIVE 11-05.
+- **PF-146** LIVE 11-04: `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-147 + PF-148 LIVE 11-05. PF-140 built 11-05.
 - **Every doc I create** goes to `new mds/Sprint 16/` (owner; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
 - `frontend/src/styles/`: `global.css` (Tailwind only), `tokens.css`,
   `keyframes/index.css`, `animations.css` (the `.kf-*` carriers), `motion.css`,
   `patterns.module.css`, `admin.module.css` (THE shared admin layer).
-- `frontend/src/utils/` — React-free, unit-testable (theme, motion, nav, splash,
-  blogMeta, aboutStats, social, blogForm, projectForm, formErrors, mediaFile,
-  resizeImage, loginError, dashboard).
+- `frontend/src/utils/` — React-free, unit-testable.
 - Shared admin blocks — compose, never copy: `ConfirmDialog`, `LoadError`, `VocabularyPicker`,
   `UploadPill`, `DropZone`, `mediaBadge.js`, `hooks/useStagedFile.js`,
   `hooks/useFormGuard.js`, `services/multipart.js`.
@@ -410,13 +406,14 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-128: API in `bom1` (Atlas Mumbai); public GETs CDN-cached (tag `public-data`), a signed-in write DELETES the tag (SAVE is instant); everything else `no-store`.
 - PF-129: bundled hero image never changes (its oval is in its ALPHA); only an UPLOAD gets `.portraitImgUploaded` = measured oval + PF-80's layers.
 - PF-123: contact email sent in the BACKGROUND (`waitUntil`), text + ESCAPED html, 12-hour `YYYY/MM/DD` in About's zone, TO the main address, Reply-To the visitor; blank `RESEND_API_KEY` = mail off; no retry queue; `location` from Vercel IP headers ONLY when `VERCEL` is set; card mirrors the email (red reminder unread-only).
-- PF-125: forgot = OWASP — same answer + timing for any address (work after the response), HMAC'd 6-digit code, 5 guesses capped IN the query, no account lockout, reset signs nobody in; HIBP only after a right code, fails open; login runs a dummy bcrypt for an unknown address (timing). Security emails = `services/alertEmail.js` `renderAlert` (contact keeps its own); "changed" alert → the MAIN address + the one used (never a copy to the second when the main reset). Passkeys = PF-140 (after domain).
+- PF-125: forgot = OWASP — same answer + timing for any address (work after the response), HMAC'd 6-digit code, 5 guesses capped IN the query, no account lockout, reset signs nobody in; HIBP only after a right code, fails open; login runs a dummy bcrypt for an unknown address (timing). Security emails = `services/alertEmail.js` `renderAlert` (contact keeps its own); "changed" alert → the MAIN address + the one used (never a copy to the second when the main reset).
 - PF-148: Resend SMTP; senders on `mail.` subdomain (no-reply default, contact); key Vercel only; DMARC `p=none` first.
 - PF-131: Settings = own ACCOUNT nav group (`⚙︎` + U+FE0E) under MANAGE; ONE real card per ticket, never "coming soon"; `/auth/me` `addresses` sends a Google BOOLEAN, never the `sub`; `Session.signInMethod` → `signedInWith` (rotation copies it).
 - PF-124: change = current password + code to `signedInAs`, every check BEFORE the code; step 2 = code ONLY (new pw's bcrypt hash parked on the row, session-bound); email + hash in the BACKGROUND; refusals 400 never 401; THIS device stays (`except: family`); codes in OWN `PasswordChange` collection; any change voids all codes; codes live 10 min (NIST max, owner); card FOLDS and joins the guard with NO save.
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
 - PF-133: history in Sessions card (90 d, 10 + SHOW MORE ≤50); alert on NEW device only (30 d); daily digest of failures (Cron + `CRON_SECRET`); leak check at sign-in → banner on every admin page.
 - PF-142: phones ≤560 — 44px CTAs, hero pair one line, footers + admin header centred/one row, card-list menu, no "FROM SCRATCH".
+- PF-140: passkey door under Google's, password + Google STAY; UV required, discoverable, attestation none; add/remove need password + alert; challenge 10 min, single use (`pf_passkey`).
 - PF-147: refresh token ONLY in `__Host-Http-pg_refresh` (RFC 10017), never a body; `fromOurSite` on refresh/logout; only a 401 ends a session; 60 s repeat window; failed sign-out stays and says so.
 - PF-146 (REVERSES PF-134's logo): photo logo via `useLogo()`, also the tab icon; name `PARINDRA GALLAGE`, slogan replaces the job title.
 - PF-135: backup/restore behind the PASSWORD; restore all-or-nothing, ONE transaction, 3 safety copies, messages MERGE; ALLOW-list of models; Settings cards fold, 36px buttons ≤560.
@@ -435,7 +432,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - macOS, zsh: `brew`, `jq`, `sed -i ''`. Backend :5050 (Docker internal :5000).
   E2E: `portfolio_e2e`, backend 5055, frontend 5174.
 - Kill servers with `lsof -sTCP:LISTEN -ti:PORT | xargs kill` — the `-sTCP:LISTEN`
-  is mandatory (a bare `lsof -ti` also kills Chrome). Use `-a` to AND selectors.
+  is mandatory (a bare `lsof -ti` also kills Chrome). Use `-a` to AND selectors. Never `pkill` by name (hit unrelated apps, PF-140).
 - Frontend tests in per-module `__tests__/`; shared helpers in `src/test/`
   (`leadsWithIcon.js`); cross-cutting guards in `styles/__tests__/`.
 
