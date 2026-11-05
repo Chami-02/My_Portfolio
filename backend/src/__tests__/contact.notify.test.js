@@ -12,11 +12,12 @@ const nodemailer = require('nodemailer');
 const app        = require('../app');
 const Contact    = require('../models/Contact');
 const About      = require('../models/About');
+const User       = require('../models/User');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 
 const ORIGINAL = { ...process.env };
 const OWNER    = 'owner@example.com';
-const APP_PASSWORD = 'abcdabcdabcdabcd';
+const API_KEY  = 're_test_key';
 const sendMail = jest.fn();
 
 const VALID = Object.freeze({
@@ -45,9 +46,9 @@ const eventually = async (check, ms = 3000) => {
 let warn, error;
 
 beforeAll(connectTestDB);
-beforeEach(() => {
-  process.env.GMAIL_USER = OWNER;
-  process.env.GMAIL_APP_PASSWORD = APP_PASSWORD;
+beforeEach(async () => {
+  process.env.RESEND_API_KEY = API_KEY;
+  await User.create({ email: OWNER, password: 'Old-Password-123' });
   sendMail.mockReset().mockResolvedValue({ messageId: 'x' });
   nodemailer.createTransport.mockReset().mockReturnValue({ sendMail });
   warn  = jest.spyOn(console, 'warn').mockImplementation(() => {});
@@ -79,6 +80,7 @@ describe('POST /api/contact — the owner is emailed (PF-123)', () => {
     await eventually(() => sendMail.mock.calls.length);
 
     const mail = sendMail.mock.calls[0][0];
+    expect(mail.from.address).toBe('contact@mail.parindragallage.com');
     expect(mail.to).toBe(OWNER);
     expect(mail.replyTo).toBe(VALID.email);
     expect(mail.subject).toBe(`New portfolio message from ${VALID.name}`);
@@ -177,16 +179,16 @@ describe('POST /api/contact — the owner is emailed (PF-123)', () => {
     const line = error.mock.calls.flat().join(' ');
     expect(line).toMatch(/Contact email failed/);
     expect(line).toMatch(/EAUTH/);
-    expect(line).not.toContain(APP_PASSWORD);
+    expect(line).not.toContain(API_KEY);
   });
 
-  it('the visitor never waits for Gmail: 201 arrives while the send is still pending', async () => {
+  it('the visitor never waits for the mail service: 201 arrives while the send is still pending', async () => {
     let finish;
     sendMail.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
 
     const res = await post(VALID);
     expect(res.status).toBe(201);
-    expect(sendMail).toHaveBeenCalledTimes(1);   // started, not settled
+    await eventually(() => sendMail.mock.calls.length);   // started, not settled
     expect((await Contact.findOne({ email: VALID.email })).notifiedAt).toBeNull();
 
     finish({ messageId: 'x' });
@@ -194,7 +196,7 @@ describe('POST /api/contact — the owner is emailed (PF-123)', () => {
   });
 
   it('with mail NOT configured: saved, 201, nothing sent, and a warning says so', async () => {
-    delete process.env.GMAIL_APP_PASSWORD;
+    delete process.env.RESEND_API_KEY;
 
     const res = await post(VALID);
     expect(res.status).toBe(201);

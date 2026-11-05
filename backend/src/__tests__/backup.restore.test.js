@@ -421,8 +421,7 @@ describe('all or nothing', () => {
 
 describe('after a restore', () => {
   it('it is logged, and the owner is emailed when mail is on', async () => {
-    process.env.GMAIL_USER = 'owner@example.com';
-    process.env.GMAIL_APP_PASSWORD = 'abcdabcdabcdabcd';
+    process.env.RESEND_API_KEY = 're_test_key';
     await seedContent();
     expect((await restore(await download())).status).toBe(200);
 
@@ -430,6 +429,7 @@ describe('after a restore', () => {
     for (let i = 0; i < 50 && sendMail.mock.calls.length === 0; i += 1) await new Promise((r) => setTimeout(r, 20));
     expect(sendMail).toHaveBeenCalledTimes(1);
     const mail = sendMail.mock.calls[0][0];
+    expect(mail.from.address).toBe('no-reply@mail.parindragallage.com');
     expect(mail.subject).toBe('Your site was restored from a backup');
     expect(mail.text).toMatch(/2 brought back|0 brought back/);
   });

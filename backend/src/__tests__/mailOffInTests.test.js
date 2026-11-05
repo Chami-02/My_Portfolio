@@ -1,5 +1,5 @@
 // PF-133 — the test runner must leave mail OFF, even on a machine whose
-// backend/.env holds the real Gmail app password.
+// backend/.env holds a real Resend key.
 //
 // The trap: run-jest used to DELETE the keys, and app.js's own
 // `require('dotenv').config()` (run again in every worker) re-added them with
@@ -10,8 +10,7 @@ const mailer = require('../services/mailer');
 
 it('the test runner leaves mail OFF, even after app.js reloads .env', () => {
   require('../app');
-  expect(process.env.GMAIL_USER).toBe('');
-  expect(process.env.GMAIL_APP_PASSWORD).toBe('');
+  expect(process.env.RESEND_API_KEY).toBe('');
   expect(process.env.CRON_SECRET).toBe('');
   expect(mailer.isConfigured()).toBe(false);
 });

@@ -72,8 +72,7 @@ let warn, error;
 
 beforeAll(connectTestDB);
 beforeEach(async () => {
-  process.env.GMAIL_USER = PRIMARY;
-  process.env.GMAIL_APP_PASSWORD = 'abcdabcdabcdabcd';
+  process.env.RESEND_API_KEY = 're_test_key';
   sendMail.mockReset().mockResolvedValue({ messageId: 'x' });
   nodemailer.createTransport.mockReset().mockReturnValue({ sendMail });
   isBreached.mockReset().mockResolvedValue(false);
@@ -105,6 +104,7 @@ describe('POST /api/auth/password/forgot', () => {
       await forgot({ email: address.toUpperCase() });
       await eventually(() => sendMail.mock.calls.length > before);
       const mail = sendMail.mock.calls.at(-1)[0];
+      expect(mail.from.address).toBe('no-reply@mail.parindragallage.com');
       expect(mail.to).toBe(address);
       expect(mail.text).toMatch(/\b\d{6}\b/);
       expect(mail.html).toMatch(/\b\d{6}\b/);
@@ -147,7 +147,7 @@ describe('POST /api/auth/password/forgot', () => {
   });
 
   it('still answers 200 with mail switched off, and logs why', async () => {
-    process.env.GMAIL_APP_PASSWORD = '';
+    process.env.RESEND_API_KEY = '';
     const res = await forgot({ email: PRIMARY });
     expect(res.status).toBe(200);
     await eventually(() => warn.mock.calls.some(([m]) => /not configured/.test(m)));

@@ -58,9 +58,9 @@ BUILT 2026-10-27 (PF-124).**
   and not in a known leak (owner, 2026-10-26); signs nobody in.
 - **Every change signs out every other session** (`revokeAllForUser`).
 - **One password for both addresses; the addresses stay fixed** (2026-10-12).
-- **Mail: Gmail SMTP (app password) now**, behind `services/mailer.js`; **Resend
-  once the custom domain exists** (its free tier only reaches the signup address
-  until a domain is verified). One adapter, so the swap is one file + env.
+- **Mail: Resend, through `services/mailer.js`** (PF-148; Gmail SMTP before that).
+  Security mail from `no-reply@mail.parindragallage.com`, contact mail from
+  `contact@mail.parindragallage.com`, Reply-To the visitor, to the main address.
 - **Break-glass stays:** `npm run admin:password` (PF-120) works with no email.
 
 **Login page additions (owner, 2026-10-14):**

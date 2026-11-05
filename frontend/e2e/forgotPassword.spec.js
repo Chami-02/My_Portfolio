@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
 //
 // What this CAN cover: the link, both steps, the same answer for an address
 // that does not exist, and the server refusing a wrong code. What it CANNOT:
-// reading the emailed code — mail is OFF in E2E (`.env.e2e` blanks GMAIL_*),
+// reading the emailed code — mail is OFF in E2E (`.env.e2e` blanks RESEND_API_KEY),
 // so no code is ever sent. The full code → new password → sessions revoked
 // path is proved in backend auth.passwordReset.test.js (with the code read
 // from the mocked email) and by the owner's live check.
