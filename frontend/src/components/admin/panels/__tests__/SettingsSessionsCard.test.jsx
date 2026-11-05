@@ -321,6 +321,27 @@ describe('SettingsSessionsCard — recent activity', () => {
     ]);
   });
 
+  // PF-140 — the same rule for passkeys, and the sign-in names its method.
+  it('names passkeys added and removed, a refused password, and a passkey sign-in', async () => {
+    mocks.getSignIns.mockResolvedValue([
+      event(1, { kind: 'passkey-add', method: null }),
+      event(2, { kind: 'passkey-add', outcome: 'failed', method: null }),
+      event(3, { kind: 'passkey-remove', method: null }),
+      event(4, { kind: 'passkey-remove', outcome: 'failed', method: null }),
+      event(5, { kind: 'sign-in', method: 'passkey' }),
+    ]);
+    renderCard();
+    await screen.findByText('Passkey added');
+
+    expect(items().map((li) => within(li).getByText(/Passkey|passkey/).textContent)).toEqual([
+      'Passkey added',
+      'Adding a passkey — wrong password',
+      'Passkey removed',
+      'Removing a passkey — wrong password',
+      'Signed in · Passkey',
+    ]);
+  });
+
   it('shows 10; SHOW MORE adds 10 up to all sent; SHOW LESS goes back', async () => {
     const user = userEvent.setup();
     mocks.getSignIns.mockResolvedValue(Array.from({ length: 25 }, (_, i) => event(i)));

@@ -15,7 +15,7 @@ import a from '../../../styles/admin.module.css';
 
 const FID = 'settings-sessions';
 
-const METHOD_LABELS = { password: 'Password', google: 'Google' };
+const METHOD_LABELS = { password: 'Password', google: 'Google', passkey: 'Passkey' };
 
 // PF-133 — what each history row says happened.
 const EVENT_TEXT = {
@@ -26,6 +26,9 @@ const EVENT_TEXT = {
   // PF-135 — `failed` = the password re-check refused it.
   'backup-download': { ok: 'Backup downloaded', failed: 'Backup download — wrong password' },
   'backup-restore':  { ok: 'Backup restored', failed: 'Backup restore — wrong password' },
+  // PF-140 — the same check.
+  'passkey-add':     { ok: 'Passkey added', failed: 'Adding a passkey — wrong password' },
+  'passkey-remove':  { ok: 'Passkey removed', failed: 'Removing a passkey — wrong password' },
 };
 /** Rows shown at first, and added by each SHOW MORE — the server sends 50. */
 const PAGE = 10;
