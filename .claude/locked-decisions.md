@@ -6149,3 +6149,69 @@ lands on a red CI for the identical reason.
 - **Header below 860px:** tighter link spacing, and the nav pill never wraps. Without this the longer
   name overflowed by 31px at 769, and `← GO BACK` wrapped to make the `/blog` header 86px, not the
   locked 71 (that wrap already existed up to about 880px).
+
+## PF-147 — the refresh token moves into a cookie; temporary failures stop signing out (owner approved 2026-11-05)
+
+Explained from zero first, at the owner's request: `new mds/Sprint 16/PF-147-sign-in-cookie-explained.pdf`.
+PF-108 said this would follow a custom domain, and that only the token's transport changes. That held:
+`Session`, rotation, families and `issueSession` carry over. The access token stays in memory and Bearer.
+
+**The cookie.** `__Host-Http-pg_refresh=…; Secure; HttpOnly; SameSite=Strict; Path=/; Max-Age=<7 days>`, no
+`Domain`, set by one helper, `sendSession`, at every door (login, refresh, Google exchange), so PF-140
+inherits it. Settings from RFC 10017 §6.1.3.2. Local http uses plain `pg_refresh` with no `Secure`, chosen by
+`req.secure` (already proven in production by `pf_oauth`). The token is in NO response body. A token in a
+request body is ignored.
+
+- **`__Host-Http-` + `Path=/`, not `__Secure-` + `Path=/api/auth`.** The first draft had that wrong, thinking
+  `Path=/` put the cookie on every public read. Public reads carry no credentials, and the visit beacon uses
+  `credentials: 'omit'`. It travels on the four calls that ask (`WITH_COOKIE`) and links the browser opens itself
+  (résumé, Google start), from a browser the admin signed in on. OWASP asks for both a narrow path and
+  `__Host-`, which conflict; MDN says Path "is not a security boundary"; the prefix also stops cookie tossing.
+- **`withCredentials` per call, never on the axios instance:** public reads and PF-128's caching stay untouched.
+
+**`fromOurSite` on refresh and logout only.** `Origin` must be present and exactly on the allow-list, and
+`Sec-Fetch-Site`, when sent, must be `same-site` or `same-origin`; else 403. Corrected from "refuse cross-site":
+OWASP's CSRF sheet makes the Origin fallback mandatory and says a missing header is not evidence of safety.
+Every other route stays Bearer. No CSRF token: two routes, neither shows the requester anything.
+Postman (PF-152) must send an allowed `Origin` to call these two.
+
+**Only a 401 from refresh ends a session.** Network, timeout, 429, 403 and 5xx keep it. The interceptor then
+rejects with the REFRESH error, never the original 401: that 401 would read "signed out" in `ProtectedRoute`
+while login reads "probably signed in", and the two would bounce. Refresh gets a 30 s timeout (others 12 s).
+
+**A repeat within 60 s is not theft** (`REPEAT_WINDOW_MS`; top of Okta's 0–60 s range, default 30; Auth0's
+equivalent is off by default). RFC 9700 §4.14.2 describes no window; this is a reliability trade the owner
+accepted: a key stolen and used inside 60 s is not caught at that moment. `rotateSession` writes `revokedAt` and
+a pre-made `replacedBy` in ONE atomic update, so a revoked row says whether it was rotated or signed out:
+
+| Row | Answer |
+| --- | --- |
+| no `replacedBy` (signed out) | 401, never revived |
+| rotated over 60 s ago | theft: family ends, one log line with no token |
+| in window, successor live | revoke it, issue a new one, re-link: still ONE live row (PF-132) |
+| in window, successor not created yet | 503, nothing changes |
+| in window, successor revoked | family ends |
+
+The atomic claim's loser takes the same table instead of ending the family. Accepted: a crash between the claim
+and creating the successor reads as "not created yet" for 60 s, then as theft.
+
+**Tabs take turns with Web Locks** (`navigator.locks`, Baseline since March 2022), around the refresh POST only.
+The browser sends whichever cookie it holds now, so the tab that waited sends the newest. No locks: runs without one.
+
+**Scripts can't see the cookie, so:** `getRefreshToken` / `hasRefreshToken` are gone. `refreshSession` always asks,
+because storage can be blocked while cookies work. `portfolio_refresh_expires` stays: the banner needs it, and
+`probablySignedIn()` reads it for the login page. A stale hint can't loop: a real 401 clears it.
+`portfolio_refresh` is deleted on load; that line can go a release later.
+
+**A failed SIGN OUT stays signed in and says so** (the ticket's only visual change, flagged to the owner at hand-off;
+existing `bannerError`, only on failure). This REVERSES PF-108's "a failed network call still signs the browser
+out": page code can't delete the cookie, so that would show the login page over a key that still works. The
+provider's `leavingRef` comes back off when `proceed` resolves `false`, or the unsaved-work guard stays off.
+
+**Rejected:** cookie-only server sessions (every admin route would need CSRF protection, and reads without Bearer
+could hit PF-128's cached answers; too much risk in the last sprint); a BFF (a hop on every admin call, built for
+third-party tokens); `SameSite=None` / Partitioned (Safari, and no longer needed); `Lax` (nothing needs it: the page's
+own call to the API is same-site even after arriving through an outside link).
+
+**The owner's extra sign-ins stay UNCONFIRMED as to cause.** The bugs are real, but nothing ties them to the reports.
+The log line exists so a later sign-out by the alarm is visible in Vercel's logs.

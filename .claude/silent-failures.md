@@ -4311,3 +4311,20 @@ relative`), never with a percentage height inside a grid/flex frame. A plain BLO
 - **Vercel: a `/:path*` redirect source forwarded every deep link but NOT `/`.** Measured on production: `/`
   answered 200 from cache, `/blog` 308. A preview cannot show it (host-conditioned), so a passing deep-link
   check hides it: test the home page too. Rule: `/(.*)` + `$1` for a whole-site forward.
+
+## PF-147 (2026-11-05) — traps found moving the refresh token into a cookie
+- **axios sends a `null` body as the four characters `null`.** With a JSON content type, `api.post(url, null)`
+  stringifies it, and Express's strict JSON parser answers 400, so every renewal would fail. Pass `undefined`. A scripted
+  adapter sees it (`config.data === 'null'`), and supertest never would: it doesn't go through axios.
+- **Keeping the session on a glitch, alone, creates a redirect loop.** The interceptor passed on the ORIGINAL 401:
+  `ProtectedRoute` reads "signed out", login reads "probably signed in", and they bounce. It lives BETWEEN modules, so
+  `ProtectedRoute.sessionGlitch.test.jsx` runs both real pages over a scripted network.
+- **A grace window can revive a signed-out session.** Sign-out rows are `revokedAt` too, and `replacedBy` used to be written
+  only AFTER the successor existed, so "rotated" and "cancelled" looked alike. Both are now written in one update.
+- **A guard can stay off after a failed exit.** `leavingRef` assumed "leaving /admin unmounts this provider". A sign-out that
+  fails no longer unmounts anything. `proceed` now resolves `false` and the guard returns.
+- **Through the real app, CORS refuses a foreign Origin before `fromOurSite` runs**, so a test there passes with the guard's
+  Origin check deleted. That case is on a stub app, without `cors`.
+- **A forged-request probe from an `https://` page proves nothing locally.** The browser blocks it as mixed/private-network
+  traffic before SameSite is ever involved. Use a true cross-site page that can reach the API (`http://127.0.0.1:5999`
+  against `localhost`), read the request's headers, and run the same call from the site's own page as the control.

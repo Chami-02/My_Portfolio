@@ -216,8 +216,7 @@ locked:** `global.css` → `tokens.css` → `keyframes/index.css` → `animation
 `motion.css` (last). `App.jsx` has three `<Routes>` blocks (navbar / main / footer,
 chrome excluded on `/admin/*`). Data: component → `hooks/use*.js` (TanStack) →
 `services/*Service.js` → `services/api.js`. `apiUrl()` for browser-fetched URLs.
-Session: 15-min access JWT in memory + rotating refresh token in `localStorage`
-(NOT a cookie — measured dead on Vercel).
+Session: 15-min access JWT in memory + rotating refresh token in an httpOnly cookie (PF-147).
 
 ## Stack
 
@@ -321,6 +320,7 @@ Where a mistake would be silent, add a test that would catch it.
 **Backend / environment**
 - An array bypasses `typeof x === 'string'` — always assert a ZERO case. express-validator `isLength` passes arrays too → `isString().bail()` first.
 - Chrome AND Node 24 ACCEPT `+05:30` as an Intl timeZone (Node 20 rejected it) → `isTimeZone`'s shape check is load-bearing; keep the stubbed-Intl proof (a `function`, not an arrow).
+- axios sends a `null` body as the text `null` (JSON parser 400) → pass `undefined`.
 - `FormData` through `api.js` becomes JSON → `headers: { 'Content-Type': undefined }`.
 - A body field that DEFAULTS to true (`read`) makes a dropped body succeed in reverse — assert the wire body.
 - Raw Cloudinary assets download with no extension → `GET /api/resume` proxies; never add `.pdf` to the id.
@@ -335,14 +335,11 @@ Where a mistake would be silent, add a test that would catch it.
 - A Vercel production alias serves the production BRANCH; rewrites drop `Set-Cookie`.
 - `authLimiter` is live under test — mint via `issueSession`.
 - Sign-in calls HIBP → tests stub it (`setup/noLeakCheckCalls.js`); Node trims a header's trailing space.
-- Deleting a refresh token does not end a session for 15 min.
 - Blog `pre('validate')` REGENERATES the slug on a new doc / Mongoose `insertMany`; `hydrate` is not strict; test Mongo is a replica set (transactions) — PF-135.
 
 **Prototype-specific**
 - Real behaviour often lives in the SCRIPT block — grep the element's attribute.
 - The prototype's reveal transition is inline and permanent.
-- Line 834's undeclared `acc` → `self.accColor`.
-- Grain's `0.42` opacity is correct (`paintGrain()` overwrites).
 - Verify a keyframe against the prototype that OWNS it (six admin bodies were wrong).
 - An opaque ancestor background hides a fixed canvas (guarded on `.shell`).
 - Design images must be copied into `src/assets/` and imported.
@@ -363,7 +360,6 @@ Where a mistake would be silent, add a test that would catch it.
 - The browser tool's hidden tab never fires `requestAnimationFrame` (probe hangs 45s); clicks may need a screenshot first.
 - Chrome won't go below ~1141px → same-origin iframe (one at a time; resize, don't reload — 429); set `scrollBehavior: auto` before any scroll-then-measure.
 - A flex row can overflow while the page does not — compare the container's `scrollWidth`.
-- `<button>` in a `<form>` with no `type` submits it — always `type="button"`.
 - Snapshot AFTER the edit; confirm a mutation changed the file; restore from a copy.
 - `git rm` STAGES the deletion — delete with `rm` (stage-nothing rule).
 - `grep | head` reads like a complete answer — use `grep -c` / `awk`.
@@ -421,6 +417,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
 - PF-133: history in Sessions card (90 d, 10 + SHOW MORE ≤50); alert on NEW device only (30 d); daily digest of failures (Cron + `CRON_SECRET`); leak check at sign-in → banner on every admin page.
 - PF-142: phones ≤560 — 44px CTAs, hero pair one line, footers + admin header centred/one row, card-list menu, no "FROM SCRATCH".
+- PF-147: refresh token ONLY in `__Host-Http-pg_refresh` (RFC 10017), never a body; `fromOurSite` on refresh/logout; only a 401 ends a session; 60 s repeat window; failed sign-out stays and says so.
 - PF-146 (REVERSES PF-134's logo): photo logo via `useLogo()`, also the tab icon; name `PARINDRA GALLAGE`, slogan replaces the job title.
 - PF-135: backup/restore behind the PASSWORD; restore all-or-nothing, ONE transaction, 3 safety copies, messages MERGE; ALLOW-list of models; Settings cards fold, 36px buttons ≤560.
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.

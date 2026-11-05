@@ -2231,13 +2231,14 @@ retrospective document** — this section is the record, matching Sprint 10,
 
 ### Outstanding work — deferred deliberately, not lost
 
-- **PF-146 follow-ups (2026-11-04).** (1) **Sign-in renewal, fix in PF-147:** `refreshSession()` in
-  `api.js` clears the session on ANY failure (network, 429, 5xx), not only a real 401; and two tabs
-  renewing together trip reuse detection and sign out both (accepted in PF-108). The owner reports
-  signing in more often; the cause is NOT confirmed. (2) **Contract in PF-153:** remove the old address
-  from `corsOptions.js`, `connect-src` and Google's list. (3) **Owner after the switch:** sign in on each
-  device (the owner mark is per address), PF-128 SAVE check, Search Console + sitemap, turn on DNSSEC.
-  (4) `session.js` / `sessionService.js` comments still explain the vercel.app cookie limit; PF-147 rewrites them.
+- **PF-146 follow-ups (2026-11-04).** (1) Sign-in renewal: FIXED in PF-147. (2) **Contract in PF-153:** remove the old address
+  from `corsOptions.js`, `connect-src` and Google's list. (3) The owner's after-switch steps are all DONE. (4) Comments rewritten in PF-147.
+
+- **PF-147 follow-ups (2026-11-05).** (1) **Owner, after release:** sign in on Chrome, Safari and a phone, with a password and Google,
+  and open the admin through a link from another site; this settles the Safari check. (2) **A release later (PF-153):** delete
+  `OLD_REFRESH_KEY` from `session.js`. (3) **PF-152:** Postman must send an allowed `Origin` to refresh/sign-out. (4) **PF-140** inherits
+  `sendSession`. (5) The cause of the owner's extra sign-ins stays UNCONFIRMED: read Vercel's logs for `[session] A used refresh token`.
+  (6) A crash between the claim and creating the successor reads as theft after 60 s; accepted.
 
 - **⚠️ MIGRATIONS 001–006 CAPTURE `--dry-run` AT MODULE SCOPE.** Found in
   PF-111, 2026-09-23, by 007's own control test — which passed `--dry-run`
@@ -11012,3 +11013,11 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 - **Release 3, PR #86 `8dde063`:** the live check found the old HOME page not forwarding (`/:path*`); now `/(.*)`. Gate: frontend 2,661; mutation 1 of 1.
 - **Verified live 2026-11-04:** old `/`, `/?a=1` and deep links forward 308 keeping path and query; `www` 308; sitemap XML, 14 pages, no drafts; `robots.txt`, preview tags and image, tab icon; both deploy smoke tests. Owner: password and Google sign-in stay on the new address.
 - **Not yet verified:** the hourly health check on the new address (its latest listed run predates the switch); LinkedIn's Post Inspector; the owner's after-switch list in Outstanding work.
+
+#### PF-147 — refresh token in an httpOnly cookie, temporary failures stop signing out · BUILT 2026-11-05, release pending
+
+**Report: `new mds/Sprint 16/PF-147-safer-sign-in-cookie.md`.** Explained first: `PF-147-sign-in-cookie-explained.pdf`. Decisions:
+`locked-decisions.md` "PF-147". Traps: `silent-failures.md` "PF-147". Branch `feat/PF-147-sign-in-cookie`.
+**Gate:** frontend 2,690 tests, 130 files, branches 89.94%; backend 1,524, 75 suites, branches 80.21%; lint 0; build OK. **E2E 85/85**, locally
+(`node node_modules/dotenv-cli/cli.js -e .env.e2e -- node src/server.js` + Vite on 5174, `CI=1`). **Mutants 53/53** caught after one test rewrite (33 backend, 20 frontend).
+**Browser:** Chromium and WebKit via Playwright; owner shown it in Chrome. Real Safari and a phone are the owner's live check.
