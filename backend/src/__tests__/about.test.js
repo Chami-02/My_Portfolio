@@ -432,6 +432,58 @@ describe('PUT /api/about — PF-118 text fields', () => {
   });
 });
 
+// ── PF-151 — the Settings switch for the seasonal effects ───────────────────
+describe('seasonalEffect', () => {
+  it('defaults to auto, publicly readable', async () => {
+    const res = await request(app).get('/api/about');
+    expect(res.body.data.seasonalEffect).toBe('auto');
+  });
+
+  it('an existing document missing the field reads auto', async () => {
+    await About.collection.updateOne({}, { $unset: { seasonalEffect: '' } }, { upsert: true });
+    const res = await request(app).get('/api/about');
+    expect(res.body.data.seasonalEffect).toBe('auto');
+  });
+
+  it.each(['auto', 'snow', 'halloween', 'off'])('accepts %s', async (mode) => {
+    const res = await request(app).put('/api/about').set(await authHeader()).send({ seasonalEffect: mode });
+    expect(res.status).toBe(200);
+    expect(res.body.data.seasonalEffect).toBe(mode);
+  });
+
+  it.each([
+    ['an unknown word', 'blizzard'],
+    ['blank', ''],
+    ['an array', ['snow']],
+    ['a number', 1],
+    ['null', null],
+  ])('refuses %s', async (_name, value) => {
+    const headers = await authHeader();
+    await request(app).put('/api/about').set(headers).send({ seasonalEffect: 'off' });
+
+    const res = await request(app).put('/api/about').set(headers).send({ seasonalEffect: value });
+
+    expect(res.status).toBe(400);
+    expect((await About.findOne()).seasonalEffect).toBe('off');
+  });
+
+  it('saving it leaves the profile alone, and saving the profile leaves it alone', async () => {
+    const headers = await authHeader();
+    await request(app).put('/api/about').set(headers).send({ location: 'Colombo', seasonalEffect: 'off' });
+
+    await request(app).put('/api/about').set(headers).send({ seasonalEffect: 'snow' });
+    expect((await About.findOne()).location).toBe('Colombo');
+
+    await request(app).put('/api/about').set(headers).send({ location: 'Kandy' });
+    expect((await About.findOne()).seasonalEffect).toBe('snow');
+  });
+
+  it('needs a sign-in', async () => {
+    const res = await request(app).put('/api/about').send({ seasonalEffect: 'snow' });
+    expect(res.status).toBe(401);
+  });
+});
+
 // ── PF-118 batch 2 — timezone is an IANA place, never free text ─────────────
 describe('PUT /api/about — timezone', () => {
   it.each(['Asia/Colombo', 'Europe/London', 'America/Argentina/Buenos_Aires', 'Asia/Kathmandu'])(

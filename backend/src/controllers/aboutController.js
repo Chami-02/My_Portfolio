@@ -101,6 +101,13 @@ const aboutRules = [
     .bail()
     .trim()
     .custom((v) => v === '' || isTimeZone(v)).withMessage('Timezone must be a place from the list, like Asia/Colombo'),
+
+  // PF-151 — the model's own list, so the rule and the enum cannot drift.
+  body('seasonalEffect')
+    .optional()
+    .isString().withMessage('Seasonal effect must be text')
+    .bail()
+    .isIn(About.schema.path('seasonalEffect').enumValues).withMessage('Seasonal effect must be one of the choices in Settings'),
 ];
 
 // ── GET /api/about ────────────────────────────────────────────────────────────
