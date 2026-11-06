@@ -6295,3 +6295,13 @@ The 10 kb JSON limit stands for every route a stranger can reach. POST and PUT o
 **Errors (owner, 2026-11-06: "real error messages ... full industry standard").** `LoadError` adds the REASON from `friendlyError` under its line; this extends the owner's 2026-10-11 wording, and "STILL NOT LOADING" stays. The router has its own `errorElement` (`pages/RouteError.jsx`, imported up front, never lazy). Each panel has its own `ErrorBoundary`, keyed by tab, so a crash keeps the menu. Audit: every failed save, delete and upload already went through `friendlyError`; `adminErrors.test.js` keeps it so.
 
 **Google's result (owner, 2026-11-06).** `WebSite` JSON-LD in `index.html` with `name` "Parindra Gallage" and the domain as the last `alternateName`, as Search Central advises. No icon change: all checks pass, and Google says a refresh takes days to weeks. The CSP guard now skips exactly `type="application/ld+json"`: a data block never runs, so there is nothing to hash. No static `<link rel="canonical">`: the SPA serves one `index.html` for every route, so it would call every page a copy of the home page.
+
+## An engaged visit — only someone who stays is counted (owner, 2026-11-06)
+
+Owner, after seeing 39 of 69 visitors from US data-centre towns on the first live day: "count should start when visitor came in and spend bareable time in the site ... use the industry standard". **Google Analytics' "engaged session":** longer than 10 seconds, OR a key event (here a click on a counted link), OR a second page.
+- **Nothing is sent before that.** Views, sections and clicks wait in `utils/visits.js`; a visitor gone sooner counts nothing, on purpose. So bounces are invisible, and totals are lower than a raw count.
+- **Only visible time counts:** a tab opened behind others is not a visit.
+- **A filter, not proof.** An automated browser that waits 10 seconds or clicks still counts. The panel's note and /privacy say so plainly. REJECTED: lists of data-centre addresses (a paid or stale list, and it would mean judging by address).
+- **Not kept across a full reload:** a reload starts the 10 seconds again, because remembering it would mean storing something on the visitor's device, which /privacy says we avoid. Accepted small undercount.
+- **"On the site now" moves 10 seconds late,** for the same reason.
+- **/privacy's new sentence, shown to the owner before commit:** "A visit is only counted once you have stayed about 10 seconds, opened a second page or clicked one of those links."

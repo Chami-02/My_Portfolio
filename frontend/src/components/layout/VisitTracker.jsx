@@ -1,7 +1,9 @@
 // frontend/src/components/layout/VisitTracker.jsx
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { linkKind, outsideReferrer, sendVisit, shouldCount } from '../../utils/visits';
+import {
+  countVisit, linkKind, markEngaged, outsideReferrer, shouldCount, startEngagementClock,
+} from '../../utils/visits';
 
 /* After the browser has finished its own work, so a count can never slow the
    page. Safari has no requestIdleCallback; the timeout there just means "after
@@ -13,7 +15,8 @@ const whenIdle = (fn) => {
 
 /**
  * PF-145 — one count per page opened, and one per click on a counted link.
- * Renders nothing. What is left out is decided in utils/visits.js.
+ * Renders nothing. What is left out is decided in utils/visits.js, and nothing
+ * goes out until the visit is engaged (the owner's rule, also there).
  */
 export function VisitTracker() {
   const { pathname } = useLocation();
@@ -23,6 +26,7 @@ export function VisitTracker() {
   useEffect(() => {
     // StrictMode runs an effect twice on mount; one page opened is one count.
     if (lastPath.current === pathname) return;
+    const isSecondPage = lastPath.current !== null;
     lastPath.current = pathname;
     if (!shouldCount(pathname)) return;
 
@@ -31,8 +35,13 @@ export function VisitTracker() {
     const referrer = sentReferrer.current ? undefined : outsideReferrer();
     sentReferrer.current = true;
 
-    whenIdle(() => sendVisit({ type: 'view', path: pathname, referrer }));
+    whenIdle(() => {
+      countVisit({ type: 'view', path: pathname, referrer });
+      if (isSecondPage) markEngaged();
+    });
   }, [pathname]);
+
+  useEffect(() => startEngagementClock(), []);
 
   // One listener for the whole document, so no link has to know it is counted.
   // `capture`: a link's own handler stopping the event must not hide the click.
@@ -41,7 +50,9 @@ export function VisitTracker() {
       const anchor = event.target.closest?.('a[href]');
       if (!anchor || !shouldCount(window.location.pathname)) return;
       const link = linkKind(anchor);
-      if (link) sendVisit({ type: 'click', link });
+      if (!link) return;
+      markEngaged();
+      countVisit({ type: 'click', link });
     };
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);

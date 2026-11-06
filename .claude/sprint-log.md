@@ -11066,3 +11066,8 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 - **Not tested for real:** a panel crash inside its boundary (guarded by a source test, not forced in a browser). 320 px was last measured before the final size tweaks.
 - **PF-150:** the public box must not reuse these answers. **PF-152:** four new routes and the `sections` body for the API docs. **PF-156:** the Deployment handbook chapter; the owner also said the folder-structure handbook would suit it.
 - **Long-post fix, after deploy:** remind the owner to paste the "What Comes Next" paragraph.
+
+#### Engaged visits (2026-11-06, `fix/PF-149-engaged-visits`, after PR #91)
+
+**Why:** first live day showed 39 of 69 visitors from US data-centre towns. **Built:** `countVisit`, `markEngaged`, `startEngagementClock` in `utils/visits.js`; `VisitTracker` and `SectionTracker` go through them. Decisions: `locked-decisions.md` "An engaged visit". Owner clears production's totals after this deploys (steps in chat: DOWNLOAD CSV, then `deleteMany` on `visittotals`, `visitordays`, `livevisitors`; never drop: the unique index). **Browser:** real page, owner mark removed then restored: no request before 10 s, one at 10.18 s, database +1.
+**Gate:** frontend 2,948 tests, 139 files, branches 89.96%, lint 0, build OK. Backend code unchanged, not rerun. **E2E 87/87** locally, 3.3 min (an earlier run: 10 sign-in tests failed on `authLimiter` after an interrupted run spent the budget, 20 × 429 on `POST /api/auth/login`; reseeding `portfolio_e2e` cleared it). **Mutants** on the gate: 15 of 16 caught after one new test; the other swaps two lines with the same result.
