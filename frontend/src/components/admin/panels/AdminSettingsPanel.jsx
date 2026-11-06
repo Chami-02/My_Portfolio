@@ -4,6 +4,7 @@ import { useMe } from '../../../hooks/useMe';
 import { SettingsPasswordCard } from './SettingsPasswordCard';
 import { SettingsPasskeysCard } from './SettingsPasskeysCard';
 import { SettingsSessionsCard } from './SettingsSessionsCard';
+import { SettingsSeasonalCard } from './SettingsSeasonalCard';
 import { SettingsBackupCard }   from './SettingsBackupCard';
 import styles from './AdminSettingsPanel.module.css';
 import a from '../../../styles/admin.module.css';
@@ -27,6 +28,7 @@ import a from '../../../styles/admin.module.css';
  * Sessions card (PF-132) fetches its own list and has its own LoadError.
  * The Backup card (PF-135) fetches only when asked, behind the password.
  * The Passkeys card (PF-140) fetches its own list, like Sessions.
+ * The Seasonal effects card (PF-151) reads About and has its own LoadError.
  */
 export function AdminSettingsPanel() {
   const { data: me } = useMe();
@@ -73,6 +75,8 @@ export function AdminSettingsPanel() {
       <SettingsPasskeysCard />
 
       <SettingsSessionsCard />
+
+      <SettingsSeasonalCard />
 
       <SettingsBackupCard />
     </div>
