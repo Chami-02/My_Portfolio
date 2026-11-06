@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { protect } = require('../middleware/auth');
 const { publicCache } = require('../middleware/cache'); // PF-128
+const { longJson } = require('../middleware/bodyParsers');
 const { uploadSingle } = require('../middleware/upload');
 const {
   getAllProjects,
@@ -20,8 +21,8 @@ router.get('/admin/all', protect, getAllProjectsAdmin);
 // PF-144 — a project's own page. By SLUG: the public GET /:id went on
 // 2026-11-02. `/admin/all` is two segments, so `/:slug` cannot capture it.
 router.get('/:slug', publicCache, getProjectBySlug);
-router.post('/',      protect, createProject);   
-router.put('/:id',    protect, updateProject);
+router.post('/',      protect, longJson, createProject);   
+router.put('/:id',    protect, longJson, updateProject);
 router.delete('/:id', protect, deleteProject);
 
 // ── NEW IN PF-111 ────────────────────────────────────────────

@@ -14,6 +14,7 @@ const { globalLimiter }  = require('./middleware/rateLimiter');
 const notFound           = require('./middleware/notFound');
 const errorHandler       = require('./middleware/errorHandler');
 const { noStore, purgeOnWrite } = require('./middleware/cache');
+const { parseJson }      = require('./middleware/bodyParsers');
 
 const app = express();
 
@@ -25,7 +26,7 @@ app.use(globalLimiter);                          // Rate limiting — before rou
 app.use(
   morgan(process.env.NODE_ENV === 'development' ? 'dev' : 'combined')
 );                                               // Request logging
-app.use(express.json({ limit: '10kb' }));        // Parse JSON bodies (limit size)
+app.use(parseJson);                              // Parse JSON bodies (limit size; long posts: bodyParsers.js)
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(noStore);                                // PF-128 — nothing is cached unless a route opts in
 
