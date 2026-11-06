@@ -3761,6 +3761,14 @@ Each was found by a test going red (round trip, flaky order, mutation run), neve
    a guard too: a refusal case that ALSO trips another rule cannot prove its own rule —
    build each case so only one rule can catch it (the media rules, PF-135).
 
+## PF-149 (2026-11-06) — five traps found building the Analytics panel
+
+- **A file named `analytics.js` never loads behind an ad blocker, and takes the page with it.** The tell: `Failed to fetch dynamically imported module` for a file that answers 200 to curl. A browser `fetch` of the same URL fails while `visits.js` beside it answers 200. `useAnalytics.js` and `AdminAnalyticsPanel.jsx` got through: the rule is the exact name. Blockers' lists target the word in addresses too, so the API says `audience`. Guarded in `audienceStats.test.js`.
+- **A `<table>` ignores `height` and `overflow`.** A visually-hidden class of 1 × 1 px on the table itself left it full height, absolutely positioned, running the page on past the footer. Vitest cannot see it. Put the class on a wrapping DIV, and measure `scrollHeight` against the footer's bottom edge.
+- **A data router with no `errorElement` shows its own developer page** ("Unexpected Application Error! Hey developer"), to visitors too. A failed lazy chunk is exactly what reaches it, so the error screen must not be lazy. To prove it for real, import a file named `analytics.js`: the blocker does the rest. Undo it afterwards.
+- **A sticky box is pushed up when its grid row ends.** With the footer under the whole grid the row ended at the footer, so the menu slid away at the end of long panels, though `position: sticky` was working. Measure the menu's top at the first and last scroll position; both must match.
+- **`rows` beats `min-height`, and `line-height` adds to `min-height`.** Textareas stayed 97–124 px under a 72 px minimum until they got a `height`; inputs measured 44 px under a 40 px minimum until `line-height: 1.25`. Read sizes in the browser, not the sheet. A `padding` shorthand on the sign-in field would also wipe `.passwordWrap`'s room for the eye.
+
 ## PF-145 (2026-11-04) — three traps found building the visitor counter
 
 - **A limiter row can break a privacy promise.** `MongoStore` writes `<limiter>:<key>` to the database, and

@@ -11051,3 +11051,18 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 
 **Found by the owner:** editing the security blog post answered "Something went wrong on our side", every time. **Cause:** the post is 14 KB and was inserted by migration 012, past the global 10 kb JSON limit; no edit could ever pass. body-parser's 413 isn't operational, so `errorHandler` turned it into a 500 in production. **Fix:** `middleware/bodyParsers.js`: POST and PUT of blog and projects skip the small parser and parse at 256 kb AFTER `protect`; everything else stays 10 kb; `entity.too.large` answers 413 in plain words. **Proof:** `bodyLimit.test.js`, plus the live post's real data through the real route (200, paragraph stored). Decision: `locked-decisions.md` "Long-post saves".
 
+
+#### PF-149 — the private Analytics panel, plus admin phone sizes, shell and errors (2026-11-06, `feat/PF-149-analytics-panel`, in PR)
+
+**Report: `new mds/Sprint 16/PF-149-analytics-panel.md`.** How it works: Deployment handbook sources, "PF-149". QA lessons and security table in their own sources. Decisions: `locked-decisions.md` "PF-149". Traps: `silent-failures.md` "PF-149". The PR also carries the long-post save fix and the PF-140 records (above), by the owner's choice.
+**Built:** `GET /api/dashboard/audience` + `/growth`, `/live`, `/export`; `controllers/audienceController.js`; `models/LiveVisitor.js`; `section` totals, sent as one request (`SectionTracker`); `AdminAnalyticsPanel.jsx`, `AnalyticsCharts.jsx`, `utils/audienceStats.js`, `hooks/useAnalytics.js`; `--chart-1…6`. Shell: footer beside the rail. Phones ≤560: fields 40, text boxes 72, buttons 36, cards 12, field text 16px. Errors: `pages/RouteError.jsx`, `LoadError` with a reason, a boundary per panel, `adminErrors.test.js`. `WebSite` JSON-LD in `index.html`. `/privacy` words changed, owner-approved.
+**Gate:** frontend 2,936 tests, 139 files, branches 89.94%; backend 1,682, 78 suites, branches 81.15%; lint 0; build OK. **E2E 87/87** locally, 3.4 min (servers by hand, `CI=1`). **Mutants:** 89 of 91 caught; 5 weak tests fixed, 1 line of dead code deleted, 1 change with no visible effect left (the growth query's extra rows are ignored). Long-post fix's own first full gate: 1,612 tests, 77 suites, passed.
+**Browser:** Chrome, signed in, on `portfolio_dev` with demo rows, since removed (10 earlier rows restored). Totals matched direct aggregates: 3,964 and 10,159 for 30 days, 28,062 this year, 997 for 7 days. Real scroll: Hero +1, About +1, the others unchanged. Six panels at 1710 px: menu top 67 at both ends of the scroll, page ends at the footer, footer's left edge 236 = rail's right edge. Ten panels at 390 px: fields 40, text boxes 72, 16px, no sideways scroll. Dark and light. A real blocked file showed `RouteError`. The owner reviewed and approved.
+
+### Outstanding from PF-149
+
+- **Owner, after deploy:** test the password dots on a real iPhone. 16px text is my best guess at the cause; not reproduced. Request indexing in Search Console. Check Vercel's Usage page after a week against my estimates (4 CPU-hours is the limit to watch).
+- **Check after deploy:** `livevisitors` TTL index on production; the panel shows real rows; `/privacy`'s new words.
+- **Not tested for real:** a panel crash inside its boundary (guarded by a source test, not forced in a browser). 320 px was last measured before the final size tweaks.
+- **PF-150:** the public box must not reuse these answers. **PF-152:** four new routes and the `sections` body for the API docs. **PF-156:** the Deployment handbook chapter; the owner also said the folder-structure handbook would suit it.
+- **Long-post fix, after deploy:** remind the owner to paste the "What Comes Next" paragraph.
