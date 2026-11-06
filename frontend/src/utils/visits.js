@@ -44,6 +44,18 @@ export function linkKind(anchor) {
   return null;
 }
 
+/** PF-149 — the home page's sections, as the backend's fixed list has them. */
+export const HOME_SECTIONS = ['hero', 'about', 'skills', 'projects', 'blog', 'contact'];
+
+/**
+ * Half of the section has been on screen, or half the screen is showing it. The
+ * second half matters for a section taller than two screens, which could never
+ * show half of itself at once.
+ */
+export function hasReached(visiblePx, sectionPx, viewportPx) {
+  return visiblePx > 0 && visiblePx >= Math.min(sectionPx, viewportPx) / 2;
+}
+
 export function sendVisit(payload) {
   fetch(apiUrl('/visits'), {
     method:      'POST',

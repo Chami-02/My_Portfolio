@@ -4,6 +4,7 @@ const app      = require('../app');
 const VisitTotal = require('../models/VisitTotal');
 const VisitorDay = require('../models/VisitorDay');
 const VisitSalt  = require('../models/VisitSalt');
+const LiveVisitor = require('../models/LiveVisitor');
 const { saltFor, zonedNow } = require('../controllers/visitController');
 const { skipGlobalLimiter } = require('../middleware/rateLimiter');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
@@ -81,6 +82,81 @@ describe('POST /api/visits — what is counted', () => {
     expect(await total('click', 'github')).toBe(1);
     expect(await total('views', 'all')).toBe(0);
     expect(await total('visitors', 'all')).toBe(0);
+  });
+});
+
+describe('POST /api/visits — sections of the home page (PF-149)', () => {
+  it('counts a section, and writes nothing else', async () => {
+    await send({ type: 'section', sections: ['contact', 'hero'] });
+    await send({ type: 'section', sections: ['contact'] });
+    expect(await total('section', 'contact')).toBe(2);
+    expect(await total('section', 'hero')).toBe(1);
+    expect(await VisitTotal.countDocuments()).toBe(2);
+    expect(await VisitorDay.countDocuments()).toBe(0);
+    expect(await LiveVisitor.countDocuments()).toBe(0);
+  });
+
+  it('accepts all six at once, as one request', async () => {
+    const all = ['hero', 'about', 'skills', 'projects', 'blog', 'contact'];
+    expect((await send({ type: 'section', sections: all })).status).toBe(204);
+    for (const section of all) expect(await total('section', section)).toBe(1);
+  });
+
+  it.each([
+    ['an unknown section', ['secret']], ['nothing', undefined], ['an empty list', []],
+    ['one name, not a list', 'hero'], ['an object', { $gt: '' }], ['a dotted name', ['hero.count']],
+    ['a list inside the list', [['hero']]], ['a repeat', ['hero', 'hero']],
+    ['one good and one bad', ['hero', 'secret']],
+    ['too many', ['hero', 'about', 'skills', 'projects', 'blog', 'contact', 'hero']],
+  ])('refuses %s', async (_name, sections) => {
+    expect((await send({ type: 'section', sections })).status).toBe(400);
+    expect(await VisitTotal.countDocuments()).toBe(0);
+  });
+});
+
+describe('POST /api/visits — on the site now (PF-149)', () => {
+  const FIVE_MINUTES = 5 * 60 * 1000;
+
+  it('keeps a code for about 5 minutes after a page is opened', async () => {
+    const before = Date.now();
+    await view('/');
+    const [row] = await LiveVisitor.find().lean();
+    expect(row.expiresAt.getTime()).toBeGreaterThanOrEqual(before + FIVE_MINUTES);
+    expect(row.expiresAt.getTime()).toBeLessThanOrEqual(Date.now() + FIVE_MINUTES);
+  });
+
+  it('is the same code the day\'s count uses, one row per visitor', async () => {
+    await view('/');
+    await view('/blog');
+    const [live] = await LiveVisitor.find().lean();
+    const [day] = await VisitorDay.find().lean();
+    expect(live._id).toBe(day._id);
+    expect(await LiveVisitor.countDocuments()).toBe(1);
+  });
+
+  it('opening another page pushes the expiry forward', async () => {
+    await view('/');
+    await LiveVisitor.updateMany({}, { expiresAt: new Date(Date.now() + 1000) });
+    await view('/blog');
+    const [row] = await LiveVisitor.find().lean();
+    expect(row.expiresAt.getTime()).toBeGreaterThan(Date.now() + 60_000);
+  });
+
+  it('a click is not a page opened', async () => {
+    await send({ type: 'click', link: 'email' });
+    expect(await LiveVisitor.countDocuments()).toBe(0);
+  });
+
+  it('expires by itself', async () => {
+    await LiveVisitor.init();
+    const indexes = await LiveVisitor.collection.indexes();
+    expect(indexes.find((i) => i.key.expiresAt)?.expireAfterSeconds).toBe(0);
+  });
+
+  it('a bot and the admin area never appear', async () => {
+    await view('/admin');
+    await view('/', { ua: 'Googlebot/2.1 (+http://www.google.com/bot.html)' });
+    expect(await LiveVisitor.countDocuments()).toBe(0);
   });
 });
 
