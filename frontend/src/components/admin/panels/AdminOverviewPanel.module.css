@@ -226,7 +226,7 @@
 
   .action {
     justify-content: center;
-    min-height: 44px;
+    min-height: 36px;
     padding: 0 10px;
   }
 }

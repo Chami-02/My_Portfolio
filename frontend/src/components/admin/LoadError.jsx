@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { friendlyError } from '../../utils/friendlyError';
 import a from '../../styles/admin.module.css';
 
 /**
@@ -22,11 +23,15 @@ import a from '../../styles/admin.module.css';
  * retried anything.
  *
  * @param what   the thing that did not load, upper case ("YOUR PROJECTS")
- * @param query  { refetch, isFetching } — one query result, or a merged pair
+ * PF-149 (owner, 2026-11-06: "real error messages"): the line says WHAT failed,
+ * the sentence under it says WHY and what to do. A merged pair has no single
+ * `error`, so it keeps the one line.
+ *
+ * @param query  { refetch, isFetching, error } — one query result, or a merged pair
  */
 export function LoadError({ what, query }) {
   const [retried, setRetried] = useState(false);
-  const { refetch, isFetching } = query;
+  const { refetch, isFetching, error } = query;
 
   const message = retried && !isFetching
     // PF-144: plain words — the owner's "still" rule kept, "the server" gone.
@@ -38,7 +43,10 @@ export function LoadError({ what, query }) {
        interrupting for — unlike the save flash, which is role="status". */
     <div className={a.loadError} role="alert">
       <span aria-hidden="true" className={a.bannerDot} />
-      <span className={a.loadErrorText}>{message}</span>
+      <span className={a.loadErrorText}>
+        {message}
+        {error && <span className={a.loadErrorReason}>{friendlyError(error)}</span>}
+      </span>
       <button
         type="button"
         className={a.loadErrorAction}

@@ -251,6 +251,12 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* A short laptop screen: the menu scrolls inside itself, so Settings and the
+     session card stay reachable and the page's scroll never moves it. */
+  max-height: calc(100dvh - var(--admin-header-h));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--thumb) transparent;
 }
 
 /* ⚠️ NO `min-height` HERE, and the prototype HAS one — `Admin.dc.html:137`
@@ -371,7 +377,20 @@
 
 /* ── Main column ────────────────────────────────────────────────── */
 
+/* ⚠️ Owner, 2026-11-06: "left menu side bar should not move ... the footer hit
+   and fetch to the left side bar". The footer lives in THIS column, not under
+   the whole grid. Under the grid it ended the rail's row, and a sticky box is
+   pushed up once its row runs out: the menu slid away at the end of every long
+   panel. Here the rail's row runs to the bottom of the page. A short panel still
+   puts the footer at the bottom of the screen: .main takes the spare height. */
+.content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .main {
+  flex: 1;
   padding: clamp(18px, 3vw, 30px) clamp(14px, 3vw, 30px) 40px;
   min-width: 0;
 }
@@ -526,7 +545,9 @@
     align-items: center;
     gap: 8px;
     padding: 12px clamp(14px, 3vw, 26px);
+    max-height: none;
     overflow-x: auto;
+    overflow-y: visible;
   }
 
   .manage,

@@ -12,6 +12,15 @@ const errorHandler = (err, req, res, _next) => {
   // slug about to be published must not be cached as the answer.
   forgetPublicCache(res);
 
+  // A body over its limit is the reader's to fix, not a crash on our side. It
+  // used to fall through to the 500 below in production.
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      status:  'fail',
+      message: "That's too long to save. Please shorten it and try again.",
+    });
+  }
+
   // Default to 500 Internal Server Error if no statusCode was set
   err.statusCode = err.statusCode || 500;
   err.status     = err.status     || 'error';

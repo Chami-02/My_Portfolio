@@ -21,6 +21,21 @@ describe('LoadError', () => {
     expect(retry).toBeEnabled();
   });
 
+  // PF-149 (owner, 2026-11-06): what failed, then why and what to do.
+  it.each([
+    ['no answer at all', new Error('Network Error'), 'check your internet connection'],
+    ['too many requests', { response: { status: 429, data: {} } }, 'Too many attempts'],
+    ['a fault on our side', { response: { status: 500, data: { message: 'E11000 duplicate key' } } }, 'on our side'],
+    ['a session that ended', { response: { status: 401, data: {} } }, 'sign in again'],
+  ])('gives the reason for %s, never the raw error', (_name, error, words) => {
+    render(<LoadError what="YOUR PROJECTS" query={{ refetch: vi.fn(), isFetching: false, error }} />);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(FIRST);
+    expect(alert).toHaveTextContent(words);
+    expect(alert).not.toHaveTextContent('E11000');
+    expect(alert).not.toHaveTextContent('Network Error');
+  });
+
   it('refetches on RETRY and shows it is working', async () => {
     const refetch = vi.fn();
     const { rerender } = render(<LoadError what="YOUR PROJECTS" query={{ refetch, isFetching: false }} />);

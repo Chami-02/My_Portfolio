@@ -121,6 +121,7 @@ const PHASE_2_SHEETS = [
   'components/admin/panels/AdminSettingsPanel.module.css', // PF-131
   'components/admin/PasswordStrength.module.css', // PF-124
   'components/admin/panels/EntryListPanel.module.css', // PF-143
+  'components/admin/panels/AdminAnalyticsPanel.module.css', // PF-149
 ];
 
 describe("PF-107's stylesheets read no Phase 1 token", () => {
@@ -254,6 +255,8 @@ const REBUILT_JSX = [
   'components/admin/panels/AdminCertificatesPanel.jsx', // PF-143
   'components/admin/panels/AdminEducationPanel.jsx',    // PF-143
   'components/admin/MonthYearField.jsx',                // PF-143
+  'components/admin/panels/AdminAnalyticsPanel.jsx',   // PF-149
+  'components/admin/panels/AnalyticsCharts.jsx',       // PF-149
 ];
 
 describe('PF-113 rebuilt components carry no Phase 1 styling', () => {

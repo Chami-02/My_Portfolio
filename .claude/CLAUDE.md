@@ -119,15 +119,14 @@ search the companions *before* explaining a surprise.
 
 | Phase / sprint | Scope | State |
 | --- | --- | --- |
-| Phase 1 (PF-1 → PF-51) | original site | complete |
-| Sprint 9–13 (PF-52 → PF-106) | API, design system, sections, Blog | merged |
+| Phase 1, Sprints 9–13 (PF-1 → PF-106) | site, API, design, Blog | merged |
 | Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, 2026-10-14 |
 | PF-126 (+ 3 fixes) | migration guard, deploy pipeline | merged; `deploy.yml` = ONLY path to prod |
 | Sprint 15 (PF-123 → PF-144) | speed + auth + email + Settings | **closed** 2026-11-04 — PR #81 `a5acdb0` |
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
-- ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **PF-146** LIVE 11-04: `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-147 + PF-148 LIVE 11-05. PF-140 built 11-05.
+- ⚠️ **Light theme: upgrades POST-LAUNCH** — BUGS only; exception: paper `#F5F2EC` (11-02).
+- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-140 done; PF-149 in PR.
 - **Every doc I create** goes to `new mds/Sprint 16/` (owner; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
@@ -192,7 +191,7 @@ Single test: `npx vitest run <path>` / `npm test -- <path>` or `-t "name"`.
 
 **Backend — Express 5 + Mongoose, serverless-shaped.** `server.js` and Vercel both
 import `app.js`. Order is load-bearing: helmet → cors → globalLimiter (100/15 min)
-→ morgan → parsers (10 kb) → `/uploads` → `GET /api/health` → **`connectDB()`
+→ morgan → parsers (10 kb; `bodyParsers.js`) → `/uploads` → `GET /api/health` → **`connectDB()`
 middleware** → routes → notFound → multer errors → errorHandler.
 - `/api/health` sits BEFORE `connectDB` and returns 200 with `database: null` on
   an outage — assert the `database` field.
@@ -212,12 +211,6 @@ locked:** `global.css` → `tokens.css` → `keyframes/index.css` → `animation
 chrome excluded on `/admin/*`). Data: component → `hooks/use*.js` (TanStack) →
 `services/*Service.js` → `services/api.js`. `apiUrl()` for browser-fetched URLs.
 Session: 15-min access JWT in memory + rotating refresh token in an httpOnly cookie (PF-147).
-
-## Stack
-
-React 19 · Vite · Tailwind v4 · CSS Modules · React Router v7 · TanStack Query v5
-Express · MongoDB Atlas · Mongoose · JWT · Cloudinary
-Vitest · Jest · Supertest · Playwright · GitHub Actions
 
 ## Styling approach
 
@@ -344,6 +337,7 @@ Where a mistake would be silent, add a test that would catch it.
 - Admin panels read the PUBLIC URLs: fresh only while the CDN skips `Authorization` AND `Cache-Control` has no `public`/`must-revalidate`/`s-maxage` (RFC 9111 §3.5); a missed purge is invisible (stale ≤1 h) — PF-128.
 
 **Measurement**
+- A file named `analytics.js` dies behind ad blockers; a `<table>` ignores `height`/`overflow` (hide a wrapper).
 - History API cannot tell first load from Back-to-first-entry.
 - Tool round-trip (~8 s) is slower than the 4.5 s splash — print timings, use observers with a control.
 - Re-query after any state change; one clean page load per theme.
@@ -413,6 +407,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
 - PF-133: history in Sessions card (90 d, 10 + SHOW MORE ≤50); alert on NEW device only (30 d); daily digest of failures (Cron + `CRON_SECRET`); leak check at sign-in → banner on every admin page.
 - PF-142: phones ≤560 — 44px CTAs, hero pair one line, footers + admin header centred/one row, card-list menu, no "FROM SCRATCH".
+- PF-149: Analytics: pies (owner), lists SCROLL, `audience` in addresses; admin footer beside the rail so the menu never moves; phones: fields 40 + 16px text, buttons 36 (replaces PF-142's 44).
 - PF-140: passkey door under Google's, password + Google STAY; UV required, discoverable, attestation none; add/remove need password + alert; challenge 10 min, single use (`pf_passkey`).
 - PF-147: refresh token ONLY in `__Host-Http-pg_refresh` (RFC 10017), never a body; `fromOurSite` on refresh/logout; only a 401 ends a session; 60 s repeat window; failed sign-out stays and says so.
 - PF-146 (REVERSES PF-134's logo): photo logo via `useLogo()`, also the tab icon; name `PARINDRA GALLAGE`, slogan replaces the job title.
@@ -432,7 +427,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - macOS, zsh: `brew`, `jq`, `sed -i ''`. Backend :5050 (Docker internal :5000).
   E2E: `portfolio_e2e`, backend 5055, frontend 5174.
 - Kill servers with `lsof -sTCP:LISTEN -ti:PORT | xargs kill` — the `-sTCP:LISTEN`
-  is mandatory (a bare `lsof -ti` also kills Chrome). Use `-a` to AND selectors. Never `pkill` by name (hit unrelated apps, PF-140).
+  is mandatory (a bare `lsof -ti` also kills Chrome). Use `-a` to AND selectors. Never `pkill` by name (PF-140).
 - Frontend tests in per-module `__tests__/`; shared helpers in `src/test/`
   (`leadsWithIcon.js`); cross-cutting guards in `styles/__tests__/`.
 

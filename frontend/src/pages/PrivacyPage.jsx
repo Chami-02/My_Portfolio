@@ -46,7 +46,8 @@ export function PrivacyPage() {
         <h2 className={styles.title}>Visitor counts</h2>
         <p className={styles.text}>
           To see how the site is doing, I count visits as daily totals: how many
-          visitors, which pages, country and city (approximate, worked out from
+          visitors, which pages, which sections of the home page were seen,
+          country and city (approximate, worked out from
           your IP address), the site you came from, your type of device and
           browser, the hour of the day, and clicks on links like email, CV and
           GitHub. These are totals, like “12 visitors from Sri Lanka today”.
@@ -61,7 +62,9 @@ export function PrivacyPage() {
           and is deleted within 2 days, and your IP address is not saved as part
           of the count. This means the numbers are approximate. If your browser
           sends a “do not track” or Global Privacy Control signal, you are not
-          counted at all.
+          counted at all. To show how many people are on the site right now, the
+          same scrambled code is also kept for about 5 minutes after you open a
+          page.
         </p>
 
         <h2 className={styles.title}>Cookies</h2>

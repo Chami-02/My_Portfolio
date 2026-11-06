@@ -8,6 +8,7 @@ import { BlogSection }     from '../components/sections/BlogSection';
 import { ContactSection }  from '../components/sections/ContactSection';
 import { SplashProvider }  from '../providers/SplashProvider';
 import { ScrollToHash }   from '../components/layout/ScrollToHash';
+import { SectionTracker } from '../components/layout/SectionTracker';
 import { shouldShowSplash } from '../utils/splash';
 import { Splash } from '../components/splash';
 import {
@@ -88,6 +89,7 @@ export function HomePage() {
           Every hash target on this site is a section of this page, so
           there is nothing for it to do on any other route anyway. */}
       <ScrollToHash />
+      <SectionTracker />
 
       <PageShell>
         {/* Ambient layer first — DOM order matters. A section that

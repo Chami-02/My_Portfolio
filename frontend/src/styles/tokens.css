@@ -56,6 +56,18 @@
   --ok:      #34d399;
   --danger:  #f87171;
 
+  /* ── Chart colours (PF-149) ──────────────────────────────── */
+  /* Validated by the dataviz skill's validate_palette.js on the panel's surface
+     (#0C1321): lightness, colourfulness, and neighbours kept apart under colour
+     blindness. The ORDER is part of that result: cyan beside pink fails. Amber
+     is darker than --acc because --acc is too bright for the check. */
+  --chart-1: #C98500;
+  --chart-2: #8F74F0;
+  --chart-3: #16A3B0;
+  --chart-4: #E2603A;
+  --chart-5: #4C8DF0;
+  --chart-6: #D9609C;
+
   /* ── Typography (PF-68) ──────────────────────────────────── */
   --font-display: 'Anton', 'Anton Fallback', 'Arial Narrow', sans-serif;
   --font-body:    'Space Grotesk', system-ui, -apple-system, sans-serif;
@@ -134,6 +146,14 @@ html[data-theme="light"] {
      It was failing only because nothing read it. */
   --ok:      #0B6446;
   --danger:  #B4231F;
+
+  /* PF-149 — the same six hues in the same order, validated on #FBF8F3. */
+  --chart-1: #B26A00;
+  --chart-2: #6E52D6;
+  --chart-3: #008C9E;
+  --chart-4: #D4502C;
+  --chart-5: #2A6FD0;
+  --chart-6: #CF4E8C;
 }
 
 /* ── Resets ──────────────────────────────────────────────── */

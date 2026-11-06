@@ -26,6 +26,20 @@
     <meta property="og:image:alt" content="Parindra Gallage among the stars, with the words Let's make it real" />
     <meta name="twitter:card" content="summary_large_image" />
 
+    <!-- PF-149: the name Google shows above a result instead of the bare address
+         (Google Search Central, "site names"). The domain comes last as Google's
+         recommended fallback. Data the browser never runs, so the CSP's script
+         hash does not apply to it. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Parindra Gallage",
+        "alternateName": ["parindragallage.com"],
+        "url": "https://parindragallage.com/"
+      }
+    </script>
+
     <!-- ── FOUC guard (PF-71) ───────────────────────────────────
          Applies the saved theme before first paint. Must stay inline
          and blocking — a deferred or external script would run after

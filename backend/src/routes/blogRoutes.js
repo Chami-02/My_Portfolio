@@ -4,6 +4,7 @@ const MongoStore = require('../middleware/mongoRateLimitStore'); // PF-141
 const validate = require('../middleware/validate');
 const { protect } = require('../middleware/auth');
 const { publicCache } = require('../middleware/cache'); // PF-128
+const { longJson } = require('../middleware/bodyParsers');
 const {
   blogRules,
   getAllPosts,
@@ -38,8 +39,8 @@ router.patch('/:slug/view',      viewLimiter, incrementViews);
 // sending one: a 400 describing the schema instead of a 401. Auth is the
 // outer gate on every other resource (projectRoutes.js, skillRoutes.js)
 // and is now the outer gate here too.
-router.post('/',      protect, blogRules, validate, createPost);
-router.put('/:id',               protect, updatePost);
+router.post('/',      protect, longJson, blogRules, validate, createPost);
+router.put('/:id',               protect, longJson, updatePost);
 router.patch('/:id/publish',     protect, togglePublish);
 router.delete('/:id',            protect, deletePost);
 

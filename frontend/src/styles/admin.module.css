@@ -698,6 +698,15 @@
   min-width: 0;
 }
 
+.loadErrorReason {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .loadErrorAction {
   composes: btnGhost;
   flex: none;
@@ -893,15 +902,39 @@
    (`.btnRow*`, 8×14px) are already small and stay.
    LAST in the file (mediaOrder.test.js). */
 @media (max-width: 560px) {
+  /* Owner, 2026-11-06: smaller cards, fields and buttons across the admin.
+     REPLACES PF-142's 44px and 16px. Tap targets stay above WCAG 2.2's 24px. */
   .panel {
-    padding: 16px;
+    padding: 12px;
+  }
+
+  /* ⚠️ 16px, on purpose, though the boxes shrink: iOS Safari zooms the whole page
+     into any field with smaller text when it takes focus. */
+  .input,
+  .select,
+  .inputMono,
+  .inputPill {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  /* A height, because `rows` would otherwise set it. The corner still drags it
+     taller (`resize: vertical` above) for longer text. */
+  .textarea {
+    height: 72px;
+    min-height: 72px;
+    padding: 8px 12px;
+    font-size: 16px;
+    line-height: 1.4;
   }
 
   .btnPrimary,
   .btnOutline,
   .btnDanger {
-    min-height: 44px;
-    padding-top: 0;
-    padding-bottom: 0;
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 11px;
   }
 }

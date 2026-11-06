@@ -58,3 +58,34 @@ describe('link-preview tags', () => {
     expect(robots).toMatch(/^Sitemap: https:\/\/parindragallage\.com\/sitemap\.xml$/m);
   });
 });
+
+// PF-149. The name Google shows above a result (Search Central, "site names").
+// A typo here costs nothing visible: Google just keeps showing the bare address.
+describe('the site name for search results', () => {
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+  const site = blocks.length === 1 ? JSON.parse(blocks[0][1]) : null;
+
+  it('is one block of valid JSON', () => {
+    expect(blocks).toHaveLength(1);
+    expect(site['@context']).toBe('https://schema.org');
+    expect(site['@type']).toBe('WebSite');
+  });
+
+  it('is the owner\'s name, the same one link previews use', () => {
+    expect(site.name).toBe('Parindra Gallage');
+    expect(site.name).toBe(meta('property', 'og:site_name'));
+  });
+
+  it('points at the home page, and keeps the domain as the last fallback', () => {
+    expect(site.url).toBe(meta('property', 'og:url'));
+    expect(site.alternateName.at(-1)).toBe('parindragallage.com');
+  });
+});
+
+describe('the icon Google shows beside a result', () => {
+  it('the home page names a square icon bigger than 48px, in a place Google can fetch', () => {
+    expect(html).toContain('<link rel="icon" type="image/png" href="/favicon-96.png" sizes="96x96" />');
+    const robots = fs.readFileSync(path.join(root, 'public/robots.txt'), 'utf8');
+    expect(robots.match(/^Disallow: .*$/gm)).toEqual(['Disallow: /admin']);
+  });
+});

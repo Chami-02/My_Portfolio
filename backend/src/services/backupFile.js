@@ -93,7 +93,7 @@ const NEVER_BACKED_UP = [
   'SignInEvent', 'RateLimit', 'Migration', 'BackupSnapshot',
   // PF-145 — codes and salts must die within 2 days, so never into a file. The
   // totals stay out too: a restore puts the SITE back and must not rewind them.
-  'VisitTotal', 'VisitorDay', 'VisitSalt',
+  'VisitTotal', 'VisitorDay', 'VisitSalt', 'LiveVisitor',
 ];
 
 /** The lists, in the order they are written. Messages last: they MERGE. */

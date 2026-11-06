@@ -4,6 +4,7 @@ const { ipKeyGenerator } = require('express-rate-limit');
 const VisitTotal = require('../models/VisitTotal');
 const VisitorDay = require('../models/VisitorDay');
 const VisitSalt  = require('../models/VisitSalt');
+const LiveVisitor = require('../models/LiveVisitor');
 const { requestPlace } = require('../utils/requestLocation');
 const { isBot, browserName, deviceType } = require('../utils/deviceLabel');
 
@@ -17,6 +18,7 @@ const { isBot, browserName, deviceType } = require('../utils/deviceLabel');
  */
 
 const KEEP_CODES_MS = 48 * 60 * 60 * 1000; // the privacy page's "within 2 days"
+const LIVE_MS = 5 * 60 * 1000;             // the privacy page's "about 5 minutes"
 const UNKNOWN = '(unknown)';
 const OTHER   = '(other)';
 const DIRECT  = '(direct)';
@@ -86,14 +88,22 @@ const identifyVisitor = async (req, _res, next) => {
   }
 };
 
+// PF-149 — the home page's sections, a fixed list: this is client text too.
+const HOME_SECTIONS = ['hero', 'about', 'skills', 'projects', 'blog', 'contact'];
+
 const visitRules = [
-  body('type').isString().bail().isIn(['view', 'click']).withMessage('Unknown visit type'),
+  body('type').isString().bail().isIn(['view', 'click', 'section']).withMessage('Unknown visit type'),
   body('path').if(body('type').equals('view'))
     .isString().bail().isLength({ max: 2048 }).withMessage('Path is too long'),
   body('referrer').optional()
     .isString().bail().isLength({ max: 2048 }).withMessage('Referrer is too long'),
   body('link').if(body('type').equals('click'))
     .isString().bail().isIn(['email', 'cv', 'github', 'live']).withMessage('Unknown link'),
+  body('sections').if(body('type').equals('section'))
+    .isArray({ min: 1, max: HOME_SECTIONS.length }).bail()
+    .custom((list) => new Set(list).size === list.length).withMessage('Unknown section'),
+  body('sections.*').if(body('type').equals('section'))
+    .isString().bail().isIn(HOME_SECTIONS).withMessage('Unknown section'),
 ];
 
 // ── Turning what the client sent into safe keys ─────────────────────────────
@@ -141,11 +151,16 @@ const isFirstVisitToday = async (code) => {
 /** POST /api/visits — public. Always a bare 204: nothing here is the visitor's business. */
 const recordVisit = async (req, res, next) => {
   try {
-    const { type, path, referrer, link } = req.body;
+    const { type, path, referrer, link, sections } = req.body;
     const { day, hour } = req.visitNow;
 
     if (type === 'click') {
       await VisitTotal.bulkWrite([addOne(day, 'click', link)]);
+      return res.status(204).end();
+    }
+
+    if (type === 'section') {
+      await VisitTotal.bulkWrite(sections.map((section) => addOne(day, 'section', section)));
       return res.status(204).end();
     }
 
@@ -173,7 +188,14 @@ const recordVisit = async (req, res, next) => {
       );
     }
 
-    await VisitTotal.bulkWrite(writes, { ordered: false });
+    await Promise.all([
+      VisitTotal.bulkWrite(writes, { ordered: false }),
+      LiveVisitor.updateOne(
+        { _id: req.visitorCode },
+        { $set: { expiresAt: new Date(Date.now() + LIVE_MS) } },
+        { upsert: true },
+      ),
+    ]);
     res.status(204).end();
   } catch (err) {
     next(err);

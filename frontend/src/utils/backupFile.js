@@ -33,15 +33,14 @@ export const backupPickProblem = (file) => {
 export const REVOKE_AFTER_MS = 40_000;
 
 /**
- * Save `data` as a pretty-printed JSON file: a Blob behind an object URL,
+ * Save a Blob as a file: behind an object URL,
  * clicked through a detached `<a download>`.
  *
  * ⚠️ The URL is released LATER, not straight after the click: Safari starts
  * reading the Blob after `click()` returns, and a URL revoked first saves
  * nothing. FileSaver.js waits 40 s for the same reason.
  */
-export const saveJson = (data, fileName) => {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+export const saveBlob = (blob, fileName) => {
   const url  = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href     = url;
@@ -49,3 +48,6 @@ export const saveJson = (data, fileName) => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER_MS);
 };
+
+export const saveJson = (data, fileName) =>
+  saveBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), fileName);

@@ -97,7 +97,7 @@ describe('AdminLayout — navigation', () => {
     // breaks under a name pointing at the wrong cause the moment an
     // unrelated control joins the landmark.
     expect(labels).toEqual([
-      'Overview', 'About', 'Skills', 'Projects', 'Blog', 'Education', 'Certificates', 'Messages', 'Settings',
+      'Overview', 'Analytics', 'About', 'Skills', 'Projects', 'Blog', 'Education', 'Certificates', 'Messages', 'Settings',
     ]);
   });
 
@@ -190,6 +190,7 @@ describe('AdminLayout — navigation', () => {
 describe('AdminLayout — title and meta', () => {
   it.each([
     ['overview', 'Overview', 'DASHBOARD'],
+    ['analytics', 'Analytics', 'PRIVATE'],
     ['projects', 'Projects', '3 ITEMS'],
     ['skills',   'Skills',   '2 ITEMS'],
     ['about',    'About',    'PROFILE'],
@@ -435,7 +436,7 @@ describe('the sidebar rail runs the full depth of the panel', () => {
 
     expect(within(rail).getByText('MANAGE')).toBeInTheDocument();
     expect(within(rail).getByText('SESSION')).toBeInTheDocument();
-    expect(within(rail).getAllByRole('button').length).toBe(9);
+    expect(within(rail).getAllByRole('button').length).toBe(10);
   });
 });
 

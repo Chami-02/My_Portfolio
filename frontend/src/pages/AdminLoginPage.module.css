@@ -620,10 +620,22 @@ a.google:hover {
 /* PF-140 (owner, 2026-11-05): small buttons on a phone. The main button joins
    the other two at PF-142's 44px. Last in the file, or it would not apply. */
 @media (max-width: 560px) {
+  /* Owner, 2026-11-06. 16px text, not smaller: iOS Safari zooms the page into a
+     smaller field on focus, which pushed the typed password's dots out of view.
+     ⚠️ Padding longhands: the shorthand would wipe .passwordWrap's room for the eye. */
+  .input {
+    min-height: 40px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 12px;
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
   .submit {
-    min-height: 44px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    min-height: 40px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
 
   /* One line even on a 320px screen. */
