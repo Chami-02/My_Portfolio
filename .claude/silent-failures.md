@@ -4342,3 +4342,9 @@ relative`), never with a percentage height inside a grid/flex frame. A plain BLO
 - **A virtual authenticator with `isUserVerified: false` is how E2E reaches that branch;** there is no real Cancel button to press in headless Chromium.
 - **Empty gate output isn't a pass or a fail.** During this ticket a second Claude session on the same folder killed my runs by PID, and a filtered log looked like a run that printed nothing, while the mutation control read as RED. Keep the full log and check that a result line exists.
 - **`pkill -f cat -x` on macOS hit unrelated programs** (Vite, the IDE link, a system app). "cat" is inside "Applications". Kill by exact PID, port or task only.
+
+## 10 kb JSON limit vs content a migration inserted (2026-11-06)
+
+- **A migration can insert what the API can't accept back.** Post 012 was 14 KB, past the 10 kb parser, so it displayed fine and could never be edited. Nothing failed until the owner pressed SAVE. A fixture sized by what the panel can create never finds this.
+- **A 4xx from a library reads as a 500 in production.** `errorHandler` only trusts `isOperational`, so body-parser's own 413 became "something went wrong on our side", and development mode hid it by showing the real status. The same path still applies to `entity.parse.failed` (malformed JSON): not changed, because a browser panel doesn't send that.
+

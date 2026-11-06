@@ -127,7 +127,7 @@ search the companions *before* explaining a surprise.
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** (owner, 2026-10-11) — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **PF-146** LIVE 11-04: `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-147 + PF-148 LIVE 11-05. PF-140 built 11-05.
+- **PF-146** LIVE 11-04: `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-147 + PF-148 + PF-140 LIVE 11-05.
 - **Every doc I create** goes to `new mds/Sprint 16/` (owner; outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
@@ -192,7 +192,7 @@ Single test: `npx vitest run <path>` / `npm test -- <path>` or `-t "name"`.
 
 **Backend — Express 5 + Mongoose, serverless-shaped.** `server.js` and Vercel both
 import `app.js`. Order is load-bearing: helmet → cors → globalLimiter (100/15 min)
-→ morgan → parsers (10 kb) → `/uploads` → `GET /api/health` → **`connectDB()`
+→ morgan → parsers (10 kb; `bodyParsers.js`) → `/uploads` → `GET /api/health` → **`connectDB()`
 middleware** → routes → notFound → multer errors → errorHandler.
 - `/api/health` sits BEFORE `connectDB` and returns 200 with `database: null` on
   an outage — assert the `database` field.
@@ -432,7 +432,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - macOS, zsh: `brew`, `jq`, `sed -i ''`. Backend :5050 (Docker internal :5000).
   E2E: `portfolio_e2e`, backend 5055, frontend 5174.
 - Kill servers with `lsof -sTCP:LISTEN -ti:PORT | xargs kill` — the `-sTCP:LISTEN`
-  is mandatory (a bare `lsof -ti` also kills Chrome). Use `-a` to AND selectors. Never `pkill` by name (hit unrelated apps, PF-140).
+  is mandatory (a bare `lsof -ti` also kills Chrome). Use `-a` to AND selectors. Never `pkill` by name (PF-140).
 - Frontend tests in per-module `__tests__/`; shared helpers in `src/test/`
   (`leadsWithIcon.js`); cross-cutting guards in `styles/__tests__/`.
 

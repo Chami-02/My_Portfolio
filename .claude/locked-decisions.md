@@ -6262,3 +6262,8 @@ Explained first in `new mds/Sprint 16/Authentication-and-Security-Handbook-sourc
 - Closing the prompt is a NOTICE, not an error, and the server never hears of it.
 
 **Rejected:** authenticator apps (OWASP: susceptible to phishing), SMS (OWASP: not for high-value), email links (only as safe as the mailbox), buying security keys (free-tiers rule). **Out of scope:** passkeys in the email box's autofill; renaming.
+
+## Long-post saves — 256 kb, signed in only (owner approved 2026-11-06)
+
+The 10 kb JSON limit stands for every route a stranger can reach. POST and PUT of `/api/blog` and `/api/projects` parse at 256 kb (about 40,000 words), and only AFTER `protect`, so a stranger's big body is never read and gets the same 401 as a small one. **Rejected:** raising the global limit (widens what strangers can send); mounting a bigger parser before the routes (reads the body before checking who sent it); editing the post through the database (leaves the bug for the next long post). Other panels keep 10 kb until one really needs more. Shipped in PF-149's PR at the owner's request, not a PR of its own.
+

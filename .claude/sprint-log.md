@@ -11032,7 +11032,7 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 **Gate:** frontend 2,690 tests, 130 files, branches 89.94%; backend 1,526, 75 suites, branches 80.23%; lint 0; build OK. **Mutants 7/7** caught. E2E not run locally (mail is off there); CI runs it.
 **Browser:** privacy sentence checked in dark and light on the dev server, no sideways overflow. **Live setup, 2026-11-05:** domain Verified at Resend (Forge enabled, Tokyo); `dig` confirms CNAME `send.mail`, CNAME `rsend.mail`, TXT DKIM and `_dmarc` `p=none`. Owner reports the key is in Vercel; I can't read it. **Not yet proven:** a real send.
 
-#### PF-140 — passkeys · BUILT 2026-11-05, release pending, then the owner's live check
+#### PF-140 — passkeys · LIVE 2026-11-05, PR #90 `3b24df2`
 
 **Report: `new mds/Sprint 16/PF-140-passkeys.md`.** Explained in the Authentication & Security handbook sources. Decisions: `locked-decisions.md` "PF-140". Traps: `silent-failures.md` "PF-140". Branch `feat/PF-140-passkeys`. No migration.
 **Files:** backend NEW `models/Passkey.js`, `models/PasskeyChallenge.js`, `services/passkeyService.js`, `controllers/passkeyController.js`, `__tests__/passkey.routes.test.js`, `__tests__/helpers/softAuthenticator.js`; changed `authController`, `authRoutes`, `rateLimiter`, `digestController`, `signInLog`, `Session`, `SignInEvent`, `backupFile`, `seed`. Frontend NEW `services/passkeyService.js`, `hooks/usePasskeys.js`, `utils/passkeyError.js`, `panels/SettingsPasskeysCard.jsx`, passkey suite in `e2e/admin.spec.js` (CI's credential scan allows the fixture password only there); changed `AdminLoginPage` + CSS, `AdminSettingsPanel` + CSS, `SettingsSessionsCard`, `api.js`, `BrandIcons`, `adminFoundation.test.js`. Libraries: `@simplewebauthn/server`, `@simplewebauthn/browser`.
@@ -11041,9 +11041,13 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 
 ### Outstanding from PF-140
 
-- **Owner, after release:** add a passkey on the real site and sign in with it in Chrome, Safari and on a phone. Open question: does Safari refuse the prompt after the one request at sign-in? Add a workaround only if measured.
+- **DONE, owner 2026-11-06:** "all checks pass i tested it manually and passkey is working". Browsers weren't named one by one in those words. Deploy success; health ok on `portfolio_prod`; `GET /api/auth/passkeys` 401 live, so the library loads on Vercel.
 - **PF-153/PF-156:** reword the chapter's "we would" at PF-156. **After PF-140 closes:** remind the owner with the full list of sign-in tickets before the security handbook.
 - **PF-152:** six new routes for the API docs; `login/*` need an allowed `Origin`.
 - **Not built, by decision:** passkeys in the email box's autofill; renaming; closing the password door.
-- **Deploy risk:** the library's load on Vercel is proven only by the deploy; check health right after.
 - **DMARC to `quarantine`** (PF-148): a date check after a few weeks of clean reports.
+
+#### Long-post save fix (2026-11-06, shipped in PF-149's PR by the owner's choice)
+
+**Found by the owner:** editing the security blog post answered "Something went wrong on our side", every time. **Cause:** the post is 14 KB and was inserted by migration 012, past the global 10 kb JSON limit; no edit could ever pass. body-parser's 413 isn't operational, so `errorHandler` turned it into a 500 in production. **Fix:** `middleware/bodyParsers.js`: POST and PUT of blog and projects skip the small parser and parse at 256 kb AFTER `protect`; everything else stays 10 kb; `entity.too.large` answers 413 in plain words. **Proof:** `bodyLimit.test.js`, plus the live post's real data through the real route (200, paragraph stored). Decision: `locked-decisions.md` "Long-post saves".
+
