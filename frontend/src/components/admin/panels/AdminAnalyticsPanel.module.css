@@ -1,0 +1,742 @@
+/* frontend/src/components/admin/panels/AdminAnalyticsPanel.module.css
+ *
+ * PF-149. The Analytics panel and its charts. No prototype exists: the surfaces,
+ * type and radii follow the Overview panel's cards, and colour comes from the
+ * --chart-* tokens. `--mark` is the one colour a mark was given inline.
+ */
+
+.stack {
+  display: grid;
+  gap: 18px;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ═══ Head ═══════════════════════════════════════════════════════ */
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.since {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.rangeBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rangeBar .cardTitle { margin: 0; }
+
+.toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(var(--gnd), .32);
+  border: 1px solid rgba(var(--ln), .14);
+}
+
+.toggleButton {
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .2s, color .2s;
+}
+
+.toggleButton:hover { color: var(--strong); }
+
+.toggleButton[aria-pressed='true'] {
+  background: var(--acc);
+  color: var(--accInk);
+  font-weight: 700;
+}
+
+/* ═══ Live ═══════════════════════════════════════════════════════ */
+
+.live {
+  padding: clamp(16px, 2.2vw, 22px);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(var(--srf), .72), rgba(var(--srf), .34));
+  border: 1px solid rgba(var(--ln), .14);
+}
+
+.liveTitle,
+.livePaused {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: .12em;
+}
+
+.liveTitle { color: var(--ok); }
+.livePaused { color: var(--danger); }
+
+.liveDot,
+.liveDotPaused {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.liveDot {
+  composes: kf-glowdot from global;
+  background: var(--ok);
+  animation-duration: 2s;
+  animation-iteration-count: infinite;
+}
+
+.liveDotPaused { background: var(--danger); }
+
+.liveReason {
+  margin: -6px 0 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+.liveGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 12px;
+}
+
+.liveCell,
+.liveCellStale {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(var(--gnd), .32);
+  border: 1px solid rgba(var(--ln), .1);
+  border-left: 3px solid var(--mark);
+}
+
+/* A number that stopped updating must not look live. */
+.liveCellStale { opacity: .55; }
+
+.liveValue {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.1;
+  color: var(--strong);
+}
+
+.liveLabel {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+
+.healthOk,
+.healthBad {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.healthOk { color: var(--ok); }
+.healthBad { color: var(--danger); font-size: 22px; line-height: 1.6; }
+
+/* ═══ Totals ═════════════════════════════════════════════════════ */
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+  gap: 14px;
+}
+
+.total {
+  padding: 18px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--mark) 20%, transparent), rgba(var(--srf), .5) 62%);
+  border: 1px solid rgba(var(--ln), .1);
+  border-top: 3px solid var(--mark);
+}
+
+.totalValue {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: clamp(32px, 3.4vw, 42px);
+  line-height: 1;
+  color: var(--strong);
+}
+
+.totalLabel {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.changeUp,
+.changeDown,
+.changeNew,
+.changeMuted {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.changeUp { color: var(--ok); }
+.changeDown { color: var(--danger); }
+.changeNew { color: var(--acc); }
+.changeMuted { color: var(--muted); font-weight: 500; }
+
+/* ═══ Cards ══════════════════════════════════════════════════════ */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.card,
+.cardWide {
+  min-width: 0;
+  padding: clamp(16px, 2.2vw, 24px);
+  border-radius: 18px;
+  background: rgba(var(--srf), .5);
+  border: 1px solid rgba(var(--ln), .1);
+}
+
+.cardWide { grid-column: 1 / -1; }
+
+.cardTitle {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--strong);
+}
+
+.cardNote {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.subTitle {
+  margin: 14px 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.growthHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.scrollList {
+  max-height: 330px;
+  margin-top: 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--thumb) transparent;
+}
+
+.scrollList:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+
+.skelChart {
+  composes: skelBase from '../../../styles/admin.module.css';
+  height: 240px;
+  border-radius: 18px;
+}
+
+.signIns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 26px;
+  margin-bottom: 12px;
+}
+
+.signIns p {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.signIns strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+
+.signInOk { color: var(--ok); }
+.signInFailed { color: var(--danger); }
+
+.honest {
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(var(--ln), .1);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.honest summary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  cursor: pointer;
+}
+
+.honest ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+/* ═══ Charts ═════════════════════════════════════════════════════ */
+
+.figure {
+  position: relative;
+  margin: 0;
+}
+
+.swatch {
+  flex: none;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--mark);
+}
+
+/* Area */
+
+.areaFrame {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.axisY {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: clamp(220px, 28vw, 320px);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.areaPlot {
+  position: relative;
+  height: clamp(220px, 28vw, 320px);
+  touch-action: pan-y;
+}
+
+.areaSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.gridLine {
+  stroke: rgba(var(--ln), .12);
+  stroke-width: 1;
+}
+
+.dot,
+.dotSoFar {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.dot {
+  background: var(--mark);
+  border: 2px solid rgb(var(--srf));
+}
+
+/* Hollow: this period has not finished. */
+.dotSoFar {
+  background: rgb(var(--srf));
+  border: 2px solid var(--mark);
+}
+
+.crosshair {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(var(--ln), .4);
+  pointer-events: none;
+}
+
+.tip,
+.tipFlip {
+  position: absolute;
+  top: 8px;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgb(var(--gnd));
+  border: 1px solid rgba(var(--ln), .24);
+  box-shadow: 0 12px 30px rgba(var(--shd), .3);
+  font-size: 12.5px;
+  color: var(--text);
+  pointer-events: none;
+}
+
+.tip { transform: translateX(10px); }
+.tipFlip { transform: translateX(calc(-100% - 10px)); }
+
+.tip strong,
+.tipFlip strong {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  color: var(--strong);
+}
+
+.tipRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tipRow b { margin-left: auto; color: var(--strong); }
+
+.axisX {
+  position: relative;
+  height: 20px;
+  margin: 6px 0 0 44px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.axisX span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.axisX span:last-child { transform: translateX(-100%); }
+.axisX span:first-child { transform: none; }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Pie */
+
+.pie {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px 24px;
+  margin: 0;
+}
+
+.pieRing {
+  position: relative;
+  flex: none;
+  width: min(100%, 190px);
+  margin-inline: auto;
+}
+
+.pieSvg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.slice,
+.sliceActive {
+  stroke-width: 15;
+  cursor: pointer;
+  transition: stroke-width .15s;
+}
+
+.sliceActive { stroke-width: 18; }
+
+.pieHole {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  pointer-events: none;
+}
+
+.pieHole strong {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--strong);
+}
+
+.pieHole span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+.pieKey {
+  flex: 1 1 200px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pieKey li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.pieKey .pieKeyActive { background: rgba(var(--ln), .08); }
+
+.pieKeyName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pieKeyValue {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* Ranked bars */
+
+.barList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0 4px 0 0;
+  list-style: none;
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.barName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barValue {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--strong);
+}
+
+.barTrack {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(var(--ln), .08);
+}
+
+.barFill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--mark);
+}
+
+/* Columns */
+
+.columnsTip {
+  min-height: 18px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.columns {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 190px;
+  border-bottom: 1px solid rgba(var(--ln), .2);
+}
+
+.column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+}
+
+.columnFill,
+.columnFillActive {
+  display: block;
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  background: var(--mark);
+}
+
+.columnFillActive { filter: brightness(1.2); }
+
+.columnLabels {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.columnLabels span {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* ═══ Narrow ═════════════════════════════════════════════════════ */
+
+@media (max-width: 899px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .stack { gap: 12px; }
+  .grid { gap: 12px; }
+
+  .toggle { gap: 2px; padding: 3px; }
+  .toggleButton { min-height: 32px; padding: 4px 9px; font-size: 10px; letter-spacing: .06em; }
+
+  .live { padding: 12px; border-radius: 14px; }
+  .liveTitle, .livePaused { margin-bottom: 10px; font-size: 10.5px; }
+  .liveGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .liveGrid > :last-child { grid-column: 1 / -1; }
+  .liveCell, .liveCellStale { padding: 8px 10px; border-radius: 10px; }
+  .liveValue, .healthOk { font-size: 22px; }
+  .healthBad { font-size: 16px; }
+  .liveLabel { font-size: 9.5px; letter-spacing: .06em; }
+
+  .totals { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .total { padding: 10px 8px; border-radius: 12px; }
+  .totalValue { margin-bottom: 4px; font-size: 22px; }
+  .totalLabel { margin-bottom: 4px; font-size: 9px; letter-spacing: .04em; }
+  .changeUp, .changeDown, .changeNew, .changeMuted { font-size: 10px; }
+
+  .card, .cardWide { padding: 12px; border-radius: 14px; }
+  .cardTitle { font-size: 11px; letter-spacing: .1em; }
+  .cardNote { margin-bottom: 10px; font-size: 12px; }
+
+  .axisY, .areaPlot { height: 170px; }
+  .axisY { font-size: 9.5px; }
+  .areaFrame { gap: 6px; }
+  .axisX { margin-left: 30px; font-size: 9.5px; }
+  .legend { gap: 12px; font-size: 11.5px; }
+
+  .scrollList { max-height: 220px; }
+  .barList { gap: 8px; }
+  .barRow { font-size: 12px; }
+  .barValue { font-size: 11px; }
+  .barTrack { height: 6px; }
+
+  .columns { height: 120px; gap: 2px; }
+  .signIns { gap: 18px; margin-bottom: 10px; }
+  .signIns strong { font-size: 26px; }
+  .honest { padding: 10px 12px; font-size: 12.5px; }
+  /* Only the two ends fit. Every date is still one touch away on the chart. */
+  .axisX span:not(:first-child):not(:last-child) { display: none; }
+  .pie { flex-wrap: nowrap; gap: 10px; }
+  .pieRing { width: 104px; margin: 0; }
+  .pieHole strong { font-size: 18px; }
+  .pieHole span { font-size: 8.5px; letter-spacing: .08em; }
+  .pieKey { flex: 1 1 0; }
+  .pieKey li { gap: 6px; padding: 3px 4px; font-size: 12px; }
+  .pieKeyValue { font-size: 10px; }
+}

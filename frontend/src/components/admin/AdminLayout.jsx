@@ -69,6 +69,7 @@ import a from '../../styles/admin.module.css';
  */
 const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: '⊞' },
+  { id: 'analytics', label: 'Analytics', icon: '◔' },  // PF-149
   { id: 'about',    label: 'About',    icon: '◐' },
   { id: 'skills',   label: 'Skills',   icon: '{ }' },
   { id: 'projects', label: 'Projects', icon: '◈' },
@@ -165,6 +166,7 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
   // wait for it.
   const TAB_META = {
     overview: 'DASHBOARD',
+    analytics: 'PRIVATE',
     about:    'PROFILE',
     settings: 'ACCOUNT',
     ...(counts && {
@@ -330,57 +332,61 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
         </aside>
 
         {/* ── Main ── */}
-        <main className={styles.main}>
-          <div className={styles.titleRow}>
-            <h1 className={styles.title}>{title}</h1>
-            <span aria-hidden="true" className={styles.titleLine} />
-            <span className={styles.titleMeta}>{meta}</span>
-          </div>
-
-          {/* PF-108. Renders nothing until the last five minutes of an
-              idle session; sits above the flash so the two never
-              compete for the same slot. Its own store, not
-              useAdminFlash — that holds ONE message and belongs to
-              panel saves. */}
-          <SessionExpiryBanner className={styles.flashRow} />
-
-          {signOutFailed && (
-            <div className={`${a.bannerError} ${styles.flashRow}`} role="alert">
-              <span aria-hidden="true" className={a.bannerDot} />
-              WE COULDN&rsquo;T SIGN YOU OUT — PLEASE CHECK YOUR CONNECTION AND TRY AGAIN
+        {/* The footer sits in this column, beside the rail, so it can never
+            push the menu up (owner, 2026-11-06; see .content in the module). */}
+        <div className={styles.content}>
+          <main className={styles.main}>
+            <div className={styles.titleRow}>
+              <h1 className={styles.title}>{title}</h1>
+              <span aria-hidden="true" className={styles.titleLine} />
+              <span className={styles.titleMeta}>{meta}</span>
             </div>
-          )}
 
-          {/* PF-133. Nothing unless the password signed in with is in a
-              known leak; stays until it is changed. */}
-          <PasswordLeakBanner
-            className={styles.flashRow}
-            onChangePassword={() => goTo('settings')}
-          />
+            {/* PF-108. Renders nothing until the last five minutes of an
+                idle session; sits above the flash so the two never
+                compete for the same slot. Its own store, not
+                useAdminFlash — that holds ONE message and belongs to
+                panel saves. */}
+            <SessionExpiryBanner className={styles.flashRow} />
 
-          {flash && (
-            /* role="status" — a save confirmation is polite news, not an
-               alert, so it must not interrupt what a screen reader is
-               already saying. */
-            <div className={`${a.bannerOk} ${styles.flashRow}`} role="status">
-              <span aria-hidden="true" className={a.bannerDot} />
-              {flash}
-              <button
-                type="button"
-                onClick={dismissFlash}
-                className={styles.flashDismiss}
-                aria-label="Dismiss message"
-              >
-                ×
-              </button>
-            </div>
-          )}
+            {signOutFailed && (
+              <div className={`${a.bannerError} ${styles.flashRow}`} role="alert">
+                <span aria-hidden="true" className={a.bannerDot} />
+                WE COULDN&rsquo;T SIGN YOU OUT — PLEASE CHECK YOUR CONNECTION AND TRY AGAIN
+              </div>
+            )}
 
-          {children}
-        </main>
+            {/* PF-133. Nothing unless the password signed in with is in a
+                known leak; stays until it is changed. */}
+            <PasswordLeakBanner
+              className={styles.flashRow}
+              onChangePassword={() => goTo('settings')}
+            />
+
+            {flash && (
+              /* role="status" — a save confirmation is polite news, not an
+                 alert, so it must not interrupt what a screen reader is
+                 already saying. */
+              <div className={`${a.bannerOk} ${styles.flashRow}`} role="status">
+                <span aria-hidden="true" className={a.bannerDot} />
+                {flash}
+                <button
+                  type="button"
+                  onClick={dismissFlash}
+                  className={styles.flashDismiss}
+                  aria-label="Dismiss message"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            {children}
+          </main>
+
+          <AdminFooter email={shownEmail} counts={counts} onSignOut={signOut} />
+        </div>
       </div>
-
-      <AdminFooter email={shownEmail} counts={counts} onSignOut={signOut} />
     </div>
 
       {/* Last. z-index 70 beats page content regardless of DOM order. */}

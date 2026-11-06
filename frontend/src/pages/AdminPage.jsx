@@ -1,5 +1,6 @@
 import { useState }              from 'react';
 import { AdminLayout }           from '../components/admin/AdminLayout';
+import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { AdminFlashProvider }    from '../components/admin/AdminFlashProvider';
 import { UnsavedChangesProvider } from '../components/admin/UnsavedChangesProvider';
 import { AdminOverviewPanel }    from '../components/admin/panels/AdminOverviewPanel';
@@ -9,11 +10,13 @@ import { AdminAboutPanel }       from '../components/admin/panels/AdminAboutPane
 import { AdminBlogPanel }        from '../components/admin/panels/AdminBlogPanel';
 import { AdminMessagesPanel }    from '../components/admin/panels/AdminMessagesPanel';
 import { AdminSettingsPanel }    from '../components/admin/panels/AdminSettingsPanel';
+import { AdminAnalyticsPanel }   from '../components/admin/panels/AdminAnalyticsPanel';
 import { AdminEducationPanel }   from '../components/admin/panels/AdminEducationPanel';     // PF-143
 import { AdminCertificatesPanel } from '../components/admin/panels/AdminCertificatesPanel'; // PF-143
 
 const PANELS = {
   overview:  AdminOverviewPanel,
+  analytics: AdminAnalyticsPanel,
   projects:  AdminProjectsPanel,
   skills:    AdminSkillsPanel,
   about:     AdminAboutPanel,
@@ -53,7 +56,9 @@ export function AdminPage() {
           unsaved, how to save it), so both need it as an ancestor. */}
       <UnsavedChangesProvider>
         <AdminLayout activeTab={activeTab} onTabChange={onTabChange}>
-          {panel}
+          {/* PF-149: a crash in one panel keeps the menu, so the owner can move
+              on. `key`: choosing another tab clears the failure. */}
+          <ErrorBoundary key={activeTab}>{panel}</ErrorBoundary>
         </AdminLayout>
       </UnsavedChangesProvider>
     </AdminFlashProvider>
