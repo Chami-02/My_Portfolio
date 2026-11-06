@@ -11071,3 +11071,19 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 
 **Why:** first live day showed 39 of 69 visitors from US data-centre towns. **Built:** `countVisit`, `markEngaged`, `startEngagementClock` in `utils/visits.js`; `VisitTracker` and `SectionTracker` go through them. Decisions: `locked-decisions.md` "An engaged visit". Owner clears production's totals after this deploys (steps in chat: DOWNLOAD CSV, then `deleteMany` on `visittotals`, `visitordays`, `livevisitors`; never drop: the unique index). **Browser:** real page, owner mark removed then restored: no request before 10 s, one at 10.18 s, database +1.
 **Gate:** frontend 2,948 tests, 139 files, branches 89.96%, lint 0, build OK. Backend code unchanged, not rerun. **E2E 87/87** locally, 3.3 min (an earlier run: 10 sign-in tests failed on `authLimiter` after an interrupted run spent the budget, 20 × 429 on `POST /api/auth/login`; reseeding `portfolio_e2e` cleared it). **Mutants** on the gate: 15 of 16 caught after one new test; the other swaps two lines with the same result.
+
+#### PF-150 — the public numbers box replaces the terminal (2026-11-06, `feat/PF-150-public-numbers-box`, in PR)
+
+**Report: `new mds/Sprint 16/PF-150-public-numbers-box.md`.** How each number is worked out: Deployment handbook sources, "PF-150" (owner asked for it beside the Analytics chapter). Decisions: `locked-decisions.md` "PF-150".
+**Built:** `controllers/siteNumbersController.js`, `routes/siteNumbersRoutes.js`, `GET /api/site-numbers` (CDN-cached); `components/sections/SiteNumbersBox.jsx` + module, `hooks/useSiteNumbers.js`, `services/siteNumbersService.js`, `utils/siteNumbers.js`; one sentence on `/privacy`. **Deleted:** `TerminalPanel`, its CSS and tests, `[data-terminal]` in `tokens.css`. `kf-blink` stays (Hero). `.bigCardPlaceholder` 289 → 343 px (the real card at 388 px).
+**Gate:** frontend 2,968 tests, 141 files, branches 90.02%, lint 0, build OK. Backend 1,704 tests, 79 suites, passed; one tie test added afterwards, its file then ran 22/22 (full suite not rerun). **E2E 88/88** locally, 3.5 min, after the added spec. **Mutants:** 40 of 40 caught; `tie order` survived at first because the fixture's rows happened to arrive sorted, so a test with 8 tied countries was added.
+**Browser:** Chromium via Playwright on `portfolio_e2e`, demo rows through the real route, removed after (18 rows; left 0), then reseeded. Answer matched by hand: 1,299 visits, 7 countries with `(unknown)` left out, FR (4) hidden, DE (2 + 3) counted, invented path absent, 70 reads. 1459 px, dark and light: box 610×572 = card 610×572, tops level, no overflow; 529 for small, zero and failed. 388 and 320 px, dark and light: no sideways scroll. Contrast from real pixels: small text at least 5.19, big numbers at least 4.03 (lowest: light teal on its tint; the plain hue looked under 3 by estimate, so it was mixed before measuring).
+**Not tested:** real phones, Safari, and the production CDN's real age (needs the deploy).
+
+### Outstanding from PF-150
+
+- **After deploy:** `curl -I https://api.parindragallage.com/api/site-numbers` twice: expect `x-vercel-cache: HIT` on the second. Check the box in both themes on a real phone.
+- **Blog reads have fewer filters than visits (not changed here):** `PATCH /blog/:slug/view` has its limiter and one count per session, but no check for the owner's browser, Do Not Track or bots. So reads include the owner's own opens. Owner to decide; a fix belongs in PF-153.
+- **A renamed project's slug** starts its view total again in the box (the old address no longer matches). Same as the panel's titles.
+- **PF-152:** add `GET /api/site-numbers` to the API docs.
+- **Owner's clearing at the end of PF-151:** the box then shows `0 VISITS` until visits arrive; reads stay.

@@ -6305,3 +6305,19 @@ Owner, after seeing 39 of 69 visitors from US data-centre towns on the first liv
 - **Not kept across a full reload:** a reload starts the 10 seconds again, because remembering it would mean storing something on the visitor's device, which /privacy says we avoid. Accepted small undercount.
 - **"On the site now" moves 10 seconds late,** for the same reason.
 - **/privacy's new sentence, shown to the owner before commit:** "A visit is only counted once you have stayed about 10 seconds, opened a second page or clicked one of those links."
+
+## PF-150 — the terminal becomes the public numbers box (owner approved 2026-11-06)
+
+**REVERSES** `data-terminal` (2026-08-19), PF-85/PF-91's terminal colour rules and PF-144's 14 terminal lines: the panel, its literal colours and `[data-terminal]` in `tokens.css` are deleted. The history in the older entries stays true for its time. A fidelity pass must not restore the terminal from `docs/design/`.
+
+- **Shows:** VISITS, COUNTRIES, BLOG READS; up to 5 top countries (names only); top 3 projects and top 3 posts (titles that link). No per-item counts.
+- **Real numbers from day one** (owner's choice over a "just opened" state and over keeping the terminal until 100 visits). `0 VISITS` is allowed. Exact below 1,000, then rounded DOWN (1.2k).
+- **VISITS, not visitors** (owner's choice): the counter counts a person once a day, so someone back on 3 days is 3.
+- **The country rule is 5 VISITS, and `/privacy` says visits.** The sprint plan said "5+ visitors", but the daily code cannot tell one person on 5 days from 5 people, and the words must not promise what the counter cannot do. Raised in the hand-off; a real "5 different people" would need following people across days, which `/privacy` rules out.
+- **`countriesReached` counts every known country,** including those under 5, because a total names nobody. `(unknown)` is not a country.
+- **No word LIVE and no pulsing dot:** the copy can be an hour old, or up to a day on a quiet site. A still green dot and `Updated N minutes ago`.
+- **No link to `/privacy` in the box** (owner, after the draft).
+- **More colour (owner, after the draft):** one hue per subject, shared by its number and its list: visits `--acc`, countries `--chart-5`, projects `--chart-2`, posts and reads `--chart-3`. Small text mixes the hue with `--strong`. Soft glows on the card's gradient. No literal colour, guarded.
+- **Separate answer:** `GET /api/site-numbers`, written field by field, shares nothing with `audienceController.js`. A new field is a new public promise and means changing `/privacy`.
+- **Blog reads come from `Blog.views`** (what each post page shows), so the box and the post pages agree. They stay through the owner's clearing of the visit totals. The panel's most viewed posts use page-view totals, so its order can differ.
+- **The names avoid "analytics" and "stats"** (ad blockers).

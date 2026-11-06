@@ -10,9 +10,6 @@
  * declared in tokens.css, so the literal stack would drop the
  * size-adjusted fallback and put the font-swap reflow back. Same choice
  * Hero, About and Skills made.
- *
- * ⚠️ The terminal panel's hexes are the ONE exception and stay literal —
- * see the note above `.terminal`.
  */
 
 /* `section.projects`, not `.projects`. Phase 1's global.css:338 carries
@@ -65,136 +62,15 @@ section.projects {
   margin: 0 0 44px;
 }
 
-/* ── row 1: featured card + terminal ──────────────────────────────────
+/* ── row 1: featured card + site numbers (PF-150) ──────────────────────────────────
    ONE Reveal wraps the grid, not each child (prototype line 317), so the
-   card and the terminal enter together as a single unit. */
+   card and the box enter together as a single unit. */
 .featuredRow {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
   gap: 20px;
   align-items: stretch;
   margin-bottom: 20px;
-}
-
-/* ── terminal panel ───────────────────────────────────────────────────
-   ⚠️ The literal hexes below are the prototype's and stay literal. This
-   element is a PICTURE of a terminal, not themed UI — #0d1117 and
-   #161b22 are GitHub's editor chrome, and the log colours are a
-   terminal's, not the site's palette. Tokenising them would make the
-   mockup shift with the theme, which is exactly what a screenshot of a
-   dark terminal should not do.
-
-   ⚠️ PF-91 CORRECTED THIS BLOCK. It used to end "`var(--shd)` and
-   `var(--faint)` ARE tokens in the prototype and stay tokens here." The
-   reasoning above is right and that conclusion did not follow from it: a
-   panel that is deliberately dark in BOTH themes cannot carry a token
-   that flips with the theme, whoever wrote it first. DESIGN.md line 85
-   says the same. `var(--faint)` measured 3.33 dark / 3.12 light on the
-   arrow line and is now a literal, exactly as PF-85 did for the caret.
-
-   `var(--shd)` STAYS — it is a box-SHADOW cast onto the page behind the
-   panel, not ink painted on it, so it should track the theme and no
-   contrast rule reaches it. INK is literal here; the drop shadow is not.
-   Guarded, both directions, in ProjectsSection.test.jsx.
-
-   `:5000` in the body is text inside the mockup. It is NOT this repo's
-   backend port (5050 on macOS, see CLAUDE.md) and must not be
-   "corrected" — it is a picture of a generic compose run. */
-.terminal {
-  border-radius: 22px;
-  overflow: hidden;
-  border: 1px solid rgba(var(--ln), .12);
-  background: #0d1117;
-  box-shadow: 0 30px 60px rgba(var(--shd), .5);
-}
-
-.terminalChrome {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 14px 18px;
-  background: #161b22;
-  border-bottom: 1px solid rgba(229, 229, 229, .08);
-}
-
-.trafficDot {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-}
-.dotRed   { background: #ff5f57; }
-.dotAmber { background: #febc2e; }
-.dotGreen { background: #28c840; }
-
-/* PF-91: #5c677d measured 3.04 in BOTH themes against the chrome bar's
-   #161b22 — a literal that was never measured rather than a theme bug,
-   which is why it failed identically in both. #8b949e is GitHub's own
-   muted-on-#161b22 and measures 5.62. Chosen to sit just BELOW
-   .lineInfo's #93a0b8 so the panel's internal hierarchy survives the
-   fix; that mattered more than maximising the ratio. */
-.terminalLabel {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: #8b949e;
-}
-
-.terminalBody {
-  padding: 20px 22px;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  line-height: 2;
-}
-
-.lineCommand { color: #ffffff; }
-.lineInfo    { color: #93a0b8; }
-
-/* ⚠️ PF-91 · GROUP C/D BOUNDARY — .lineSuccess STAYS A LITERAL while
-   Contact's .sentText became `var(--ok)` in the same ticket. Same green,
-   same concept, three files apart, opposite answers — and that is not an
-   oversight to tidy up later.
-
-   The rule that decides it is the SURFACE, not the colour: this panel is
-   deliberately dark in both themes, so anything painted on it must be
-   theme-independent. .sentText sits on the form surface, which flips, so
-   it must track the theme. #34d399 measures 10.54 here in BOTH themes
-   and 1.72 on the light form — the identical hex, passing on one surface
-   and failing on the other.
-
-   Guarded: ProjectsSection.test.jsx asserts the terminal rules name NO
-   theme token at all, so a later "unification" fails loudly. */
-.lineSuccess { color: #34d399; }
-.lineAccent  { color: #FCA311; }
-
-/* PF-91: was `var(--faint)` — 3.33 dark / 3.12 light against the panel's
-   #0d1117. A theme token on a panel that does not theme is a BUG, not a
-   contrast miss, which is why it failed in both. #8b949e matches the
-   chrome label above; 6.15 here. Same fix PF-85 made to the caret. */
-.lineMuted   { color: #8b949e; }
-
-/* The caret CANNOT name its keyframe here. CSS Modules scopes
-   @keyframes names AND rewrites the name inside an animation
-   declaration, while the library in styles/keyframes/ is global — so a
-   direct `animation: blink 1s step-end infinite` compiles to a scoped
-   name nothing defines and silently does not animate. `composes` adds a
-   second, global class instead; the name lives in animations.css.
-   Longhands only — the shorthand would reset animation-name to `none`
-   and undo the composed class. See CLAUDE.md's Silent failures. */
-.caret {
-  composes: kf-blink from global;
-  animation-duration: 1s;
-  animation-timing-function: step-end;
-  animation-iteration-count: infinite;
-  /* ⚠️ A LITERAL, not var(--acc) as the prototype has it (line 351) —
-     owner-approved 2026-08-20.
-     The panel above is a fixed dark image (#0d1117) that never themes,
-     but --acc does: it is #FCA311 in dark and #7E4800 in light. So the
-     prototype's caret measures 9.36:1 in dark and drops to 2.54:1 in
-     light — dark brown on near-black. The seven sibling log lines are
-     already literal hexes for exactly this reason; the caret was the odd
-     one out. This value IS dark's --acc, so dark theme is byte-identical
-     and only light changes. */
-  color: #FCA311;
 }
 
 /* ── row 2: the remaining cards ───────────────────────────────────────
@@ -267,19 +143,14 @@ section.projects {
    5-minute staleTime this is only on screen during a cold load.
    Heights are MEASURED in Chromium, not derived — see the test file and
    the PF-85 hand-off for the widths they were taken at. */
-/* 289px is the TERMINAL's own natural height, measured in Chromium —
-   not a guess and not the filled card's height.
-   At >=900px this min-height is inert: the placeholder shares a
-   `align-items: stretch` row with the real terminal, which is always
-   rendered, so the row is already 289px and the placeholder fills it.
-   It only bites at <=768px, where the row wraps and the two stack —
-   there the placeholder would otherwise collapse to 2px (its borders).
-   Measured at 2px before this value was added. */
+/* 343px is the real big card's height at a 388px phone, measured in Chromium.
+   Beside the box on a wide screen this is inert: the row stretches it. It only
+   bites where the two stack, where the placeholder would otherwise collapse. */
 .bigCardPlaceholder {
   border-radius: 22px;
   border: 1px solid rgba(252, 163, 17, .28);
   background: linear-gradient(150deg, rgba(var(--srf), .9), rgba(var(--gnd), .9));
-  min-height: 289px;
+  min-height: 343px;
 }
 
 /* PF-144: the picture-on-top card's height, measured in Chromium at 1459px

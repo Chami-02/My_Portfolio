@@ -68,6 +68,7 @@ describe('public GETs — cached by the CDN, not the browser', () => {
     '/api/skill-categories',
     '/api/blog',
     '/api/vocabulary/tag',
+    '/api/site-numbers',
   ])('%s', async (url) => {
     expectCdnCached(await request(app).get(url));
   });

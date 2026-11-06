@@ -48,11 +48,7 @@
      PF-67 and read by nothing but Tailwind's alias for three sprints,
      while four sites hardcoded the identical pair of hexes and two of
      them shipped a light-theme failure. Route new status colour through
-     the token; the next green decision is then one edit, not four.
-
-     The ONE exception is the Projects terminal, which is deliberately
-     dark in both themes — a token that flips cannot be painted on it.
-     See the Group C/D boundary comment in ProjectsSection.module.css. */
+     the token; the next green decision is then one edit, not four. */
   --ok:      #34d399;
   --danger:  #f87171;
 
@@ -315,7 +311,6 @@ main[tabindex="-1"]:focus {
  */
 
 html[data-theme="light"] [data-lightplate] { opacity: 1; }
-html[data-theme="light"] [data-terminal]   { box-shadow: 0 30px 60px rgba(20,33,61,.22); }
 
 /* ────────────────────────────────────────────────────────────
  * NOTE FOR THE THEME PROVIDER (PF-72)
