@@ -55,6 +55,10 @@ export function PrivacyPage() {
           second page or clicked one of those links.
           Nothing records what any one person did. I keep the totals with no end
           date.
+          {' '}Some of these totals are public. The home page shows total visits,
+          how many countries visitors came from, countries with at least 5
+          visits, the most viewed projects and posts, and total blog reads.
+          Everything else stays private.
         </p>
 
         <h2 className={styles.title}>Telling visitors apart</h2>

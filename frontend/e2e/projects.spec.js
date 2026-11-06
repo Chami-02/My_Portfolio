@@ -10,6 +10,19 @@ import { test, expect } from '@playwright/test';
  * text and href only — CSS Modules hash class names in the build.
  */
 
+// PF-150 — the public answer through the real API. The seed's visits are zero,
+// and automated browsers are not counted, so this asserts labels, never a count.
+test('the home page shows the site numbers where the terminal was', async ({ page }) => {
+  await page.goto('/?nosplash=1#projects');
+
+  const box = page.getByRole('region', { name: 'Site numbers', exact: true });
+  await expect(box.getByText('VISITS', { exact: true })).toBeVisible();
+  await expect(box.getByText('COUNTRIES', { exact: true })).toBeVisible();
+  await expect(box.getByText('BLOG READS', { exact: true })).toBeVisible();
+  await expect(box.getByText(/^Updated /)).toBeVisible();
+  await expect(page.getByText('docker compose up')).toHaveCount(0);
+});
+
 test('home → VIEW ALL → search + chip → a project → BACK TO RESULTS', async ({ page }) => {
   await page.goto('/?nosplash=1#projects');
 

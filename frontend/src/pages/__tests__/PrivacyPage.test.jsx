@@ -37,6 +37,8 @@ describe('PrivacyPage', () => {
   it('states the promises the counter is built to keep', () => {
     renderPage();
     expect(screen.getByText(/deleted within 2 days/)).toBeInTheDocument();
+    // PF-150: what siteNumbersController answers publicly, and its 5-visit rule.
+    expect(screen.getByText(/countries with at least 5\s+visits/)).toBeInTheDocument();
     expect(screen.getByText(/no cookies for visitors/)).toBeInTheDocument();
     expect(screen.getByText(/Global Privacy Control/)).toBeInTheDocument();
     expect(screen.getByText(/held for up to an hour/)).toBeInTheDocument();

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Reveal } from '../motion';
 import { useProjects } from '../../hooks/useProjects';
 import { ProjectCard } from '../projects/ProjectCard';
+import { SiteNumbersBox } from './SiteNumbersBox';
 import { SectionLoadError } from '../common/SectionLoadError';
 import styles from './ProjectsSection.module.css';
 import { loadFailed } from '../../utils/queryState';
@@ -27,74 +28,16 @@ export const HOME_PROJECTS = 4;
 const PLACEHOLDER_CARDS = 3;
 
 /**
- * The terminal mockup, transcribed from the prototype (lines 336-353).
- *
- * ⚠️ NOT a port of `components/common/TerminalWindow.jsx`, which PF-89
- * DELETED. That Phase 1 component shared the concept and almost nothing
- * else: it TYPED its lines in over ~4.3s and dropped the caret when it
- * finished, where this is a static snapshot with a permanently blinking
- * caret. Every property governing how it felt differed too — radius 22px
- * vs 0.875rem, 8 lines vs 9, 12.5px/2 vs 0.8rem/1.8, literal hexes vs
- * Phase 1 tokens. Kept here as a note because "reuse the existing
- * terminal component" is the obvious-looking move, and it was wrong.
- *
- * Renders unconditionally, including while projects are loading: it is
- * hardcoded content with no dependency on the API, so gating it behind
- * the query would blank it out for no reason.
- */
-function TerminalPanel() {
-  return (
-    <div className={styles.terminal} data-terminal="">
-      <div className={styles.terminalChrome} aria-hidden="true">
-        <span className={`${styles.trafficDot} ${styles.dotRed}`} />
-        <span className={`${styles.trafficDot} ${styles.dotAmber}`} />
-        <span className={`${styles.trafficDot} ${styles.dotGreen}`} />
-        <span className={styles.terminalLabel}>terminal — portfolio</span>
-      </div>
-
-      {/* A picture of a terminal, not a live log — so it is one image to
-          a screen reader rather than eight unlabelled lines. */}
-      <div
-        className={styles.terminalBody}
-        role="img"
-        aria-label="Terminal showing the portfolio stack starting up: MongoDB connected, Express API and React app running, the API answering requests, and the test suites passing."
-      >
-        <div className={styles.lineCommand}>$ docker compose up --build</div>
-        <div className={styles.lineInfo}>[+] Building frontend...</div>
-        <div className={styles.lineInfo}>[+] Building backend...</div>
-        <div className={styles.lineSuccess}>✓ MongoDB connected</div>
-        <div className={styles.lineSuccess}>✓ Express API on :5000</div>
-        <div className={styles.lineSuccess}>✓ React app on :5173</div>
-        <div className={styles.lineAccent}>● VITE v8 ready in 420ms</div>
-        <div className={styles.lineMuted}>➜ http://localhost:5173</div>
-        {/* PF-144 (owner, 2026-11-03): the big project card is now taller
-            than this panel was, which left black space under its lines. The
-            run continues — requests to the new project routes, then the test
-            suites — and the caret moves to a fresh prompt at the bottom. Same
-            literal terminal colours as the lines above. */}
-        <div className={styles.lineInfo}>[api] GET /api/projects 200 · 14ms</div>
-        <div className={styles.lineInfo}>[api] GET /api/projects/cleardrivelk 200 · 9ms</div>
-        <div className={styles.lineInfo}>[api] GET /api/blog?q=full+stack 200 · 11ms</div>
-        <div className={styles.lineCommand}>$ npm test</div>
-        <div className={styles.lineSuccess}>✓ 3,900+ tests passed</div>
-        <div className={styles.lineCommand}>
-          $ <span className={styles.caret}>▌</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
  * Projects — PF-85, cards rebuilt in PF-144.
  *
  * ── PF-144 (owner, 2026-11-03) ───────────────────────────────────────
  * Every card is now a ProjectCard — the picture ON TOP, the words below —
  * because text over a background picture could not be read. The big
- * first card and the terminal beside it stay; the decorative 02·03·04
+ * first card stays; the decorative 02·03·04
  * numerals go (no room on a picture card); GitHub / LIVE SITE moved to
  * the project's own page; the home page shows HOME_PROJECTS, then
- * VIEW ALL PROJECTS → /projects.
+ * VIEW ALL PROJECTS → /projects. PF-150 put the public numbers box beside
+ * the big card, where the terminal was.
  *
  * Wired to `useProjects()`, like Skills and unlike About. The API
  * already sorts `{ order: 1, createdAt: -1 }` (projectController.js `SORT`),
@@ -164,7 +107,7 @@ export function ProjectsSection() {
         {showGrids && (
           <>
             {/* ONE Reveal around both children, matching the prototype
-                (line 317) — the card and terminal enter as a unit. */}
+                (line 317) — the card and the box enter as a unit. */}
             <Reveal type="up" className={styles.featuredRow}>
               {hasData ? (
                 <ProjectCard project={featured} big />
@@ -174,7 +117,7 @@ export function ProjectsSection() {
                 <div className={styles.bigCardPlaceholder} aria-hidden="true" />
               )}
 
-              <TerminalPanel />
+              <SiteNumbersBox />
             </Reveal>
 
             <div className={styles.grid}>

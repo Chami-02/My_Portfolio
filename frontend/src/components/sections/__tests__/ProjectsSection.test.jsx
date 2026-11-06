@@ -1,6 +1,5 @@
 // frontend/src/components/sections/__tests__/ProjectsSection.test.jsx
 import { readFileSync } from 'fs';
-import postcss from 'postcss';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { render, screen, within } from '@testing-library/react';
@@ -13,6 +12,9 @@ import { MotionProvider } from '../../../providers/MotionProvider';
 // redefine it. Same approach as SkillsSection.test.jsx.
 const useProjects = vi.hoisted(() => vi.fn());
 vi.mock('../../../hooks/useProjects', () => ({ useProjects }));
+vi.mock('../../../hooks/useSiteNumbers', () => ({
+  useSiteNumbers: () => ({ data: undefined, isLoading: true, isError: false, refetch: () => {}, isFetching: true }),
+}));
 
 const { ProjectsSection } = await import('../ProjectsSection');
 
@@ -162,191 +164,29 @@ describe('section selector', () => {
   });
 });
 
-// ── 4 · the scoped-keyframe silent failure ────────────────────────────
-describe('caret animation', () => {
-  it('reaches the keyframe through a global carrier', () => {
-    expect(ruleBody(cssRules, '.caret')).toContain('composes: kf-blink from global');
+describe('the box beside the big card (PF-150)', () => {
+  it('replaced the terminal for good', () => {
+    const { container } = render(withMotion(<ProjectsSection />));
+    expect(container.querySelector('[data-terminal]')).toBeNull();
+    expect(screen.queryByText(/docker compose/)).toBeNull();
+  });
+
+  it('shares the Reveal row with the big card', () => {
+    const { container } = render(withMotion(<ProjectsSection />));
+    const box = screen.getByRole('region', { name: 'Site numbers' });
+    expect(pick(container, 'featuredRow').contains(box)).toBe(true);
+  });
+
+  it('shows while the projects load, because it loads on its own', () => {
+    useProjects.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
+    render(withMotion(<ProjectsSection />));
+    expect(screen.getByRole('region', { name: 'Site numbers' })).toBeTruthy();
   });
 
   it('names no keyframe anywhere in the module', () => {
-    // A keyframe named inside a *.module.css is scoped and resolves to
-    // nothing — valid CSS naming an animation that does not exist. The
-    // only reliable runtime tell is getAnimations().length === 0.
+    // A keyframe named inside a *.module.css is scoped and resolves to nothing.
     expect(cssRules).not.toMatch(/animation-name\s*:/);
-    expect(cssRules).not.toMatch(/animation\s*:\s*[^;]*\bblink\b/);
     expect(cssRules).not.toMatch(/@keyframes/);
-  });
-
-  it('colours the caret with a LITERAL, not the themed accent', () => {
-    // The panel is a fixed dark image; --acc is #FCA311 dark but #7E4800
-    // light, which measures 2.54:1 on #0d1117. The seven sibling log lines
-    // are already literal hexes. Reverting this to var(--acc) to "match the
-    // prototype" reintroduces the light-theme failure.
-    const body = ruleBody(cssRules, '.caret');
-    expect(body).toContain('color: #FCA311');
-    expect(body).not.toContain('var(--acc');
-  });
-
-  it('uses longhands, never the shorthand', () => {
-    // `animation: 1s step-end infinite` would reset animation-name to
-    // `none` and silently undo the composed class.
-    const body = ruleBody(cssRules, '.caret');
-    expect(body).toContain('animation-duration: 1s');
-    expect(body).toContain('animation-timing-function: step-end');
-    expect(body).toContain('animation-iteration-count: infinite');
-  });
-});
-
-describe('terminal panel', () => {
-  it('carries data-terminal', () => {
-    // tokens.css:229's html[data-theme="light"] [data-terminal] rule is
-    // an attribute selector, so it is NOT scoped by CSS Modules and
-    // reaches this element as-is. Drop the attribute and the light-theme
-    // shadow silently reverts to the heavier inline one, with nothing
-    // wrong in either file read on its own — the exact failure mode
-    // data-lightplate documents.
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(container.querySelectorAll('[data-terminal]')).toHaveLength(1);
-  });
-
-  // PF-144: 8 → 14 — the run continues so the panel fills beside the taller
-  // picture card (owner, 2026-11-03). Still static, still no typing.
-  it('renders fourteen static lines, not the Phase 1 typing sequence', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    const body = pick(container, 'terminalBody');
-    expect(body.querySelectorAll('div')).toHaveLength(14);
-    expect(body.textContent).toContain('$ docker compose up --build');
-    expect(body.textContent).toContain('VITE v8 ready in 420ms');
-  });
-
-  it('keeps the mockup port :5000, not this repo\'s 5050', () => {
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(pick(container, 'terminalBody').textContent).toContain('Express API on :5000');
-  });
-
-  it('renders even while projects are loading', () => {
-    // Hardcoded content with no API dependency — gating it behind the
-    // query would blank it for no reason.
-    useProjects.mockReturnValue({ data: undefined, isLoading: true, isError: false, error: null });
-    const { container } = render(withMotion(<ProjectsSection />));
-    expect(container.querySelectorAll('[data-terminal]')).toHaveLength(1);
-  });
-
-  /**
-   * ── PF-91 · THE GROUP C / GROUP D BOUNDARY ────────────────────────
-   *
-   * This panel is deliberately dark in BOTH themes (DESIGN.md line 85),
-   * so every colour painted ON it must be theme-independent. PF-85 made
-   * the caret a literal for this reason; PF-91 made the arrow line and
-   * the chrome label literals for the same one.
-   *
-   * The hazard this guards is not a typo. In the SAME ticket,
-   * `.lineSuccess` stayed `#34d399` while Contact's `.sentText` became
-   * `var(--ok)` — the same green, the same concept, three files apart,
-   * opposite answers. That asymmetry looks exactly like an oversight and
-   * is the obvious thing for a later tidy-up to "unify". Unifying it
-   * would reintroduce a 2.82:1 line on the splash-dark panel while
-   * looking like a cleanup.
-   *
-   * ⚠️ PARSED WITH POSTCSS, NEVER SEARCHED AS TEXT. The rules above now
-   * document this boundary in prose containing the literal strings
-   * `var(--ok)` and `var(--faint)`, so a raw `not.toContain` would match
-   * the comment explaining the rule and report PASS. Declarations are a
-   * different node type from comments; a walk cannot see them.
-   */
-  describe('is theme-independent ink (Group C/D boundary)', () => {
-    const root = postcss.parse(css);
-    const TERMINAL = /^\.(terminal|line|dot)/;
-
-    it('paints every terminal colour with a literal, never a theme token', () => {
-      const tokenised = [];
-      let seen = 0;
-      root.walkRules((rule) => {
-        if (!TERMINAL.test(rule.selector)) return;
-        rule.walkDecls('color', (decl) => {
-          seen++;
-          if (decl.value.includes('var(')) tokenised.push(`${rule.selector} { color: ${decl.value} }`);
-        });
-      });
-      // A scanner that matches nothing reports "no offenders" in exactly
-      // the same words as a clean file — same self-check as
-      // revealTransition.test.js's ">20 pairs".
-      expect(seen).toBeGreaterThanOrEqual(6);
-      expect(tokenised).toEqual([]);
-    });
-
-    /*
-     * The token/literal split alone is not enough, and mutation testing
-     * is what showed it: reverting .terminalLabel to its old #5c677d
-     * left the guard green, because #5c677d is a perfectly good literal.
-     * It also measures 3.04 in both themes. So the VALUES are pinned too
-     * — a silent revert to a failing hex now fails.
-     */
-    it('pins the two colours PF-91 raised, so a revert cannot be silent', () => {
-      const colourOf = (sel) => {
-        let v = null;
-        root.walkRules((rule) => {
-          if (rule.selector !== sel) return;
-          rule.walkDecls('color', (decl) => { v = decl.value.trim(); });
-        });
-        return v;
-      };
-      // #8b949e — GitHub's muted-on-#161b22. 5.62 on the chrome bar,
-      // 6.15 on the panel body, both themes. Was 3.04 and 3.33/3.12.
-      expect(colourOf('.terminalLabel')).toBe('#8b949e');
-      expect(colourOf('.lineMuted')).toBe('#8b949e');
-      // and it must stay BELOW .lineInfo, which is the panel's own
-      // hierarchy — the reason this hex was chosen over a brighter one
-      expect(colourOf('.lineInfo')).toBe('#93a0b8');
-    });
-
-    /*
-     * ⚠️ SCOPED TO THE TERMINAL PANEL'S OWN RULES, not to the whole
-     * module — narrowed 2026-08-29 when `.liveDot` was added.
-     *
-     * The rule PF-91 settled is about a SURFACE, not about a file:
-     * `--ok` flips with the theme and the terminal panel deliberately
-     * does not, so `var(--ok)` there would paint #0B6446 on a fixed
-     * #0d1117 (2.82:1). `.liveDot` sits on the LIVE SITE link, which is
-     * ordinary themed page surface, so `var(--ok)` is exactly right
-     * there and PF-91 routed four other sites onto that token for the
-     * same reason. A whole-module walk conflated the two and would have
-     * pushed the live dot onto a literal — reintroducing the
-     * hardcoded-pair problem PF-91 removed.
-     *
-     * The scope assertion below is the important half: a selector list
-     * that stops matching reports "no offenders" in exactly the same
-     * words as a clean panel.
-     */
-    it('never reads --ok or --danger on the terminal panel, which does not theme', () => {
-      const TERMINAL = /^\.(terminal|terminalChrome|terminalLabel|terminalBody|trafficDot|dot(Red|Amber|Green)|line[A-Z]\w*|caret)\b/;
-      const offenders = [];
-      let scanned = 0;
-      root.walkRules((rule) => {
-        if (!TERMINAL.test(rule.selector)) return;
-        scanned += 1;
-        rule.walkDecls((decl) => {
-          if (/var\(\s*--(ok|danger)\b/.test(decl.value)) {
-            offenders.push(`${rule.selector} { ${decl.prop}: ${decl.value} }`);
-          }
-        });
-      });
-      expect(scanned, 'terminal selector list matched nothing').toBeGreaterThan(10);
-      expect(offenders).toEqual([]);
-    });
-
-    it('keeps --shd on the DROP SHADOW, which should track the theme', () => {
-      // The counterweight. "Literal ink" must not be over-applied into
-      // literalising the shadow this panel casts onto the PAGE behind it
-      // — that surface does flip, and no contrast rule reaches a shadow.
-      let shadow = null;
-      root.walkRules((rule) => {
-        if (rule.selector !== '.terminal') return;
-        rule.walkDecls('box-shadow', (decl) => { shadow = decl.value; });
-      });
-      expect(shadow).not.toBeNull();
-      expect(shadow).toContain('var(--shd)');
-    });
   });
 });
 
@@ -405,7 +245,6 @@ describe('the cards (PF-144)', () => {
     expect(titles()).toEqual(['ClearDrive.lk', 'Personal Portfolio', 'Smart Campus API', 'Life Below Water']);
     expect(has(cards[0], 'big')).toBe(true);
     expect([...cards].slice(1).some((c) => has(c, 'big'))).toBe(false);
-    // The big card shares its row with the terminal.
     expect(pick(container, 'featuredRow').contains(cards[0])).toBe(true);
   });
 
