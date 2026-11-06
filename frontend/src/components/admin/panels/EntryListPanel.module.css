@@ -307,3 +307,11 @@
   font-size: 12px;
   color: var(--muted);
 }
+
+/* Owner, 2026-11-06: smaller admin controls on a phone. LAST in the file
+   (mediaOrder.test.js). */
+@media (max-width: 560px) {
+  .switch {
+    min-height: 36px;
+  }
+}

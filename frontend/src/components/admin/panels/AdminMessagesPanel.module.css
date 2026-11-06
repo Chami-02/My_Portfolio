@@ -343,4 +343,9 @@
     min-width: 30px;
     min-height: 30px;
   }
+
+  /* 16px: iOS Safari zooms the page into a field with smaller text. */
+  .searchInput {
+    font-size: 16px;
+  }
 }
