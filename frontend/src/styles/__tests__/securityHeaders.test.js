@@ -31,8 +31,10 @@ const directives = Object.fromEntries(
     .map(([name, ...sources]) => [name, sources])
 );
 
-// Every INLINE script in index.html — a <script> with no src attribute.
-const inlineScripts = [...read('index.html').matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
+// Every INLINE script in index.html that RUNS — a <script> with no src attribute.
+// A JSON-LD block is data: the browser never executes it, so CSP has nothing to
+// hash. Only that exact type is left out, so no other script can slip past.
+const inlineScripts = [...read('index.html').matchAll(/<script(?![^>]*\bsrc=)(?![^>]*type="application\/ld\+json")[^>]*>([\s\S]*?)<\/script>/g)]
   .map((m) => m[1]);
 const sha256 = (text) => `'sha256-${crypto.createHash('sha256').update(text, 'utf8').digest('base64')}'`;
 
