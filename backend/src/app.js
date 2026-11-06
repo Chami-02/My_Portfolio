@@ -90,6 +90,7 @@ app.use(purgeOnWrite);                           // PF-128 — a signed-in SAVE 
    app.use('/api/certificates', require('./routes/certificateRoutes')); // PF-143
    app.use('/api/visits',   require('./routes/visitRoutes'));     // PF-145 — the visitor counter
    app.use('/api/sitemap.xml', require('./routes/sitemapRoutes')); // PF-146 — the page list for search engines
+   app.use('/api/site-numbers', require('./routes/siteNumbersRoutes')); // PF-150 — the home page's public totals
 
 // ── Error handling ── MUST BE LAST ───────────────────────────────────────────
 app.use(notFound);      // Catch any unmatched routes and create a 404 AppError
