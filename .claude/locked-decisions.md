@@ -6321,3 +6321,47 @@ Owner, after seeing 39 of 69 visitors from US data-centre towns on the first liv
 - **Separate answer:** `GET /api/site-numbers`, written field by field, shares nothing with `audienceController.js`. A new field is a new public promise and means changing `/privacy`.
 - **Blog reads come from `Blog.views`** (what each post page shows), so the box and the post pages agree. They stay through the owner's clearing of the visit totals. The panel's most viewed posts use page-view totals, so its order can differ.
 - **The names avoid "analytics" and "stats"** (ad blockers).
+
+## PF-151 — seasonal effects (owner, 2026-11-06)
+
+**REPLACES** the sprint plan's four seasons (Christmas, New Year sparkles, Sinhala & Tamil New Year, Vesak), which were my suggestions. The owner wants two.
+
+- **Dates, both days included:** snow 1 December → 1 January; Halloween 31 October → 2 November. Fixed in code, every year. Each visitor's own calendar, as every date on the site.
+- **Halloween = leaves + a few bats** (owner's choice over leaves only and spooky only). One bat at a time, 8–18 s apart.
+- **The switch applies to EVERY visitor** (owner's choice over a browser-only preview), so OFF really stops it. The card always states what is showing, and reminds while not on AUTOMATIC.
+- **In FRONT of the content** (owner's choice over behind, which cards would hide). `z-index: 65`, `pointer-events: none`: over the header (60), under grain (70), phone menu (80), dialogs (90), splash (100).
+- **~~Public pages only~~ — REVERSED the same day, see below.** Not under reduced motion (no still frame, unlike the star field). Waits for the splash, so the home page mounts its own inside `SplashProvider`.
+- **Stored on About as `seasonalEffect`**, so it rides `PUT /api/about`, the CDN purge and backups. Staged like every toggle; its leave dialog offers no Save (that Save never publishes).
+- **Own lazy chunk:** a visitor outside a season downloads none of it. A failed download paints nothing (`SilentBoundary`), never the shared `ErrorBoundary`'s TRY AGAIN panel.
+- **Colours:** ~~snow white in dark, `#8FA6C4` in light; counts 70 snow / 24 leaves~~ — replaced below. Half at ≤560 px. Speeds per SECOND, so a 120 Hz screen falls at the same speed.
+
+### PF-151 — the owner's changes after the first look (2026-11-06)
+
+**REVERSES "public pages only".** The owner saw it and asked for more, with two photos as the reference:
+
+- **~~The admin panel shows it too~~ — narrowed below to a strip.** Mounted INSIDE `.shell`, whose z-index makes a stacking context holding the dialogs: mounted beside the shell it would draw over them. The sign-in pages still show none (the owner named the panel).
+- **Snowflakes are six-armed crystals with feathered branches**, like the owner's photo: icy `#E4F4F7` in dark, `#7E9CC4` in light; half-widths ~~6 / 10 / 16~~ 5 / 8 / 12 px.
+- **Leaves are five-lobed maples**, shaded base to tip, with veins and a stem, in gold, orange, red, yellow and tan like the owner's photo; half-widths ~~10 / 15 / 21~~ 9 / 13 / 18 px.
+- **Drawn in code, NOT the photos** (my call, said to the owner): a photo cut-out blurs at these sizes, and its rights are unknown. Still no image files.
+- **More:** snow 110 (55 on phones), leaves 40 (20), up to 4 bats at once (2), 2–6 s apart.
+
+### PF-151 — the owner's second round (2026-11-06)
+
+- **The admin panel shows a STRIP on the right, not the full fall** (REVERSES the full fall there, same day): "i want that strip to know whether effects applyied or not". ~~96 px, 56 px at ≤560, 20 flakes or 12 leaves~~ (third round below), no bats (a bat crossing the strip would only hang there). Left edge fades through a mask.
+- **Smaller:** ~~leaves 9 / 13 / 18 px half-width, snowflakes 5 / 8 / 12~~ (third round below).
+- **Pumpkins fall among the leaves, at random:** each piece rolls again on re-entering, 12% chance, so the number on screen varies. Carved faces, half-widths ~~9 / 13~~ 8 / 11. They rock rather than tumble, or the face would be lost.
+
+### PF-151 — the owner's third round (2026-11-06): superseded by the phone round below
+
+- **Strip 140 px wide, 72 px at ≤560; 28 flakes or 16 leaves.** The owner wants a wider AREA, with pieces the same size as the home page's: one set of sizes everywhere.
+- **Half-widths:** snowflakes 4 / 6 / 10, leaves 7 / 11 / 15, pumpkins 8 / 11.
+
+### PF-151 — the phone round (2026-11-06): the CURRENT values
+
+- **Snow:** 50 on a computer, 20 on a phone (the owner set these two in the code), 22 in the strip, 11 in the strip on a phone. **Half-widths** 4 / 5 / 8.
+- **Leaves:** 40, 14, 16, 8. **Half-widths** 6 / 9 / 13. **Pumpkins** 7 / 10. **Bats** up to 4, 2 on a phone, none in the strip.
+- **Strip** 140 px, 72 px at ≤560. Phone counts keep about the desktop's density; half the pieces on a quarter of the area read as twice as crowded.
+- **Phones draw at most 1.5× sharp** (computers 2×): a 3× screen spends real battery on detail no one sees.
+- **A slow device sheds pieces instead of stuttering:** averaged over 60 frames, above 40 ms sheds 25%, never below 40% of the pieces. 40 ms on purpose: low-power mode's steady 30 Hz (33 ms) is not struggling.
+- **Height is `100lvh`:** a phone's address bar moving no longer wipes and reallocates the surface on scroll.
+- **The seasonal card's SAVE has no glow** (owner): `.collapseInner` clips it at 6–8 px into a square orange corner.

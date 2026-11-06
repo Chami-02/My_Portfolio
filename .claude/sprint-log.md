@@ -11087,3 +11087,32 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 - **A renamed project's slug** starts its view total again in the box (the old address no longer matches). Same as the panel's titles.
 - **PF-152:** add `GET /api/site-numbers` to the API docs.
 - **Owner's clearing at the end of PF-151:** the box then shows `0 VISITS` until visits arrive; reads stay.
+
+#### PF-151 — seasonal effects (2026-11-06, `feat/PF-151-seasonal-effects`, in PR)
+
+**Report: `new mds/Sprint 16/PF-151-seasonal-effects.md`.** Decisions: `locked-decisions.md` "PF-151". Traps: `silent-failures.md` "PF-151". Snow 1 Dec → 1 Jan, leaves + bats 31 Oct → 2 Nov, every year by itself; a Settings card (AUTOMATIC / SNOW NOW / HALLOWEEN NOW / OFF) overrides for every visitor.
+
+- **Files:** `utils/seasonalEffect.js` (the one decision + the card's sentence), `components/ambient/SeasonalEffects.jsx` (gate, lazy, silent boundary), `SeasonalCanvas.jsx` + `.module.css` (lazy chunk, 3.56 kB), `admin/panels/SettingsSeasonalCard.jsx`; `About.seasonalEffect` + a rule in `aboutRules`; mounted in `HomePage.jsx` and a fourth `<Routes>` in `App.jsx`. No migration, no new request.
+- **Numbers:** frontend 146 files / 3032 tests, lint clean, build OK; backend 79 suites / 1720 tests; E2E seasonal 6/6 after fixing two of my own test selectors, homepage + navigation + footer passed in the same run (38 specs: 36 passed, the 2 failures were those selectors). All frontend and backend mutants killed; four first attempts proved a vacuous test or an invalid mutant (see silent-failures).
+- **Speed at 4× CPU throttle, headless, /blog, 4 s:** desktop 185 frames off → 176 snow / 175 leaves; phone 201 → 190; median 16.7 ms in every case. About 5% fewer frames on a slow machine, only while a season shows.
+- **Browser:** both effects, both themes, desktop; phone width (iframe) with the menu covering the fall; admin shows none; `elementFromPoint` reaches the link. Local dev DB set back to `auto`.
+
+- **Owner's changes after the first look (same day):** the admin panel too; crystal flakes and maple leaves from the owner's photos; more of everything (see `locked-decisions.md`). Flakes and leaves are now drawn once to a small canvas, then copied per frame. Chunk 5.45 kB. **Numbers now:** frontend 146 files / 3038 tests, lint clean, build OK; E2E seasonal + homepage + navigation + footer 38/38. Backend unchanged since its 1720 passed. New mutants killed (bat cap, bat removal, sprite rebuild, shell mount), one only after adding a test.
+- **Speed after those changes, 4× CPU, headless with no GPU, on the E2E servers, a noisier run than the first:** desktop about 105 frames off → about 96 snow, 82–103 leaves; phone size about 135 → about 113. So 10–15% fewer frames while a season shows, more than the first version's 5%, because there is more on screen. Not yet felt on a real phone.
+
+- **Owner's second round (same day):** admin = 96 px strip on the right; smaller leaves and flakes; random carved pumpkins. Chunk about 6.6 kB. **Numbers:** frontend 146 files / 3048 tests, lint clean, build OK, on the final 96 px strip; E2E seasonal + homepage + navigation + footer 38/38 before the last width change, which is CSS and counts only. Backend unchanged, last 1720 passed. Mutants killed, except `STRIP_SWAY`, which is cosmetic and left unpinned.
+- **Speed at this version, same probe, public page:** desktop 181 frames off → 151–160 snow, 148–165 leaves; phone size 163–190 → 132–154 snow, 101–136 leaves. Median often moves from 16.7 to 33 ms. That is 10–30% fewer frames on a CPU slowed 4× with no GPU, noisy between runs, and worse than the earlier versions' numbers. **Must be judged on a real phone before merge.** First lever: `SNOW_COUNT` / `LEAF_COUNT`.
+
+- **Owner's third round (same day):** strip 140 px, smaller pieces, stretch bug fixed (values in `locked-decisions.md`). **Numbers:** frontend 146 files / 3049 tests, lint clean, build OK; E2E seasonal 6/6; stretch mutant killed. Browser: strip 140 px wide with a 280 px surface at 2× (no stretch); leaves and pumpkins seen on /blog and in the strip; the new snow size not yet seen. Speed not re-measured since the second round's numbers.
+
+- **Phone round (same day):** phone density, 1.5× cap, address-bar fix, shedding on slow devices, smaller pieces, fewer flakes, SAVE glow removed (values in `locked-decisions.md`). **Numbers:** frontend 146 files, all tests pass, lint clean, build OK; E2E seasonal + homepage + navigation + footer 38/38 before the final count change, seasonal 6/6 after it; all mutants killed, one only after adding a test. A full gate run timed out two `AdminProjectsPanel` tests at 5 s under machine load; that file passed 60/60 three times alone and in the next gate. Not changed here.
+- **Final gates, on the owner's final values (snow 50 / 20):** frontend 146 files / 3060 tests; backend 79 suites / 1720 tests.
+- **Phone speed could NOT be proved better:** baselines swung 170–244 frames between runs of the same code, so the probe is too noisy on this machine to compare. Measured facts only: 585×1266 surface at a 3× phone instead of 780×1688 (44% fewer pixels), far fewer pieces. A real phone is still the check.
+
+### Outstanding from PF-151
+
+- **Owner's look:** size and amount are still the owner's. Real phone not yet checked.
+- **Password card's SAVE:** probably the same clipped glow; not checked on screen, not changed.
+- **PF-152:** add `seasonalEffect` to `GET`/`PUT /api/about` in the API docs.
+- **Live proof comes on 1 December** without anyone acting; the dates are proved by tests with fake dates only. After merge, SNOW NOW on production once, then back to AUTOMATIC, proves the rest.
+- **Owner's clearing of production's counts is due now** (see PF-150's list above).
