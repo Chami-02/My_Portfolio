@@ -16,6 +16,7 @@ import {
   StarfieldCanvas,
   CursorGlow,
   GrainOverlay,
+  SeasonalEffects,
 } from '../components/ambient';
 
 export function HomePage() {
@@ -137,6 +138,10 @@ export function HomePage() {
           70, so the splash covers the grain rather than sitting under
           it, matching the prototype. */}
       {showSplash && <Splash />}
+
+      {/* PF-151. Here, not in App.jsx with the other pages: this is the
+          only place the splash signal exists, so the fall waits for the lift. */}
+      <SeasonalEffects />
     </SplashProvider>
   );
 }

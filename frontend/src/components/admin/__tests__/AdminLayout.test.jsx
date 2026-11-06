@@ -40,6 +40,7 @@ const useDashboardStats = vi.hoisted(() => vi.fn());
 const logout            = vi.hoisted(() => vi.fn());
 const refresh           = vi.hoisted(() => vi.fn());
 
+vi.mock('../../ambient/SeasonalEffects', () => ({ default: ({ strip }) => <div data-testid="seasonal" data-strip={String(strip)} /> }));
 vi.mock('../../../hooks/useMe',             () => ({ useMe }));
 vi.mock('../../../hooks/useDashboardStats', () => ({ useDashboardStats }));
 vi.mock('../../../services/authService', () => ({ authService: { logout, refresh } }));
@@ -80,6 +81,27 @@ beforeEach(() => {
   vi.clearAllMocks();
   useMe.mockReturnValue({ data: { email: 'owner@example.com', role: 'admin' } });
   useDashboardStats.mockReturnValue({ data: STATS });
+});
+
+// PF-151 — `.shell`'s z-index makes a stacking context, and the dialogs live in
+// it. Mounted beside the shell, the fall would draw over every dialog.
+describe('AdminLayout — seasonal effects', () => {
+  beforeEach(() => {
+    useMe.mockReturnValue({ data: { email: 'a@example.com' } });
+    useDashboardStats.mockReturnValue({ data: undefined });
+  });
+
+  it('is only a strip in the panel', () => {
+    renderShell();
+    expect(screen.getByTestId('seasonal').dataset.strip).toBe('true');
+  });
+
+  it('mounts inside the shell, beside the dialogs, not beside the shell', () => {
+    const { container } = renderShell();
+    const fall = screen.getByTestId('seasonal');
+    expect(fall.parentElement.contains(screen.getByRole('navigation', { name: 'Admin sections' }))).toBe(true);
+    expect(fall.parentElement).not.toBe(container);
+  });
 });
 
 describe('AdminLayout — navigation', () => {

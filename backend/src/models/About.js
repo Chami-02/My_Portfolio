@@ -133,6 +133,16 @@ const aboutSchema = new mongoose.Schema(
       default: 'Computer Science undergraduate at the University of Westminster, building scalable web applications — MERN, FastAPI, Docker, shipped with CI/CD.',
     },
 
+    // PF-151 — the Settings switch. `auto` follows the dates, which live in the
+    // frontend (`utils/seasonalEffect.js`) because each visitor's own calendar
+    // decides them. An existing document reads the default on its next fetch.
+    // ⚠️ Mirrored by `SEASONAL_MODES` in that file — two packages, no shared code.
+    seasonalEffect: {
+      type:    String,
+      enum:    ['auto', 'snow', 'halloween', 'off'],
+      default: 'auto',
+    },
+
     // ── REPLACED IN PF-111: avatarUrl (bare String) → avatar {} ───
     // The About portrait. Same shape and same reasoning as `resume`
     // below, and for the same reason: Cloudinary can only delete a

@@ -282,6 +282,60 @@
    `.actions > button` / `.session > button` (0,1,1) outrank admin.module's
    phone rule for `.btnOutline` etc. (0,1,0). LAST in the file
    (mediaOrder.test.js). */
+/* ── Seasonal effects card (PF-151) ─────────────────────────────────────── */
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+/* Under `.lede`, on a line of its own: a legend ignores flex otherwise. */
+.choicesLegend {
+  padding: 0;
+  margin-bottom: 10px;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px 0 10px;
+  border: 1px solid rgba(var(--ln), .18);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--acc);
+  color: var(--strong);
+}
+
+.choice input {
+  margin: 0;
+  accent-color: var(--acc);
+}
+
+.unsaved {
+  composes: unsaved from './AdminAboutPanel.module.css';
+}
+
+/* Owner, 2026-11-06. The primary button's glow spreads about 38 px, and
+   `.collapseInner` clips it at 6–8 px, in a straight line: a square orange
+   corner. Two classes, to beat the base rule whichever sheet loads first. */
+.actions .noGlow,
+.actions .noGlow:hover:not(:disabled) {
+  box-shadow: none;
+}
+
 @media (max-width: 560px) {
   .disclosure {
     padding: 6px 10px;

@@ -15,10 +15,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### ⚠️ SIZE RULE — keep this file under 40,000 characters
 
-Claude Code warns above 40k, and every char here is paid by every session before
-work starts. **New ticket detail goes to a companion file. CLAUDE.md gets at most
-ONE line per new rule, trap or decision.** Check with `wc -c .claude/CLAUDE.md`
-when handing over a ticket that edited it.
+Claude Code warns above 40k; every session pays for every char. **New ticket detail goes to a companion file. CLAUDE.md gets at most
+ONE line per new rule, trap or decision.** Check with `wc -c` at hand-off.
 
 ### When to read them — not optional
 
@@ -126,7 +124,7 @@ search the companions *before* explaining a surprise.
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-149 done; PF-150 in PR.
+- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-150 done; PF-151 in PR.
 - **Every doc I create** goes to `new mds/Sprint 16/` (outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
@@ -418,6 +416,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-143: home TEXT ONLY (≤6, VIEW ALL); `/certificates/:slug?` big view; PDF = `pg_1`; words FIXED; `EntryListPanel`; certs: 1 tag = 1 pill, pins lead + drag order; demo rows throwaway DBs only.
 - PF-150: terminal GONE → `SiteNumbersBox`: real numbers from day 0, VISITS, 5-VISIT country rule, no LIVE, one hue per subject; own answer.
 - PF-145: own visitor counter, daily totals only; /privacy's words are PROMISES — change them with the behaviour.
+- PF-151: snow 1 Dec→1 Jan, leaves + bats 31 Oct→2 Nov; switch overrides for ALL; in front; admin = right strip; lazy.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment
@@ -459,8 +458,7 @@ wrong, say so and re-plan with the owner. Never invent PF numbers.
 (older reports stay in `new mds/E<N>/`; never `docs/tickets/`). Answer WHAT, HOW, WHY separately; show
 every changed file's path and before/after code; the trace; what was rejected;
 real test numbers from both passes; bugs found in recheck; what was deliberately
-not fixed (also → Outstanding work); the commit message. Write for someone without
-the conversation. It does not replace updating `.claude/`.
+not fixed (also → Outstanding work); the commit message.  It does not replace updating `.claude/`.
 
 **Never run `git commit`** — committing is the owner's, on every branch (revoked
 for good 2026-08-17). "Go ahead" authorizes work, never a commit. Per-PR

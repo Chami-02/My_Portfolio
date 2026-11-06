@@ -1,0 +1,32 @@
+/* frontend/src/components/ambient/SeasonalCanvas.module.css */
+
+/* PF-151 — in front of the content (owner), clicks pass straight through.
+   z-index 65: above the header (60), under the grain (70), the phone menu (80),
+   dialogs (90) and the splash (100). */
+.canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* The LARGE viewport: it stays still while a phone's address bar moves. */
+  height: 100lvh;
+  z-index: 65;
+  pointer-events: none;
+  display: block;
+}
+
+/* The admin panel's narrow band on the right (owner, 2026-11-06): enough to see
+   an effect is on, without falling over the forms. The fade softens its left
+   edge, where a piece would otherwise be cut off in a straight line. */
+.strip {
+  left: auto;
+  width: 140px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40%);
+  mask-image: linear-gradient(to right, transparent, #000 40%);
+}
+
+@media (max-width: 560px) {
+  .strip {
+    width: 72px;
+  }
+}

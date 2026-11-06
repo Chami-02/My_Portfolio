@@ -168,6 +168,32 @@ describe('the round trip', () => {
   });
 });
 
+// PF-151 — the switch lives on About, so a backup carries it.
+describe('the seasonal effects switch', () => {
+  it('comes back from a backup', async () => {
+    await seedContent();
+    await About.updateOne({}, { seasonalEffect: 'off' });
+    const file = await download();
+    expect(file.about.seasonalEffect).toBe('off');
+
+    await About.updateOne({}, { seasonalEffect: 'snow' });
+    expect((await restore(file)).status).toBe(200);
+
+    expect((await About.findOne()).seasonalEffect).toBe('off');
+  });
+
+  it('a backup from before the switch restores, and the site reads AUTOMATIC', async () => {
+    await seedContent();
+    const file = await download();
+    delete file.about.seasonalEffect;
+
+    await About.updateOne({}, { seasonalEffect: 'off' });
+    expect((await restore(file)).status).toBe(200);
+
+    expect((await About.findOne()).seasonalEffect).toBe('auto');
+  });
+});
+
 describe('messages are merged, never lost (owner, 2026-10-30)', () => {
   it('newer messages stay, deleted ones return, current read/star is untouched', async () => {
     await seedContent();

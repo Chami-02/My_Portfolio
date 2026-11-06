@@ -11,7 +11,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const useMe = vi.hoisted(() => vi.fn());
 vi.mock('../../../../hooks/useMe', () => ({ useMe }));
 // PF-124 follow-up: the Password card reads the About name for its strength words.
-vi.mock('../../../../hooks/useAbout', () => ({ useAbout: () => ({ data: { name: 'Parindra Gallage' } }) }));
+// PF-151: the Seasonal effects card has its own suite; here it only has to render.
+vi.mock('../../../../hooks/useAbout', () => ({
+  useAbout:       () => ({ data: { name: 'Parindra Gallage' } }),
+  useUpdateAbout: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock('../../../../hooks/useAdminFlash', () => ({ useAdminFlash: () => ({ showFlash: vi.fn() }) }));
 // PF-132: the Sessions card has its own suite; here it only has to render.
 vi.mock('../../../../hooks/useSessions', () => ({
   useSessions:    () => ({ isSuccess: true, data: [] }),
@@ -93,13 +98,14 @@ describe('AdminSettingsPanel — the Account fold (owner, 2026-10-30)', () => {
 });
 
 describe('AdminSettingsPanel — Account card', () => {
-  it('renders only the BUILT cards — Account, Password, Passkeys, Sessions, Backup — no placeholders', () => {
+  it('renders only the BUILT cards — Account, Password, Passkeys, Sessions, Seasonal effects, Backup — no placeholders', () => {
     render(<AdminSettingsPanel />);
     expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-labelledby')))
       .toEqual([
         'settings-account-title', 'settings-password-title',
         'settings-passkeys-title',   // PF-140
         'settings-sessions-title',
+        'settings-seasonal-title', // PF-151
         'settings-backup-title',   // PF-135
       ]);
     expect(card()).toBeInTheDocument();
