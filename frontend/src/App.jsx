@@ -9,6 +9,7 @@ import { ProtectedRoute }  from './components/common/ProtectedRoute';
 import { LoadingScreen }   from './components/common/LoadingScreen';
 import { HomePage }        from './pages/HomePage';
 import { NotFoundPage }    from './pages/NotFoundPage';
+import { RouteError }      from './pages/RouteError';
 
 /*
  * PF-127. Blog and admin load on demand — the home page used to download all
@@ -151,7 +152,9 @@ function AppLayout() {
  * Created at module scope: a router built inside a component would be rebuilt
  * on every render and reset navigation state.
  */
-const router = createBrowserRouter([{ path: '*', element: <AppLayout /> }]);
+const router = createBrowserRouter([
+  { path: '*', element: <AppLayout />, errorElement: <RouteError /> },
+]);
 
 function App() {
   return <RouterProvider router={router} />;
