@@ -407,7 +407,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
 - PF-133: history in Sessions card (90 d, 10 + SHOW MORE ≤50); alert on NEW device only (30 d); daily digest of failures (Cron + `CRON_SECRET`); leak check at sign-in → banner on every admin page.
 - PF-142: phones ≤560 — 44px CTAs, hero pair one line, footers + admin header centred/one row, card-list menu, no "FROM SCRATCH".
-- PF-149: Analytics: pies (owner), lists SCROLL, `audience` in addresses; admin footer beside the rail so the menu never moves; phones: fields 40 + 16px text, buttons 36 (replaces PF-142's 44).
+- PF-149: Analytics: pies (owner), lists SCROLL, a visit counts only once ENGAGED (10 s / 2nd page / counted click, GA4's rule), `audience` in addresses; admin footer beside the rail so the menu never moves; phones: fields 40 + 16px text, buttons 36 (replaces PF-142's 44).
 - PF-140: passkey door under Google's, password + Google STAY; UV required, discoverable, attestation none; add/remove need password + alert; challenge 10 min, single use (`pf_passkey`).
 - PF-147: refresh token ONLY in `__Host-Http-pg_refresh` (RFC 10017), never a body; `fromOurSite` on refresh/logout; only a 401 ends a session; 60 s repeat window; failed sign-out stays and says so.
 - PF-146 (REVERSES PF-134's logo): photo logo via `useLogo()`, also the tab icon; name `PARINDRA GALLAGE`, slogan replaces the job title.

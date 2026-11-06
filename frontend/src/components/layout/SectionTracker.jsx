@@ -1,7 +1,7 @@
 // frontend/src/components/layout/SectionTracker.jsx
 import { useEffect, useRef } from 'react';
 import { useSplashReady } from '../../hooks/useSplashReady';
-import { HOME_SECTIONS, hasReached, sendVisit, shouldCount } from '../../utils/visits';
+import { HOME_SECTIONS, countVisit, hasReached, shouldCount } from '../../utils/visits';
 
 // One step per percent: a tall section reaches half a screen at a small share
 // of its own height, so coarse steps would never fire at the right moment.
@@ -32,7 +32,7 @@ export function SectionTracker() {
 
     const send = () => {
       if (waiting.current.length === 0) return;
-      sendVisit({ type: 'section', sections: waiting.current });
+      countVisit({ type: 'section', sections: waiting.current });
       waiting.current = [];
     };
     const onHide = () => { if (document.visibilityState === 'hidden') send(); };

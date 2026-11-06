@@ -4,7 +4,7 @@ import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SplashContext } from '../../../providers/SplashContext';
 import { SectionTracker } from '../SectionTracker';
-import { hasReached } from '../../../utils/visits';
+import { hasReached, markEngaged, resetEngagement } from '../../../utils/visits';
 import { session } from '../../../services/session';
 
 let observers;
@@ -55,6 +55,8 @@ const renderTracker = ({ ready = true, ids = ['hero', 'about', 'skills'] } = {})
 beforeEach(() => {
   observers = [];
   localStorage.clear();
+  resetEngagement();
+  markEngaged(); // most of these are about what is sent; the gate has its own test
   fetchMock = vi.fn().mockResolvedValue({ status: 204 });
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('IntersectionObserver', FakeObserver);
@@ -159,6 +161,24 @@ describe('SectionTracker', () => {
     report('hero', 600);
     unmount();
     expect(sent()).toEqual([{ type: 'section', sections: ['hero'] }]);
+  });
+
+  it('holds sections until the visit is engaged, and drops them if it never is', () => {
+    resetEngagement();
+    renderTracker();
+    report('hero', 600);
+    hide();
+    expect(sent()).toEqual([]);
+    act(() => { markEngaged(); });
+    expect(sent()).toEqual([{ type: 'section', sections: ['hero'] }]);
+  });
+
+  it('sends nothing once the visitor has signed in as the owner', () => {
+    renderTracker();
+    report('hero', 600);
+    vi.spyOn(session, 'isOwnerDevice').mockReturnValue(true);
+    hide();
+    expect(sent()).toEqual([]);
   });
 
   it('sends nothing when no section was reached', () => {

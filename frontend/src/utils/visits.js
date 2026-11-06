@@ -56,6 +56,69 @@ export function hasReached(visiblePx, sectionPx, viewportPx) {
   return visiblePx > 0 && visiblePx >= Math.min(sectionPx, viewportPx) / 2;
 }
 
+// ── An engaged visit (owner, 2026-11-06) ────────────────────────────────────
+//
+// Nothing is sent until the visitor proves they meant to be here, by the rule
+// Google Analytics uses for an "engaged session": longer than 10 seconds, or a
+// key event (here, a click on a counted link), or a second page. Someone gone
+// sooner, or an automated browser that loads a page and leaves, counts nothing.
+// Automated browsers that wait or click still get through, so this is a filter,
+// not proof. /privacy says the same in plain words.
+
+export const ENGAGED_AFTER_MS = 10_000;
+
+let engaged = false;
+let visibleMs = 0;
+let waiting = [];
+
+/** Sent now if the visitor is engaged, otherwise held until they are. */
+export function countVisit(payload) {
+  if (session.isOwnerDevice()) return;
+  if (engaged) sendVisit(payload);
+  else waiting.push(payload);
+}
+
+export function markEngaged() {
+  engaged = true;
+  const held = waiting;
+  waiting = [];
+  // Asked again: signing in during those 10 seconds makes this the owner.
+  if (!session.isOwnerDevice()) held.forEach(sendVisit);
+}
+
+/** Counts only time the tab is showing: a tab opened behind others is not a visit. */
+export function startEngagementClock() {
+  let timer = null;
+  let startedAt = null;
+
+  const pause = () => {
+    if (startedAt === null) return;
+    visibleMs += Date.now() - startedAt;
+    startedAt = null;
+    clearTimeout(timer);
+  };
+  const resume = () => {
+    if (engaged || startedAt !== null) return;
+    startedAt = Date.now();
+    timer = setTimeout(markEngaged, ENGAGED_AFTER_MS - visibleMs);
+  };
+  const onChange = () => (document.visibilityState === 'hidden' ? pause() : resume());
+
+  document.addEventListener('visibilitychange', onChange);
+  if (document.visibilityState !== 'hidden') resume();
+  return () => {
+    pause();
+    document.removeEventListener('visibilitychange', onChange);
+  };
+}
+
+/** Tests only: this state lasts as long as the page, so each test starts it fresh. */
+export function resetEngagement() {
+  engaged = false;
+  visibleMs = 0;
+  waiting = [];
+}
+
 export function sendVisit(payload) {
   fetch(apiUrl('/visits'), {
     method:      'POST',

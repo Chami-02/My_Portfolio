@@ -394,7 +394,8 @@ export function AdminAnalyticsPanel() {
         <ul>
           <li>Every number here is exactly what the counter stored.</li>
           <li>Week, month and year visitors are added up from the daily counts.</li>
-          <li>Someone who leaves before their count is sent is not counted. Sections are sent as a visitor leaves or switches away.</li>
+          <li>A visit counts only after someone stays 10 seconds, opens a second page or clicks a counted link (the rule Google Analytics uses). Anyone gone sooner is not counted. This filters out most automated visits, but not all of them.</li>
+          <li>Sections are sent as a visitor leaves or switches away, so a browser that crashes first sends none.</li>
           <li>Visitors are counted once per day, so someone who comes on 3 days counts as 3, and one person on a phone and a laptop counts as 2.</li>
           <li>People sharing one network and the same browser type can count as 1.</li>
           <li>People whose browser asks not to be followed, automated browsers, bots and you are left out on purpose.</li>

@@ -50,7 +50,9 @@ export function PrivacyPage() {
           country and city (approximate, worked out from
           your IP address), the site you came from, your type of device and
           browser, the hour of the day, and clicks on links like email, CV and
-          GitHub. These are totals, like “12 visitors from Sri Lanka today”.
+          GitHub. These are totals, like “12 visitors from Sri Lanka today”. A
+          visit is only counted once you have stayed about 10 seconds, opened a
+          second page or clicked one of those links.
           Nothing records what any one person did. I keep the totals with no end
           date.
         </p>
