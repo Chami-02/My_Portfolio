@@ -4,6 +4,7 @@ import { Navbar }          from './components/layout/Navbar';
 import { Footer }          from './components/layout/Footer';
 import { ScrollToTop }     from './components/layout/ScrollToTop';
 import { VisitTracker }    from './components/layout/VisitTracker';
+import SeasonalEffects     from './components/ambient/SeasonalEffects';
 import { SkipLink }        from './components/layout/SkipLink';
 import { ProtectedRoute }  from './components/common/ProtectedRoute';
 import { LoadingScreen }   from './components/common/LoadingScreen';
@@ -126,6 +127,15 @@ function AppLayout() {
         <Routes>
           <Route path="/admin/*" element={null} />
           <Route path="*" element={<Footer />} />
+        </Routes>
+
+        {/* PF-151. The home page mounts its own, inside SplashProvider, so the
+            fall can wait for the splash; AdminLayout mounts its own, under
+            the dialogs. The sign-in pages show none. */}
+        <Routes>
+          <Route path="/admin/*" element={null} />
+          <Route path="/" element={null} />
+          <Route path="*" element={<SeasonalEffects />} />
         </Routes>
 
         <ScrollToTop />

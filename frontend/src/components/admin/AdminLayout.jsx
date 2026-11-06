@@ -11,7 +11,7 @@ import { AdminFooter } from './AdminFooter';
 import { SessionExpiryBanner } from './SessionExpiryBanner';
 import { PasswordLeakBanner }  from './PasswordLeakBanner';
 import { useRequestLeave } from '../../hooks/useUnsavedChanges';
-import { StarfieldCanvas, CursorGlow, GrainOverlay } from '../ambient';
+import { StarfieldCanvas, CursorGlow, GrainOverlay, SeasonalEffects } from '../ambient';
 import { useLogo } from '../../hooks/useLogo';
 import styles from './AdminLayout.module.css';
 import a from '../../styles/admin.module.css';
@@ -387,6 +387,11 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
           <AdminFooter email={shownEmail} counts={counts} onSignOut={signOut} />
         </div>
       </div>
+
+      {/* PF-151 (owner). A strip on the right, to show whether an effect is on.
+          INSIDE the shell: `.shell`'s z-index makes a stacking context holding
+          the dialogs, so only from here is it under them (90). */}
+      <SeasonalEffects strip />
     </div>
 
       {/* Last. z-index 70 beats page content regardless of DOM order. */}
