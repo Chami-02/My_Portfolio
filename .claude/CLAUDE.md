@@ -126,8 +126,8 @@ search the companions *before* explaining a surprise.
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-140 done; PF-149 in PR.
-- **Every doc I create** goes to `new mds/Sprint 16/` (owner; outside the repo).
+- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-149 done; PF-150 in PR.
+- **Every doc I create** goes to `new mds/Sprint 16/` (outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
 - `frontend/src/styles/`: `global.css` (Tailwind only), `tokens.css`,
@@ -160,7 +160,6 @@ No root package.json — run from `frontend/` or `backend/`.
 | `npm run dev` | `node --watch` on :5050 (AirPlay owns 5000). NOT nodemon |
 | `npm run dev:e2e` | port 5055, `portfolio_e2e` |
 | `npm test` / `test:coverage` | Jest via `scripts/run-jest.js`, IN-MEMORY Mongo, ~60 s — **never `npx jest`** |
-| `npm run test:atlas` | real server, ~10 min, rarely needed |
 | `npm run seed` | **wipes** Project/Skill/Blog/About/User and reseeds; demo password only on `_dev/_test/_e2e/_ci` DBs |
 | `npm run admin:password` | break-glass password reset: terminal only, type the DB name back, revokes all sessions (PF-120) |
 | `npm run migrate[:status\|:dry\|:baseline\|:verify]` | migration runner; records applied set in a `migrations` collection |
@@ -176,12 +175,12 @@ Single test: `npx vitest run <path>` / `npm test -- <path>` or `-t "name"`.
   run test:coverage`. CI runs all seven on every `sprint-*` push; `all-checks-pass`
   is the single required check. Run E2E locally when the ticket touches what a
   spec covers or CI's E2E went red. Mutation-test NEW guard logic (backend mutants
-  in a scratch copy). Backend branch coverage has the tightest margin.
+  in a scratch copy).
 - **CI:** `ci.yml` jobs credential-scan, audit, migrations, frontend, backend, e2e →
   `all-checks-pass`. ⚠️ A job added to its `needs:` must also go in its `if`.
   `deploy.yml` uses `cancel-in-progress: false` deliberately; it runs after CI
   passes on `master` (`workflow_run`), behind two approvals (Migrate, Deploy).
-- **Bots on `master`** (since 2026-10-05): Dependabot + `dependabot-automerge.yml`
+- **Bots on `master`:** Dependabot + `dependabot-automerge.yml`
   (dev tools/Actions patch-minor auto; site packages and build tools patch auto;
   majors wait), `health-check.yml` hourly, CodeQL. Auto-merges move `master` —
   sync a long branch with `git merge origin/master`, regenerate lockfiles with
@@ -364,7 +363,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - Removed: Contact accent glow; blog featured ghost `01`; About portrait caption and sweep; reading-view "GOT A QUESTION"; footer REPLAY/SCROLL UP; all section washes (footer takes the navbar surface).
 - Blog teaser featured card: fixed backdrop photo ONE PER THEME, crops differ on purpose, light scrim is a legibility requirement; card fills its cell, grid keeps `align-items: start`.
 - Hero: roles TYPE out (`TypingRoles`, no pills, 11-02), ten chips, two-layer mask, `.blobC` z-index 2. Nine links carry brand icons. LIVE SITE green dot (`dot-ok`).
-- Marquee copies hero 8 / footer 18 (EVEN); both bands 50 px/s — equal SPEED. `STAR_DRIFT = 0.35`. Different About portrait (never import the `.heic`). Smooth scroll via CSS. `data-terminal` attached.
+- Marquee copies hero 8 / footer 18 (EVEN); both bands 50 px/s — equal SPEED. `STAR_DRIFT = 0.35`. Different About portrait (never import the `.heic`). Smooth scroll via CSS.
 
 **Chrome**
 - Header FULL-BLEED; ADMIN outlined in `--muted`; theme toggle 44×44 sun/moon (keeps `--header-h` 71px); navbar route-aware, `/blog*` nav is ABOUT · SKILLS · PROJECTS · CONTACT · ← GO BACK.
@@ -382,7 +381,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - `About.availableForWork` drives hero badge, footer row, About line. Admin unread dot is `--ok` green.
 - Cloudinary behind a provider interface; résumé PDF only; every media field written by a DEDICATED route (security: never a client-supplied publicId); files destroyed on replace AND record delete (row first); images PNG/JPEG/WebP by magic bytes; 4 MB everywhere, browser resize ≤2400px WebP.
 - Blog: `sections[]`; `readingTimeMinutes` derived (override is a separate field; never re-add seed literals); structured sections editor, not the export's markdown box; tag chip picker + text input; `?q=` searches the whole post; `publishedAt` stamped at publish; full dates via `formatDate`; multi-tag AND; CLEAR ALL `var(--danger)`; search row is a `<form role="search">`; chips = in-use published tags; impact vs inUse filters differ on purpose; slug route returns `index` + `total`; view counter renders nothing below one; `← BACK TO RESULTS` via router state; inline not-found keeps the URL; reading view uses no `Reveal`, two `← ALL POSTS`; `/blog` scrolls to top on PUSH only.
-- Projects: drafts (`$ne: false`), upload-only picture, `tech` picker; big card by `order` + terminal, ≤4 home; each featured card `★ FEATURED`; ClearDrive 10 pills. Skills: no drafts, level dots, owner-managed sections, three-choice section delete, drag-and-drop. Blog + Messages (PF-115): model-enforced drafts, star + client-side search.
+- Projects: drafts (`$ne: false`), upload-only picture, `tech` picker; big card by `order`, ≤4 home; each featured card `★ FEATURED`; ClearDrive 10 pills. Skills: no drafts, level dots, owner-managed sections, three-choice section delete, drag-and-drop. Blog + Messages (PF-115): model-enforced drafts, star + client-side search.
 - One `ConfirmDialog` for every admin delete, focus on CANCEL; its buttons 8×14px/11px, smaller than the prototype (owner, PF-132).
 - CORS dev-port range in non-production only. Vocabulary delete cascades behind an impact confirm.
 
@@ -415,8 +414,9 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-141: every limiter counts in MongoDB (`MongoStore`, one instance + prefix per limiter, one atomic upsert, DB clock); `globalLimiter` fails OPEN, route limiters CLOSED; the store calls `connectDB()` itself.
 - PF-130: loading screens only when a wait is REAL — 300 ms delay, NO minimum time, hand-off keeps it up; session/page-code/post only (`LoadingScreen`, `BrandMark`).
 - PF-144: picture-ON-TOP `ProjectCard`, 1 link, no numerals/slider (REVERSED); `/projects` = /blog search; `/projects/:slug` = Blog sections + GitHub/LIVE; slug: Certificate's rule. Section pictures ONLY via the `media` ledger; forgiving search. Errors: plain words (`friendlyError`), ONE `ErrorCard` (red `!`).
-- PF-138: 1-typo search (5–12 letters; gaps follow REQUIRED letters = no ReDoS); picture reorder staged; opacity gone (014); terminal → public stats box (S16).
+- PF-138: 1-typo search (5–12 letters; gaps follow REQUIRED letters = no ReDoS); picture reorder staged; opacity gone (014).
 - PF-143: home TEXT ONLY (≤6, VIEW ALL); `/certificates/:slug?` big view; PDF = `pg_1`; words FIXED; `EntryListPanel`; certs: 1 tag = 1 pill, pins lead + drag order; demo rows throwaway DBs only.
+- PF-150: terminal GONE → `SiteNumbersBox`: real numbers from day 0, VISITS, 5-VISIT country rule, no LIVE, one hue per subject; own answer.
 - PF-145: own visitor counter, daily totals only; /privacy's words are PROMISES — change them with the behaviour.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
