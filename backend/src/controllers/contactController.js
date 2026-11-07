@@ -1,6 +1,7 @@
 const { body }   = require('express-validator');
 const { waitUntil } = require('@vercel/functions');
 const Contact    = require('../models/Contact');
+const SentReply  = require('../models/SentReply');
 const About      = require('../models/About');
 const User       = require('../models/User');
 const AppError  = require('../utils/AppError');
@@ -141,13 +142,35 @@ const submitContact = async (req, res, next) => {
   }
 };
 
+/**
+ * PF-154 — each message with the replies the owner sent to it, read from the
+ * SENT record (models/SentReply.js), oldest first. That record is the one
+ * source: a row still carrying PF-153's own `replies` copy has it dropped here,
+ * so the two can never disagree (migration 016 moved those copies across).
+ */
+const withReplies = async (messages) => {
+  const docs = messages.map((m) => (typeof m.toObject === 'function' ? m.toObject() : m));
+  const sent = await SentReply.find({ contact: { $in: docs.map((d) => d._id) } })
+    .sort({ sentAt: 1, _id: 1 }).select('contact message sentAt').lean();
+  const byContact = new Map();
+  for (const r of sent) {
+    const key = String(r.contact);
+    if (!byContact.has(key)) byContact.set(key, []);
+    byContact.get(key).push({ _id: r._id, message: r.message, sentAt: r.sentAt });
+  }
+  return docs.map(({ replies: _pf153Copy, ...doc }) => {
+    const replies = byContact.get(String(doc._id));
+    return replies ? { ...doc, replies } : doc;
+  });
+};
+
 // ── GET /api/contact ─────────────────────────────────────────────────────────
 // Protected — admin only (JWT protect added in PF-35)
 const getAllMessages = async (req, res, next) => {
   try {
     // Newest messages first, unread first
     const messages = await Contact.find().sort({ read: 1, createdAt: -1 });
-    res.json({ status: 'success', data: messages });
+    res.json({ status: 'success', data: await withReplies(messages) });
   } catch (err) {
     next(err);
   }
@@ -222,6 +245,7 @@ const deleteMessage = async (req, res, next) => {
 //
 // Sent BEFORE the response, unlike the contact email: the owner is waiting to
 // know it went. Answering a message is handling it, so it also becomes read.
+const REPLY_SUBJECT = 'Re: Your message to Parindra Gallage';
 const MAX_REPLY_LENGTH = 3000; // 9 kB at most in any language: inside the 10 kb body limit
 
 const replyRules = [
@@ -251,7 +275,7 @@ const replyToMessage = async (req, res, next) => {
         sender:  'reply',
         to:      contact.email,
         replyTo: owner.email,
-        subject: 'Re: Your message to Parindra Gallage',
+        subject: REPLY_SUBJECT,
         text: `${message}\n\nOn ${date}, you wrote:\n${contact.message.replace(/^/gm, '> ')}\n`,
         html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222">
 <p style="margin:0 0 20px;white-space:pre-wrap">${e(message)}</p>
@@ -265,12 +289,31 @@ const replyToMessage = async (req, res, next) => {
       return next(new AppError("Your reply wasn't sent. Please try again in a moment.", 503));
     }
 
-    const updated = await Contact.findByIdAndUpdate(
-      contact._id,
-      { $push: { replies: { message, sentAt: new Date() } }, read: true },
-      { returnDocument: 'after' },
-    );
-    res.json({ status: 'success', data: updated });
+    // PF-154: from here the email HAS gone, so nothing below may answer
+    // "not sent" — the owner would send it twice. A record that could not be
+    // saved is said plainly instead (`recorded: false`).
+    let recorded = true;
+    try {
+      await SentReply.create({
+        contact:  contact._id,
+        toName:   contact.name,
+        toEmail:  contact.email,
+        subject:  REPLY_SUBJECT,
+        message,
+        original: { message: contact.message, receivedAt: contact.createdAt },
+        sentAt:   new Date(),
+      });
+    } catch (err) {
+      recorded = false;
+      console.error(`[PF-154] Reply to ${contact._id} sent but not recorded: ${err.message}`);
+    }
+    const updated = await Contact.findByIdAndUpdate(contact._id, { read: true }, { returnDocument: 'after' })
+      .catch((err) => {
+        console.error(`[PF-154] Reply to ${contact._id} sent but not marked read: ${err.message}`);
+        return null;
+      });
+    const [data] = await withReplies([updated || contact]).catch(() => [updated || contact]);
+    res.json({ status: 'success', data, recorded });
   } catch (err) {
     next(err);
   }

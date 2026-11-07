@@ -16,12 +16,20 @@ const {
   replyRules,
   replyToMessage,
 } = require('../controllers/contactController');
+const {
+  getSentReplies, deleteSentReply, sentBulkRules, deleteSentReplies,
+} = require('../controllers/sentReplyController');
 
 
 // PF-120: its own limiter — the form is public, and every stored message will
 // become an email (PF-123).
 router.post('/', contactLimiter, contactRules, validate, submitContact);
 router.get('/',           protect, getAllMessages);
+// PF-154: the SENT list. Before every `/:id` route, so `sent` is never read as
+// a message id.
+router.get('/sent',         protect, getSentReplies);
+router.post('/sent/bulk',   protect, sentBulkRules, validate, deleteSentReplies);
+router.delete('/sent/:id',  protect, deleteSentReply);
 router.post('/bulk',      protect, bulkRules, validate, bulkMessages);
 router.post('/:id/reply', protect, replyLimiter, replyRules, validate, replyToMessage);
 router.patch('/:id/read', protect, readRules, validate, markAsRead);
