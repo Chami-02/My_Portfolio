@@ -4,10 +4,10 @@
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { act, render, screen, within } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { cleanup, act, render, screen, within } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import postcss from 'postcss';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '../../providers/ThemeProvider';
 import { MotionProvider } from '../../providers/MotionProvider';
@@ -15,9 +15,7 @@ import { MotionProvider } from '../../providers/MotionProvider';
 // vi.mock, not vi.spyOn on the module namespace — Vite's SSR transform
 // defines each export as a getter-only property, so spyOn cannot redefine it.
 const useBlogPost   = vi.hoisted(() => vi.fn());
-const recordViewFn  = vi.hoisted(() => vi.fn());
-const useRecordView = vi.hoisted(() => vi.fn());
-vi.mock('../../hooks/useBlog', () => ({ useBlogPost, useRecordView }));
+vi.mock('../../hooks/useBlog', () => ({ useBlogPost }));
 
 const { BlogPostPage } = await import('../BlogPostPage');
 
@@ -122,7 +120,6 @@ const failed  = (status = 404) => ({ data: undefined, isLoading: false, isError:
  */
 function draw({ query = ok(compound()), state, path = '/blog/docker-compose' } = {}) {
   useBlogPost.mockImplementation(() => query);
-  useRecordView.mockImplementation(() => ({ mutate: recordViewFn }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
     <QueryClientProvider client={client}>
@@ -150,8 +147,6 @@ beforeEach(() => {
   // assertion below pass for the wrong reason.
   sessionStorage.clear();
   useBlogPost.mockReset();
-  useRecordView.mockReset();
-  recordViewFn.mockReset();
 });
 
 // ══ 1. the post body ══════════════════════════════════════════════════
@@ -404,55 +399,138 @@ describe('the removed contact panel', () => {
   });
 });
 
-// ══ 6. the view counter ═══════════════════════════════════════════════
-describe('view counting', () => {
-  it('records one view once the post has loaded', () => {
-    draw();
-    expect(recordViewFn).toHaveBeenCalledTimes(1);
-    expect(recordViewFn).toHaveBeenCalledWith('docker-compose', expect.anything());
+// ══ what search engines read (PF-153) ═════════════════════════════════
+describe('page details for search engines', () => {
+  const head = (selector) => document.head.querySelector(selector);
+
+  it('names the post, its summary and its real address, even from an old link', () => {
+    draw({ path: '/blog/old-address' });
+    expect(document.title).toBe(`${POST.title} — Parindra Gallage`);
+    expect(head('link[rel="canonical"]').getAttribute('href'))
+      .toBe('https://parindragallage.com/blog/docker-compose');
+    const data = JSON.parse(document.getElementById('page-structured-data').textContent);
+    expect(data['@type']).toBe('BlogPosting');
+    expect(data.headline).toBe(POST.title);
   });
 
-  it('does not record a view for a post that failed to load', () => {
-    // ⚠️ The effect is gated on the POST, not on mount. Firing on mount
-    // would PATCH a slug the server answers 404 for — a draft, or a typo
-    // — and count a view on a page nobody could read.
+  it('tells search engines not to list a post that does not exist', () => {
     draw({ query: failed() });
-    expect(recordViewFn).not.toHaveBeenCalled();
+    expect(head('meta[name="robots"]').getAttribute('content')).toBe('noindex');
   });
 
-  it('does not record a second view for the same post in one session', () => {
-    // ⚠️ THE CONTROL IS THE FIRST LINE. Without confirming the first
-    // render DID count, "called once" is satisfied by a component that
-    // never calls at all — the assertion would pass against the feature
-    // being entirely broken.
-    draw();
-    expect(recordViewFn).toHaveBeenCalledTimes(1);
+  it('a busy server is not a missing post: no noindex', () => {
+    draw({ query: failed(429) });
+    expect(head('meta[name="robots"]')).toBeNull();
+  });
+});
 
-    // A fresh mount of the same slug — a Back/Forward, or React 19's
-    // StrictMode double-mount in development. The sessionStorage flag is
-    // written BEFORE the request goes out, so the second run is a
-    // synchronous no-op.
-    draw();
-    expect(recordViewFn).toHaveBeenCalledTimes(1);
+// ══ 6. the read counter (PF-153) ══════════════════════════════════════
+describe('counting a read', () => {
+  const readsSent = () => globalThis.fetch.mock.calls
+    .filter(([url]) => String(url).endsWith('/visits'))
+    .map(([, init]) => JSON.parse(init.body))
+    .filter((body) => body.type === 'read');
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve()));
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
-  it('records a separate view for a different post', () => {
+  it('counts nothing before 6 seconds and one read at 6 seconds', () => {
     draw();
-    draw({ path: '/blog/another-post' });
-    expect(recordViewFn).toHaveBeenCalledTimes(2);
-    expect(recordViewFn).toHaveBeenLastCalledWith('another-post', expect.anything());
+    vi.advanceTimersByTime(5_999);
+    expect(readsSent()).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(readsSent()).toEqual([{ type: 'read', slug: 'docker-compose' }]);
+  });
+
+  it('someone gone within the 6 seconds counts nothing', () => {
+    draw();
+    vi.advanceTimersByTime(5_000);
+    cleanup();
+    vi.advanceTimersByTime(60_000);
+    expect(readsSent()).toEqual([]);
+  });
+
+  it('does not count a post that failed to load', () => {
+    draw({ query: failed() });
+    vi.advanceTimersByTime(60_000);
+    expect(readsSent()).toEqual([]);
+  });
+
+  it('skips the owner\'s browser', () => {
+    localStorage.setItem('pg-owner-device', '1');
+    draw();
+    vi.advanceTimersByTime(60_000);
+    expect(readsSent()).toEqual([]);
+  });
+
+  it('skips a browser asking not to be followed', () => {
+    Object.defineProperty(navigator, 'globalPrivacyControl', { value: true, configurable: true });
+    draw();
+    vi.advanceTimersByTime(60_000);
+    expect(readsSent()).toEqual([]);
+    delete navigator.globalPrivacyControl;
+  });
+
+  it('does not send a second read for the same post in one session', () => {
+    // The control is the first assertion: "called once" alone is satisfied by
+    // a component that never calls at all.
+    draw();
+    vi.advanceTimersByTime(6_000);
+    expect(readsSent()).toHaveLength(1);
+
+    draw();
+    vi.advanceTimersByTime(6_000);
+    expect(readsSent()).toHaveLength(1);
+  });
+
+  it('sends a separate read for a different post', () => {
+    draw();
+    vi.advanceTimersByTime(6_000);
+    draw({ query: ok({ ...compound(), post: { ...POST, slug: 'another-post' } }), path: '/blog/another-post' });
+    vi.advanceTimersByTime(6_000);
+    expect(readsSent().map((r) => r.slug)).toEqual(['docker-compose', 'another-post']);
+  });
+
+  // PF-153: `forwarded` is what stops VisitTracker counting one page twice.
+  it('an old link forwards to the post\'s address, then counts one read there', () => {
+    function Address() {
+      const { pathname, state } = useLocation();
+      return <span data-testid="address">{pathname}|{String(state?.forwarded)}</span>;
+    }
+    useBlogPost.mockImplementation(() => ok(compound()));
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/blog/old-address']}>
+          <ThemeProvider><MotionProvider>
+            <Routes><Route path="/blog/:slug" element={<BlogPostPage />} /></Routes>
+            <Address />
+          </MotionProvider></ThemeProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByTestId('address')).toHaveTextContent('/blog/docker-compose|true');
+    vi.advanceTimersByTime(6_000);
+    expect(readsSent()).toEqual([{ type: 'read', slug: 'docker-compose' }]);
   });
 
   it('still renders the post when sessionStorage throws', () => {
     // ⚠️ Not hypothetical: sessionStorage THROWS outright in some privacy
-    // modes rather than returning null. An unguarded read would blank the
-    // whole reading view over a telemetry counter.
+    // modes rather than returning null.
     const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('denied');
     });
     const c = draw();
+    vi.advanceTimersByTime(6_000);
     expect(pick(c, 'title').textContent).toBe(POST.title);
-    expect(recordViewFn).not.toHaveBeenCalled();   // under-counts, never crashes
+    expect(readsSent()).toEqual([]);   // under-counts, never crashes
     spy.mockRestore();
   });
 });

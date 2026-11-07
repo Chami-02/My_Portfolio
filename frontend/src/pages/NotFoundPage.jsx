@@ -1,5 +1,6 @@
 /* frontend/src/pages/NotFoundPage.jsx */
 import { ErrorPage } from '../components/common/ErrorPage';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 /**
  * The 404 page. Since PF-144 (owner, 2026-11-03: "make full size error pages
@@ -8,6 +9,9 @@ import { ErrorPage } from '../components/common/ErrorPage';
  * uppercase display heading and its own stylesheet are gone.
  */
 export function NotFoundPage() {
+  // The server answers 200 for every address, so this is what tells Google.
+  usePageMeta({ title: 'Page not found', noindex: true });
+
   return (
     <ErrorPage
       label="ERROR 404"

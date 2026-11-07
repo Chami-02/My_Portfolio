@@ -4,6 +4,7 @@ const AppError = require('../utils/AppError');
 const storage  = require('../services/storage');
 const { isAllowedImage, isPdf } = require('../utils/fileType');
 const { MAX_IMAGE_BYTES } = require('../middleware/upload');
+const { moveTotals } = require('../services/visitTotals');
 
 // PF-143 — the controller for a plain ORDERED LIST of owner-written entries:
 // Education and Certificates. Both have exactly the same life (draft → publish,
@@ -82,7 +83,7 @@ const reorderRules = [
  * @param {object} [opts.sort]       the lists' order, when it is more than the drag order —
  *                                   certificates: pinned first, then dragged (owner, 2026-11-02)
  */
-const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = false, isNewer, sort = SORT }) => {
+const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = false, isNewer, sort = SORT, pagePrefix }) => {
   const mediaFolder = () => `${process.env.CLOUDINARY_FOLDER || 'portfolio'}/${folder}`;
 
   const writeError = (err, next) => {
@@ -140,8 +141,11 @@ const makeEntryController = ({ Model, label, fields, media, folder, allowPdf = f
       const { data, error } = payload(fields, req.body);
       if (error) return next(new AppError(error, 400));
       const doc = await find(req.params.id);
+      const oldSlug = doc.slug;
       doc.set(data);
       await doc.save();
+      // Only a list with pages of its own has totals to move (certificates).
+      if (pagePrefix) await moveTotals(`${pagePrefix}${oldSlug}`, `${pagePrefix}${doc.slug}`);
       res.json({ status: 'success', data: doc });
     } catch (err) { writeError(err, next); }
   };

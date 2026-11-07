@@ -221,3 +221,29 @@ describe('VisitTracker', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+// PF-153 — an old link to a renamed post forwards. One page, counted when it opened.
+describe('VisitTracker — a forward from an old link', () => {
+  const forwardLink = <Link to="/blog/new-address" state={{ forwarded: true }}>forward</Link>;
+
+  it('counts no second view, and is no "second page"', async () => {
+    // Not `settle`: that runs the engagement clock out too.
+    const moment = () => act(async () => { vi.advanceTimersByTime(500); });
+    renderAt('/blog/old-address', forwardLink);
+    await moment();
+    fireEvent.click(screen.getByText('forward'));
+    await moment();
+    // Not engaged by the forward: nothing has gone out yet.
+    expect(sent()).toEqual([]);
+
+    await act(async () => { vi.advanceTimersByTime(ENGAGED_AFTER_MS); });
+    expect(sent().filter((p) => p.type === 'view').map((p) => p.path)).toEqual(['/blog/old-address']);
+  });
+
+  it('a reload of the new address, carrying the same mark in history, counts', async () => {
+    renderAt({ pathname: '/blog/new-address', state: { forwarded: true } });
+    await settle();
+    await act(async () => { vi.advanceTimersByTime(ENGAGED_AFTER_MS); });
+    expect(sent().filter((p) => p.type === 'view').map((p) => p.path)).toEqual(['/blog/new-address']);
+  });
+});

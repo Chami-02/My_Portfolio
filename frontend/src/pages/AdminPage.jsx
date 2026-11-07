@@ -1,4 +1,5 @@
 import { useState }              from 'react';
+import { useSearchParams }       from 'react-router-dom';
 import { AdminLayout }           from '../components/admin/AdminLayout';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { AdminFlashProvider }    from '../components/admin/AdminFlashProvider';
@@ -33,7 +34,9 @@ export function AdminPage() {
   // click never does. It is read only where the blog panel is rendered
   // — the other panels mount with their create form already showing, so
   // for them the tab IS the action.
-  const [nav, setNav] = useState({ tab: 'overview', compose: false });
+  // PF-153: a reload with a message open comes back to it.
+  const [params] = useSearchParams();
+  const [nav, setNav] = useState({ tab: params.has('message') ? 'messages' : 'overview', compose: false });
   const activeTab = nav.tab;
   const ActivePanel = PANELS[activeTab] || AdminOverviewPanel;
 

@@ -174,9 +174,14 @@ describe('nothing else purges', () => {
 
   // Visitor writes succeed but carry no session — a reader counting a view
   // must not wipe the whole cache.
-  it('a blog view', async () => {
+  it('a blog read', async () => {
     const post = await makePost();
-    await request(app).patch(`/api/blog/${post.slug}/view`).expect(200);
+    await request(app).post('/api/visits')
+      .set('Origin', 'http://localhost:5173')
+      .set('User-Agent', 'Mozilla/5.0 Chrome/130.0 Safari/537.36')
+      .send({ type: 'read', slug: post.slug })
+      .expect(204);
+    expect((await Blog.findById(post._id)).views).toBe(1);
     expect(purge.dangerouslyDeleteByTag).not.toHaveBeenCalled();
   });
 

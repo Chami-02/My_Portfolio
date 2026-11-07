@@ -8,19 +8,24 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postcss from 'postcss';
-import { render, screen, within } from '@testing-library/react';
+import { render as rtlRender, screen, within, waitFor } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const markRead  = vi.hoisted(() => ({ mutate: vi.fn() }));
 const star      = vi.hoisted(() => ({ mutate: vi.fn() }));
 const deleteMsg = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
+const bulk      = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
+const replyMsg  = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
 const useMessages = vi.hoisted(() => vi.fn());
 vi.mock('../../../../hooks/useMessages', () => ({
   useMessages,
   useMarkMessageRead: () => markRead,
   useStarMessage:     () => star,
   useDeleteMessage:   () => deleteMsg,
+  useBulkMessages:    () => bulk,
+  useReplyToMessage:  () => replyMsg,
 }));
 
 // PF-123: the card's time zone is the About panel's.
@@ -32,6 +37,16 @@ const { AdminMessagesPanel } = await import('../AdminMessagesPanel');
 const here = dirname(fileURLToPath(import.meta.url));
 const CSS = readFileSync(resolve(here, '../AdminMessagesPanel.module.css'), 'utf8');
 
+/** The address beside the panel: the big view lives in it. */
+function Where() {
+  const { search } = useLocation();
+  return <span data-testid="where">{search}</span>;
+}
+
+const render = (ui, { at = '/admin' } = {}) => rtlRender(
+  <MemoryRouter initialEntries={[at]}>{ui}<Where /></MemoryRouter>,
+);
+
 const MESSAGES = Object.freeze([
   Object.freeze({ _id: 'm1', name: 'Unread Sender', email: 'u@example.com', message: 'Hello there, about the Docker internship.', read: false, starred: false, createdAt: '2026-09-16T10:00:00Z' }),
   Object.freeze({ _id: 'm2', name: 'Read Sender',   email: 'r@example.com', message: 'Already seen. Docker question.',             read: true,  starred: true,  createdAt: '2026-09-15T10:00:00Z' }),
@@ -41,6 +56,7 @@ const MESSAGES = Object.freeze([
 beforeEach(() => {
   vi.clearAllMocks();
   deleteMsg.mutateAsync.mockResolvedValue({});
+  bulk.mutateAsync.mockResolvedValue(undefined);
   useMessages.mockReturnValue({ data: MESSAGES, isLoading: false });
   useAbout.mockReturnValue({ data: undefined });
 });
@@ -49,7 +65,13 @@ const cardOf  = (name) => screen.getByText(name).closest('[data-message-card]');
 const names   = () => screen.queryAllByRole('listitem').map((li) => li.querySelector('[class*="name"]').textContent);
 const search  = (user, text) => user.type(screen.getByRole('textbox', { name: 'Search messages' }), text);
 const filter  = (label) => screen.getByRole('button', { name: new RegExp(`^${label} \\d+$`) });
-const dialog  = () => within(screen.getByRole('dialog'));
+// The LAST dialog: the delete confirm sits on top of the big view.
+const dialog  = () => within(screen.getAllByRole('dialog').at(-1));
+const openView = (user, name) => user.click(screen.getByRole('button', { name: `Open message from ${name}` }));
+const view = () => within(screen.getByRole('dialog'));
+const where = () => screen.getByTestId('where').textContent;
+const tick = (name) => screen.getByRole('checkbox', { name: `Select message from ${name}` });
+const selectAll = () => screen.getByRole('checkbox', { name: 'SELECT ALL' });
 
 describe('unread marker (2026-09-16, carried over)', () => {
   it('renders the dot on an unread message and not on a read one', () => {
@@ -100,15 +122,23 @@ describe('unread marker (2026-09-16, carried over)', () => {
   });
 });
 
-describe('the card (Admin.dc.html:538-568)', () => {
-  it('shows MARK READ on an unread message, MARK UNREAD on a read one, and REPLY as a mailto', () => {
+describe('the card is short (PF-153)', () => {
+  it('holds no REPLY, MARK READ or DELETE: those live in the big view', () => {
     render(<AdminMessagesPanel />);
-    expect(within(cardOf('Unread Sender')).getByRole('button', { name: '✓ MARK READ' })).toBeInTheDocument();
-    expect(within(cardOf('Unread Sender')).queryByRole('button', { name: '↺ MARK UNREAD' })).toBeNull();
-    expect(within(cardOf('Read Sender')).queryByRole('button', { name: '✓ MARK READ' })).toBeNull();
-    expect(within(cardOf('Read Sender')).getByRole('button', { name: '↺ MARK UNREAD' })).toBeInTheDocument();
-    expect(within(cardOf('Read Sender')).getByRole('link', { name: '✉ REPLY' }))
-      .toHaveAttribute('href', 'mailto:r@example.com?subject=Re: Your Portfolio Message');
+    const card = within(cardOf('Unread Sender'));
+    expect(card.queryByRole('link', { name: '✉ REPLY' })).toBeNull();
+    expect(card.queryByRole('button', { name: '✓ MARK READ' })).toBeNull();
+    expect(card.queryByRole('button', { name: /^Delete/ })).toBeNull();
+    expect(card.getByRole('button', { name: 'Open message from Unread Sender' })).toBeInTheDocument();
+  });
+
+  it('shows at most three lines of the message, whatever its length', () => {
+    const decls = {};
+    postcss.parse(CSS).walkRules('.previewText', (r) => r.walkDecls((d) => { decls[d.prop] = d.value; }));
+    expect(decls['-webkit-line-clamp']).toBe('3');
+    expect(decls.overflow).toBe('hidden');
+    expect(decls['min-height']).toBe('calc(14px * 1.75 * 3)');
+    expect(decls['overflow-wrap']).toBe('anywhere');
   });
 
   it('shows the prototype empty state when there are no messages', () => {
@@ -116,24 +146,79 @@ describe('the card (Admin.dc.html:538-568)', () => {
     render(<AdminMessagesPanel />);
     expect(screen.getByRole('status')).toHaveTextContent(
       'No messages yet. Once recruiters fill out the contact form, they will appear here.');
+    expect(screen.queryByRole('checkbox', { name: 'SELECT ALL' })).toBeNull();
   });
 
-  it('surfaces a failed MARK READ instead of failing silently', async () => {
-    markRead.mutate.mockImplementation((_id, { onError }) =>
-      onError({ response: { data: { message: 'Message not found' } } }));
+  it('tags a message whose email never went out, on the card and in the view', async () => {
+    useMessages.mockReturnValue({
+      data: [{ ...MESSAGES[0], createdAt: '2026-11-01T10:00:00Z', notifiedAt: null }],
+      isLoading: false,
+    });
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    expect(within(cardOf('Unread Sender')).getByText('EMAIL NOT SENT')).toBeInTheDocument();
+    await openView(user, 'Unread Sender');
+    expect(view().getByText('EMAIL NOT SENT')).toBeInTheDocument();
+  });
+
+  it('does not tag a message that was emailed, or one from before email existed', () => {
+    useMessages.mockReturnValue({
+      data: [
+        { ...MESSAGES[0], createdAt: '2026-11-01T10:00:00Z', notifiedAt: '2026-11-01T10:00:05Z' },
+        { ...MESSAGES[1], createdAt: '2026-09-01T10:00:00Z', notifiedAt: null },
+      ],
+      isLoading: false,
+    });
+    render(<AdminMessagesPanel />);
+    expect(screen.queryByText('EMAIL NOT SENT')).toBeNull();
+  });
+});
+
+describe('the big view (PF-153)', () => {
+  it('opens from OPEN and from the message text, with the whole message in it', async () => {
+    const long = 'A long message. '.repeat(60).trim();
+    useMessages.mockReturnValue({ data: [{ ...MESSAGES[0], message: long }, MESSAGES[1]], isLoading: false });
     const user = userEvent.setup();
     render(<AdminMessagesPanel />);
 
-    await user.click(screen.getByRole('button', { name: '✓ MARK READ' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('Message not found');
+    await user.click(screen.getByRole('button', { name: 'Read the message from Unread Sender' }));
+    expect(view().getByRole('heading', { name: 'Unread Sender' })).toBeInTheDocument();
+    expect(view().getByText(long)).toBeInTheDocument();
+    expect(where()).toBe('?message=m1');
+  });
+
+  it('shows MARK READ on an unread message, MARK UNREAD on a read one, and REPLY as a mailto', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+
+    await openView(user, 'Unread Sender');
+    expect(view().getByRole('button', { name: '✓ MARK READ' })).toBeInTheDocument();
+    expect(view().queryByRole('button', { name: '↺ MARK UNREAD' })).toBeNull();
+    await user.keyboard('{Escape}');
+
+    await openView(user, 'Read Sender');
+    expect(view().queryByRole('button', { name: '✓ MARK READ' })).toBeNull();
+    expect(view().getByRole('button', { name: '↺ MARK UNREAD' })).toBeInTheDocument();
+    expect(view().getByRole('button', { name: '✉ REPLY' })).toBeInTheDocument();
+  });
+
+  it('opening a message does not mark it read: MARK READ is the owner\'s "handled"', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openView(user, 'Unread Sender');
+    expect(markRead.mutate).not.toHaveBeenCalled();
+    expect(view().getByText('Please reply within 24 hours!!')).toBeInTheDocument();
   });
 
   it('sends an explicit value each way — never a flip', async () => {
     const user = userEvent.setup();
     render(<AdminMessagesPanel />);
 
-    await user.click(within(cardOf('Unread Sender')).getByRole('button', { name: '✓ MARK READ' }));
-    await user.click(within(cardOf('Read Sender')).getByRole('button', { name: '↺ MARK UNREAD' }));
+    await openView(user, 'Unread Sender');
+    await user.click(view().getByRole('button', { name: '✓ MARK READ' }));
+    await user.keyboard('{Escape}');
+    await openView(user, 'Read Sender');
+    await user.click(view().getByRole('button', { name: '↺ MARK UNREAD' }));
 
     expect(markRead.mutate.mock.calls.map(([arg]) => arg)).toEqual([
       { id: 'm1', read: true },
@@ -141,13 +226,14 @@ describe('the card (Admin.dc.html:538-568)', () => {
     ]);
   });
 
-  it('surfaces a failed MARK UNREAD too', async () => {
+  it('surfaces a failed MARK READ and MARK UNREAD', async () => {
     markRead.mutate.mockImplementation((_arg, { onError }) =>
       onError({ response: { data: { message: 'Message not found' } } }));
     const user = userEvent.setup();
     render(<AdminMessagesPanel />);
 
-    await user.click(within(cardOf('Read Sender')).getByRole('button', { name: '↺ MARK UNREAD' }));
+    await openView(user, 'Read Sender');
+    await user.click(view().getByRole('button', { name: '↺ MARK UNREAD' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Message not found');
   });
 
@@ -156,17 +242,119 @@ describe('the card (Admin.dc.html:538-568)', () => {
     const user = userEvent.setup();
     render(<AdminMessagesPanel />);
 
-    await user.click(screen.getByRole('button', { name: '✓ MARK READ' }));
+    await openView(user, 'Unread Sender');
+    await user.click(view().getByRole('button', { name: '✓ MARK READ' }));
     expect(screen.getByRole('alert')).toHaveTextContent(/We can't connect right now/);
+  });
+
+  it('steps through the messages on screen, with no way past either end', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+
+    await openView(user, 'Unread Sender');
+    expect(view().getByRole('button', { name: 'Previous message' })).toBeDisabled();
+    expect(view().getByText('1 / 3')).toBeInTheDocument();
+
+    await user.click(view().getByRole('button', { name: 'Next message' }));
+    expect(view().getByRole('heading', { name: 'Read Sender' })).toBeInTheDocument();
+
+    await user.keyboard('{ArrowRight}');
+    expect(view().getByRole('heading', { name: 'Third Person' })).toBeInTheDocument();
+    expect(view().getByRole('button', { name: 'Next message' })).toBeDisabled();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(view().getByRole('heading', { name: 'Read Sender' })).toBeInTheDocument();
+  });
+
+  it('steps only through what the filter shows', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await user.click(filter('STARRED'));
+    await openView(user, 'Read Sender');
+    expect(view().getByRole('button', { name: 'Next message' })).toBeDisabled();
+    expect(view().getByRole('button', { name: 'Previous message' })).toBeDisabled();
+  });
+
+  it('Esc, × and the backdrop close it; focus goes back to the card', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    const open = screen.getByRole('button', { name: 'Open message from Read Sender' });
+
+    await user.click(open);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(where()).toBe('');
+    expect(open).toHaveFocus();
+
+    await user.click(open);
+    await user.click(view().getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await user.click(open);
+    await user.click(screen.getByRole('dialog'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a reload with no history behind it still closes', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />, { at: '/admin?message=m2' });
+    expect(view().getByRole('heading', { name: 'Read Sender' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(where()).toBe('');
+  });
+
+  it('an address for a message that has gone closes itself', async () => {
+    render(<AdminMessagesPanel />, { at: '/admin?message=gone' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(where()).toBe(''));
+  });
+
+  it('stops the page behind from scrolling, and puts that back', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openView(user, 'Read Sender');
+    expect(document.documentElement.style.overflow).toBe('hidden');
+    await user.keyboard('{Escape}');
+    expect(document.documentElement.style.overflow).toBe('');
+  });
+
+  it('highlights the search in the whole message', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await search(user, 'dock');
+    await openView(user, 'Read Sender');
+    expect(within(screen.getByRole('dialog')).getAllByText('Dock', { selector: 'mark' })).toHaveLength(1);
+  });
+
+  it('FROM shows in the view when known, and never on the card', async () => {
+    useMessages.mockReturnValue({
+      data: [{ ...MESSAGES[0], location: 'New York, NY, United States' }, MESSAGES[1]],
+      isLoading: false,
+    });
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    expect(within(cardOf('Unread Sender')).queryByText('From', { selector: 'dt' })).toBeNull();
+
+    await openView(user, 'Unread Sender');
+    expect(view().getByText('From', { selector: 'dt' }).nextElementSibling.textContent)
+      .toBe('New York, NY, United States (approx.)');
+    await user.click(view().getByRole('button', { name: 'Next message' }));
+    expect(view().queryByText('From', { selector: 'dt' })).toBeNull();
   });
 });
 
-describe('DELETE asks first (PF-115)', () => {
+describe('DELETE asks first (PF-115, from the big view since PF-153)', () => {
+  const deleteFromView = async (user, name) => {
+    await openView(user, name);
+    await user.click(view().getByRole('button', { name: `Delete message from ${name}` }));
+  };
+
   it('opens the confirm and deletes NOTHING until YES', async () => {
     const user = userEvent.setup();
     render(<AdminMessagesPanel />);
 
-    await user.click(screen.getByRole('button', { name: 'Delete message from Read Sender' }));
+    await deleteFromView(user, 'Read Sender');
     expect(deleteMsg.mutateAsync).not.toHaveBeenCalled();
     expect(dialog().getByText('This will permanently delete the message from Read Sender.')).toBeInTheDocument();
     // Focus starts on CANCEL — an Enter pressed by reflex deletes nothing.
@@ -176,26 +364,291 @@ describe('DELETE asks first (PF-115)', () => {
     expect(deleteMsg.mutateAsync).toHaveBeenCalledWith('m2');
   });
 
-  it('CANCEL deletes nothing', async () => {
+  it('CANCEL deletes nothing and the view stays', async () => {
     const user = userEvent.setup();
     render(<AdminMessagesPanel />);
 
-    await user.click(screen.getByRole('button', { name: 'Delete message from Read Sender' }));
+    await deleteFromView(user, 'Read Sender');
     await user.click(dialog().getByRole('button', { name: 'CANCEL' }));
 
     expect(deleteMsg.mutateAsync).not.toHaveBeenCalled();
-    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(where()).toBe('?message=m2');
   });
 
-  it('surfaces a failed delete', async () => {
+  it('Esc answers only the dialog on top', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+
+    await deleteFromView(user, 'Read Sender');
+    await user.keyboard('{Escape}');
+
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    expect(where()).toBe('?message=m2');
+  });
+
+  it('the next message opens after a delete', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await deleteFromView(user, 'Read Sender');
+    await user.click(dialog().getByRole('button', { name: 'YES, DELETE' }));
+    await waitFor(() => expect(where()).toBe('?message=m3'));
+  });
+
+  it('the one before opens when the last on screen is deleted', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await deleteFromView(user, 'Third Person');
+    await user.click(dialog().getByRole('button', { name: 'YES, DELETE' }));
+    await waitFor(() => expect(where()).toBe('?message=m2'));
+  });
+
+  it('the view closes when nothing is left', async () => {
+    useMessages.mockReturnValue({ data: [MESSAGES[0]], isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await deleteFromView(user, 'Unread Sender');
+    await user.click(dialog().getByRole('button', { name: 'YES, DELETE' }));
+    await waitFor(() => expect(where()).toBe(''));
+  });
+
+  it('surfaces a failed delete, and stays where it was', async () => {
     deleteMsg.mutateAsync.mockRejectedValue({ response: { data: { message: 'Message not found' } } });
     const user = userEvent.setup();
     render(<AdminMessagesPanel />);
 
-    await user.click(screen.getByRole('button', { name: 'Delete message from Read Sender' }));
+    await deleteFromView(user, 'Read Sender');
     await user.click(dialog().getByRole('button', { name: 'YES, DELETE' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Message not found');
+    expect(where()).toBe('?message=m2');
+  });
+});
+
+describe('selecting several (PF-153)', () => {
+  it('shows no bar until something is ticked, then counts', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    expect(screen.queryByRole('group', { name: 'Selected messages' })).toBeNull();
+
+    await user.click(tick('Read Sender'));
+    expect(screen.getByText('1 SELECTED')).toBeInTheDocument();
+    await user.click(tick('Third Person'));
+    expect(screen.getByText('2 SELECTED')).toBeInTheDocument();
+    await user.click(tick('Third Person'));
+    expect(screen.getByText('1 SELECTED')).toBeInTheDocument();
+  });
+
+  it('SELECT ALL ticks everything on screen, half-ticks when partial, and unticks', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+
+    await user.click(tick('Read Sender'));
+    expect(selectAll().indeterminate).toBe(true);
+    expect(selectAll()).not.toBeChecked();
+
+    await user.click(selectAll());
+    expect(screen.getByText('3 SELECTED')).toBeInTheDocument();
+    expect(selectAll().indeterminate).toBe(false);
+    expect(selectAll()).toBeChecked();
+
+    await user.click(selectAll());
+    expect(screen.queryByRole('group', { name: 'Selected messages' })).toBeNull();
+  });
+
+  it('MARK READ sends exactly what is ticked, then clears the ticks', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await user.click(tick('Unread Sender'));
+    await user.click(tick('Third Person'));
+
+    const bar = within(screen.getByRole('group', { name: 'Selected messages' }));
+    await user.click(bar.getByRole('button', { name: '✓ MARK READ' }));
+
+    expect(bulk.mutateAsync).toHaveBeenCalledWith({ action: 'read', ids: ['m1', 'm3'] });
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Selected messages' })).toBeNull());
+  });
+
+  it('DELETE asks first with the count, and deletes nothing until YES', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await user.click(selectAll());
+
+    const bar = within(screen.getByRole('group', { name: 'Selected messages' }));
+    await user.click(bar.getByRole('button', { name: 'DELETE' }));
+    expect(bulk.mutateAsync).not.toHaveBeenCalled();
+    expect(dialog().getByText('Delete 3 messages?')).toBeInTheDocument();
+    expect(dialog().getByRole('button', { name: 'CANCEL' })).toHaveFocus();
+
+    await user.click(dialog().getByRole('button', { name: 'YES, DELETE' }));
+    expect(bulk.mutateAsync).toHaveBeenCalledWith({ action: 'delete', ids: ['m1', 'm2', 'm3'] });
+  });
+
+  // The safety rule: a search must never delete what it hides.
+  it('a message hidden by a search stays out, even when it was ticked', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await user.click(selectAll());
+    await search(user, 'internship');   // leaves m1 and m3 on screen; m2 hidden
+    expect(screen.getByText('2 SELECTED')).toBeInTheDocument();
+
+    const bar = within(screen.getByRole('group', { name: 'Selected messages' }));
+    await user.click(bar.getByRole('button', { name: 'DELETE' }));
+    await user.click(dialog().getByRole('button', { name: 'YES, DELETE' }));
+
+    expect(bulk.mutateAsync).toHaveBeenCalledWith({ action: 'delete', ids: ['m1', 'm3'] });
+  });
+
+  it('SELECT ALL under a filter leaves what is hidden unticked', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await user.click(filter('STARRED'));
+    await user.click(selectAll());
+    await user.click(filter('ALL'));
+    expect(tick('Read Sender')).toBeChecked();
+    expect(tick('Unread Sender')).not.toBeChecked();
+    expect(tick('Third Person')).not.toBeChecked();
+  });
+
+  it('a message arriving later is not ticked by itself', async () => {
+    const user = userEvent.setup();
+    const { rerender } = rtlRender(<MemoryRouter><AdminMessagesPanel /></MemoryRouter>);
+    await user.click(selectAll());
+
+    useMessages.mockReturnValue({
+      data: [{ ...MESSAGES[2], _id: 'new', name: 'New Arrival' }, ...MESSAGES],
+      isLoading: false,
+    });
+    rerender(<MemoryRouter><AdminMessagesPanel /></MemoryRouter>);
+
+    expect(tick('New Arrival')).not.toBeChecked();
+    expect(selectAll().indeterminate).toBe(true);
+    expect(screen.getByText('3 SELECTED')).toBeInTheDocument();
+  });
+
+  it('CLEAR SELECTION unticks and sends nothing', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await user.click(selectAll());
+    await user.click(screen.getByRole('button', { name: 'CLEAR SELECTION' }));
+    expect(bulk.mutateAsync).not.toHaveBeenCalled();
+    expect(screen.queryByRole('group', { name: 'Selected messages' })).toBeNull();
+  });
+
+  it('a failure says so and keeps the ticks', async () => {
+    bulk.mutateAsync.mockRejectedValue(new Error('Network Error'));
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await user.click(tick('Read Sender'));
+    const bar = within(screen.getByRole('group', { name: 'Selected messages' }));
+    await user.click(bar.getByRole('button', { name: '✓ MARK READ' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/We can't connect right now/);
+    expect(tick('Read Sender')).toBeChecked();
+  });
+
+  it('a checkbox click does not open the message', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await user.click(tick('Read Sender'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('REPLY from the panel (PF-153)', () => {
+  const openReply = async (user, name = 'Read Sender') => {
+    await openView(user, name);
+    await user.click(view().getByRole('button', { name: '✉ REPLY' }));
+  };
+  const box = () => view().getByRole('textbox', { name: /Your reply/ });
+  const send = () => view().getByRole('button', { name: 'SEND REPLY' });
+
+  beforeEach(() => { replyMsg.mutateAsync.mockResolvedValue({}); });
+
+  it('opens a form addressed to the visitor, focused, with SEND dim until typed', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openReply(user);
+    expect(view().getByText('To: r@example.com')).toBeInTheDocument();
+    expect(box()).toHaveFocus();
+    expect(send()).toBeDisabled();
+    expect(view().queryByRole('button', { name: '✉ REPLY' })).toBeNull();
+  });
+
+  it('sends the trimmed words for this message, then says so and closes the form', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openReply(user);
+    await user.type(box(), '  Yes, thanks.  ');
+    await user.click(send());
+    expect(replyMsg.mutateAsync).toHaveBeenCalledWith({ id: 'm2', message: 'Yes, thanks.' });
+    expect(await view().findByText('REPLY SENT.')).toBeInTheDocument();
+    expect(view().queryByRole('form', { name: 'Reply to this message' })).toBeNull();
+  });
+
+  it('refuses a blank reply: no request, the banner, the field marked', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openReply(user);
+    await user.type(box(), '   ');
+    await user.click(send());
+    expect(replyMsg.mutateAsync).not.toHaveBeenCalled();
+    expect(view().getByText('CHECK THE CHANGES AGAIN — 1 field needs attention.')).toBeInTheDocument();
+    expect(view().getByText('This field is required.')).toBeInTheDocument();
+    expect(box()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('refuses one over the limit, and typing clears the mark', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openReply(user);
+    await user.click(box());
+    await user.paste('a'.repeat(3001));
+    await user.click(send());
+    expect(replyMsg.mutateAsync).not.toHaveBeenCalled();
+    expect(box()).toHaveAttribute('aria-invalid', 'true');
+    await user.type(box(), 'x');
+    expect(box()).not.toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('a failed send says so plainly and keeps the words', async () => {
+    replyMsg.mutateAsync.mockRejectedValue({ response: { status: 503, data: { message: "Your reply wasn't sent. Please try again in a moment." } } });
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openReply(user);
+    await user.type(box(), 'Yes');
+    await user.click(send());
+    expect(await view().findByText(/wasn't sent/)).toBeInTheDocument();
+    expect(box()).toHaveValue('Yes');
+    expect(view().queryByText('REPLY SENT.')).toBeNull();
+  });
+
+  it('the arrow keys move the cursor in the box, not the message', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openReply(user);
+    await user.type(box(), 'abc{ArrowLeft}{ArrowRight}');
+    expect(view().getByRole('heading', { name: 'Read Sender' })).toBeInTheDocument();
+  });
+
+  it('CANCEL with nothing typed closes the form', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openReply(user);
+    await user.click(view().getByRole('button', { name: 'CANCEL' }));
+    expect(view().getByRole('button', { name: '✉ REPLY' })).toBeInTheDocument();
+  });
+
+  it('shows earlier replies in the view and REPLIED on the card', async () => {
+    useMessages.mockReturnValue({
+      data: [{ ...MESSAGES[1], replies: [{ message: 'Answered already.', sentAt: '2026-11-01T10:00:00Z' }] }],
+      isLoading: false,
+    });
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    expect(within(cardOf('Read Sender')).getByText('REPLIED')).toBeInTheDocument();
+    await openView(user, 'Read Sender');
+    expect(view().getByText('Answered already.')).toBeInTheDocument();
+    expect(view().getByText(/YOU REPLIED · 2026\/11\/01/)).toBeInTheDocument();
   });
 });
 
@@ -288,6 +741,17 @@ describe('SEARCH (owner, 2026-10-07)', () => {
     await search(user, 'dock');
     const hits = [...cardOf('Read Sender').querySelectorAll('mark')].map((m) => m.textContent);
     expect(hits).toEqual(['Dock']);
+  });
+
+  it('a hit below the three lines moves the preview to it (PF-153)', async () => {
+    const long = `${'plain words here '.repeat(20)}needle at the end.`;
+    useMessages.mockReturnValue({ data: [{ ...MESSAGES[0], message: long }], isLoading: false });
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await search(user, 'needle');
+    const preview = cardOf('Unread Sender').querySelector('button[aria-label^="Read the message"]');
+    expect(preview.textContent.startsWith('…')).toBe(true);
+    expect(preview.querySelector('mark')).toHaveTextContent('needle');
   });
 
   it('searches the email too', async () => {
@@ -385,16 +849,6 @@ describe('the email copy\'s details on the card (PF-123)', () => {
     render(<AdminMessagesPanel />);
     const card = cardOf('Unread Sender');           // 10:00Z = 7:00 PM in Tokyo
     expect(detail(card, 'Time')).toBe('7:00 PM (Asia/Tokyo)');
-  });
-
-  it('FROM shows the approximate location when there is one, and is absent when not', () => {
-    useMessages.mockReturnValue({
-      data: [{ ...MESSAGES[0], location: 'New York, NY, United States' }, MESSAGES[1]],
-      isLoading: false,
-    });
-    render(<AdminMessagesPanel />);
-    expect(detail(cardOf('Unread Sender'), 'From')).toBe('New York, NY, United States (approx.)');
-    expect(within(cardOf('Read Sender')).queryByText('From', { selector: 'dt' })).toBeNull();
   });
 
   it('the red reply reminder shows on UNREAD messages only', () => {

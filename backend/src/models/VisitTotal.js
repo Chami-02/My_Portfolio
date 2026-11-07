@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
  *   per visitor per day  visitors, country, city, device, browser, referrer
  *   per click            click
  *   per page opened      section (PF-149: each part of the home page once seen)
+ *   per person, per post read (PF-153: 6 seconds on the post; key is its path)
  *
  * ⚠️ Flat rows, not a document per day holding maps. A map's key becomes a
  * dotted `$inc` path, so a city or a referrer with a dot in it ("St. Louis",

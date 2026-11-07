@@ -15,6 +15,7 @@ import { useProject } from '../hooks/useProjects';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { projectPeriod, projectCategory, pictureAt } from '../utils/projectMeta';
 import styles from './ProjectPage.module.css';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -57,6 +58,9 @@ export function ProjectPage() {
   // PF-144 part 2 — the open big view: which section, which picture.
   const [viewing, setViewing] = useState(null);
   const { project, prev, next } = data ?? {};
+  usePageMeta(project
+    ? { title: project.title, description: project.description, path: `/projects/${project.slug}` }
+    : { noindex: notFound, ...(notFound && { title: 'Project not found' }) });
 
   const fromSearch = location.state?.from ?? '';
   const backTo     = fromSearch ? `/projects?${fromSearch}` : '/projects';

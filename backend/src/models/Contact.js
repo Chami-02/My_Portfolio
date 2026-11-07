@@ -51,6 +51,15 @@ const contactSchema = new mongoose.Schema(
       type:    String,
       default: null,
     },
+    // PF-153: what the owner answered from the panel. Absent until the first one.
+    replies: {
+      type: [{
+        _id:     false,
+        message: { type: String, required: true },
+        sentAt:  { type: Date, required: true },
+      }],
+      default: undefined,
+    },
   },
   { timestamps: true }
 );

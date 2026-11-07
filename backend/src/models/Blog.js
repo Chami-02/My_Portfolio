@@ -181,6 +181,12 @@ const blogSchema = new mongoose.Schema(
       type:    Number,
       default: 0,
     },
+    // PF-153 — addresses a live post used to have. A title change moves the slug,
+    // and these keep shared links working (blogController `getPostBySlug`).
+    oldSlugs: {
+      type:    [String],
+      default: undefined,
+    },
   },
   { timestamps: true }
 );
@@ -281,6 +287,7 @@ blogSchema.pre('insertMany', function (docs) {
 
 // Index for fast slug lookups
 blogSchema.index({ slug: 1 }, { unique: true });
+blogSchema.index({ oldSlugs: 1 }, { sparse: true });
 
 // ⚠️ PF-96: was `{ published: 1, createdAt: -1 }`, which backed the old
 // `.sort({ createdAt: -1 })`. That sort is gone. This index now serves

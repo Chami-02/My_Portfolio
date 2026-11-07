@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### ⚠️ SIZE RULE — keep this file under 40,000 characters
 
-Claude Code warns above 40k; every session pays for every char. **New ticket detail goes to a companion file. CLAUDE.md gets at most
+**New detail goes to a companion file. CLAUDE.md gets at most
 ONE line per new rule, trap or decision.** Check with `wc -c` at hand-off.
 
 ### When to read them — not optional
@@ -113,18 +113,15 @@ search the companions *before* explaining a surprise.
 
 ## Project state
 
-**Full history: `.claude/sprint-log.md`.**
-
 | Phase / sprint | Scope | State |
 | --- | --- | --- |
-| Phase 1, Sprints 9–13 (PF-1 → PF-106) | site, API, design, Blog | merged |
-| Sprint 14 — E9 (PF-107 → PF-122) | Admin panel rebuild | **merged** — PR #29, 2026-10-14 |
+| Sprints 9–14 (PF-1 → PF-122) | site, API, design, Blog, Admin rebuild | merged, PR #29 |
 | PF-126 (+ 3 fixes) | migration guard, deploy pipeline | merged; `deploy.yml` = ONLY path to prod |
 | Sprint 15 (PF-123 → PF-144) | speed + auth + email + Settings | **closed** 2026-11-04 — PR #81 `a5acdb0` |
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-150 done; PF-151 in PR.
+- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-151 done; PF-152 parked (owner, 11-07); PF-153 in PR.
 - **Every doc I create** goes to `new mds/Sprint 16/` (outside the repo).
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
@@ -273,6 +270,8 @@ Where a mistake would be silent, add a test that would catch it.
 - `document.body.focus()` is a jsdom no-op; jsdom has no `DragEvent` (polyfill).
 - Mutation harness: `cmp` the snapshot before/after; zsh does not word-split `$FILES`.
 - A query's `data = []` default turns a FAILED load into the empty state (and a derived form into an empty, saveable one).
+- `refetchOnWindowFocus: true` refetches only STALE data; a poll keeps it fresh → `'always'`; test under the real `staleTime`.
+- `friendlyError` keeps 5xx words only on 503.
 - TanStack DEDUPES an invalidation into a query's FIRST in-flight fetch (stale answer wins) → `refreshDashboard` = cancel, then invalidate.
 - Data-router navigations are TRANSITIONS — a lazy page's Suspense fallback shows on direct loads only; in-app the old page stays up (PF-130).
 - E2E "scroll to bottom" before API data lands stops short; assert the bottom element is ON SCREEN, never `scrollY > 0`.
@@ -281,7 +280,6 @@ Where a mistake would be silent, add a test that would catch it.
 **Tooling and gates**
 - `npm test` does not run E2E; unit green + E2E red = removed feature, stale tests.
 - run-jest AND `dev:e2e` load the REAL `backend/.env` → a new outward secret must be stripped there (BLANK them, never `delete` — app.js's dotenv re-adds a missing key; PF-133 found real mail sent since PF-123) or tests send real mail.
-- dotenv 18 ships a `dotenv` bin that shadows `dotenv-cli`'s → `npm run dev:e2e` broken locally (CI unaffected); see Outstanding work PF-127.
 - `mongodb` ≥ 7.6 HANGS every DB test under Jest (NODE-7832) — held at `~7.5.0` + Dependabot ignore; lift steps in `dependabot.yml`.
 - `cookie` 2.x is ESM-only → Jest cannot load it (every backend suite fails); majors ignored in `dependabot.yml` (#39).
 - A required check that never started looks like nothing failing — confirm `All Checks Pass` is listed AND `pass`.
@@ -289,7 +287,6 @@ Where a mistake would be silent, add a test that would catch it.
 - Piping a long run through `tail` buffers to the end; no `timeout`/`gtimeout` here: background + kill.
 - Name the lint SCRIPT, never a path; an absent file in a report ≠ clean.
 - `playwright-report/`, `test-results/`, `dist-*/` must stay ESLint-ignored.
-- Root `.gitignore` has no `node_modules`; tests under `src/` can leak Tailwind classes.
 
 **Playwright / E2E**
 - `toBeVisible()` ignores occlusion; `click()` under the splash silently retries.
@@ -342,6 +339,7 @@ Where a mistake would be silent, add a test that would catch it.
 - Clipped vs occluded look identical — hit-test with `elementFromPoint`.
 - Name what a probe EXCLUDES (`?nosplash`); the browser tool redacts keys containing "token".
 - Always run the control; `:focus-visible` matches programmatic focus after keyboard.
+- `curl -I` = CDN MISS; GET = HIT.
 - The browser tool's console never shows CSP violations — probe with `report-uri` + a control.
 - The browser tool's hidden tab never fires `requestAnimationFrame` (probe hangs 45s); clicks may need a screenshot first.
 - Chrome won't go below ~1141px → same-origin iframe (one at a time; resize, don't reload — 429); set `scrollBehavior: auto` before any scroll-then-measure.
@@ -417,6 +415,7 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-150: terminal GONE → `SiteNumbersBox`: real numbers from day 0, VISITS, 5-VISIT country rule, no LIVE, one hue per subject; own answer.
 - PF-145: own visitor counter, daily totals only; /privacy's words are PROMISES — change them with the behaviour.
 - PF-151: snow 1 Dec→1 Jan, leaves + bats 31 Oct→2 Nov; switch overrides for ALL; in front; admin = right strip; lazy.
+- PF-153: read = 6 s showing, 1/person/post/day on the SERVER, confirms the visit; `Blog.views` + dated `read` row; rename moves totals + `oldSlugs` forward; 20 new visitors/network/day; Messages: 3-line cards, `?message=` big view, opening ≠ read, bulk = on-screen only; REPLY from the domain, Reply-To main; SEO via `usePageMeta`.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment
@@ -442,8 +441,6 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
   Check `git branch -vv`; confirm with `git ls-remote --heads origin <branch>`.
 
 ## Working agreement
-
-**Full text and history: end of `.claude/locked-decisions.md`.**
 
 **Ticket flow (since PF-96) — do not collapse it:** (1) owner states the plan →
 (2) **I write the ticket** (scope, files, approach, verification, out of scope),
@@ -481,5 +478,5 @@ part (and the interview angle) for the owner to run.
 incidents (editor SELECTIONS of `.env` lines, a pasted scroll-back): close `.env` files; paste only the last lines of output.
 
 **Never document something as existing until it does.** Flag concerns before
-executing. A ticket's path that conflicts with the repo convention loses. Verify
-against built output or a real browser over reasoning. Explain **why**.
+executing. Verify
+against built output or a real browser over reasoning.

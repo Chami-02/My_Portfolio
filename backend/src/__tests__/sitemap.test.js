@@ -3,6 +3,7 @@ const request = require('supertest');
 const app     = require('../app');
 const Blog    = require('../models/Blog');
 const Project = require('../models/Project');
+const Certificate = require('../models/Certificate');
 const { PUBLIC_TAG } = require('../middleware/cache');
 const { connectTestDB, clearDB, disconnectTestDB } = require('./helpers/db');
 
@@ -49,6 +50,24 @@ describe('GET /api/sitemap.xml', () => {
       `${SITE}/projects/older-project`,
     ]));
     expect(locs(text)).toHaveLength(8);
+  });
+
+  // PF-153
+  it('gives a date only where it is true: posts, not the fixed pages', async () => {
+    await Blog.collection.insertOne({ slug: 'dated', published: true, updatedAt: new Date('2026-10-05T23:00:00Z') });
+    const { text } = await request(app).get('/api/sitemap.xml');
+    expect(text).toContain(`<url><loc>${SITE}/blog/dated</loc><lastmod>2026-10-05</lastmod></url>`);
+    expect(text).toContain(`<url><loc>${SITE}/blog</loc></url>`);
+  });
+
+  it('lists published certificates, and never a draft', async () => {
+    await Certificate.collection.insertMany([
+      { slug: 'live-cert', published: true },
+      { slug: 'secret-cert', published: false },
+    ]);
+    const { text } = await request(app).get('/api/sitemap.xml');
+    expect(locs(text)).toContain(`${SITE}/certificates/live-cert`);
+    expect(text).not.toContain('secret');
   });
 
   it('never lists a draft', async () => {

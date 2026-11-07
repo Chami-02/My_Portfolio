@@ -241,11 +241,11 @@ function Report({ report }) {
           )}
         </Card>
 
-        <Card title="MOST VIEWED PROJECTS AND POSTS" note="Page openings in this period.">
+        <Card title="MOST VIEWED PROJECTS AND MOST READ POSTS" note="Projects by page openings, posts by reads, in this period.">
           {report.mostViewed.projects.length === 0 && report.mostViewed.posts.length === 0
-            ? <Nothing>No project or post was opened in this period.</Nothing>
+            ? <Nothing>No project was opened and no post was read in this period.</Nothing>
             : (
-              <ScrollList label="Most viewed projects and posts">
+              <ScrollList label="Most viewed projects and most read posts">
                 {report.mostViewed.projects.length > 0 && (
                   <>
                     <h4 className={styles.subTitle}>PROJECTS</h4>

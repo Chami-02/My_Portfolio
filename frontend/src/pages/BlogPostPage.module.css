@@ -316,6 +316,10 @@
   margin-bottom: 7px;
 }
 
+/* PF-91's substitution, applied not re-decided: --muted2 at 10px read 4.2 in dark
+   on this tinted card (PF-153's scan). (0,2,1); light untouched. */
+:global(html[data-theme='dark']) .navLabel { color: var(--muted); }
+
 .navTitle {
   font-family: var(--font-body);
   font-weight: 700;

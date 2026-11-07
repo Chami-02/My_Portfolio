@@ -52,7 +52,9 @@ export const refreshDashboard = (qc) =>
  *     default). 60 s, not faster: `globalLimiter` is 100 requests / 15 min
  *     per IP for the WHOLE panel; this costs 15 of them, 15 s would cost 60.
  *   - `refetchOnWindowFocus` — this query only (the app default is off), so
- *     coming back to the tab shows the truth at once.
+ *     coming back to the tab shows the truth at once. ⚠️ 'always', not `true`:
+ *     `true` refetches only STALE data, and the poll above keeps this fresh for
+ *     the app's 5-minute staleTime, so `true` did nothing (found in PF-153).
  */
 export const STATS_POLL_MS = 60_000;
 
@@ -61,5 +63,5 @@ export const useDashboardStats = () =>
     queryKey:             DASHBOARD_KEY,
     queryFn:              dashboardService.getStats,
     refetchInterval:      STATS_POLL_MS,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: 'always',
   });

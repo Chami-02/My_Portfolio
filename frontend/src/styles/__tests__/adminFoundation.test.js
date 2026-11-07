@@ -241,6 +241,9 @@ const REBUILT_JSX = [
   'components/admin/panels/AdminSkillsPanel.jsx',   // PF-114
   'components/admin/SkillSectionsCard.jsx',        // PF-114
   'components/admin/panels/AdminBlogPanel.jsx',     // PF-115
+  'components/admin/panels/MessageView.jsx', // PF-153
+  'components/admin/panels/MessageParts.jsx', // PF-153
+  'components/admin/UnreadDot.jsx', // PF-153
   'components/admin/panels/AdminMessagesPanel.jsx', // PF-115
   'components/admin/LoadError.jsx',                  // PF-117
   'components/admin/panels/AdminSettingsPanel.jsx', // PF-131

@@ -27,7 +27,11 @@ test.describe('Seasonal effects (PF-151)', () => {
 
   test('OFF shows none', async ({ page }) => {
     await answerAbout(page, 'off');
+    // Waited for: the count below is also true BEFORE the answer arrives, and ending
+    // the test while the stub is still working fails it ("Response has been disposed").
+    const answered = page.waitForResponse(/\/api\/about$/);
     await page.goto('/blog');
+    await answered;
     await expect(page.locator('footer')).toBeVisible();
     await expect(page.locator('canvas')).toHaveCount(1);
   });

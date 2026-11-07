@@ -6,8 +6,7 @@
  * four of them appear in all three prototypes. The real rule is
  * "everything that is not a per-screen variant": flt, drift, sheen and
  * — since PF-109 — riseIn differ per screen and live in the sibling
- * portfolio/blog/admin files under explicit variant names. auroraA/B
- * are admin-only and live in admin.css. 21 here.
+ * portfolio/blog/admin files under explicit variant names. 20 here.
  *
  * ⚠️ PF-109 (2026-09-16) corrected three admin-only bodies here that
  * had been transcribed from something other than Admin.dc.html:27-38
@@ -221,12 +220,6 @@
 }
 
 /* ── Texture ─────────────────────────────────────────────── */
-
-/* CRT scanline — splash and admin login */
-@keyframes scanline {
-  0%   { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
-}
 
 /* CRT flicker — irregular on purpose */
 @keyframes flicker {

@@ -20,6 +20,7 @@ const c = makeEntryController({
   // itself. Issue dates are "YYYY[-MM[-DD]]" text, so a text compare IS a
   // date compare (a year alone counts as its start).
   sort: { pinned: -1, order: 1, createdAt: 1 },
+  pagePrefix: '/certificates/',
   isNewer: (a, b) => ((a.pinned === true) !== (b.pinned === true)
     ? a.pinned === true
     : (a.issued || '') > (b.issued || '')),

@@ -313,6 +313,20 @@ const backupLimiter = rateLimit({
  * says about the count. It leaves out the User-Agent on purpose — a script
  * changing that header on every request must still land in one bucket.
  */
+// PF-153 — the free mail plan has a daily limit, and a stolen session must not be
+// able to spend it. 30 an hour is far more than one person answers messages.
+const replyLimiter = rateLimit({
+  store:           new MongoStore('reply'),
+  windowMs:        60 * 60 * 1000,
+  max:             30,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: {
+    status:  'fail',
+    message: "You've sent a lot of replies. Please wait a while and try again.",
+  },
+});
+
 const visitLimiter = rateLimit({
   store:           new MongoStore('visit'),
   windowMs:        15 * 60 * 1000,
@@ -326,4 +340,4 @@ const visitLimiter = rateLimit({
   },
 });
 
-module.exports = { skipGlobalLimiter, visitLimiter, globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter, backupLimiter, passkeyLimiter, passkeyChangeLimiter };
+module.exports = { skipGlobalLimiter, replyLimiter, visitLimiter, globalLimiter, authLimiter, refreshLimiter, googleLimiter, contactLimiter, forgotLimiter, resetLimiter, changeLimiter, sessionsLimiter, backupLimiter, passkeyLimiter, passkeyChangeLimiter };

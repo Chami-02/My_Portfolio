@@ -180,7 +180,7 @@
   overflow-wrap: anywhere;
 }
 
-.email:hover {
+a.email:hover {
   text-decoration: underline;
 }
 
@@ -244,17 +244,6 @@
   color: var(--acc, #FCA311);
 }
 
-.message {
-  margin: 0 0 15px;
-  color: var(--text);
-  font-size: 14px;
-  line-height: 1.75;
-  /* A message is the visitor's own text: keep their line breaks, and let a
-     long unbroken URL wrap instead of widening the card. */
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 /* PF-123 — unread only: the owner's reminder, below one solid line. */
 .replyDue {
   margin: -3px 0 15px;
@@ -265,13 +254,6 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: .04em;
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 9px;
 }
 
 /* Admin.dc.html:556 — ✓ MARK READ's hover is the success green. */
@@ -287,6 +269,8 @@
 /* Admin.dc.html:558 — ✉ REPLY, the accent outline that fills on hover. */
 .reply {
   display: inline-flex;
+  background: none;
+  cursor: pointer;
   align-items: center;
   padding: 8px 14px;
   border-radius: 999px;
@@ -327,6 +311,312 @@
 :global(html[data-theme='dark']) .date,
 :global(html[data-theme='dark']) .status { color: var(--muted); }
 
+/* ── PF-153 — short cards, tick boxes, the big view ──────────────── */
+
+.selectAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .1em;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tick {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--acc, #FCA311);
+  cursor: pointer;
+}
+
+/* The box stays 18px; the label around it is what a finger hits. */
+.tickArea {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin: -5px 0 -5px -5px;
+  cursor: pointer;
+}
+
+/* Three lines whatever the message's length, so every card is one size. */
+.preview {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.previewText {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  min-height: calc(14px * 1.75 * 3);
+  font-size: 14px;
+  line-height: 1.75;
+  /* A message is the visitor's own text: keep their line breaks, and let a
+     long unbroken URL wrap instead of widening the card. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cardFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(var(--ln), .14);
+}
+
+/* The reminder, on the card's own footer line. */
+.replyDueShort {
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+/* PF-123's "never silent": the email about this message never went out. */
+.emailTag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+/* Answered from the panel: the calm version of the tag above. */
+.repliedTag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(var(--ln), .25);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .08em;
+}
+
+.replies {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.replyItem {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(var(--gnd), .4);
+  border: 1px solid rgba(var(--ln), .12);
+}
+
+.replyWhen,
+.replyTo {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.replyBody {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.replySent {
+  margin: 14px 0 0;
+  color: var(--ok);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.replyForm {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(var(--ln), .14);
+}
+
+.replyBox {
+  width: 100%;
+  resize: vertical;
+}
+
+.replyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+/* Stays on screen while the list scrolls under it. */
+.bulkBar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgb(var(--srf));
+  border: 1px solid rgba(252, 163, 17, .35);
+  box-shadow: 0 12px 30px rgba(var(--shd), .3);
+}
+
+.bulkCount {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--strong);
+}
+
+/* CertificatesPage's overlay and panel, at a reading width. */
+.viewOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 3vw, 32px);
+  background: rgba(var(--gnd), .82);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.viewPanel {
+  width: min(100%, 780px);
+  max-height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: rgb(var(--srf));
+  border: 1px solid rgba(var(--ln), .14);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .45);
+}
+
+.viewBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px clamp(14px, 2.4vw, 22px);
+  border-bottom: 1px solid rgba(var(--ln), .12);
+}
+
+.viewCounter {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+
+.viewStep {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid rgba(var(--ln), .2);
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .25s, border-color .25s;
+}
+
+.viewStep:hover:not(:disabled) {
+  color: var(--strong);
+  border-color: var(--acc, #FCA311);
+}
+
+.viewStep:disabled {
+  opacity: .35;
+  cursor: default;
+}
+
+/* The one part that scrolls: the buttons above and below stay put. */
+.viewBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: clamp(16px, 2.6vw, 26px) clamp(14px, 2.4vw, 22px);
+}
+
+.viewHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.viewName {
+  margin: 0;
+  min-width: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--strong);
+  overflow-wrap: anywhere;
+}
+
+.viewDetails {
+  margin-top: 12px;
+}
+
+.viewMessage {
+  margin: 14px 0 15px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.viewActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  padding: 12px clamp(14px, 2.4vw, 22px);
+  border-top: 1px solid rgba(var(--ln), .12);
+}
+
 /* PF-138 (owner, 2026-11-04: the search bar a bit smaller on phones,
    "everywhere that component is used"): the same 40px pill as /blog and
    /projects. `min-height` keeps it 40px with or without the × (which shows
@@ -347,5 +637,52 @@
   /* 16px: iOS Safari zooms the page into a field with smaller text. */
   .searchInput {
     font-size: 16px;
+  }
+
+  /* PF-153: a finger needs more than the mouse's box. */
+  .tickArea {
+    width: 36px;
+    height: 36px;
+    margin: -9px 0 -9px -9px;
+  }
+
+  .selectAll {
+    min-height: 36px;
+  }
+
+  .bulkBar {
+    bottom: 8px;
+    padding: 10px 12px;
+  }
+
+  /* The whole screen, with the buttons held at the bottom. `dvh`: the phone's
+     address bar comes and goes, and `vh` would hide the buttons behind it. */
+  .viewOverlay {
+    padding: 0;
+  }
+
+  .viewPanel {
+    width: 100%;
+    height: 100dvh;
+    max-height: none;
+    border: none;
+    border-radius: 0;
+  }
+
+  .viewBar {
+    padding: 8px 12px;
+  }
+
+  .viewStep {
+    width: 36px;
+    height: 36px;
+  }
+
+  .viewBody {
+    padding: 16px 14px;
+  }
+
+  .viewActions {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   }
 }

@@ -153,8 +153,10 @@ describe('GET /api/dashboard/audience — titles', () => {
     });
     const post = await Blog.findOne().lean();
     await VisitTotal.insertMany([
-      row(t, 'path', `/blog/${post.slug}`, 6),
-      row(t, 'path', '/blog/deleted-post', 9),
+      row(t, 'read', `/blog/${post.slug}`, 6),
+      row(t, 'read', '/blog/deleted-post', 9),
+      // Page openings are not reads (PF-153): they must not reach the posts list.
+      row(t, 'path', `/blog/${post.slug}`, 500),
       row(t, 'path', '/', 40),
     ]);
 
@@ -172,7 +174,7 @@ describe('GET /api/dashboard/audience — titles', () => {
 describe('GET /api/dashboard/audience — most viewed has no ceiling', () => {
   it('returns every post, biggest first, for the list to scroll', async () => {
     const t = today();
-    await VisitTotal.insertMany(Array.from({ length: 14 }, (_, i) => row(t, 'path', `/blog/post-${i}`, i + 1)));
+    await VisitTotal.insertMany(Array.from({ length: 14 }, (_, i) => row(t, 'read', `/blog/post-${i}`, i + 1)));
     const { body: { data } } = await get('?range=7', await authHeader());
     expect(data.mostViewed.posts).toHaveLength(14);
     expect(data.mostViewed.posts[0].count).toBe(14);

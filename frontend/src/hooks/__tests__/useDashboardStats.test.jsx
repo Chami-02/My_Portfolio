@@ -17,9 +17,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 const projectService = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), remove: vi.fn() }));
 const skillService   = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), reorder: vi.fn(), remove: vi.fn() }));
 const blogService    = vi.hoisted(() => ({
-  create: vi.fn(), update: vi.fn(), togglePublish: vi.fn(), remove: vi.fn(), recordView: vi.fn(),
+  create: vi.fn(), update: vi.fn(), togglePublish: vi.fn(), remove: vi.fn(),
 }));
-const contactService = vi.hoisted(() => ({ markRead: vi.fn(), remove: vi.fn(), star: vi.fn(), getAll: vi.fn() }));
+const contactService = vi.hoisted(() => ({ markRead: vi.fn(), remove: vi.fn(), star: vi.fn(), getAll: vi.fn(), bulk: vi.fn() }));
 const dashboardService = vi.hoisted(() => ({ getStats: vi.fn() }));
 const skillCategoryService = vi.hoisted(() => ({ create: vi.fn(), rename: vi.fn(), reorder: vi.fn(), remove: vi.fn() }));
 
@@ -33,9 +33,9 @@ vi.mock('../../services/skillCategoryService', () => ({ skillCategoryService }))
 const { DASHBOARD_KEY, STATS_POLL_MS, useDashboardStats } = await import('../useDashboardStats');
 const { useCreateProject, useUpdateProject, useDeleteProject } = await import('../useProjects');
 const { useCreateSkill, useUpdateSkill, useReorderSkills, useDeleteSkill } = await import('../useSkills');
-const { useCreatePost, useUpdatePost, useTogglePublish, useDeletePost, useRecordView } =
+const { useCreatePost, useUpdatePost, useTogglePublish, useDeletePost } =
   await import('../useBlog');
-const { useMessages, useMarkMessageRead, useDeleteMessage, useStarMessage } = await import('../useMessages');
+const { useMessages, useMarkMessageRead, useDeleteMessage, useStarMessage, useBulkMessages } = await import('../useMessages');
 const {
   useCreateSkillCategory, useRenameSkillCategory, useReorderSkillCategories, useDeleteSkillCategory,
 } = await import('../useSkillCategories');
@@ -95,6 +95,20 @@ describe('the stats stay live without a reload', () => {
     expect(dashboardService.getStats).toHaveBeenCalledTimes(1);
     await act(() => vi.advanceTimersByTimeAsync(1000));
     await waitFor(() => expect(dashboardService.getStats).toHaveBeenCalledTimes(2));
+  });
+
+  // PF-153: under the app's real 5-minute staleTime, where `true` does nothing.
+  it('refetches on focus even when the data is still fresh', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 5 * 60 * 1000 } } });
+    const fresh = ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    dashboardService.getStats.mockResolvedValue({ unread: 0 });
+    const { result } = renderHook(() => useDashboardStats(), { wrapper: fresh });
+    await waitFor(() => expect(result.current.data).toEqual({ unread: 0 }));
+    const before = dashboardService.getStats.mock.calls.length;
+
+    act(() => { focusManager.setFocused(false); focusManager.setFocused(true); });
+
+    await waitFor(() => expect(dashboardService.getStats.mock.calls.length).toBe(before + 1));
   });
 
   it('refetches when the window regains focus', async () => {
@@ -206,13 +220,15 @@ describe('mutations that cannot change a count leave it alone', () => {
     expect(contactService.star).toHaveBeenCalledWith('id', true);
   });
 
-  // ⚠️ Locked (PF-99): useRecordView invalidates NOTHING. A view changes
-  // no count, and copying the invalidation pattern here would refetch on
-  // every public page view.
-  it('useRecordView invalidates nothing at all', async () => {
-    const { result } = renderHook(() => useRecordView(), { wrapper });
-    await result.current.mutateAsync('slug');
-    expect(invalidated).toHaveLength(0);
+  // PF-153: settled, so a batch that failed half way still shows what happened.
+  it('useBulkMessages refreshes the list and the counts, even when it fails', async () => {
+    contactService.bulk.mockRejectedValueOnce(new Error('down'));
+    const { result } = renderHook(() => useBulkMessages(), { wrapper });
+    await result.current.mutateAsync({ action: 'delete', ids: ['a'] }).catch(() => {});
+    await waitFor(() => expect(invalidatedKeys()).toEqual(expect.arrayContaining([
+      JSON.stringify(['messages']), JSON.stringify(DASHBOARD_KEY),
+    ])));
+    expect(contactService.bulk).toHaveBeenCalledWith('delete', ['a']);
   });
 });
 

@@ -64,6 +64,7 @@ const topProjects = async () => {
     .map(({ slug, title }) => ({ slug, title }));
 };
 
+// PF-153: `Blog.views` is written beside the panel's `read` rows (visitController).
 const topPosts = async () => {
   const posts = await Blog
     .find({ published: true, views: { $gt: 0 } })

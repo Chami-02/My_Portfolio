@@ -88,3 +88,23 @@ export const MESSAGE_TABS = [
   { key: 'unread',  label: 'UNREAD',  test: (m) => !m.read },
   { key: 'starred', label: 'STARRED', test: (m) => Boolean(m.starred) },
 ];
+
+/** Past this, a hit could fall below a card's three lines. */
+const PREVIEW_LEAD = 120;
+const CONTEXT = 30;
+
+/**
+ * PF-153 — the text a card shows. A card clips to three lines, so a search hit
+ * further down would match and show nothing: the preview then starts just before
+ * it, at a word's start.
+ */
+export const previewText = (text, words) => {
+  const source = String(text ?? '');
+  const lower = source.toLowerCase();
+  const hits = words.map((word) => lower.indexOf(word)).filter((at) => at !== -1);
+  const first = hits.length > 0 ? Math.min(...hits) : -1;
+  if (first < PREVIEW_LEAD) return source;
+  const space = source.indexOf(' ', first - CONTEXT);
+  const start = space !== -1 && space < first ? space + 1 : first;
+  return `…${source.slice(start)}`;
+};

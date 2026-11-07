@@ -13,3 +13,5 @@ backend/dns-fix.local.js
 .env.local
 .env.e2e
 .DS_Store
+
+node_modules/

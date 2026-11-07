@@ -1,5 +1,6 @@
 const Project  = require('../models/Project');
 const AppError = require('../utils/AppError');
+const { moveTotals } = require('../services/visitTotals');
 const storage  = require('../services/storage');
 const { buildProjectMatch } = require('../utils/projectQuery');
 
@@ -214,10 +215,12 @@ const updateProject = async (req, res, next) => {
       return next(new AppError('Project not found', 404));
     }
 
+    const oldSlug = project.slug;
     project.set(sanitiseProjectBody(req.body));
     attachSectionImages(project);   // PF-144
     await project.save();
     await sweepUnusedPictures(project);
+    await moveTotals(`/projects/${oldSlug}`, `/projects/${project.slug}`);
 
     res.json({ status: 'success', data: project });
   } catch (err) {

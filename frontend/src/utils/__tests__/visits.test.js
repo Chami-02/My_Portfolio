@@ -1,6 +1,6 @@
 // PF-145 — what the browser sends to the visitor counter, and what it never does.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { linkKind, outsideReferrer, sendVisit, shouldCount } from '../visits';
+import { countVisit, linkKind, outsideReferrer, resetEngagement, sendVisit, shouldCount, startReadClock } from '../visits';
 import { apiUrl } from '../../services/api';
 import { session } from '../../services/session';
 
@@ -95,5 +95,86 @@ describe('sendVisit', () => {
     vi.stubGlobal('fetch', vi.fn(() => rejected));
     expect(() => sendVisit({ type: 'view', path: '/' })).not.toThrow();
     await rejected.catch(() => {});
+  });
+});
+
+// PF-153 — the clock behind a read, and through it the engaged visit.
+describe('startReadClock', () => {
+  const sent = () => globalThis.fetch.mock.calls.map(([, init]) => JSON.parse(init.body));
+  const setHidden = (hidden) => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(hidden ? 'hidden' : 'visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve()));
+    sessionStorage.clear();
+    resetEngagement();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('counts only the time the tab is showing', () => {
+    startReadClock('a-post');
+    vi.advanceTimersByTime(4_000);
+    setHidden(true);
+    vi.advanceTimersByTime(60_000);
+    expect(sent()).toEqual([]);
+    setHidden(false);
+    vi.advanceTimersByTime(1_999);
+    expect(sent()).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(sent()).toEqual([{ type: 'read', slug: 'a-post' }]);
+  });
+
+  it('a tab opened behind others counts nothing until it is shown', () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+    startReadClock('a-post');
+    vi.advanceTimersByTime(60_000);
+    expect(sent()).toEqual([]);
+  });
+
+  it('confirms the visit, sending what was held back', () => {
+    countVisit({ type: 'view', path: '/blog/a-post' });
+    expect(sent()).toEqual([]);
+    startReadClock('a-post');
+    vi.advanceTimersByTime(6_000);
+    expect(sent()).toEqual([
+      { type: 'read', slug: 'a-post' },
+      { type: 'view', path: '/blog/a-post' },
+    ]);
+  });
+
+  it('a post already read this session still confirms the visit (owner: every reader is a visit)', () => {
+    sessionStorage.setItem('pg-viewed-a-post', '1');
+    countVisit({ type: 'view', path: '/blog/a-post' });
+    startReadClock('a-post');
+    vi.advanceTimersByTime(6_000);
+    expect(sent()).toEqual([{ type: 'view', path: '/blog/a-post' }]);
+  });
+
+  it('coming back to the tab afterwards sends nothing more', () => {
+    startReadClock('a-post');
+    vi.advanceTimersByTime(6_000);
+    setHidden(true);
+    setHidden(false);
+    vi.advanceTimersByTime(60_000);
+    expect(sent()).toHaveLength(1);
+  });
+
+  it('signing in during the 6 seconds makes this the owner', () => {
+    startReadClock('a-post');
+    localStorage.setItem('pg-owner-device', '1');
+    vi.advanceTimersByTime(6_000);
+    expect(sent()).toEqual([]);
+    expect(sessionStorage.getItem('pg-viewed-a-post')).toBeNull();
+  });
+
+  it('stopped, it sends nothing', () => {
+    const stop = startReadClock('a-post');
+    vi.advanceTimersByTime(5_000);
+    stop();
+    vi.advanceTimersByTime(60_000);
+    expect(sent()).toEqual([]);
   });
 });

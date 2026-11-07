@@ -27,13 +27,6 @@
 const REFRESH_EXP_KEY = 'portfolio_refresh_expires';
 
 /**
- * PF-147 — where the refresh token lived before. Removed on load so no readable
- * copy stays behind on a browser that signed in before the move. It can go a
- * release later (Outstanding work).
- */
-const OLD_REFRESH_KEY = 'portfolio_refresh';
-
-/**
  * The TanStack key for "who is signed in". Defined HERE rather than in
  * hooks/useMe.js (which re-exports it) because api.js has to write to that
  * cache entry when a refresh fails, and api.js cannot import useMe —
@@ -67,8 +60,6 @@ const write = (key, value) => {
 const remove = (key) => {
   try { localStorage.removeItem(key); } catch { /* see above */ }
 };
-
-remove(OLD_REFRESH_KEY);
 
 const toMs = (iso) => {
   const ms = Date.parse(iso);

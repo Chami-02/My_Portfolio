@@ -8,6 +8,7 @@ import { useMe } from '../../hooks/useMe';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
 import { useAdminFlash } from '../../hooks/useAdminFlash';
 import { AdminFooter } from './AdminFooter';
+import { UnreadDot } from './UnreadDot';
 import { SessionExpiryBanner } from './SessionExpiryBanner';
 import { PasswordLeakBanner }  from './PasswordLeakBanner';
 import { useRequestLeave } from '../../hooks/useUnsavedChanges';
@@ -302,8 +303,10 @@ export function AdminLayout({ children, activeTab, onTabChange }) {
                     >
                       <span aria-hidden="true" className={styles.navIcon}>{icon}</span>
                       {label}
+                      {/* PF-153: a new message is waiting. */}
+                      {id === 'messages' && counts?.unread > 0 && <UnreadDot style={{ marginLeft: 'auto' }} />}
                       {NAV_COUNTS[id] && (
-                        <span className={styles.navCount}>{NAV_COUNTS[id]}</span>
+                        <span className={styles.navCount} style={id === 'messages' && counts?.unread > 0 ? { marginLeft: 0 } : undefined}>{NAV_COUNTS[id]}</span>
                       )}
                     </button>
                   </Fragment>

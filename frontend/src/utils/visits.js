@@ -68,7 +68,6 @@ export function hasReached(visiblePx, sectionPx, viewportPx) {
 export const ENGAGED_AFTER_MS = 10_000;
 
 let engaged = false;
-let visibleMs = 0;
 let waiting = [];
 
 /** Sent now if the visitor is engaged, otherwise held until they are. */
@@ -86,36 +85,83 @@ export function markEngaged() {
   if (!session.isOwnerDevice()) held.forEach(sendVisit);
 }
 
-/** Counts only time the tab is showing: a tab opened behind others is not a visit. */
-export function startEngagementClock() {
+/**
+ * Runs `done` after this much time with the tab showing: a tab opened behind
+ * others has not been looked at. Answers the function that stops it.
+ */
+function afterVisibleTime(ms, done) {
   let timer = null;
   let startedAt = null;
+  let shownMs = 0;
 
   const pause = () => {
     if (startedAt === null) return;
-    visibleMs += Date.now() - startedAt;
+    shownMs += Date.now() - startedAt;
     startedAt = null;
     clearTimeout(timer);
   };
+  const stop = () => {
+    pause();
+    document.removeEventListener('visibilitychange', onChange);
+  };
   const resume = () => {
-    if (engaged || startedAt !== null) return;
+    if (startedAt !== null) return;
     startedAt = Date.now();
-    timer = setTimeout(markEngaged, ENGAGED_AFTER_MS - visibleMs);
+    // Stopped first: coming back to the tab later must not run it a second time.
+    timer = setTimeout(() => { stop(); done(); }, ms - shownMs);
   };
   const onChange = () => (document.visibilityState === 'hidden' ? pause() : resume());
 
   document.addEventListener('visibilitychange', onChange);
   if (document.visibilityState !== 'hidden') resume();
-  return () => {
-    pause();
-    document.removeEventListener('visibilitychange', onChange);
-  };
+  return stop;
+}
+
+export function startEngagementClock() {
+  return afterVisibleTime(ENGAGED_AFTER_MS, markEngaged);
+}
+
+// ── A read (owner, 2026-11-07) ──────────────────────────────────────────────
+//
+// 6 seconds with the post showing. A read also confirms the visit, like a counted
+// click: otherwise someone leaving after 7 seconds is a read with no visit, and
+// the two public numbers would disagree. The server allows one a day per person
+// per post; the session mark below only saves a request. /privacy says all this.
+
+export const READ_AFTER_MS = 6_000;
+
+const READ_KEY = (slug) => `pg-viewed-${slug}`;
+
+/**
+ * Written BEFORE the request. ⚠️ `sessionStorage` throws outright in some privacy
+ * modes, and a counter must never break the page: the answer is then "already
+ * counted", which under-counts rather than counting every time.
+ */
+function claimRead(slug) {
+  try {
+    if (sessionStorage.getItem(READ_KEY(slug))) return false;
+    sessionStorage.setItem(READ_KEY(slug), '1');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Starts the post's clock, if this visitor is one to count. Answers its stop. */
+export function startReadClock(slug) {
+  if (!shouldCount(window.location.pathname)) return () => {};
+  return afterVisibleTime(READ_AFTER_MS, () => {
+    // Asked again: signing in during those 6 seconds makes this the owner.
+    if (session.isOwnerDevice()) return;
+    if (claimRead(slug)) sendVisit({ type: 'read', slug });
+    // Whatever the mark says: everyone who reads a post is a visit (owner).
+    markEngaged();
+  });
 }
 
 /** Tests only: this state lasts as long as the page, so each test starts it fresh. */
 export function resetEngagement() {
   engaged = false;
-  visibleMs = 0;
   waiting = [];
 }
 

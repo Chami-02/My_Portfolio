@@ -14,8 +14,8 @@
  *    the site's ambient layer (StarfieldCanvas + CursorGlow +
  *    GrainOverlay, exactly what HomePage and NotFoundPage mount). The
  *    scanline also extends the 2026-08-17 splash decision that removed
- *    the travelling lines there. auroraA/auroraB stay in the keyframe
- *    library, corrected but unconsumed. Do not "restore" the orbs from
+ *    the travelling lines there. PF-153 deleted those keyframes, which
+ *    nothing ran. Do not "restore" the orbs from
  *    the export: a fidelity pass will flag their absence, and the
  *    absence is deliberate.
  *

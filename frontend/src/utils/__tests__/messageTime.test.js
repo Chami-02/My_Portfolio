@@ -2,7 +2,7 @@
 // pinned whatever time of day the suite runs. Same cases as the backend's
 // formatSent test: the two are mirrors.
 import { describe, it, expect } from 'vitest';
-import { formatSent, DEFAULT_ZONE } from '../messageTime';
+import { formatSent, DEFAULT_ZONE, emailNotSent } from '../messageTime';
 
 describe('formatSent', () => {
   it.each([
@@ -17,5 +17,32 @@ describe('formatSent', () => {
 
   it('defaults to the About model default zone', () => {
     expect(DEFAULT_ZONE).toBe('Asia/Colombo');
+  });
+});
+
+// PF-153 — all three conditions, each with the case just past its edge.
+describe('emailNotSent', () => {
+  const SENT = '2026-11-01T10:00:00.000Z';
+  const later = (ms) => Date.parse(SENT) + ms;
+  const FIVE_MIN = 5 * 60 * 1000;
+
+  it('is true once 5 minutes pass with no email', () => {
+    expect(emailNotSent({ createdAt: SENT, notifiedAt: null }, later(FIVE_MIN + 1))).toBe(true);
+  });
+
+  it('waits out the 5 minutes: the send runs in the background', () => {
+    expect(emailNotSent({ createdAt: SENT, notifiedAt: null }, later(FIVE_MIN))).toBe(false);
+  });
+
+  it('is false once the email went out', () => {
+    expect(emailNotSent({ createdAt: SENT, notifiedAt: SENT }, later(FIVE_MIN * 9))).toBe(false);
+  });
+
+  it('is false for a message from before email existed', () => {
+    const before = '2026-10-20T18:29:59.000Z'; // a second before 21 Oct in Sri Lanka
+    const first  = '2026-10-20T18:30:00.000Z';
+    const now = Date.parse('2026-11-01T00:00:00Z');
+    expect(emailNotSent({ createdAt: before, notifiedAt: null }, now)).toBe(false);
+    expect(emailNotSent({ createdAt: first, notifiedAt: null }, now)).toBe(true);
   });
 });

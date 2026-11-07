@@ -54,17 +54,6 @@ describe('session store — where each token lives', () => {
     expect(session.getRefreshExpiresAt()).toBe(Date.parse(PAIR.refreshExpiresAt));
   });
 
-  it('deletes the token an older version left in storage, as soon as it loads', async () => {
-    localStorage.setItem('portfolio_refresh', 'left-by-the-old-version');
-    localStorage.setItem('pg-owner-device', '1');
-    vi.resetModules();
-
-    await import('../session');
-
-    expect(localStorage.getItem('portfolio_refresh')).toBeNull();
-    expect(localStorage.getItem('pg-owner-device')).toBe('1');   // only that key
-  });
-
   it('treats an unparseable expiry as unknown rather than NaN', () => {
     session.set({ ...PAIR, refreshExpiresAt: 'not a date', accessExpiresAt: 'nope' });
     expect(session.getRefreshExpiresAt()).toBeNull();

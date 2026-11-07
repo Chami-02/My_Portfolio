@@ -672,3 +672,27 @@ describe('AdminLayout — header names survive the phone layout', () => {
     expect(screen.getAllByRole('button', { name: '⏻ SIGN OUT' }).length).toBeGreaterThan(0);
   });
 });
+
+// PF-153 — the owner's "a new message is waiting" dot.
+describe('AdminLayout — the unread dot on Messages', () => {
+  const rowDot = (label) => screen.getByRole('button', { name: new RegExp(label) }).querySelector('[data-unread-dot]');
+
+  it('shows on Messages while something is unread, and on no other row', () => {
+    useDashboardStats.mockReturnValue({ data: { ...STATS, unread: 2 } });
+    renderShell();
+    expect(rowDot('MESSAGES|Messages')).not.toBeNull();
+    expect(document.querySelectorAll('[data-unread-dot]')).toHaveLength(1);
+  });
+
+  it('is gone at 0, and the number stays', () => {
+    useDashboardStats.mockReturnValue({ data: { ...STATS, unread: 0 } });
+    renderShell();
+    expect(document.querySelector('[data-unread-dot]')).toBeNull();
+  });
+
+  it('never guesses while the counts are unknown', () => {
+    useDashboardStats.mockReturnValue({ data: undefined });
+    renderShell();
+    expect(document.querySelector('[data-unread-dot]')).toBeNull();
+  });
+});

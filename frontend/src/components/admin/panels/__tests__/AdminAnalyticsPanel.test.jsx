@@ -121,7 +121,7 @@ describe('AdminAnalyticsPanel — what each section shows', () => {
 
   it('shows real titles for projects and posts', () => {
     render(<AdminAnalyticsPanel />);
-    const card = screen.getByText('MOST VIEWED PROJECTS AND POSTS').closest('section');
+    const card = screen.getByText('MOST VIEWED PROJECTS AND MOST READ POSTS').closest('section');
     expect(within(card).getByText('ClearDrive')).toBeInTheDocument();
     expect(within(card).getByText('A post')).toBeInTheDocument();
   });
@@ -246,7 +246,7 @@ describe('AdminAnalyticsPanel — what the date buttons control', () => {
 
   it('every list that can grow is a scroll box a keyboard can reach', () => {
     render(<AdminAnalyticsPanel />);
-    ['Most reached sections', 'Most viewed projects and posts', 'Every country', 'Cities', 'Pages', 'Messages by country']
+    ['Most reached sections', 'Most viewed projects and most read posts', 'Every country', 'Cities', 'Pages', 'Messages by country']
       .forEach((name) => {
         expect(screen.getByRole('group', { name })).toHaveAttribute('tabindex', '0');
       });
