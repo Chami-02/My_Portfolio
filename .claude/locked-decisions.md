@@ -5547,7 +5547,25 @@ regardless of how it's motivated or how minor it seems. If the only difference
 is in code nobody sees without opening dev tools, it's an implementation
 choice. Go ahead.
 
-### Working agreement
+#### PF-153 — trustworthy numbers, and the messages inbox (owner, 2026-11-07)
+
+- **A read is 6 seconds with the post showing** (owner set 6; I suggested 10). Time with the tab hidden does not count. One per person, per post, per day, decided on the SERVER by a scrambled `VisitorDay` row; the browser's `pg-viewed-*` mark only saves a request.
+- **Every reader is a visit** (owner, accepted my suggestion, then widened it: "every one who read somthing on my website should count as a visit"). A read marks the visit engaged even when that post's read was already claimed this session. Otherwise someone leaving at 7 s is a read with no visit.
+- **All reads reset to 0** (owner) by migration 015, guarded: any `read` row means real reads exist, so it does nothing. `Blog.views` and the dated `read` row are written together from then on; the panel's posts list reads `read`, the box and cards read `Blog.views`. `pages` stays page openings.
+- **A renamed post's address follows its title** (owner chose this over freezing it, REJECTED my recommendation). Its totals move (`services/visitTotals.js`) and **old links forward** (owner, after I said they would break): `Blog.oldSlugs`, `GET /api/blog/:slug` answers at an old address, `BlogPostPage` replaces the URL, marked `forwarded` so `VisitTracker` does not count one page twice. A post holding the address today wins; the address belongs to the post that used it last; only a post that has been public gets one. Never in public answers; a client cannot write it. Forward is client-side, so it is a weaker SEO signal than a 301 (Deployment handbook, SEO).
+- **Fake visits:** no `Origin` = silent 204 (`ignoreOutsiders`); 20 new visitors per network per day (`source` on `VisitorDay` visitor rows, deleted within 2 days, /privacy says so). A perfect copy of a browser from many networks cannot be stopped; a human check was REJECTED (third party, friction, against the short privacy promise).
+- **Messages:** cards are 3-line previews with no REPLY / MARK READ / DELETE (owner asked for a big view like Certificates; moving the buttons was my decision, stated in the plan). `MessageView` opens by `?message=<id>`, so Back closes it. **Opening does NOT mark read**: MARK READ means "handled" (PF-123). Bulk (`POST /api/contact/bulk`, delete or read, 200 ids a batch) acts on selected ∩ on-screen only, so a search can never hide a deletion. `EMAIL NOT SENT` when `notifiedAt` is null, older than 5 minutes, sent after PF-123 went live (2026-10-21).
+- **REPLY from the panel** (owner chose it 2026-11-05, into this ticket 2026-11-07; REPLACES the mailto link): `POST /api/contact/:id/reply`, `Parindra Gallage <contact@mail.parindragallage.com>`, Reply-To the account's main address so an answer reaches the real inbox, today, with no new DNS. Not marked `Auto-Submitted`: a person wrote it (RFC 3834). Sent before the response, because the owner is waiting to know. Answering makes the message read. Kept in `Contact.replies`, shown in the view, `REPLIED` on the card. 3,000 characters (9 kB at worst, inside the body limit). A failed send is a 503, the one 5xx whose words `friendlyError` keeps. Cloudflare Email Routing for a domain inbox stays optional, not built.
+- **SEO** (owner, 2026-11-07): each page has its own title, description and canonical, edited into index.html's tags; unknown pages `noindex`; `Person` on home, `BlogPosting` on posts; `lastmod` on records only, because a wrong date is worse than none. REJECTED React 19's hoisted `<title>`: index.html's first one would win. Prerendering is not built: raised with the owner, since it changes how every page is delivered.
+- **Contrast** (owner: fix what the scan found): `.rowNumeral` from the prototype's `rgba(252,163,17,.3)` to `--acc` at 68%, visibly stronger, 3:1 in both themes. `.navLabel` `--muted` in dark, PF-91's substitution.
+- **Unread dot:** `UnreadDot` on the Overview card and the sidebar's Messages row while unread > 0, nothing while the count is unknown.
+- **Owner on the Password card's glow:** "no password glows in the production". Closed, nothing changed.
+- **/privacy rewritten from the visitor's side** (owner: "you" means the visitor, professional, industry standard): the site is the subject, sections follow what GDPR Articles 13–14 expect a notice to answer. The words stay promises.
+- **Keyframes deleted:** `scanline`, `flt-admin`, `drift-admin`, `auroraA`, `auroraB` had no consumer. The design's count of 34 no longer applies. Do not restore them from the export.
+- **Won't do, closed:** `admin.module.css` emitted ×6 (a build detail with no visible cost), the Vite Docker proxy (harmless, only Docker uses it), `Vocabulary.order` (no owner need) and `hasAvatar` (in use).
+
+
+## Working agreement
 
 #### ⚠️ Ticket authoring — CHANGED 2026-09-02, applies from PF-96 onward
 

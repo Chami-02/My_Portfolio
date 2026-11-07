@@ -2231,14 +2231,16 @@ retrospective document** — this section is the record, matching Sprint 10,
 
 ### Outstanding work — deferred deliberately, not lost
 
-- **PF-146 follow-ups (2026-11-04).** (1) Sign-in renewal: FIXED in PF-147. (2) **Contract in PF-153:** remove the old address
+**⚠️ PF-153 swept this list on 2026-11-07; its table at the end of this file gives every open item's outcome.** Older bullets below are kept as history: where one disagrees with that table, the table wins.
+
+- **PF-146 follow-ups (2026-11-04).** (1) Sign-in renewal: FIXED in PF-147. (2) **DONE in PF-153, Google's list still the owner's:** remove the old address
   from `corsOptions.js`, `connect-src` and Google's list. (3) The owner's after-switch steps are all DONE. (4) Comments rewritten in PF-147.
 
 - **PF-148 follow-ups (2026-11-05).** (1) DONE: Resend domain Verified and `RESEND_API_KEY` in Vercel before merge.
   (2) DONE: one real contact email, 12:26 UTC: SPF, DKIM, DMARC pass; Reply-To and To correct; `GMAIL_*` removed, app password revoked, local lines removed. A `no-reply@` email hasn't been seen live yet.
   (3) **After a few weeks of clean reports:** DMARC to `p=quarantine`. (4) E2E wasn't run locally (mail is off there); CI runs it.
 - **PF-147 follow-ups (2026-11-05).** (1) **DONE:** owner confirmed Chrome and Safari, with Google sign-in; settles the Safari check. A phone and the DevTools cookie view
-  weren't mentioned, so they aren't recorded as passed. (2) **A release later (PF-153):** delete
+  weren't mentioned, so they aren't recorded as passed. (2) **DONE in PF-153:** deleted
   `OLD_REFRESH_KEY` from `session.js`. (3) **PF-152:** Postman must send an allowed `Origin` to refresh/sign-out. (4) **PF-140** inherits
   `sendSession`. (5) The cause of the owner's extra sign-ins stays UNCONFIRMED: read Vercel's logs for `[session] A used refresh token`.
   (6) A crash between the claim and creating the successor reads as theft after 60 s; accepted.
@@ -11116,3 +11118,76 @@ CPU (PID 51993); not started this session, reported to the owner, left running.
 - **PF-152:** add `seasonalEffect` to `GET`/`PUT /api/about` in the API docs.
 - **Live proof comes on 1 December** without anyone acting; the dates are proved by tests with fake dates only. After merge, SNOW NOW on production once, then back to AUTOMATIC, proves the rest.
 - **Owner's clearing of production's counts is due now** (see PF-150's list above).
+
+#### PF-153 — trustworthy numbers, the messages inbox, the open-items sweep (2026-11-07, `feat/PF-153-counting-and-sweep`, in PR)
+
+PF-152 parked by the owner; this went first. **Report: `new mds/Sprint 16/PF-153-counting-inbox-sweep.md`.** How it works + the owner's SEO chapter: Deployment handbook sources. QA and security: their own sources. Decisions: `locked-decisions.md` "PF-153". Traps: `silent-failures.md` "PF-153". Migration 015.
+
+**Built, backend:** `type: 'read'` on `POST /api/visits`, `ignoreOutsiders`, 20-per-network cap, `currentPath`; `services/visitTotals.js`; `Blog.oldSlugs` + forward in `getPostBySlug`, `rememberOldAddress`; `POST /api/contact/bulk`; `mostViewed.posts` from `read` rows; path limit 100 → 200 (a 150-character title's address fell into `(other)`). **Deleted:** `PATCH /blog/:slug/view`, `viewLimiter`, `incrementViews`, `dotenv-cli`.
+**Built, frontend:** `afterVisibleTime` + `startReadClock` in `utils/visits.js`; forward in `BlogPostPage`, `forwarded` in `VisitTracker`; `UnreadDot`; `MessageView`, `MessageParts`, cards + bulk in `AdminMessagesPanel`; `useBulkMessages`; `emailNotSent`; `refetchOnWindowFocus: 'always'` ×2; /privacy rewritten. **Deleted:** `useRecordView`, `recordView`, `OLD_REFRESH_KEY`, 5 keyframes, the old addresses in CORS and `connect-src`.
+**Fixed in tooling:** `dev:e2e` / `seed:e2e` run `node --env-file`; `node_modules/` in root `.gitignore`.
+
+**Second round, owner 2026-11-07 ("fix all the things you found in this ticket"):** `POST /api/contact/:id/reply` + `MessageReply` + `replyLimiter` + `Contact.replies` (REPLY from the domain; absorbs the planned reply ticket); `utils/pageMeta.js` + `usePageMeta` (title, description, canonical, noindex, `Person` and `BlogPosting` data per page); `lastmod` and certificates in the sitemap; search hits below line 3 move the preview (`previewText`); `leavingRef` reset (the guard stayed off after a discard inside /admin, an old bug this ticket would have exposed); axe's 2 real contrast findings fixed; unused `about-portrait.png` deleted (2.4 MB in the repo, never in the bundle; the site loads a 314 KB WebP). **Not built: prerendering**, so link previews stay one card per site; raised with the owner.
+
+**Gate:** frontend 3,144 tests, 147 files, branches 90.29%, lint 0, build OK. Backend 1,782 tests, 83 suites, branches 81.46%. **E2E 94/94** locally through the repaired `npm run dev:e2e`, 3.7 min, no retries on the final code. One earlier run failed `blog.spec.js:268` twice while my other jobs held load at 6.6 (`?q=doc`, keystrokes late); 30/30 and 94/94 once idle. Also found and fixed: `seasonal.spec.js` "OFF shows none" could finish before its stub answered, so it was both flaky and able to pass before the answer arrived. **Mutants:** 104 of 107 caught (first round 67/69, second 37/38). The 3 survivors change nothing visible: the clock's stop-first (both callers are idempotent), the read clock on an old address, and the canonical during a forward (the forward replaces it in the same step).
+**Axe 4.10.2 (WCAG 2.0, 2.1, 2.2 A and AA), 22 scans, both themes:** home, /blog, a post, /projects, a project, /certificates, /privacy, 404; admin Overview, Messages with ticks, message view with reply form. First pass: 2 real findings. Final: all 22 clean. **Browser, second round:** 27 checks: one title, description and canonical per page; `noindex` on 404 and unknown post; Back restores; mail off says so and keeps the words; Esc with a typed reply asks; KEEP, DISCARD, guard still asks afterwards; sent path with the answer stubbed; 320, 388, 768 px, 16 px text on phones. **No real reply email has been sent:** one owner test is owed.
+**Browser:** Chromium via Playwright on `portfolio_e2e`, demo rows through real routes, cleaned and reseeded: **153 checks passed.** Automation flag off, real browser name, control asserted. Left at about 5 s: no read. Stayed 6 s: exactly +1 on the post and the row, and the visit counted before 10 s. Owner mark, GPC, bot name: none. New session, same person: still 1. No Origin 204, foreign Origin 403, no rows. 25 invented browsers stop at the 20 share. Five cards all 240 px with a 1,000-character message. Dot: both places, animating, stays with one unread left, gone at zero, back on focus. Big view: arrows, Esc, Back, reload, delete → neighbour, confirm on top by `elementFromPoint`, Esc answers only the confirm. Search-hidden tick survived a bulk delete. Rename: reads moved whole, old link forwards, exactly 1 more view, old row 0, Back doesn't bounce. Six widths (320, 388, 600, 768, 899, 1440), dark and light: no sideways scroll, bar on screen, buttons on screen, 36 px; ≤388 fills the screen. /privacy: no sideways scroll at 320, 388, 1440, dark and light, read in light.
+**Not tested:** real phones, Safari, tablets by hand; the CDN purge on a real rename (needs production); migration 015 on production (runs behind the deploy gate).
+
+### PF-153: the outcome of every open item
+
+| Item | Outcome |
+| --- | --- |
+| Blog reads skip owner, DNT, bots; engaged rule | **Fixed** |
+| Two sources for posts | **Fixed:** one event, two stores |
+| Renamed post's totals | **Fixed:** move; old links forward |
+| Renamed project / certificate | **Fixed:** published ones are frozen; a draft's totals move too |
+| Fake visits | **Reduced;** a perfect copy from many networks can't be stopped; owner told |
+| Visits are not people (2 days, 2 devices, shared network, VPN) | **Can't be fixed without a tracking ID;** owner told; /privacy says numbers are approximate |
+| `x-vercel-cache` HIT live (PF-150) | **Passed** 2026-11-07, by GET |
+| Box on a real phone + Safari (PF-150) | **Owner** |
+| `livevisitors` TTL index, panel real rows, Vercel Usage from 13 Nov, iPhone password dots (PF-149) | **Owner** |
+| Panel crash forced for real (PF-149) | **Passed:** bad data on Analytics; shell stays, "SOMETHING WENT WRONG LOADING THIS SECTION" |
+| 320 px remeasured (PF-149), tablet 600–899 (PF-142) | **Passed:** 10 panels at 320, 600, 768, 899 and 5 public pages at 600, 768, 899: no sideways scroll. Owner's own look at a tablet still open |
+| Password card's SAVE glow (PF-151) | **Closed:** owner, "no password glows in the production" |
+| PF-128 SAVE shows at once when signed in | **Owner** |
+| Contract: old addresses, `OLD_REFRESH_KEY` | **Done;** Google's list is the **owner's** step |
+| `dev:e2e` / `seed:e2e` (PF-127) | **Fixed,** proved by the full E2E through it with both ports free |
+| Chunk failure after one reload (PF-127) | **Closed:** `RouteError` (PF-149) |
+| "Email not sent" tag (PF-123) | **Built** |
+| REPLY from the domain (PF-148, owner chose it 2026-11-05) | **Built here;** one real email is the owner's test |
+| SEO: one title for every page, no canonical, no `lastmod` | **Fixed;** certificates added to the sitemap too |
+| Search hit below a card's 3 lines | **Fixed** |
+| SEO: link previews per page, server 301 for old post links | **Not built:** both need real HTML per page (prerendering); owner told |
+| Picture badge + `MAX 4 MB` (PF-113) | **Closed:** owner kept both 2026-10-14 |
+| Test video on retries | **Closed:** already `on-first-retry` |
+| `scanline`, `auroraA/B`, `flt-admin`, `drift-admin` | **Deleted** |
+| `sheen-admin` | **Closed:** the login uses it; its body was corrected in PF-109 |
+| Two `onMouseEnter` handlers, dead `activeTab` clause | **Closed:** none left in `src/` |
+| `admin.module.css` ×6, Vite proxy, `Vocabulary.order` | **Won't do** (reasons in `locked-decisions.md`) |
+| `hasAvatar` | **Closed:** in use |
+| Migrations 001–006 `--dry-run` at module scope | **Closed:** the runner spawns each; never edit one that ran |
+| `POST /api/upload`, `PATCH /about/availability` no client | **Closed:** deleted in PF-120 |
+| `aboutRoutes` validate before protect | **Closed:** fixed in PF-112 |
+| Portrait with no `publicId`, migration 006 | **Closed:** prod migrated 2026-10-14 |
+| Login placeholder's old address | **Closed:** gone from `src/` |
+| Footer flakes `:38`, `:131` | **Closed for now:** not seen in any E2E run of this ticket; `retries: 1` remains |
+| Five-command gate had no coverage | **Closed:** `npm run check`, CI |
+| `ErrorBoundary` around blog pages | **Closed:** `RouteError` + boundaries |
+| No automated responsive coverage | **Closed:** `mobile.test.js`, `adminPhoneSizes.test.js`, `mediaOrder.test.js` |
+| `BLOG_ADMIN_KEY` clash, public list's `sections[]`, vacuous E2E, `test-results` tracked, `--acc2`, `.cardPlaceholder`, terminal ink | **Closed:** each gone or replaced in later tickets |
+| Root `.gitignore` | **Fixed** |
+| Contrast findings in Blog teaser, Contact, Footer (PF-87) | **Closed by measurement:** PF-91's fixes hold; axe found 2 other real ones (teaser numerals, post nav labels), now fixed |
+| `/admin` light theme, disabled controls | **After launch** (owner's decision), bugs only |
+| `about-portrait.png` 2.4 MB | **Deleted:** never in the bundle |
+| LinkedIn URL, Cloudinary account, portrait framing, 2 project backgrounds, `samples` folder, hero re-upload | **Owner's list** |
+| PF-92's production test message | **Owner** can delete it in the panel, now with SELECT |
+| Secret scanning, branch protection, environment, Vercel git deploys | **Closed:** done with the pipeline (PF-126) |
+| Dependabot majors, `mongodb` hold, `cookie` hold | **Stay held,** recorded in `dependabot.yml`; not launch blockers |
+| DMARC to `quarantine` | **Date check** after a few weeks of clean reports |
+| Real fingerprint, two real devices in Sessions | **Owner tested passkeys** 2026-11-06; two-device sign-out still unproved by me |
+| Back across documents, iPadOS labels, restore leaves Cloudinary orphans, certificate PDF download, no message pagination | **Known limits, accepted** |
+| PF-152's API-doc items | **Stay with PF-152,** plus `read`, `bulk`, and the deleted route |
+| Handbook rewording, full handbooks | **PF-156** |
+| Visitor answers reach the panel too (Gmail + copy) | **After release** (owner, 2026-11-07); Cloudflare Email Routing recommended. All post-release work: `new mds/Sprint 16/After-Release-Plan.md` |
+

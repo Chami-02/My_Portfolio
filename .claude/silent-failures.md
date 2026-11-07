@@ -4368,3 +4368,21 @@ relative`), never with a percentage height inside a grid/flex frame. A plain BLO
 - **A canvas whose CSS width changes with no window resize is stretched.** The drawing surface keeps the old width and the browser scales it to fit, so every piece goes wide. Hot reload did this when the strip went from 64 to 96 px, which is probably what the owner saw ("not the snow fleak wider"). The strip now compares `clientWidth` every frame.
 - **A phone's address bar fires `resize` on scroll.** Setting `canvas.width` wipes and reallocates the surface, so a full-screen canvas sized from `innerHeight` redoes that while the visitor scrolls. Use `100lvh` and return early when the box did not change. `StarfieldCanvas` still resizes on every `resize`; not changed here.
 - **A primary button's glow inside a fold is clipped square.** It spreads about 38 px and `.collapseInner` leaves 6–8 px. Growing that padding would show folded content, so the seasonal card drops the glow. The Password card's button uses the same class inside the same fold; left as it is, owner told.
+
+## PF-153
+
+- **`refetchOnWindowFocus: true` did nothing on the counts.** It refetches only STALE data. The 60 s poll keeps the data inside the app's 5-minute `staleTime`, so it never was. The old test passed because its QueryClient had a staleness of 0. `'always'` is the fix (`useDashboardStats`, `useAnalytics`), and the new test runs at 5 minutes. Found by a real browser: the dot came back only on the 60 s poll.
+- **`curl -I` reads CDN MISS where GET reads HIT.** Measured on `/api/site-numbers` 2026-11-07: HEAD twice = MISS; GET three times = HIT, `age: 11`. PF-150's written check used `-I`.
+- **Playwright hides from the counter twice over:** `navigator.webdriver` stops `shouldCount`, and `HeadlessChrome` in the browser name trips `isBot`. A real count needs `--disable-blink-features=AutomationControlled`, a real browser name, and a control asserting webdriver is false.
+- **A forward counted as a second page.** `VisitTracker` treats any path change as "opened a second page", which would confirm a visit by itself. The `forwarded` state stops it, but only within a page load (`isSecondPage`): the mark stays in history, and a reload must still count.
+- **A row's total moved, so "exactly 1" failed.** After a rename, earlier views arrive with it. Assert the change, not the total.
+- **TanStack dev tools show a palm icon over everything in dev.** It is not on the live site. Do not "fix" the layout around it.
+- **The 10 kB body limit fits about 370 ids**, so any bulk route needs batches and a cap under that.
+- **React 19's hoisted `<title>` would silently lose.** It adds an element after index.html's, and a document uses its FIRST `<title>`. `utils/pageMeta.js` edits the existing tags instead.
+- **`friendlyError` throws away a 5xx's words, except a 503's.** A 502 "Your reply wasn't sent" reached the owner as "Something went wrong on our side". A failure with useful words must be a 503.
+- **The guard's `leavingRef` stayed true after a discard that stayed inside /admin** (only `?message=` changed, so the provider survived). Every later exit then left without asking, until a reload. Reset when the blocker returns to `unblocked`.
+- **A `beforeEach` arrow returning a mock is a teardown.** `beforeEach(() => mock.mockResolvedValue({}))` returns the mock, Vitest runs it after each test, and a rejecting mock fails the test with a bare object and no stack. Use braces.
+- **"Response has been disposed" in a Playwright stub** means the test ended while `route.fetch` was still running. It also means the assertions ran before the stub answered: wait for the response.
+- **E2E under load loses to its timeouts.** `blog.spec.js:268` failed twice at load 6.6 and passed idle. Don't run E2E beside other suites; check `uptime` before suspecting the code.
+- **axe flags decorative text too.** `aria-hidden` numerals are exempt from WCAG 1.4.3, but 1.21:1 was invisible anyway, so it was fixed rather than argued.
+
