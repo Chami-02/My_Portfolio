@@ -15,6 +15,7 @@ import { SearchIcon, CloseIcon } from '../components/icons/BrandIcons';
 import styles from './ProjectsPage.module.css';
 import { ErrorCard } from '../components/common/ErrorCard';
 import { loadFailed } from '../utils/queryState';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 /**
  * PF-144 — /projects: every published project, with a search (owner,
@@ -43,6 +44,11 @@ const PLACEHOLDER_CARDS = 3;
 const same = (a, b) => a.toLowerCase() === b.toLowerCase();
 
 export function ProjectsPage() {
+  usePageMeta({
+    title: 'Projects',
+    description: 'Projects built by Parindra Gallage: what each one does, how it was made and where to see it.',
+    path: '/projects',
+  });
   const [searchParams, setSearchParams] = useSearchParams();
   const q        = searchParams.get('q') ?? '';
   const category = searchParams.get('category') ?? '';

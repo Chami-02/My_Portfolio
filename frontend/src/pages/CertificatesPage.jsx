@@ -13,6 +13,7 @@ import { formatMonthYear } from '../utils/monthYear';
 import styles from './CertificatesPage.module.css';
 import { ErrorCard } from '../components/common/ErrorCard';
 import { loadFailed } from '../utils/queryState';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 /**
  * PF-143 — /certificates and /certificates/:slug.
@@ -42,6 +43,15 @@ export function CertificatesPage() {
   const query = useCertificates();
   const { data: certificates = [], isLoading } = query;
   const failed = loadFailed(query);   // PF-144: stays failed while it retries
+  const openCertificate = slug ? certificates.find((c) => c.slug === slug) : undefined;
+  usePageMeta({
+    title: openCertificate?.title ?? 'Certificates',
+    description: openCertificate
+      ? `${openCertificate.title}${openCertificate.issuer ? `, issued by ${openCertificate.issuer}` : ''}.`
+      : 'Certificates earned by Parindra Gallage, each with its issuer and a way to verify it.',
+    path: openCertificate ? `/certificates/${openCertificate.slug}` : '/certificates',
+    noindex: Boolean(slug) && !isLoading && !failed && !openCertificate,
+  });
 
   const [searchParams, setSearchParams] = useSearchParams();
   const picked = searchParams.get('tag') ?? '';

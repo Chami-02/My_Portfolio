@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { useAbout } from '../hooks/useAbout';
+import { SITE_URL } from '../utils/pageMeta';
+import { socialEntries } from '../utils/social';
 import { ErrorBoundary }   from '../components/common/ErrorBoundary';
 import { HeroSection }     from '../components/sections/HeroSection';
 import { AboutSection }    from '../components/sections/AboutSection';
@@ -20,6 +24,17 @@ import {
 } from '../components/ambient';
 
 export function HomePage() {
+  const about = useAbout().data;
+  usePageMeta({
+    path: '/',
+    structured: {
+      '@type': 'Person',
+      name: 'Parindra Gallage',
+      url: SITE_URL,
+      ...(about && { sameAs: socialEntries(about).map((s) => s.href) }),
+    },
+  });
+
   // Decided once per page load, in one place, and frozen. Two things
   // depend on this answer — whether Splash mounts, and what ready starts
   // at — and they must never disagree.

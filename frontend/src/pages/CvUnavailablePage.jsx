@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { ErrorPage } from '../components/common/ErrorPage';
 import { CV_HREF } from '../utils/resume';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 /**
  * PF-144 — where DOWNLOAD CV lands when the CV cannot be served. The button
@@ -13,6 +14,8 @@ import { CV_HREF } from '../utils/resume';
  *   (else)  → it could not be fetched this time: offer TRY AGAIN as well
  */
 export function CvUnavailablePage() {
+  usePageMeta({ title: 'CV unavailable', noindex: true });
+
   const [params] = useSearchParams();
   const missing = params.get('reason') === 'missing';
 

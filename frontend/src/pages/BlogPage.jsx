@@ -28,6 +28,7 @@ import { ViewCount } from '../components/blog/ViewCount';
 import styles from './BlogPage.module.css';
 import { ErrorCard } from '../components/common/ErrorCard';
 import { loadFailed } from '../utils/queryState';
+import { usePageMeta } from '../hooks/usePageMeta';
 
 /**
  * The chip that means "no tag filter".
@@ -71,6 +72,11 @@ function TagRow({ tags, className, pillClassName }) {
 }
 
 export function BlogPage() {
+  usePageMeta({
+    title: 'Blog',
+    description: 'Field notes by Parindra Gallage on building, deploying and securing web applications.',
+    path: '/blog',
+  });
   // ── filter state lives in the URL ────────────────────────────────────
   //
   // ⚠️ An owner-approved DEVIATION from the prototype, which keeps `query`
