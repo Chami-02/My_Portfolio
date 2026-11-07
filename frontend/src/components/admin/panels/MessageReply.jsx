@@ -47,9 +47,9 @@ export function MessageReply({ message, onDone }) {
     if (reply.isPending || !guard.check({ text })) return;
     setServerError('');
     try {
-      await reply.mutateAsync({ id: message._id, message: text.trim() });
+      const { recorded } = await reply.mutateAsync({ id: message._id, message: text.trim() });
       setText('');
-      onDone(true);
+      onDone(recorded ? 'sent' : 'unrecorded');
     } catch (err) {
       setServerError(friendlyError(err, { fallback: "Your reply wasn't sent. Please try again in a moment." }));
     }
@@ -93,7 +93,7 @@ export function MessageReply({ message, onDone }) {
           {reply.isPending ? 'SENDING…' : 'SEND REPLY'}
         </button>
         <button type="button" className={a.btnRow} disabled={reply.isPending}
-          onClick={() => requestLeave(() => onDone(false))}>
+          onClick={() => requestLeave(() => onDone(null))}>
           CANCEL
         </button>
       </div>

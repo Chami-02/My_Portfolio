@@ -35,6 +35,15 @@ export const messageMatches = (message, words) => {
   return words.every((word) => haystack.includes(word));
 };
 
+/** PF-154 — the same rules for a SENT row: who it went to, the reply, and what it answered. */
+export const sentMatches = (reply, words) => {
+  if (words.length === 0) return true;
+  const haystack = normalise(
+    `${reply.toName ?? ''} ${reply.toEmail ?? ''} ${reply.message ?? ''} ${reply.original?.message ?? ''}`,
+  );
+  return words.every((word) => haystack.includes(word));
+};
+
 /**
  * The messages that match `query`, in the order given (the server's: unread
  * first, then newest). Returns the same array when there is no query.

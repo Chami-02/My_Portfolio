@@ -96,14 +96,43 @@ export const useBulkMessages = () => {
   });
 };
 
-/** PF-153 — answering a message also makes it read, so the counts move too. */
+/**
+ * PF-153 — answering a message also makes it read, so the counts move too.
+ * PF-154: and the reply joins SENT.
+ */
 export const useReplyToMessage = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, message }) => contactService.reply(id, message),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: MESSAGES_KEY });
+      qc.invalidateQueries({ queryKey: SENT_KEY });
       refreshDashboard(qc);
     },
+  });
+};
+
+/**
+ * PF-154 — the SENT list. No dashboard count depends on it, so its mutations
+ * invalidate this list only (the star's rule above).
+ */
+export const SENT_KEY = ['sentReplies'];
+
+export const useSentReplies = () => useQuery({ queryKey: SENT_KEY, queryFn: contactService.getSent });
+
+export const useDeleteSentReply = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: contactService.removeSent,
+    onSuccess: () => qc.invalidateQueries({ queryKey: SENT_KEY }),
+  });
+};
+
+/** Settled, not success — the bulk messages rule: a failed batch can leave some gone. */
+export const useDeleteSentReplies = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: contactService.removeSentMany,
+    onSettled: () => qc.invalidateQueries({ queryKey: SENT_KEY }),
   });
 };

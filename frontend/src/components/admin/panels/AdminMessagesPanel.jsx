@@ -1,7 +1,7 @@
 import { friendlyError } from '../../../utils/friendlyError';
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useMessages, useMarkMessageRead, useStarMessage, useDeleteMessage, useBulkMessages }
+import { useMessages, useMarkMessageRead, useStarMessage, useDeleteMessage, useBulkMessages, useSentReplies }
   from '../../../hooks/useMessages';
 import { searchWords, messageMatches, previewText, MESSAGE_TABS }
   from '../../../utils/messageSearch';
@@ -12,7 +12,9 @@ import { ConfirmDialog } from '../ConfirmDialog';
 import { LoadError }     from '../LoadError';
 import { UnreadDot }     from '../UnreadDot';
 import { EmailNotSentTag, Highlighted, MessageDetails } from './MessageParts';
+import { PANEL_DOT } from './messageDot';
 import { MessageView }   from './MessageView';
+import { SentRepliesPanel } from './SentRepliesPanel';
 import a      from '../../../styles/admin.module.css';
 import styles from './AdminMessagesPanel.module.css';
 
@@ -46,7 +48,11 @@ import styles from './AdminMessagesPanel.module.css';
  * ⚠️ SELECT ALL and the bulk buttons act only on what is on screen under the
  * current filter and search (`chosen`). `selected` may hold more, and must never
  * be sent as it is: a message hidden by a search would go without being seen.
+ *
+ * PF-154 (owner, 2026-11-07): INBOX | SENT. The box is in the address
+ * (`?box=sent`), so Back and a reload keep it; SENT is SentRepliesPanel.
  */
+
 
 /** One plain sentence for any failure (utils/friendlyError.js, PF-144). */
 const messageFor = (err, fallback) => friendlyError(err, { fallback });
@@ -54,6 +60,39 @@ const messageFor = (err, fallback) => friendlyError(err, { fallback });
 export function AdminMessagesPanel() {
   // PF-107 moved these into hooks/useMessages.js; the key is still ['messages'].
   const messagesQuery = useMessages();
+  const sentQuery = useSentReplies();
+  // Blank `timezone` = "hide it on the site", not "no zone" — fall back.
+  const zone = useAbout().data?.timezone || DEFAULT_ZONE;
+  const [params, setParams] = useSearchParams();
+  const box = params.get('box') === 'sent' ? 'sent' : 'inbox';
+
+  // A count only once its list has loaded (PF-117).
+  const count = (q) => (q.data ? <> <span className={styles.filterCount}>{q.data.length}</span></> : null);
+  const tab = (key, label, q) => (
+    <button
+      type="button"
+      className={box === key ? `${styles.boxTab} ${styles.boxTabOn}` : styles.boxTab}
+      aria-pressed={box === key}
+      onClick={() => { if (box !== key) setParams(key === 'sent' ? { box: 'sent' } : {}); }}
+    >
+      {label}{count(q)}
+    </button>
+  );
+
+  return (
+    <div className={a.stack}>
+      <div className={styles.boxSwitch} role="group" aria-label="Messages box">
+        {tab('inbox', 'INBOX', messagesQuery)}
+        {tab('sent', 'SENT', sentQuery)}
+      </div>
+      {box === 'sent'
+        ? <SentRepliesPanel sentQuery={sentQuery} messagesQuery={messagesQuery} zone={zone} />
+        : <InboxPanel messagesQuery={messagesQuery} zone={zone} />}
+    </div>
+  );
+}
+
+function InboxPanel({ messagesQuery, zone }) {
   const { data: messages = [], isLoading } = messagesQuery;
   // Failed AND nothing to show. A background refetch that fails keeps the
   // last good `data` and still sets isError — that list is fine to show.
@@ -61,8 +100,6 @@ export function AdminMessagesPanel() {
   const markRead  = useMarkMessageRead();
   const star      = useStarMessage();
   const deleteMsg = useDeleteMessage();
-  // Blank `timezone` = "hide it on the site", not "no zone" — fall back.
-  const zone = useAbout().data?.timezone || DEFAULT_ZONE;
 
   const bulk      = useBulkMessages();
 
@@ -182,7 +219,7 @@ export function AdminMessagesPanel() {
   };
 
   return (
-    <div className={a.stack}>
+    <>
       {serverError && (
         <div className={a.bannerError} role="alert">
           <span className={a.bannerDot} aria-hidden="true" />
@@ -267,7 +304,7 @@ export function AdminMessagesPanel() {
 
                 return (
                   <li key={msg._id} className={cardClass} data-message-card="">
-                    {!msg.read && <UnreadDot style={{ position: 'absolute', top: 17, right: 17 }} />}
+                    {!msg.read && <UnreadDot style={{ ...PANEL_DOT, position: 'absolute', top: 17, right: 17 }} />}
                     <div className={styles.head}>
                       <label className={styles.tickArea}>
                         <input
@@ -366,8 +403,11 @@ export function AdminMessagesPanel() {
           {confirming.many
             ? `This will permanently delete the ${chosen.length === 1 ? 'selected message' : `${chosen.length} selected messages`}.`
             : `This will permanently delete the message from ${confirmTarget?.name ?? 'this sender'}.`}
+          {/* PF-154: deleting a message no longer takes what you sent with it. */}
+          {(confirming.many ? chosen : [confirmTarget]).some((m) => m?.replies?.length > 0)
+            && ' Your replies stay in SENT.'}
         </ConfirmDialog>
       )}
-    </div>
+    </>
   );
 }

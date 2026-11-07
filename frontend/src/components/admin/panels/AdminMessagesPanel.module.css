@@ -617,6 +617,93 @@ a.email:hover {
   border-top: 1px solid rgba(var(--ln), .12);
 }
 
+/* ── PF-154: INBOX | SENT ─────────────────────────────────────────────
+   One switch for the two boxes, above the panel. Two equal halves, so it
+   reads the same on a phone as on a desk. */
+.boxSwitch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: min(100%, 360px);
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(var(--gnd), .4);
+  border: 1px solid rgba(var(--ln), .16);
+}
+
+.boxTab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  cursor: pointer;
+  transition: color .2s, border-color .2s, background .2s;
+}
+
+.boxTab:hover {
+  border-color: var(--acc, #FCA311);
+}
+
+.boxTabOn {
+  background: var(--acc, #FCA311);
+  border-color: var(--acc, #FCA311);
+  color: var(--accInk);
+  font-weight: 700;
+}
+
+/* "TO" before the name on a SENT card. */
+.toLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+
+/* The message a reply answered, one line on the card. A line CLAMP, as
+   .previewText's, never `white-space: nowrap`: a nowrap line is as wide as the
+   whole sentence, and on a phone it pushed the card past the screen (measured). */
+.answering {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* The message a reply answered, whole, in the big view. */
+.original {
+  margin: 0;
+  padding: 0 0 0 12px;
+  border-left: 3px solid rgba(var(--ln), .25);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.originalGone {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+}
+
 /* PF-138 (owner, 2026-11-04: the search bar a bit smaller on phones,
    "everywhere that component is used"): the same 40px pill as /blog and
    /projects. `min-height` keeps it 40px with or without the × (which shows

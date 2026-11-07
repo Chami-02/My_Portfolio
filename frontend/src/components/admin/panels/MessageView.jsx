@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useViewDialog } from '../../../hooks/useViewDialog';
 import { CloseIcon } from '../../icons/BrandIcons';
 import { UnreadDot } from '../UnreadDot';
 import { EmailNotSentTag, Highlighted, MessageDetails } from './MessageParts';
+import { PANEL_DOT } from './messageDot';
 import { MessageReply } from './MessageReply';
 import { formatSent } from '../../../utils/messageTime';
 import a      from '../../../styles/admin.module.css';
@@ -22,53 +24,12 @@ export function MessageView({
   message, position, total, prev, next, zone, words,
   onGo, onClose, onStar, onMarkRead, onDelete,
 }) {
-  const panelRef = useRef(null);
-  const closeRef = useRef(null);
+  const { panelRef, closeRef } = useViewDialog({ onClose, onGo, prev, next });
   // Which message is being answered, so stepping to another closes the form.
   const [replyingTo, setReplyingTo] = useState(null);
+  // `{ id, recorded }` once a reply went (PF-154: `recorded` false = not in SENT).
   const [sentTo, setSentTo] = useState(null);
   const replying = replyingTo === message._id;
-
-  // Keyboard: Esc closes, ← → step, Tab stays inside the dialog. The listener is
-  // added once and reads the latest values through a ref, refreshed every render.
-  const keys = useRef(null);
-  useEffect(() => { keys.current = { onClose, onGo, prev, next }; });
-  useEffect(() => {
-    const onKey = (e) => {
-      const k = keys.current;
-      // A dialog on top (the delete confirm, the unsaved-reply question) answers
-      // its own keys.
-      if (!k || document.querySelectorAll('[role="dialog"]').length > 1) return;
-      const typing = e.target instanceof HTMLTextAreaElement;
-      if (e.key === 'Escape') { e.preventDefault(); k.onClose(); }
-      // In the reply box the arrows move the cursor, not the message.
-      else if (e.key === 'ArrowLeft' && k.prev && !typing) { e.preventDefault(); k.onGo(k.prev); }
-      else if (e.key === 'ArrowRight' && k.next && !typing) { e.preventDefault(); k.onGo(k.next); }
-      else if (e.key === 'Tab' && panelRef.current) {
-        const focusable = panelRef.current.querySelectorAll('a[href], button:not([disabled])');
-        if (focusable.length === 0) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
-
-  // Open: the page behind stops scrolling, focus moves in; closed: both undone.
-  useEffect(() => {
-    const opener = document.activeElement;
-    const root = document.documentElement;
-    const before = root.style.overflow;
-    root.style.overflow = 'hidden';
-    closeRef.current?.focus();
-    return () => {
-      root.style.overflow = before;
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
-    };
-  }, []);
 
   return (
     // The overlay root IS the backdrop: two stacked layers would take the clicks.
@@ -105,7 +66,7 @@ export function MessageView({
 
         <div className={styles.viewBody} tabIndex={0} aria-label="The whole message">
           <div className={styles.viewHead}>
-            {!message.read && <UnreadDot />}
+            {!message.read && <UnreadDot style={PANEL_DOT} />}
             <h2 id={TITLE_ID} className={styles.viewName}>
               <Highlighted text={message.name} words={words} />
             </h2>
@@ -129,14 +90,20 @@ export function MessageView({
               ))}
             </section>
           )}
-          {sentTo === message._id && <p className={styles.replySent} role="status">REPLY SENT.</p>}
+          {sentTo?.id === message._id && (
+            <p className={styles.replySent} role="status">
+              {sentTo.recorded
+                ? 'REPLY SENT.'
+                : 'REPLY SENT, but it couldn’t be saved to SENT. Don’t send it again.'}
+            </p>
+          )}
           {replying && (
             <MessageReply
               key={message._id}
               message={message}
-              onDone={(sent) => {
+              onDone={(outcome) => {
                 setReplyingTo(null);
-                if (sent) setSentTo(message._id);
+                if (outcome) setSentTo({ id: message._id, recorded: outcome === 'sent' });
               }}
             />
           )}
