@@ -1,6 +1,7 @@
 // frontend/src/components/admin/panels/AdminOverviewPanel.jsx
 import { useDashboardStats } from '../../../hooks/useDashboardStats';
 import { LoadError } from '../LoadError';
+import { UnreadDot } from '../UnreadDot';
 import { greetingFor } from '../../../utils/dashboard';
 import styles from './AdminOverviewPanel.module.css';
 import a from '../../../styles/admin.module.css';
@@ -84,6 +85,10 @@ export function AdminOverviewPanel({ onNavigate }) {
       <div className={styles.statGrid}>
         {CARDS.map(({ icon, label, key }) => (
           <div key={key} className={styles.statCard}>
+            {/* PF-153: a new message is waiting. Unread cards' own place for it. */}
+            {key === 'unread' && stats?.unread > 0 && (
+              <UnreadDot style={{ position: 'absolute', top: 17, right: 17 }} />
+            )}
             <p aria-hidden="true" className={styles.statIcon}>{icon}</p>
             {stats
               ? <p className={styles.statValue}>{stats[key]}</p>

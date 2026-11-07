@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { searchWords, messageMatches, searchMessages, highlightParts, MESSAGE_TABS }
-  from '../messageSearch';
+import { searchWords, messageMatches, searchMessages, highlightParts, MESSAGE_TABS, previewText } from '../messageSearch';
 
 const MESSAGES = Object.freeze([
   Object.freeze({ _id: '1', name: 'Asha Perera',  email: 'asha@studio.lk',  message: 'We have a Docker internship opening.', read: false, starred: true }),
@@ -129,5 +128,33 @@ describe('MESSAGE_TABS', () => {
   it('reads a row with no starred field as unstarred', () => {
     const tab = MESSAGE_TABS.find((t) => t.key === 'starred');
     expect(tab.test({ read: false })).toBe(false);
+  });
+});
+
+// PF-153
+describe('previewText', () => {
+  const LONG = `${'word '.repeat(60)}needle end`;
+
+  it('leaves the text alone with no search', () => {
+    expect(previewText(LONG, [])).toBe(LONG);
+  });
+
+  it('leaves it alone when the hit is near the start', () => {
+    expect(previewText('a needle here', ['needle'])).toBe('a needle here');
+  });
+
+  it('starts just before a far hit, at a word\'s start', () => {
+    const out = previewText(LONG, ['needle']);
+    expect(out.startsWith('…word')).toBe(true);
+    expect(out.endsWith('needle end')).toBe(true);
+    expect(out.length).toBeLessThan(LONG.length);
+  });
+
+  it('uses the first hit of several words', () => {
+    expect(previewText(`${'x '.repeat(90)}first ${'y '.repeat(50)}second`, ['second', 'first'])).toContain('first');
+  });
+
+  it('a word only in the name or email changes nothing', () => {
+    expect(previewText(LONG, ['absent'])).toBe(LONG);
   });
 });

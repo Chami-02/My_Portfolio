@@ -167,3 +167,27 @@ describe('AdminOverviewPanel — quick actions', () => {
     expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('JUMP BACK IN');
   });
 });
+
+// PF-153 — the owner's "a new message is waiting" dot.
+describe('the unread dot on the UNREAD MESSAGES card', () => {
+  const cardOf = (label) => screen.getByText(label).parentElement;
+
+  it('shows while a message is unread, on that card only', () => {
+    useDashboardStats.mockReturnValue({ data: { ...STATS, unread: 1 }, isError: false, refetch: vi.fn() });
+    render(<AdminOverviewPanel onNavigate={vi.fn()} />);
+    expect(cardOf('UNREAD MESSAGES').querySelector('[data-unread-dot]')).not.toBeNull();
+    expect(document.querySelectorAll('[data-unread-dot]')).toHaveLength(1);
+  });
+
+  it('is gone at 0', () => {
+    useDashboardStats.mockReturnValue({ data: { ...STATS, unread: 0 }, isError: false, refetch: vi.fn() });
+    render(<AdminOverviewPanel onNavigate={vi.fn()} />);
+    expect(document.querySelector('[data-unread-dot]')).toBeNull();
+  });
+
+  it('never guesses when the counts could not load', () => {
+    useDashboardStats.mockReturnValue({ data: undefined, isError: true, refetch: vi.fn() });
+    render(<AdminOverviewPanel onNavigate={vi.fn()} />);
+    expect(document.querySelector('[data-unread-dot]')).toBeNull();
+  });
+});
