@@ -266,8 +266,8 @@ describe('SettingsBackupCard — restore', () => {
 
     await screen.findByRole('dialog');
     expect(dialog()).toHaveTextContent('Replace the site’s content with this backup?');
-    expect(dialog()).toHaveTextContent('4 projects · 26 skills · 6 sections · 4 posts · 32 tags & tech · 140 messages · 2 education · 5 certificates');
-    expect(dialog()).toHaveTextContent(/Every message you have now is kept/);
+    expect(dialog()).toHaveTextContent('4 projects · 26 skills · 6 sections · 4 posts · 32 tags & tech · 140 messages · 2 education · 5 certificates · 0 sent replies');
+    expect(dialog()).toHaveTextContent(/Every message and sent reply you have now is kept/);
     expect(dialog()).toHaveTextContent(/A safety copy of the site as it is now is kept first/);
     expect(pwField()).toHaveFocus();
     expect(mocks.restore).not.toHaveBeenCalled();

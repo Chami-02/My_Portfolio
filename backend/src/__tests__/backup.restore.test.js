@@ -16,6 +16,7 @@ const SkillCategory = require('../models/SkillCategory');
 const Blog          = require('../models/Blog');
 const Vocabulary    = require('../models/Vocabulary');
 const Contact       = require('../models/Contact');
+const SentReply     = require('../models/SentReply');
 const Education     = require('../models/Education');
 const Certificate   = require('../models/Certificate');
 const Migration     = require('../models/Migration');
@@ -267,9 +268,9 @@ describe('POST /api/backup/restore/check — the preview changes nothing', () =>
     const res = await check(file);
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({
-      createdAt: file.createdAt, version: 3, hasAbout: true,
+      createdAt: file.createdAt, version: 4, hasAbout: true,
       counts: {
-        projects: 2, skills: 2, skillCategories: 2, blog: 2, vocabulary: 2, messages: 2, education: 2, certificates: 2,
+        projects: 2, skills: 2, skillCategories: 2, blog: 2, vocabulary: 2, messages: 2, sentReplies: 0, education: 2, certificates: 2,
       },
     });
     expect(await state()).toEqual(before);
@@ -467,6 +468,48 @@ describe('after a restore', () => {
   });
 });
 
+// PF-154 — SENT is in every backup and merges like messages: a restore never
+// deletes a record of what the owner sent.
+describe('sent replies are merged, never lost (PF-154)', () => {
+  const sentRow = (contact, over = {}) => ({
+    contact, toName: 'Ada', toEmail: 'ada@example.com', subject: 'Re: Your message to Parindra Gallage',
+    message: 'Yes.', original: { message: 'Are you free?', receivedAt: new Date('2026-11-01T00:00:00Z') },
+    sentAt: new Date('2026-11-02T00:00:00Z'), ...over,
+  });
+
+  it('newer replies stay, deleted ones return, none doubled', async () => {
+    await seedContent();
+    const ada = await Contact.findOne({ name: 'Ada' });
+    await SentReply.create(sentRow(ada._id, { message: 'In the backup.' }));
+    const file = await download();
+    expect(file.counts.sentReplies).toBe(1);
+
+    await SentReply.deleteMany({});
+    await SentReply.create(sentRow(ada._id, { message: 'After the backup.', sentAt: new Date('2026-11-05T00:00:00Z') }));
+
+    const res = await restore(file);
+    expect(res.status).toBe(200);
+    expect(res.body.data.sentAdded).toBe(1);
+    expect((await SentReply.find().sort({ sentAt: 1 }).lean()).map((r) => r.message))
+      .toEqual(['In the backup.', 'After the backup.']);
+
+    expect((await restore(file)).body.data.sentAdded).toBe(0);
+    expect(await SentReply.countDocuments()).toBe(2);
+  });
+
+  it('a damaged sent reply refuses the whole restore', async () => {
+    await seedContent();
+    const ada = await Contact.findOne({ name: 'Ada' });
+    await SentReply.create(sentRow(ada._id));
+    const file = await download();
+    file.sentReplies[0].toEmail = 'not an address';
+    const res = await restore(file);
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(res.body)).toMatch(/Sent reply 1/);
+    expect(await SentReply.countDocuments()).toBe(1);
+  });
+});
+
 describe('the format', () => {
   // Guard 2 of the restore standard: a ticket that changes the file adds an
   // upgrade step for older files AND bumps the version — never one alone.
@@ -506,6 +549,34 @@ describe('the format', () => {
       { heading: 'Description', body: ['A valid test project description for the restore suite.'], bullets: [], images: [] },
     ]);
     expect((await Project.findOne({ title: 'Draft project' }).lean()).slug).toBe('draft-project');
+  });
+
+  // PF-154 — a v3 file kept each reply inside its message. The 3→4 step turns
+  // them into SENT rows, merged by message + time, so the one migration 016
+  // already made is not doubled.
+  it('a version 3 file (replies inside messages) restores them into SENT', async () => {
+    await seedContent();
+    const v3 = await download();
+    delete v3.sentReplies;
+    delete v3.counts.sentReplies;
+    v3.version = 3;
+    const ada = v3.messages.find((m) => m.name === 'Ada');
+    ada.replies = [
+      { message: 'Old reply.', sentAt: '2026-11-02T00:00:00.000Z' },
+      { message: 'Second old reply.', sentAt: '2026-11-03T00:00:00.000Z' },
+    ];
+    await SentReply.create({
+      contact: ada._id, toName: 'Ada', toEmail: ada.email, subject: 'Re: Your message to Parindra Gallage',
+      message: 'Old reply.', original: { message: ada.message, receivedAt: ada.createdAt },
+      sentAt: new Date('2026-11-02T00:00:00.000Z'),
+    });
+
+    const res = await restore(v3);
+    expect(res.status).toBe(200);
+    expect(res.body.data.sentAdded).toBe(1);
+    const rows = await SentReply.find().sort({ sentAt: 1 }).lean();
+    expect(rows.map((r) => r.message)).toEqual(['Old reply.', 'Second old reply.']);
+    expect(rows[1]).toMatchObject({ toName: 'Ada', original: { message: ada.message } });
   });
 
   // PF-138 — files downloaded before migration 014 still carry

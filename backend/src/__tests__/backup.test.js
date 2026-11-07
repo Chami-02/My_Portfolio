@@ -114,11 +114,11 @@ describe('POST /api/backup — what is in the file', () => {
     expect(res.body.problems).toEqual([]);
     expect(res.body.data).toMatchObject({
       format: 'portfolio-backup',
-      version: 3,
+      version: 4,
       schema: { migrations: [] },
       about: null,
       counts: {
-        projects: 0, skills: 0, skillCategories: 0, blog: 0, vocabulary: 0, messages: 0, education: 0, certificates: 0,
+        projects: 0, skills: 0, skillCategories: 0, blog: 0, vocabulary: 0, messages: 0, sentReplies: 0, education: 0, certificates: 0,
       },
       projects: [], skills: [], skillCategories: [], blog: [], vocabulary: [], messages: [], education: [], certificates: [],
     });
@@ -131,10 +131,10 @@ describe('POST /api/backup — what is in the file', () => {
 
     expect(Object.keys(data).sort()).toEqual([
       'about', 'blog', 'certificates', 'counts', 'createdAt', 'education', 'format', 'messages', 'projects',
-      'schema', 'skillCategories', 'skills', 'version', 'vocabulary',
+      'schema', 'sentReplies', 'skillCategories', 'skills', 'version', 'vocabulary',
     ]);
     expect(data.counts).toEqual({
-      projects: 1, skills: 1, skillCategories: 1, blog: 1, vocabulary: 1, messages: 1, education: 0, certificates: 0,
+      projects: 1, skills: 1, skillCategories: 1, blog: 1, vocabulary: 1, messages: 1, sentReplies: 0, education: 0, certificates: 0,
     });
     expect(data.about).toMatchObject({ name: 'Owner', title: 'Developer' });
     expect(data.projects[0]).toMatchObject({ title: 'Draft project', published: false });
