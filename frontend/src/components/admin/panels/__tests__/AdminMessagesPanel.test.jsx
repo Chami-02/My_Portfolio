@@ -19,8 +19,13 @@ const deleteMsg = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }))
 const bulk      = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
 const replyMsg  = vi.hoisted(() => ({ mutateAsync: vi.fn(), isPending: false }));
 const useMessages = vi.hoisted(() => vi.fn());
+// PF-154: SENT's hooks, quiet here — SentRepliesPanel.test.jsx covers SENT.
+const useSentReplies = vi.hoisted(() => vi.fn());
 vi.mock('../../../../hooks/useMessages', () => ({
   useMessages,
+  useSentReplies,
+  useDeleteSentReply:   () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useDeleteSentReplies: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useMarkMessageRead: () => markRead,
   useStarMessage:     () => star,
   useDeleteMessage:   () => deleteMsg,
@@ -58,6 +63,7 @@ beforeEach(() => {
   deleteMsg.mutateAsync.mockResolvedValue({});
   bulk.mutateAsync.mockResolvedValue(undefined);
   useMessages.mockReturnValue({ data: MESSAGES, isLoading: false });
+  useSentReplies.mockReturnValue({ data: [], isLoading: false });
   useAbout.mockReturnValue({ data: undefined });
 });
 
@@ -119,6 +125,35 @@ describe('unread marker (2026-09-16, carried over)', () => {
     render(<AdminMessagesPanel />);
     const card = cardOf('Unread Sender');
     expect(card.outerHTML).not.toMatch(/129,\s*140,\s*248|--accent\b/);
+  });
+});
+
+describe('PF-154 — the dot and SENT in the inbox', () => {
+  it('the dot is 7px in this panel, on the card and in the big view', async () => {
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    const dot = cardOf('Unread Sender').querySelector('[data-unread-dot]');
+    expect([dot.style.width, dot.style.height]).toEqual(['7px', '7px']);
+    await openView(user, 'Unread Sender');
+    const big = screen.getByRole('dialog').querySelector('[data-unread-dot]');
+    expect([big.style.width, big.style.height]).toEqual(['7px', '7px']);
+  });
+
+  it('the delete confirm says replies stay in SENT — only when there are some', async () => {
+    useMessages.mockReturnValue({
+      data: [{ ...MESSAGES[1], replies: [{ _id: 'r1', message: 'Hi', sentAt: '2026-09-16T00:00:00Z' }] }, MESSAGES[2]],
+      isLoading: false,
+    });
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openView(user, 'Read Sender');
+    await user.click(view().getByRole('button', { name: 'Delete message from Read Sender' }));
+    expect(dialog().getByText(/Your replies stay in SENT\./)).toBeInTheDocument();
+    await user.click(dialog().getByRole('button', { name: /cancel/i }));
+    await user.keyboard('{Escape}');
+    await openView(user, 'Third Person');
+    await user.click(view().getByRole('button', { name: 'Delete message from Third Person' }));
+    expect(dialog().queryByText(/stay in SENT/)).toBeNull();
   });
 });
 
@@ -562,7 +597,7 @@ describe('REPLY from the panel (PF-153)', () => {
   const box = () => view().getByRole('textbox', { name: /Your reply/ });
   const send = () => view().getByRole('button', { name: 'SEND REPLY' });
 
-  beforeEach(() => { replyMsg.mutateAsync.mockResolvedValue({}); });
+  beforeEach(() => { replyMsg.mutateAsync.mockResolvedValue({ message: {}, recorded: true }); });
 
   it('opens a form addressed to the visitor, focused, with SEND dim until typed', async () => {
     const user = userEvent.setup();
@@ -583,6 +618,20 @@ describe('REPLY from the panel (PF-153)', () => {
     expect(replyMsg.mutateAsync).toHaveBeenCalledWith({ id: 'm2', message: 'Yes, thanks.' });
     expect(await view().findByText('REPLY SENT.')).toBeInTheDocument();
     expect(view().queryByRole('form', { name: 'Reply to this message' })).toBeNull();
+  });
+
+  // PF-154: the email went, its SENT copy did not — never "not sent", or the
+  // owner would send it twice.
+  it('says plainly when the reply went but could not be saved to SENT', async () => {
+    replyMsg.mutateAsync.mockResolvedValue({ message: {}, recorded: false });
+    const user = userEvent.setup();
+    render(<AdminMessagesPanel />);
+    await openReply(user);
+    await user.type(box(), 'Yes.');
+    await user.click(send());
+    expect(await view().findByText('REPLY SENT, but it couldn’t be saved to SENT. Don’t send it again.'))
+      .toBeInTheDocument();
+    expect(view().queryByText('REPLY SENT.')).toBeNull();
   });
 
   it('refuses a blank reply: no request, the banner, the field marked', async () => {

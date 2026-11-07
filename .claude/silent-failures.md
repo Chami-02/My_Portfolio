@@ -4386,3 +4386,13 @@ relative`), never with a percentage height inside a grid/flex frame. A plain BLO
 - **E2E under load loses to its timeouts.** `blog.spec.js:268` failed twice at load 6.6 and passed idle. Don't run E2E beside other suites; check `uptime` before suspecting the code.
 - **axe flags decorative text too.** `aria-hidden` numerals are exempt from WCAG 1.4.3, but 1.21:1 was invisible anyway, so it was fixed rather than argued.
 
+
+## PF-154
+
+- **`white-space: nowrap` inside a card widened the whole card past a phone screen — and the page still did not scroll sideways**, because an admin wrapper clips. `min-width: 0` on the nowrap item does not help: its min-content CONTRIBUTION is still the whole line, and the grid/flex ancestors size to it. Measured: 3–4 elements past the right edge at 320/388 with `scrollWidth − clientWidth = 0`. Fix: a one-line CLAMP (`-webkit-line-clamp: 1`) with wrapping allowed. Probe with each element's `getBoundingClientRect().right`, never page scroll alone.
+- **`mongoRateLimitStore.test.js` "never touches a closed one" flakes** (1 in ~4 full runs seen): it creates a `RateLimit` row with `resetAt` in the past, and the collection's TTL index (`expireAfterSeconds: 0`) can delete it before the read → `null.hits`. Passes 3/3 alone. Not fixed in PF-154 (Outstanding work).
+- **A fresh page load in the admin always logs one 401 (`/api/auth/me`)**: the access token lives in memory, so a new document asks once, the client refreshes through the cookie and retries. A "no console errors" probe must start AFTER that or name it.
+- **The TanStack Query devtools button (dev server only) sits bottom-right over the big view's DELETE on a phone.** Not in production builds; an `elementFromPoint` probe on dev hits `tsqd-open-btn`.
+- **One Lighthouse run can lie by 50 points.** Live home on the phone preset: 45 (TBT 4,500 ms, one "Unattributable" 4.3 s task) on the first run, then 92 and 97. Run 3+ times and take the median before calling anything a finding.
+- **A layout shift caused by slow data does not reproduce locally under Lighthouse's default throttling**: `simulate` throttles the CALCULATION, not the requests, so a local API answers before first paint and CLS reads 0. `--throttling-method=devtools` slows the real requests and reproduced live's 0.926 (0.928).
+- **`await user.click()` returns before an ASYNC click handler finishes** (`await mutateAsync()` then navigate). An assertion on the result right after the click passes alone and fails under coverage load: `SentRepliesPanel` "deletes that one, then shows the next" failed once in a full gate. Wrap the after-effect in `waitFor` / `findBy*`.

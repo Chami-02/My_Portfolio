@@ -242,6 +242,12 @@
   padding: 14px 16px 18px;
 }
 
+/* PF-154: a card's shape while the list loads. The body holds the height of a
+   title + the issuer line (measured: 307px cards at 1440, 330–353px at 388). */
+.cardPlaceholder .cardBody {
+  min-height: 100px;
+}
+
 .cardTitle {
   font-size: 16px;
   font-weight: 600;

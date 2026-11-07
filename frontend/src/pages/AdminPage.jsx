@@ -34,14 +34,21 @@ export function AdminPage() {
   // click never does. It is read only where the blog panel is rendered
   // — the other panels mount with their create form already showing, so
   // for them the tab IS the action.
-  // PF-153: a reload with a message open comes back to it.
-  const [params] = useSearchParams();
-  const [nav, setNav] = useState({ tab: params.has('message') ? 'messages' : 'overview', compose: false });
+  // PF-153: a reload with a message open comes back to it. PF-154: and to SENT.
+  const [params, setParams] = useSearchParams();
+  const inMessages = params.has('message') || params.get('box') === 'sent';
+  const [nav, setNav] = useState({ tab: inMessages ? 'messages' : 'overview', compose: false });
   const activeTab = nav.tab;
   const ActivePanel = PANELS[activeTab] || AdminOverviewPanel;
 
-  const onTabChange = (tab) => setNav({ tab, compose: false });
-  const onNavigate  = (tab, { compose = false } = {}) => setNav({ tab, compose });
+  // PF-154: leaving Messages leaves its address behind too, or a later reload
+  // would open SENT instead of where the owner had moved on to.
+  const goTab = (tab, compose) => {
+    setNav({ tab, compose });
+    if (tab !== 'messages' && params.get('box') === 'sent') setParams({}, { replace: true });
+  };
+  const onTabChange = (tab) => goTab(tab, false);
+  const onNavigate  = (tab, { compose = false } = {}) => goTab(tab, compose);
 
   const panel =
     activeTab === 'overview' ? <AdminOverviewPanel onNavigate={onNavigate} /> :

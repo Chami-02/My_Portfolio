@@ -321,7 +321,7 @@ export function ProjectsPage() {
                     <div key={i} className={styles.cardPlaceholder} aria-hidden="true" />
                   ))
                   : list.map((project) => (
-                    <ProjectCard key={project._id} project={project} state={fromState} />
+                    <ProjectCard key={project._id} project={project} state={fromState} titleAs="h2" />
                   ))}
               </div>
             )}

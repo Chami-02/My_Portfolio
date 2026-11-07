@@ -38,6 +38,9 @@ import { usePageMeta } from '../hooks/usePageMeta';
  * order (owner, 2026-11-02: "same effects same theme" as every other page).
  * Every word on it is fixed (owner, 2026-11-02 — no "Section text" card).
  */
+/** PF-154 — the placeholder cards while the list loads (/projects and /blog show 3 too). */
+const PLACEHOLDER_CARDS = 3;
+
 export function CertificatesPage() {
   const { slug } = useParams();
   const query = useCertificates();
@@ -153,7 +156,19 @@ export function CertificatesPage() {
                 >
                   They didn’t load this time. This is usually temporary — please try again.
                 </ErrorCard>
-              ) : isLoading ? null : shown.length === 0 ? (
+              ) : isLoading ? (
+                // PF-154: hold the grid's space while the list loads, as /projects
+                // and /blog do. Drawing nothing let the footer sit high and then
+                // jump (Lighthouse layout shift 0.93 on phones, measured).
+                <ul className={styles.grid} aria-hidden="true">
+                  {Array.from({ length: PLACEHOLDER_CARDS }, (_, i) => (
+                    <li key={i} className={`${styles.card} ${styles.cardPlaceholder}`}>
+                      <span className={styles.frame} />
+                      <span className={styles.cardBody} />
+                    </li>
+                  ))}
+                </ul>
+              ) : shown.length === 0 ? (
                 <p className={styles.message}>No certificates to show yet.</p>
               ) : (
                 <ul className={styles.grid}>

@@ -29,6 +29,15 @@ describe('link-preview tags', () => {
     expect(meta('property', 'og:description')).toBe(description);
   });
 
+  // PF-154 (owner, 2026-11-07, from a WhatsApp card). The line names no stack:
+  // the owner builds with others too.
+  it('says the words the owner chose', () => {
+    expect(title).toBe('Parindra Gallage | Portfolio website');
+    expect(meta('name', 'description'))
+      .toBe('I design, build and ship web applications from first idea to live site.');
+    expect(html).not.toMatch(/MERN/i);
+  });
+
   it('declares the basics', () => {
     expect(meta('property', 'og:type')).toBe('website');
     expect(meta('property', 'og:site_name')).toBe('Parindra Gallage');

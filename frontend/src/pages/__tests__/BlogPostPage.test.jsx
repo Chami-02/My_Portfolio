@@ -405,7 +405,7 @@ describe('page details for search engines', () => {
 
   it('names the post, its summary and its real address, even from an old link', () => {
     draw({ path: '/blog/old-address' });
-    expect(document.title).toBe(`${POST.title} — Parindra Gallage`);
+    expect(document.title).toBe(`${POST.title} | Parindra Gallage`);
     expect(head('link[rel="canonical"]').getAttribute('href'))
       .toBe('https://parindragallage.com/blog/docker-compose');
     const data = JSON.parse(document.getElementById('page-structured-data').textContent);

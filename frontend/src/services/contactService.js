@@ -14,12 +14,23 @@ export const contactService = {
   // PF-115: an explicit value, never a flip — see contactController.setStarred.
   star:      (id, starred) => api.patch(`/contact/${id}/star`, { starred }).then((r) => r.data.data),
   remove:    (id)  => api.delete(`/contact/${id}`),
-  // PF-153: the owner's answer, sent by the server from the domain.
-  reply: (id, message) => api.post(`/contact/${id}/reply`, { message }).then((r) => r.data.data),
+  // PF-153: the owner's answer, sent by the server from the domain. PF-154:
+  // `recorded: false` = the email went, but its SENT copy could not be saved.
+  reply: (id, message) => api.post(`/contact/${id}/reply`, { message })
+    .then((r) => ({ message: r.data.data, recorded: r.data.recorded !== false })),
   // PF-153: one batch after another, so a failure stops the rest.
   bulk: async (action, ids) => {
     for (let start = 0; start < ids.length; start += BULK_BATCH) {
       await api.post('/contact/bulk', { action, ids: ids.slice(start, start + BULK_BATCH) });
+    }
+  },
+
+  // PF-154: the SENT list — read and delete only.
+  getSent:    ()   => api.get('/contact/sent').then((r) => r.data.data),
+  removeSent: (id) => api.delete(`/contact/sent/${id}`),
+  removeSentMany: async (ids) => {
+    for (let start = 0; start < ids.length; start += BULK_BATCH) {
+      await api.post('/contact/sent/bulk', { ids: ids.slice(start, start + BULK_BATCH) });
     }
   },
 };

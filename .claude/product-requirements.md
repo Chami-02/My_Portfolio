@@ -368,3 +368,7 @@ zone."*
 ## The privacy note (owner asked, 2026-11-05)
 
 Not editable in the admin panel, and that stays: its words are promises about what the site does, so they change only together with the behaviour (PF-145).
+
+## Sent replies are kept, listed and deletable (owner, 2026-11-07, PF-154)
+
+Every reply sent from the Messages panel is listed under **SENT**, newest first, and is **kept when the inbox message it answered is deleted**. A reply is recorded only after the email service accepted it; if the email went but the record failed, the panel says so and never says "not sent". The owner can delete sent replies (one, or the ticked ones on screen) behind the shared confirm, which says the email received can't be unsent. Backups carry SENT and a restore merges it, never deleting. Full decisions: `locked-decisions.md` "PF-154".

@@ -106,6 +106,7 @@ const restoreAlert = (req, sentTo, summary, result) => {
         ...(summary.createdAt ? [['Backup made', new Date(summary.createdAt).toUTCString()]] : []),
         ['Restored', `${c.projects} projects · ${c.skills} skills · ${c.skillCategories} sections · ${c.blog} posts · ${c.vocabulary} tags & tech`],
         ['Messages', `${result.messagesAdded} brought back; none deleted`],
+        ['Sent replies', `${result.sentAdded} brought back; none deleted`],
       ],
       note:   'If this was you, there is nothing to do.',
       steps:  NOT_YOU_STEPS,
@@ -147,6 +148,7 @@ const restore = async (req, res, next) => {
         backupCreatedAt: summary.createdAt,
         counts:          result.counts,
         messagesAdded:   result.messagesAdded,
+        sentAdded:       result.sentAdded,
       },
     });
   } catch (err) {

@@ -7,6 +7,7 @@ const SkillCategory = require('../models/SkillCategory');
 const Blog          = require('../models/Blog');
 const Vocabulary    = require('../models/Vocabulary');
 const Contact       = require('../models/Contact');
+const SentReply     = require('../models/SentReply');      // PF-154
 const Education     = require('../models/Education');     // PF-143
 const Certificate   = require('../models/Certificate');   // PF-143
 const Migration     = require('../models/Migration');
@@ -45,7 +46,7 @@ const FORMAT  = 'portfolio-backup';
 /** A file key → words for a person: "skillCategories" → "skill sections". */
 const LIST_NAMES = { skillCategories: 'skill sections', blog: 'blog posts', vocabulary: 'tags and tech' };
 const listName = (key) => LIST_NAMES[key] || String(key).replace(/([A-Z])/g, ' $1').toLowerCase();
-const VERSION = 3;
+const VERSION = 4;
 
 /** `UPGRADES[n]` : (file at version n+1) => file at version n+2. */
 const UPGRADES = [
@@ -71,6 +72,34 @@ const UPGRADES = [
         (p && typeof p === 'object' ? { ...p, ...planProjectPage(p, taken) } : p)),
     };
   },
+  // 3 → 4 (PF-154): replies moved out of messages into their own SENT list.
+  // A v3 file kept them inside each message (`replies`); they become SENT rows
+  // here, exactly as migration 016 made them, so an old backup loses none.
+  // Fresh ids: the restore merges SENT by message + time, not by id.
+  (file) => {
+    const sentReplies = [];
+    for (const m of Array.isArray(file.messages) ? file.messages : []) {
+      if (!m || typeof m !== 'object' || !Array.isArray(m.replies)) continue;
+      for (const r of m.replies) {
+        sentReplies.push({
+          _id:      new mongoose.Types.ObjectId().toHexString(),
+          contact:  m._id,
+          toName:   m.name,
+          toEmail:  m.email,
+          subject:  'Re: Your message to Parindra Gallage',
+          message:  r && r.message,
+          original: { message: m.message, receivedAt: m.createdAt },
+          sentAt:   r && r.sentAt,
+        });
+      }
+    }
+    return {
+      ...file,
+      version: 4,
+      counts:  { ...file.counts, sentReplies: sentReplies.length },
+      sentReplies,
+    };
+  },
 ];
 
 /** Model name → key in the file. About is ONE document, the rest are lists. */
@@ -82,6 +111,7 @@ const BACKED_UP = {
   Blog:          'blog',
   Vocabulary:    'vocabulary',
   Contact:       'messages',
+  SentReply:     'sentReplies',
   Education:     'education',
   Certificate:   'certificates',
 };
@@ -96,7 +126,7 @@ const NEVER_BACKED_UP = [
   'VisitTotal', 'VisitorDay', 'VisitSalt', 'LiveVisitor',
 ];
 
-/** The lists, in the order they are written. Messages last: they MERGE. */
+/** The lists, in the order they are written. Messages and sent replies last: they MERGE. */
 const LISTS = [
   { key: 'skillCategories', Model: SkillCategory, label: 'Skill section', name: 'label' },
   { key: 'skills',          Model: Skill,         label: 'Skill',         name: 'name' },
@@ -106,7 +136,10 @@ const LISTS = [
   { key: 'education',       Model: Education,     label: 'Education entry', name: 'school' },
   { key: 'certificates',    Model: Certificate,   label: 'Certificate',   name: 'title' },
   { key: 'messages',        Model: Contact,       label: 'Message',       name: 'name' },
+  { key: 'sentReplies',     Model: SentReply,     label: 'Sent reply',    name: 'toName' },
 ];
+/** Lists a restore adds to instead of replacing — it never deletes the owner's mail. */
+const MERGED = new Set(['messages', 'sentReplies']);
 const LIST_KEYS = LISTS.map((l) => l.key);
 
 /** Far above any real site (the E2E site is ~200 rows); bounds the work a file can ask for. */
@@ -149,6 +182,7 @@ const buildBackup = async ({ session = null } = {}) => {
     () => read(Blog.find()),
     () => read(Vocabulary.find()),
     () => read(Contact.find()),
+    () => read(SentReply.find()),
     () => read(Education.find()),
     () => read(Certificate.find()),
     () => Migration.find().select('name').sort({ name: 1 }).lean().session(session),
@@ -158,9 +192,9 @@ const buildBackup = async ({ session = null } = {}) => {
   // a new transaction at the active transaction number"). In parallel otherwise.
   const results = [];
   if (session) for (const q of queries) results.push(await q());
-  const [about, projects, skills, skillCategories, blog, vocabulary, messages, education, certificates, migrations] =
+  const [about, projects, skills, skillCategories, blog, vocabulary, messages, sentReplies, education, certificates, migrations] =
     session ? results : await Promise.all(queries.map((q) => q()));
-  const lists = { projects, skills, skillCategories, blog, vocabulary, messages, education, certificates };
+  const lists = { projects, skills, skillCategories, blog, vocabulary, messages, sentReplies, education, certificates };
 
   return {
     format:    FORMAT,
@@ -453,7 +487,7 @@ const restoreBackup = async (rows) => {
       };
       await write(About, rows.about ? [rows.about] : []);
       for (const { key, Model } of LISTS) {
-        if (key !== 'messages') await write(Model, rows[key]);
+        if (!MERGED.has(key)) await write(Model, rows[key]);
       }
 
       const have = new Set((await Contact.find({ _id: { $in: rows.messages.map((m) => m._id) } })
@@ -461,9 +495,19 @@ const restoreBackup = async (rows) => {
       const missing = rows.messages.filter((m) => !have.has(String(m._id)));
       if (missing.length) await Contact.collection.insertMany(missing, { session });
 
+      // PF-154: SENT merges the same way. A reply is the message it answered +
+      // the moment it went, so a row from an upgraded v3 file (fresh id) still
+      // matches the one migration 016 made.
+      const sentKey = (r) => `${r.contact}|${new Date(r.sentAt).toISOString()}`;
+      const sentHave = new Set((await SentReply.find().select('contact sentAt').lean().session(session))
+        .map(sentKey));
+      const sentMissing = rows.sentReplies.filter((r) => !sentHave.has(sentKey(r)));
+      if (sentMissing.length) await SentReply.collection.insertMany(sentMissing, { session });
+
       result = {
         snapshotId:    snapshot._id,
         messagesAdded: missing.length,
+        sentAdded:     sentMissing.length,
         counts:        Object.fromEntries(LIST_KEYS.map((key) => [key, rows[key].length])),
       };
     });

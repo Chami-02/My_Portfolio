@@ -54,7 +54,8 @@ function draw(url = '/projects', { list } = {}) {
   );
 }
 
-const titles = () => screen.queryAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+// PF-154: h2 — the cards sit straight under the page's h1.
+const titles = () => screen.queryAllByRole('heading', { level: 2 }).map((h) => h.textContent);
 const group = (name) => screen.getByRole('group', { name: `Filter by ${name}` });
 const chip = (groupName, label) => within(group(groupName)).getByRole('button', { name: label });
 

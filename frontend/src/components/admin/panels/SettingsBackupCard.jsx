@@ -26,6 +26,8 @@ const countsText = (c = {}) => [
   `${c.blog ?? 0} posts`, `${c.vocabulary ?? 0} tags & tech`, `${c.messages ?? 0} messages`,
   // PF-143 — last, so the six earlier counts read as they always have.
   `${c.education ?? 0} education`, `${c.certificates ?? 0} certificates`,
+  // PF-154 — the SENT list.
+  `${c.sentReplies ?? 0} sent replies`,
 ].join(' · ');
 
 /** The reader's own clock, in the Messages panel's YYYY/MM/DD 12-hour form. */
@@ -175,7 +177,7 @@ export function SettingsBackupCard() {
       <div className={styles.collapseInner}>
       <p className={styles.lede}>
         Everything the site says, as one file: About, projects, skills and their sections, blog
-        posts (drafts too), tags and tech, and messages. Restore puts a file back if something goes
+        posts (drafts too), tags and tech, messages and your sent replies. Restore puts a file back if something goes
         wrong. Images and the résumé are saved as links. Your account, password and sessions are
         never in a backup and never changed by a restore.
       </p>
@@ -270,7 +272,7 @@ export function SettingsBackupCard() {
                 <ul className={styles.summary}>
                   <li>{countsText(target.summary.counts)}</li>
                   <li>About, projects, skills, sections, blog posts and tags &amp; tech are replaced by the backup.</li>
-                  <li>Every message you have now is kept; messages missing since come back.</li>
+                  <li>Every message and sent reply you have now is kept; ones missing since come back.</li>
                   <li>A safety copy of the site as it is now is kept first.</li>
                 </ul>
               )}

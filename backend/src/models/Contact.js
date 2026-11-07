@@ -51,15 +51,10 @@ const contactSchema = new mongoose.Schema(
       type:    String,
       default: null,
     },
-    // PF-153: what the owner answered from the panel. Absent until the first one.
-    replies: {
-      type: [{
-        _id:     false,
-        message: { type: String, required: true },
-        sentAt:  { type: Date, required: true },
-      }],
-      default: undefined,
-    },
+    // PF-153 kept the owner's replies here as `replies`. PF-154 moved them to
+    // their own SENT record (SentReply.js), which outlives a deleted message.
+    // Rows written before still carry the old copy until the contract step a
+    // release later removes it; nothing reads it (contactController.withReplies).
   },
   { timestamps: true }
 );
