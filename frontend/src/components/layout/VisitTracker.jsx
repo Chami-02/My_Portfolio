@@ -19,7 +19,7 @@ const whenIdle = (fn) => {
  * goes out until the visit is engaged (the owner's rule, also there).
  */
 export function VisitTracker() {
-  const { pathname } = useLocation();
+  const { pathname, state } = useLocation();
   const lastPath = useRef(null);
   const sentReferrer = useRef(false);
 
@@ -27,7 +27,11 @@ export function VisitTracker() {
     // StrictMode runs an effect twice on mount; one page opened is one count.
     if (lastPath.current === pathname) return;
     const isSecondPage = lastPath.current !== null;
+    // PF-153: forwarded from an old link. One page, counted when it opened. Only
+    // in this page load: the mark stays in history, and a reload is a new opening.
+    const forwarded = isSecondPage && state?.forwarded;
     lastPath.current = pathname;
+    if (forwarded) return;
     if (!shouldCount(pathname)) return;
 
     // document.referrer never changes in a single-page app, so after the first
@@ -39,7 +43,7 @@ export function VisitTracker() {
       countVisit({ type: 'view', path: pathname, referrer });
       if (isSecondPage) markEngaged();
     });
-  }, [pathname]);
+  }, [pathname, state]);
 
   useEffect(() => startEngagementClock(), []);
 

@@ -95,30 +95,10 @@ export const useBlogPost = (slug) =>
     enabled:  !!slug,
   });
 
-/**
- * Count one read of a post — PF-99.
- *
- * ⚠️ IT DELIBERATELY INVALIDATES NOTHING, and that is the whole reason
- * this has a comment. Every other mutation in this file invalidates
- * `BLOG_KEY` and `BLOG_ADMIN_KEY`, so an empty `onSuccess` reads as a
- * copy-paste that lost its body. Copying the pattern here would refetch
- * the post the reader is currently looking at — and the list behind it —
- * on every single page view, against a backend that rate-limits at
- * 100 req / 15 min / IP. The counter's new value is not rendered on this
- * page; the card that shows it is fetched fresh on the next visit.
- *
- * ⚠️ Errors are swallowed at the call site, not surfaced. A view is
- * telemetry: the 30/min limiter returning 429 to a reader who reloaded
- * six times must not put an error state on a page that rendered fine.
- */
-export const useRecordView = () =>
-  useMutation({ mutationFn: blogService.recordView });
-
 // PF-110: create, update, togglePublish and delete all invalidate
 // DASHBOARD_KEY too. Update is included on purpose — the editor's
 // published checkbox goes through updatePost, which moves a post between
-// the published and draft counts. useRecordView above stays out: it
-// invalidates nothing, by decision, and a view changes no count.
+// the published and draft counts.
 export const useCreatePost = () => {
   const qc = useQueryClient();
   return useMutation({

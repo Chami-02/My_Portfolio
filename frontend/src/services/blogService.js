@@ -29,16 +29,6 @@ export const blogService = {
   // payload is four more things than that, so every caller destructures.
   getBySlug:    (slug)  => api.get(`/blog/${slug}`).then((r) => r.data.data),
 
-  // ── PF-99 ────────────────────────────────────────────────────────────
-  // The view counter. `PATCH /blog/:slug/view` has existed since PF-64
-  // with ZERO callers, which is the only reason every post's count has
-  // been 0 — the endpoint, the `$inc`, the 30/min limiter and the schema
-  // field were all already there and working.
-  //
-  // Public and unauthenticated by design: it is the reader who is
-  // counted, not an admin.
-  recordView:   (slug)  => api.patch(`/blog/${slug}/view`).then((r) => r.data.data),
-
   // Admin protected
   getAllAdmin:   ()      => api.get('/blog/admin/all').then((r) => r.data.data),
   create:       (data)  => api.post('/blog', data).then((r) => r.data.data),

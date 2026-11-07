@@ -214,9 +214,12 @@ describe('when the store fails', () => {
     expect(spy).toHaveBeenCalled();
   });
 
-  it('the blog view counter counts in MongoDB too', async () => {
+  it('the visit counter counts in MongoDB too', async () => {
     const app = require('../app');
-    const res = await request(app).patch('/api/blog/any-post/view');
+    const res = await request(app).post('/api/visits')
+      .set('Origin', 'http://localhost:5173')
+      .set('User-Agent', 'Mozilla/5.0 Chrome/130.0 Safari/537.36')
+      .send({ type: 'view', path: '/' });
 
     expect(res.status).toBe(500);
     expect(spy).toHaveBeenCalled();

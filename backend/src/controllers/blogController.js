@@ -2,6 +2,7 @@ const { body } = require('express-validator');
 const Blog     = require('../models/Blog');
 const AppError = require('../utils/AppError');
 const { buildMatch, sortedPipeline } = require('../utils/blogQuery');
+const { moveTotals } = require('../services/visitTotals');
 
 // ── Validation rules ────────────────────────────────────────────────────────
 //
@@ -92,7 +93,7 @@ const getAllPosts = async (req, res, next) => {
         // reads `sections`; the reading view fetches its post by slug. The
         // ADMIN list below keeps `sections` (its edit form is built from
         // list rows).
-        project: { sections: 0 },
+        project: { sections: 0, oldSlugs: 0 },
       })
     );
     res.json({ status: 'success', data: posts });
@@ -121,14 +122,15 @@ const getAllPostsAdmin = async (req, res, next) => {
 // e.g. /api/blog/how-i-built-my-mern-portfolio
 const getPostBySlug = async (req, res, next) => {
   try {
-    const post = await Blog.findOne({
-      slug:      req.params.slug,
-      published: true,
-    });
+    // PF-153: an old address answers with the post as it is now, and the reading
+    // view forwards to the post's real slug. A post that holds the address today
+    // comes first. A rename's write purges the CDN (purgeOnWrite), so this is fresh.
+    const post = await Blog.findOne({ slug: req.params.slug, published: true }).select('-oldSlugs')
+      ?? await Blog.findOne({ oldSlugs: req.params.slug, published: true }).select('-oldSlugs');
 
     if (!post) return next(new AppError('Blog post not found', 404));
 
-    // Views are counted by PATCH /api/blog/:slug/view (PF-64), not here.
+    // Reads are counted by POST /api/visits (PF-153), not here.
     // Counting on read double-counted every view and bumped updatedAt,
     // which pushed every post anyone read to the top of the admin panel.
 
@@ -233,6 +235,24 @@ const createPost = async (req, res, next) => {
 // load → assign → save() is the document path, so `pre('validate')` runs
 // and both fields re-derive. It costs one extra round trip; that is the
 // price of the hooks running at all.
+/**
+ * PF-153 — keeps a renamed post's old address forwarding. Only a post that has
+ * been public had an address to share. The address belongs to the post that used
+ * it last, and a post renamed back no longer needs a forward from its own slug.
+ * Never throws: the rename is saved by now, so a failure is a log line.
+ */
+const rememberOldAddress = async (post, oldSlug) => {
+  if (!post.publishedAt) return;
+  try {
+    const quietly = { timestamps: false };
+    await Blog.updateMany({ oldSlugs: oldSlug, _id: { $ne: post._id } }, { $pull: { oldSlugs: oldSlug } }, quietly);
+    await Blog.updateOne({ _id: post._id }, { $addToSet: { oldSlugs: oldSlug } }, quietly);
+    await Blog.updateOne({ _id: post._id }, { $pull: { oldSlugs: post.slug } }, quietly);
+  } catch (err) {
+    console.error(`[PF-153] Old address ${oldSlug} not kept for post ${post._id}: ${err.message}`);
+  }
+};
+
 const updatePost = async (req, res, next) => {
   try {
     const post = await Blog.findById(req.params.id);
@@ -241,10 +261,15 @@ const updatePost = async (req, res, next) => {
     // `_id` is immutable and Mongoose throws if it is assigned; the
     // timestamps are Mongoose's own. Stripping them means a client that
     // PUTs back a whole post object it previously GET-ed still works.
-    const { _id, createdAt, updatedAt, ...updates } = req.body;
+    const { _id, createdAt, updatedAt, oldSlugs, ...updates } = req.body;
+    const oldSlug = post.slug;
     post.set(updates);
 
     await post.save();
+    if (post.slug !== oldSlug) {
+      await rememberOldAddress(post, oldSlug);
+      await moveTotals(`/blog/${oldSlug}`, `/blog/${post.slug}`);
+    }
     res.json({ status: 'success', data: post });
   } catch (err) {
     if (err.name === 'CastError') return next(new AppError("We couldn't find that post.", 400));
@@ -303,31 +328,6 @@ const deletePost = async (req, res, next) => {
     next(err);
   }
 };
-const incrementViews = async (req, res, next) => {
-  try {
-    const post = await Blog.findOneAndUpdate(
-      { slug: req.params.slug, published: true },
-      { $inc: { views: 1 } },
-      {
-        returnDocument: 'after',  // return the document AFTER the update
-        runValidators:  false,    // only touching a counter
-        timestamps:     false,    // a view is not an edit — reads must not
-                                  // bump updatedAt or the admin panel's
-                                  // "recently edited" ordering becomes noise
-        projection:     'slug views',
-      }
-    );
-
-    if (!post) {
-      return next(new AppError("We couldn't find that post.", 404));
-    }
-
-    res.json({ status: 'success', data: { slug: post.slug, views: post.views } });
-
-  } catch (err) {
-    next(err);
-  }
-};
 
 module.exports = {
   blogRules,
@@ -338,5 +338,4 @@ module.exports = {
   updatePost,
   togglePublish,
   deletePost,
-  incrementViews,
 };

@@ -15,7 +15,7 @@
 // is why the tag pill below may declare its own `transition` (PF-93's
 // rule binds only on Reveal-wrapped elements, and nothing here is one).
 import { useEffect, useRef } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   PageShell,
   StarfieldCanvas,
@@ -24,51 +24,23 @@ import {
 } from '../components/ambient';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
 import { LoadingScreen } from '../components/common/LoadingScreen';
-import { useBlogPost, useRecordView } from '../hooks/useBlog';
+import { useBlogPost } from '../hooks/useBlog';
+import { startReadClock } from '../utils/visits';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { formatDate, formatReadTime } from '../utils/blogMeta';
 import styles from './BlogPostPage.module.css';
 import { ErrorCard } from '../components/common/ErrorCard';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { SITE_URL } from '../utils/pageMeta';
 
 /** `1` → `01`. The prototype's own line, for both the post numeral and
  *  the per-section ones (Blog.dc.html:594). */
 const pad = (n) => String(n).padStart(2, '0');
 
-/**
- * Has this browser session already counted a read of this post?
- *
- * ⚠️ LOCAL TO THIS FILE ON PURPOSE. There is exactly one consumer, and
- * `utils/blogMeta.js`'s header states the bar this repo uses: one
- * consumer is a local function, two is a module. PF-95 nearly shipped a
- * whole `utils/blog.js` for a formatter that already existed two lines
- * away, and that is the mistake being avoided here.
- *
- * ⚠️ BOTH BRANCHES SWALLOW. `sessionStorage` throws outright in some
- * privacy modes and when a cross-origin frame is blocked — not "returns
- * null", throws — so an unguarded read would blank the entire reading
- * view over a telemetry counter. On failure the answer is "already
- * counted", which under-counts rather than counting on every render.
- */
-const VIEW_KEY = (slug) => `pg-viewed-${slug}`;
-
-function claimView(slug) {
-  try {
-    if (sessionStorage.getItem(VIEW_KEY(slug))) return false;
-    // ⚠️ WRITTEN BEFORE the request goes out, not in its callback. React
-    // 19's StrictMode mounts every effect twice in development; a flag
-    // set on success would be written after both runs had already fired,
-    // and the post would count two views on every dev page load. Writing
-    // first makes the second run a no-op synchronously.
-    sessionStorage.setItem(VIEW_KEY(slug), '1');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function BlogPostPage() {
   const { slug } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const reduced  = useReducedMotion();
 
   const { data, isLoading, isError, error, refetch, isFetching } = useBlogPost(slug);
@@ -76,15 +48,28 @@ export function BlogPostPage() {
   // dead server or no network means "not loading" — never tell a reader a
   // real post does not exist because the server was busy.
   const notFound = isError && error?.response?.status === 404;
-  // ⚠️ `mutate` destructured out rather than holding the whole mutation
-  // object. TanStack Query returns a NEW object every render but a STABLE
-  // `mutate`, so this is what lets the effect below declare an honest
-  // dependency array instead of suppressing the lint rule.
-  const { mutate: recordView } = useRecordView();
 
   // The endpoint returns a COMPOUND resource (PF-96 for the neighbours,
   // PF-99 for the position), never a bare post.
   const { post, prev, next, index } = data ?? {};
+
+  // `canonical` is the post's real address, so an old link never competes with it.
+  usePageMeta(post
+    ? {
+      title: post.title,
+      description: post.excerpt,
+      path: `/blog/${post.slug}`,
+      structured: {
+        '@type': 'BlogPosting',
+        headline: post.title,
+        description: post.excerpt,
+        url: `${SITE_URL}/blog/${post.slug}`,
+        datePublished: post.publishedAt ?? post.createdAt,
+        dateModified: post.updatedAt,
+        author: { '@type': 'Person', name: 'Parindra Gallage', url: SITE_URL },
+      },
+    }
+    : { noindex: notFound, ...(notFound && { title: 'Post not found' }) });
 
   // ── where ← ALL POSTS goes ───────────────────────────────────────────
   //
@@ -128,18 +113,25 @@ export function BlogPostPage() {
 
   // ── count the read ───────────────────────────────────────────────────
   //
-  // Gated on the post having LOADED, not on mount: firing on mount would
-  // PATCH a slug that may not exist, and the endpoint answers 404 for a
-  // draft or a typo. `mutate`, not `mutateAsync`, and an empty onError —
-  // a view is telemetry. The 30/min limiter answering 429 to someone who
-  // reloaded seven times must not put an error state on a page that
-  // rendered perfectly.
-  //
+  // Gated on the post having LOADED: a draft or a typo has nothing to read. Leaving
+  // stops the clock, so someone gone within the 6 seconds counts nothing (PF-153).
+  // ⚠️ Not while the address is an old one: the reader is about to be forwarded.
+  const loadedSlug = post?.slug === slug ? slug : undefined;
   useEffect(() => {
-    if (!post || !slug) return;
-    if (!claimView(slug)) return;
-    recordView(slug, { onError: () => {} });
-  }, [post, slug, recordView]);
+    if (!loadedSlug) return undefined;
+    return startReadClock(loadedSlug);
+  }, [loadedSlug]);
+
+  // ── an old link to a renamed post (PF-153) ───────────────────────────
+  //
+  // The server answered with the post under its current slug. `replace`, so Back
+  // does not return to the old address and forward again. `forwarded` tells
+  // VisitTracker this is one page, already counted.
+  const forwardTo = post && post.slug !== slug ? post.slug : null;
+  useEffect(() => {
+    if (!forwardTo) return;
+    navigate(`/blog/${forwardTo}`, { replace: true, state: { ...location.state, forwarded: true } });
+  }, [forwardTo, navigate, location.state]);
 
   return (
     <PageShell>

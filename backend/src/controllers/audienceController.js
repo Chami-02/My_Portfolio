@@ -132,6 +132,7 @@ const withTitles = async (paths) => {
   return paths.map((row) => ({ ...row, title: titles.get(row.key) ?? null }));
 };
 
+/** Most first, with the address standing in for a title that has gone. */
 const mostViewed = (pages, prefix) => pages
   .filter((row) => row.key.startsWith(prefix))
   .sort((x, y) => y.count - x.count || x.key.localeCompare(y.key))
@@ -180,7 +181,7 @@ const getAnalytics = async (req, res, next) => {
       countingSince(),
     ]);
 
-    const pages = await withTitles(dims.path ?? []);
+    const [pages, reads] = await Promise.all([withTitles(dims.path ?? []), withTitles(dims.read ?? [])]);
 
     const clicksByDay = new Map();
     clickRows.forEach(({ day, count }) => clicksByDay.set(day, (clicksByDay.get(day) ?? 0) + count));
@@ -210,7 +211,8 @@ const getAnalytics = async (req, res, next) => {
         pages,
         mostViewed: {
           projects: mostViewed(pages, '/projects/'),
-          posts:    mostViewed(pages, '/blog/'),
+          // PF-153: reads, the same events as Blog.views in the public box.
+          posts:    mostViewed(reads, '/blog/'),
         },
         messagesByCountry: groupCounts(messages.map((m) => countryOfLocation(m.location))),
         daily: daysFrom(from, to).map((day) => ({

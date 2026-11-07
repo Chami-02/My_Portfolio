@@ -5,6 +5,8 @@ const VisitTotal = require('../models/VisitTotal');
 const VisitorDay = require('../models/VisitorDay');
 const VisitSalt  = require('../models/VisitSalt');
 const LiveVisitor = require('../models/LiveVisitor');
+const Blog = require('../models/Blog');
+const { isAllowedOrigin } = require('../config/corsOptions');
 const { requestPlace } = require('../utils/requestLocation');
 const { isBot, browserName, deviceType } = require('../utils/deviceLabel');
 
@@ -27,6 +29,11 @@ const DIRECT  = '(direct)';
 // invent new ones forever. Past this many in one day only rows that already
 // exist go up, and the free database cannot be filled. A real day is a few dozen.
 const MAX_CLIENT_KEYED_ROWS = 1000;
+
+// PF-153 — a script changing its browser name looks like a new person each time,
+// so one network can add only this many new visitors a day. A real office rarely
+// passes it, and /privacy says what happens if one does.
+const MAX_NEW_VISITORS_PER_NETWORK = 20;
 
 // A fixed zone, not UTC: Sri Lanka is +5:30, so an hour counted in UTC could
 // never be moved onto the owner's clock afterwards. Decided when it is written.
@@ -72,6 +79,16 @@ const ignoreBots = (req, res, next) => {
   next();
 };
 
+/**
+ * PF-153 — every browser sends `Origin` on this request; a plain script does not.
+ * A foreign one is already refused by CORS, so this is for the missing header.
+ * A filter, not proof: a script can write the header too.
+ */
+const ignoreOutsiders = (req, res, next) => {
+  if (!isAllowedOrigin(req.get('origin'))) return res.status(204).end();
+  next();
+};
+
 const identifyVisitor = async (req, _res, next) => {
   try {
     const now  = zonedNow();
@@ -88,11 +105,13 @@ const identifyVisitor = async (req, _res, next) => {
   }
 };
 
+const SLUG = /^[a-z0-9-]{1,200}$/;
+
 // PF-149 — the home page's sections, a fixed list: this is client text too.
 const HOME_SECTIONS = ['hero', 'about', 'skills', 'projects', 'blog', 'contact'];
 
 const visitRules = [
-  body('type').isString().bail().isIn(['view', 'click', 'section']).withMessage('Unknown visit type'),
+  body('type').isString().bail().isIn(['view', 'click', 'section', 'read']).withMessage('Unknown visit type'),
   body('path').if(body('type').equals('view'))
     .isString().bail().isLength({ max: 2048 }).withMessage('Path is too long'),
   body('referrer').optional()
@@ -104,12 +123,15 @@ const visitRules = [
     .custom((list) => new Set(list).size === list.length).withMessage('Unknown section'),
   body('sections.*').if(body('type').equals('section'))
     .isString().bail().isIn(HOME_SECTIONS).withMessage('Unknown section'),
+  body('slug').if(body('type').equals('read'))
+    .isString().bail().matches(SLUG).withMessage('Unknown post'),
 ];
 
 // ── Turning what the client sent into safe keys ─────────────────────────────
 
 const LISTED_PATHS = new Set(['/', '/blog', '/projects', '/certificates', '/privacy', '/cv-unavailable']);
-const SLUG_PATH = /^\/(blog|projects|certificates)\/[a-z0-9-]{1,100}$/;
+// 200: a title may be 150 characters (Blog.js), and its slug must not fall into OTHER.
+const SLUG_PATH = /^\/(blog|projects|certificates)\/[a-z0-9-]{1,200}$/;
 
 const isAdminPath = (path) => path === '/admin' || path.startsWith('/admin/');
 
@@ -132,18 +154,53 @@ const referrerKey = (raw) => {
   }
 };
 
+/**
+ * PF-153 — a link to a renamed post is the post's page. The browser forwards and
+ * does not count again (VisitTracker), so this view must land on the new address,
+ * or the old one would grow a row of its own after moveTotals emptied it.
+ */
+const currentPath = async (path) => {
+  if (!path.startsWith('/blog/')) return path;
+  const slug = path.slice('/blog/'.length);
+  const moved = await Blog.findOne({ oldSlugs: slug, published: true }).select('slug').lean();
+  if (!moved || await Blog.exists({ slug, published: true })) return path;
+  return `/blog/${moved.slug}`;
+};
+
 const addOne = (day, dim, key, upsert = true) => ({
   updateOne: { filter: { day, dim, key }, update: { $inc: { count: 1 } }, upsert },
 });
 
 /** True the FIRST time this code is seen; atomic, so a burst counts once. */
-const isFirstVisitToday = async (code) => {
+const isFirstToday = async (code, fields = {}) => {
   const result = await VisitorDay.updateOne(
     { _id: code },
-    { $setOnInsert: { expiresAt: new Date(Date.now() + KEEP_CODES_MS) } },
+    { $setOnInsert: { expiresAt: new Date(Date.now() + KEEP_CODES_MS), ...fields } },
     { upsert: true },
   );
   return result.upsertedCount === 1;
+};
+
+/** A new visitor, unless their network has already added its share today. */
+const isNewVisitorToday = async (code, source) => {
+  if (!await isFirstToday(code, { source })) return false;
+  return await VisitorDay.countDocuments({ source }) <= MAX_NEW_VISITORS_PER_NETWORK;
+};
+
+/**
+ * PF-153 — one person, one post, one read a day. `Blog.views` and the `read` row
+ * move together, so the public box and the panel count the same thing. The post
+ * is checked first: a draft's address or an invented one writes nothing at all.
+ */
+const recordRead = async (req, slug) => {
+  const post = await Blog.exists({ slug, published: true });
+  if (!post) return;
+  if (!await isFirstToday(scramble(req.visitorCode, `read|${slug}`))) return;
+  await Promise.all([
+    // A read is not an edit: updatedAt must not move.
+    Blog.updateOne({ _id: post._id }, { $inc: { views: 1 } }, { timestamps: false }),
+    VisitTotal.bulkWrite([addOne(req.visitNow.day, 'read', `/blog/${slug}`)]),
+  ]);
 };
 
 // ── The route ────────────────────────────────────────────────────────────────
@@ -151,7 +208,7 @@ const isFirstVisitToday = async (code) => {
 /** POST /api/visits — public. Always a bare 204: nothing here is the visitor's business. */
 const recordVisit = async (req, res, next) => {
   try {
-    const { type, path, referrer, link, sections } = req.body;
+    const { type, path, referrer, link, sections, slug } = req.body;
     const { day, hour } = req.visitNow;
 
     if (type === 'click') {
@@ -164,6 +221,11 @@ const recordVisit = async (req, res, next) => {
       return res.status(204).end();
     }
 
+    if (type === 'read') {
+      await recordRead(req, slug);
+      return res.status(204).end();
+    }
+
     if (isAdminPath(path)) return res.status(204).end();
 
     const room = await VisitTotal.countDocuments({ day, dim: { $in: ['path', 'referrer'] } })
@@ -172,10 +234,10 @@ const recordVisit = async (req, res, next) => {
     const writes = [
       addOne(day, 'views', 'all'),
       addOne(day, 'hour', hour),
-      addOne(day, 'path', pathKey(path), room),
+      addOne(day, 'path', await currentPath(pathKey(path)), room),
     ];
 
-    if (await isFirstVisitToday(req.visitorCode)) {
+    if (await isNewVisitorToday(req.visitorCode, req.visitorSource)) {
       const place = requestPlace(req);
       const ua = req.get('user-agent');
       writes.push(
@@ -202,4 +264,4 @@ const recordVisit = async (req, res, next) => {
   }
 };
 
-module.exports = { visitRules, ignoreBots, identifyVisitor, recordVisit, saltFor, zonedNow };
+module.exports = { visitRules, ignoreBots, ignoreOutsiders, identifyVisitor, recordVisit, saltFor, zonedNow };

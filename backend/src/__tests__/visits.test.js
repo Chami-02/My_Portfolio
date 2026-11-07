@@ -19,7 +19,7 @@ const SAFARI_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Ap
 const IP = '203.0.113.77';
 
 const send = (payload, { ip = IP, ua = CHROME_MAC, headers = {} } = {}) => {
-  const req = request(app).post('/api/visits').set('X-Forwarded-For', ip);
+  const req = request(app).post('/api/visits').set('X-Forwarded-For', ip).set('Origin', 'http://localhost:5173');
   if (ua) req.set('User-Agent', ua); else req.unset('User-Agent');
   Object.entries(headers).forEach(([k, v]) => req.set(k, v));
   return req.send(payload);
@@ -82,6 +82,50 @@ describe('POST /api/visits — what is counted', () => {
     expect(await total('click', 'github')).toBe(1);
     expect(await total('views', 'all')).toBe(0);
     expect(await total('visitors', 'all')).toBe(0);
+  });
+});
+
+describe('POST /api/visits — fake visits (PF-153)', () => {
+  it('ignores a request with no Origin, writing nothing', async () => {
+    const res = await request(app).post('/api/visits')
+      .set('User-Agent', CHROME_MAC).send({ type: 'view', path: '/' });
+    expect(res.status).toBe(204);
+    expect(await VisitTotal.countDocuments()).toBe(0);
+    expect(await VisitorDay.countDocuments()).toBe(0);
+  });
+
+  it('refuses a foreign Origin, writing nothing', async () => {
+    const res = await view('/', { headers: { Origin: 'https://evil.example' } });
+    expect(res.status).toBe(403);
+    expect(await VisitTotal.countDocuments()).toBe(0);
+  });
+
+  const uaNumber = (n) => `Mozilla/5.0 Chrome/130.${n} Safari/537.36`;
+
+  it('one network adds 20 new visitors a day, however many browsers it claims', async () => {
+    for (let n = 0; n < 23; n += 1) await view('/', { ua: uaNumber(n) });
+    expect(await total('visitors', 'all')).toBe(20);
+    expect(await total('device', 'desktop')).toBe(20);
+    // Every page opened is still a page opened; the rate limit bounds these.
+    expect(await total('views', 'all')).toBe(23);
+  });
+
+  it('a person back again does not use up their network\'s share', async () => {
+    for (let n = 0; n < 25; n += 1) await view('/', { ua: uaNumber(1) });
+    await view('/', { ua: uaNumber(2) });
+    expect(await total('visitors', 'all')).toBe(2);
+  });
+
+  it('another network has its own share', async () => {
+    for (let n = 0; n < 21; n += 1) await view('/', { ua: uaNumber(n) });
+    await view('/', { ip: '198.51.100.8' });
+    expect(await total('visitors', 'all')).toBe(21);
+  });
+
+  it('keeps a long post title\'s address as itself', async () => {
+    const path = `/blog/${'a'.repeat(150)}`;
+    await view(path);
+    expect(await total('path', path)).toBe(1);
   });
 });
 
@@ -322,11 +366,12 @@ describe('POST /api/visits — nothing personal is saved', () => {
     });
   });
 
-  it('a visitor row holds only the code and its expiry', async () => {
+  it('a visitor row holds only scrambled codes and its expiry', async () => {
     await view();
     const row = await VisitorDay.findOne().lean();
-    expect(Object.keys(row).sort()).toEqual(['_id', 'expiresAt']);
+    expect(Object.keys(row).sort()).toEqual(['_id', 'expiresAt', 'source']);
     expect(row._id).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.source).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('codes and salts are deleted within two days', async () => {

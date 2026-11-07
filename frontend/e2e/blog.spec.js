@@ -114,9 +114,6 @@ async function stubApi(page) {
   // `/api/blog/newest-post` and serve it an ARRAY — the reading view
   // would render its not-found panel and the failure would read as the
   // route being broken.
-  //
-  // ⚠️ The counter's PATCH is registered after this one for the same
-  // reason: `**/api/blog/*` matches `/api/blog/x/view` too.
   await page.route('**/api/blog/*', (route) => {
     const slug  = new URL(route.request().url()).pathname.split('/').pop();
     const index = POSTS.findIndex((p) => p.slug === slug);
@@ -141,12 +138,6 @@ async function stubApi(page) {
     }));
   });
 
-  // The view counter. Stubbed rather than left to the real backend so a
-  // run does not spend its rate-limit budget on telemetry — the PATCH
-  // limiter is a separate 30/min, but the global 100 req / 15 min is
-  // shared, and that is the one this suite has already exhausted once.
-  await page.route('**/api/blog/*/view', (route) =>
-    route.fulfill(json({ slug: 'stub', views: 1 })));
 }
 
 const main = (page) => page.locator('main');

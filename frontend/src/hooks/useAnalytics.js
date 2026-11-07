@@ -33,7 +33,7 @@ export const useLiveAnalytics = () =>
       return { ...live, ms: Math.round(performance.now() - started) };
     },
     refetchInterval:      LIVE_POLL_MS,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: 'always', // `true` refetches only stale data (useDashboardStats)
     retry:                false,
   });
 
