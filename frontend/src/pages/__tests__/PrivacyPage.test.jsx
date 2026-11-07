@@ -53,6 +53,10 @@ describe('PrivacyPage', () => {
     expect(screen.getByText(/no cookies for visitors/)).toBeInTheDocument();
     expect(screen.getByText(/Global Privacy Control/)).toBeInTheDocument();
     expect(screen.getByText(/held for up to an hour/)).toBeInTheDocument();
+    // PF-154: a reply lives in SENT, apart from the message, until deleted.
+    expect(screen.getByText(/a copy is kept with your name, email address and the\s+message it answers/)).toBeInTheDocument();
+    expect(screen.getByText(/A reply sent to you: until it is deleted, separately from your message/)).toBeInTheDocument();
+    expect(screen.queryByText(/kept with your message\./)).toBeNull();
   });
 
   it('gives the site address only', () => {

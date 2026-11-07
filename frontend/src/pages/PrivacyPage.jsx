@@ -114,7 +114,8 @@ export function PrivacyPage() {
           When you use the contact form, your name, email address, message and
           approximate location are stored and emailed to the site owner, so that
           you can receive a reply. Any reply is emailed to you from this site’s
-          address and kept with your message. Sending a message is your choice,
+          address, and a copy is kept with your name, email address and the
+          message it answers. Sending a message is your choice,
           and the rest of the site works without it.
         </p>
 
@@ -149,6 +150,10 @@ export function PrivacyPage() {
           <li>Scrambled visitor codes: deleted within 2 days</li>
           <li>Your IP address in the request limit: up to an hour</li>
           <li>Your message: until it is deleted, and it may also remain in private backups</li>
+          <li>
+            A reply sent to you: until it is deleted, separately from your message,
+            and it may also remain in private backups
+          </li>
         </ul>
 
         <h2 className={styles.title}>Security</h2>
