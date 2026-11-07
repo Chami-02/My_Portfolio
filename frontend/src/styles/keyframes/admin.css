@@ -1,29 +1,11 @@
-/* Admin screen variants — Admin.dc.html:27-38.
+/* Admin screen variants — Admin.dc.html:27-38. Only what the admin really runs.
  *
- * ⚠️ flt-admin and drift-admin have NO prototype source. Admin.dc.html
- * defines no @keyframes flt and no @keyframes drift; they were
- * transcribed by symmetry with the Portfolio screen during E6 and can
- * never acquire a consumer. Kept only because keyframes.test.js pins
- * the library by name and count — removal is its own change.
+ * PF-153 deleted flt-admin and drift-admin (no prototype source, could never have
+ * a consumer) and auroraA / auroraB (the login's orbs were replaced by the site's
+ * ambient layer, owner decision 2026-09-16). Do not "restore" them from the export.
  *
- * ⚠️ sheen-admin, auroraA and auroraB were corrected to the export's
- * bodies in PF-109 (2026-09-16). Every one had zero consumers and a
- * body that matched nothing in Admin.dc.html — sheen carried a skew
- * the export has no trace of, the auroras drifted in px with the wrong
- * scales. The auroras are still unconsumed (the login's stage was
- * replaced by the site's ambient layer, owner decision 2026-09-16);
- * they are corrected so the library does not carry a known-wrong body.
+ * ⚠️ sheen-admin was corrected to the export's body in PF-109.
  */
-
-@keyframes flt-admin {
-  0%, 100% { transform: translateY(0);     }
-  50%      { transform: translateY(-16px); }
-}
-
-@keyframes drift-admin {
-  0%, 100% { transform: translate3d(0, 0, 0);        }
-  50%      { transform: translate3d(28px, -16px, 0); }
-}
 
 /* The login card's entrance. Admin.dc.html:29 — 18px, not the
    Portfolio's 16 or the Blog's 22. */
@@ -38,15 +20,4 @@
 @keyframes sheen-admin {
   0%        { transform: translateX(-120%); }
   55%, 100% { transform: translateX(220%);  }
-}
-
-/* Aurora orbs — Admin.dc.html:34-35. Admin-only, no base version. */
-@keyframes auroraA {
-  0%, 100% { transform: translate3d(-6%, -4%, 0) scale(1);    }
-  50%      { transform: translate3d(8%, 6%, 0)   scale(1.16); }
-}
-
-@keyframes auroraB {
-  0%, 100% { transform: translate3d(6%, 5%, 0)   scale(1.1); }
-  50%      { transform: translate3d(-7%, -6%, 0) scale(1);   }
 }

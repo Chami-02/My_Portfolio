@@ -29,7 +29,7 @@ const BASE = [
   'dot', 'glowdot', 'glowpulse', 'pulsering', 'ringPulse', 'boltp',
   'breathe', 'floatY', 'nudge', 'spin', 'orbdot',
   'sweep', 'shimmerline', 'shimmer',
-  'scanline', 'flicker', 'marq', 'blink',
+  'flicker', 'marq', 'blink',
 ];
 
 /**
@@ -37,15 +37,13 @@ const BASE = [
  * three prototypes define it at 16px / 22px / 18px, and the single copy
  * that lived in base.css was 14px — matching none of them. It now gets
  * the flt/drift/sheen treatment: one name per screen, no unsuffixed
- * fallback. That is why the design's count below is 34, not 32: the
- * same 32 keyframes, with riseIn counted once per screen the way flt
- * already was.
+ * fallback: the design's 32 keyframes became 34 names, with riseIn counted
+ * once per screen the way flt already was.
  */
 const VARIANTS = [
   'flt-portfolio', 'drift-portfolio', 'sheen-portfolio', 'riseIn-portfolio',
   'flt-blog', 'sheen-blog', 'riseIn-blog',
-  'flt-admin', 'drift-admin', 'sheen-admin', 'riseIn-admin',
-  'auroraA', 'auroraB',
+  'sheen-admin', 'riseIn-admin',
 ];
 
 /**
@@ -81,12 +79,12 @@ describe('Keyframe library (PF-69)', () => {
     expect(defines(base, name)).toBe(true);
   });
 
-  it('defines the prototype\'s 34 keyframe names plus exactly the listed additions', () => {
+  it('defines the keyframes the site runs plus exactly the listed additions', () => {
     const found = [...all.matchAll(/@keyframes\s+([a-zA-Z0-9_-]+)/g)].map(m => m[1]);
 
-    // The design's own set — 32 distinct keyframes, with riseIn carried
-    // once per screen (see the VARIANTS note). Still asserted as such.
-    expect(BASE.length + VARIANTS.length).toBe(34);
+    // The design's 34 names, less the 5 PF-153 deleted for having no consumer
+    // (scanline, flt-admin, drift-admin, auroraA, auroraB).
+    expect(BASE.length + VARIANTS.length).toBe(29);
 
     // Anything defined that is in none of the three lists is drift.
     const known = new Set([...BASE, ...VARIANTS, ...ADDITIONS]);
@@ -157,7 +155,6 @@ describe('Keyframe library (PF-69)', () => {
     // as an error state rather than as a refusal, and the field markers are
     // what carry the colour.
     shake:       ['transform'],
-    scanline:    ['transform'],
     flicker:     ['opacity'],
     marq:        ['transform'],
     blink:       ['opacity'],
@@ -169,12 +166,8 @@ describe('Keyframe library (PF-69)', () => {
     'flt-blog':        ['transform'],
     'sheen-blog':      ['transform'],
     'riseIn-blog':     ['opacity', 'transform'],
-    'flt-admin':       ['transform'],
-    'drift-admin':     ['transform'],
     'sheen-admin':     ['transform'],
     'riseIn-admin':    ['opacity', 'transform'],
-    auroraA:           ['transform'],
-    auroraB:           ['transform'],
   };
 
   /**
@@ -227,7 +220,6 @@ describe('Keyframe library (PF-69)', () => {
     expect(base).toMatch(/translateY\(-50%\)|translateX\(-50%\)/); // marq
     expect(portfolio).toMatch(/translateY\(-14px\)/);
     expect(blog).toMatch(/translateY\(-12px\)/);
-    expect(admin).toMatch(/translateY\(-16px\)/);
     // PF-109 — the three admin-only bodies corrected against
     // Admin.dc.html:31-33, and the sheen's no-skew resting point.
     expect(base).toMatch(/translateY\(-9px\)/);           // floatY
@@ -253,15 +245,13 @@ describe('Keyframe library (PF-69)', () => {
     expect(all).not.toMatch(/riseIn[a-z-]*\s*\{[^}]*translateY\(14px\)/);
   });
 
-  it('keeps the three flt variants distinct', () => {
+  it('keeps the two flt variants distinct', () => {
     expect(portfolio).toMatch(/-14px/);
     expect(blog).toMatch(/-12px/);
-    expect(admin).toMatch(/-16px/);
   });
 
-  it('keeps translate3d on drift and aurora for GPU compositing', () => {
+  it('keeps translate3d on drift for GPU compositing', () => {
     expect(portfolio).toMatch(/translate3d/);
-    expect(admin).toMatch(/translate3d/);
   });
 
   it('keeps the orbdot counter-rotation', () => {

@@ -26,7 +26,7 @@
  * PF-109 (the prototypes disagree: 16px here, 22 Blog, 18 Admin), so
  * the -portfolio suffix is load-bearing on those two rules.
  * (`scanline` was a seventh until the travelling lines were removed —
- * see the note further down. The keyframe itself is still in base.css.)
+ * see the note further down. PF-153 deleted the keyframe too.)
  *
  * Keyframe names cannot be written directly in a CSS Module — they get
  * scoped to an identifier no @keyframes defines and the element then
@@ -148,8 +148,7 @@
  * which is a worse artefact than the motion being complained about.
  *
  * .scanTexture below is NOT one of them and stays: it is the static
- * CRT-style hatch over the whole splash, it has never moved, and the
- * `scanline` keyframe in keyframes/base.css is untouched. */
+ * CRT-style hatch over the whole splash, and it has never moved. */
 
 .scanTexture {
   position: absolute;

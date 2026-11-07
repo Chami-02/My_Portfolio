@@ -5,7 +5,6 @@ const ALLOWED_ORIGINS = [
   'http://localhost:5173',                    // Local dev (Docker)
   'http://localhost:5174',                    // E2E frontend (PF-66) — Playwright only
   'https://parindragallage.com',              // PF-146 — www forwards here, so it never calls the API
-  'https://my-portfoliofrontend-henna.vercel.app', // PF-146 — old address, removed a release after the switch
 ];
 
 // Dev-only escape hatch for Vite's port hopping (owner decision,

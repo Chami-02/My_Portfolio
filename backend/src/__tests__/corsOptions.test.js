@@ -34,7 +34,6 @@ describe('CORS origin policy (PF-85)', () => {
       'http://localhost:5173',
       'http://localhost:5174',
       'https://parindragallage.com',
-      'https://my-portfoliofrontend-henna.vercel.app',
     ];
 
     it.each(ORIGINS)('allows %s in production', (o) => {
