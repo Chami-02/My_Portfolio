@@ -193,7 +193,9 @@ const isNewVisitorToday = async (code, source) => {
  * is checked first: a draft's address or an invented one writes nothing at all.
  */
 const recordRead = async (req, slug) => {
-  const post = await Blog.exists({ slug, published: true });
+  // `$eq`: the rules already allow only a slug-shaped string, but the query must
+  // stay a plain match even without them (an object here would be an operator).
+  const post = await Blog.exists({ slug: { $eq: slug }, published: true });
   if (!post) return;
   if (!await isFirstToday(scramble(req.visitorCode, `read|${slug}`))) return;
   await Promise.all([
