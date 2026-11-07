@@ -11191,3 +11191,26 @@ PF-152 parked by the owner; this went first. **Report: `new mds/Sprint 16/PF-153
 | Handbook rewording, full handbooks | **PF-156** |
 | Visitor answers reach the panel too (Gmail + copy) | **After release** (owner, 2026-11-07); Cloudflare Email Routing recommended. All post-release work: `new mds/Sprint 16/After-Release-Plan.md` |
 
+
+#### PF-154 — final check + launch, share card, SENT (2026-11-07, `feat/PF-154-launch`, building)
+
+**Report: `new mds/Sprint 16/PF-154-final-check-and-launch.md`.** Decisions: `locked-decisions.md` "PF-154". Traps: `silent-failures.md` "PF-154". Requirement: `product-requirements.md` "Sent replies". Migration 016.
+
+**Code half (built, gate green):**
+- Share card + `|` titles: `frontend/index.html`, `utils/pageMeta.js` `pageTitle()`; pinned in `shareTags.test.js` (words, no "MERN"), `pageMeta.test.js`, `BlogPostPage.test.jsx`, `e2e/homepage.spec.js`.
+- Release: `frontend/package.json` 1.0.0, root `CHANGELOG.md`, `docs/RUNBOOK.md`.
+- SENT (owner asked mid-ticket, folded into PF-154): `models/SentReply.js`, `controllers/sentReplyController.js` (`GET /api/contact/sent`, `DELETE /sent/:id`, `POST /sent/bulk`, all `protect`, registered before `/:id`), `contactController` (`replyToMessage` records after the send, `recorded` flag; `withReplies` reads SENT for the inbox), `Contact.replies` dropped from the schema (data stays until the contract step), migration `016-sent-replies.js`, `services/backupFile.js` v4 (+ 3→4 upgrade, merge by message + time), `backupController` (`sentAdded`, alert row).
+- Frontend: `AdminMessagesPanel` (INBOX | SENT switch, `?box=sent`), `SentRepliesPanel`, `SentReplyView`, `hooks/useViewDialog.js` (MessageView's keyboard/focus, now shared), `hooks/useMessages.js` (`SENT_KEY`, `useSentReplies`, delete hooks), `contactService` (`getSent`, `removeSent`, `removeSentMany`; `reply` returns `{ message, recorded }`), `utils/messageSearch.js` `sentMatches`, `panels/messageDot.js` (7 px), `AdminPage` (reload on SENT, leaving clears it), `SettingsBackupCard` (count + wording), `/privacy` wording.
+
+**Numbers:** frontend `npm run check` 149 files / 3,176 tests; backend 85 suites / 1,810; E2E 94 passed. Mutation: backend 12/12 killed (scratch copy), frontend 11/11 (incl. AdminPage 2, /projects heading 1). Browser (portfolio_e2e, Chromium): 35/36 checks — 6 widths × 2 themes no overflow (after the `nowrap` fix), 7 px dots, sidebar 8 px, deleted-message note, OPEN THEIR MESSAGE, delete + confirm focus on CANCEL, bulk confirm, reload on SENT; the 36th was the by-design `/auth/me` 401 on reload.
+
+**Go / no-go so far** (`new mds/Sprint 16/PF-154-go-no-go.md`): Lighthouse on live — /projects heading-order (98) FIXED (`ProjectCard` `titleAs`, h2 on /projects); /certificates CLS 0.93 phone (renders `null` while loading; /projects + /blog use 3 placeholder cards) and home phone speed 45 (the 4.5 s splash, locked) are the OWNER's call; headers + `/api/health` live PASS. **Owner, 2026-11-07: "do it in proper way"** → /certificates placeholder cards built (0.928 → 0.073, locally with devtools throttling; `CertificatesPage.test.jsx` + a mutant), splash left (repeat runs 92/97: the 45 was a one-off). My checks done in a real browser on `portfolio_e2e`: 10 panels × 2 widths × 2 themes 40/40; backup → change → restore 6/6 (v4 file holds SENT, deleted reply back, inbox kept, safety copy). Security handbook sources: "PF-154: the launch audit" chapter + checklist line.
+
+**Launch half (owner steps, open):** go / no-go file, rollback rehearsal (confirm Hobby reach + domain auto-assign after a rollback, then update RUNBOOK §4.5), real iPhone/tablet, `v1.0.0` tag, Search Console sitemap, LinkedIn Post Inspector, announce.
+
+### Outstanding work added by PF-154
+
+- **CONTRACT for SENT (next release):** a migration that `$unset`s `contacts.replies` once 016 has run in production. Nothing reads it now.
+- **`mongoRateLimitStore.test.js` TTL flake** (`silent-failures.md` "PF-154"): give the "closed window" row a `resetAt` the TTL monitor can't reach mid-test, or read with a retry-free design. Not a production bug.
+- **No E2E spec covers Messages** (inbox or SENT): a real reply needs mail on, and E2E runs with mail off. A spec could seed SENT rows directly in `portfolio_e2e`, as the PF-154 browser check did.
+- **RUNBOOK §4.5** stays marked "to confirm" until the rollback rehearsal measures it.

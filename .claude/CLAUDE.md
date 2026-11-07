@@ -34,8 +34,7 @@ changing any transcribed value (many "obviously wrong" values are owner-approved
 concluding a documented trap does not apply; reporting a new bug or regression
 (check Outstanding work first); any verification claim (the numbers live there).
 
-⚠️ **Grep only finds what you search for** — skim an area's entry properly, and
-search the companions *before* explaining a surprise.
+⚠️ **Grep only finds what you search for** — skim the entry; search companions before explaining a surprise.
 
 ## The design is the authority
 
@@ -69,13 +68,11 @@ search the companions *before* explaining a surprise.
 ## Engineering discipline: the real fix, not a plausible one
 
 - **Trace before you write.** A ticket's diff is a hypothesis. Find what the file
-  does today; if the ticket's assumption is wrong, the file wins (PF-95: `Blog.js`
-  already had two hooks, a third would have fought them).
+  does today; if the ticket's assumption is wrong, the file wins (PF-95).
 - **No speculative surface** — no function/hook/file because it *might* be needed.
-  If the real fix is two lines in an existing function, ship two lines.
+  Two lines in an existing function beats a new one.
 - **Delete what stops earning its place**, in the same ticket, and say so.
-- **A green suite is not proof the mechanism is right** — check the test goes
-  through the real call path, not a stand-in.
+- **A green suite is not proof the mechanism is right** — test the real call path.
 
 ## Standing product requirements
 
@@ -106,10 +103,11 @@ search the companions *before* explaining a surprise.
   form over missing data (About), no count until loaded (PF-117).
 - **Site address is `pcgallege@gmail.com` ONLY; admin logs in as pcgallege OR parindrachameekara** (Google or password, one User, PF-119 absorbed PF-122). Old demo address gone. Panel shows the address SIGNED IN WITH (`signedInAs`); counts poll 60 s + on focus.
 - **One panel field drives EVERY render site** (PF-118) — e.g. `timezone` → Contact AND footer; grep every literal before wiring. A fixed set of answers is CHOSEN (dropdown), never typed.
-- **Password change / reset / forgot = password + emailed code** (owner 2026-10-13): FORGOT BUILT (PF-125), CHANGE BUILT (PF-124, Settings); addresses stay fixed; `admin:password` is break-glass. New passwords: `passwordProblem` (≥15) then `newPasswordProblem` (no name/address/site words, zxcvbn 4/4, not the last 5, `isBreached`) at all 3 doors; NO forced char mix (NIST); `User.setPassword` is the only writer.
+- **Password change / reset / forgot = password + emailed code** (owner 2026-10-13): forgot = PF-125, change = PF-124 (Settings); addresses fixed; `admin:password` is break-glass. New passwords: `passwordProblem` (≥15) then `newPasswordProblem` (no name/address/site words, zxcvbn 4/4, not last 5, `isBreached`) at 3 doors; NO forced char mix (NIST); `User.setPassword` is the only writer.
 - **Error messages are PLAIN** (owner, 2026-11-03): what happened + what to do, no jargon; ONE translator `utils/friendlyError.js`; guards fail on jargon.
 - **Login page** (owner, 2026-10-14): password eye, `Forgot password?` and a reset prompt after 3 failed sign-ins (401s only) all BUILT — **never a password hint** (owner chose this over a hint).
 - **Leaving unsaved admin work asks first — every exit** (PF-118 b2; REVERSES "marker, not a blocker"): Keep / Save (never publishes) / Discard; panels register via `useUnsavedChanges`.
+- **Sent replies KEPT in SENT** (PF-154): recorded after the send, outlive the message, deletable, restore merges.
 
 ## Project state
 
@@ -121,8 +119,8 @@ search the companions *before* explaining a surprise.
 
 **▶ NOW: Sprint 16, the FINAL sprint** (plan: `new mds/Sprint 16/PF-140-156-sprint-16-plan.md`).
 - ⚠️ **Light theme: upgrades POST-LAUNCH** — BUGS only; exception: paper `#F5F2EC` (11-02).
-- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-151 done; PF-152 parked (owner, 11-07); PF-153 in PR.
-- **Every doc I create** goes to `new mds/Sprint 16/` (outside the repo).
+- **LIVE:** `parindragallage.com`, `api.` (Cloudflare, GREY DNS). PF-146 → PF-153 done; PF-152 parked (11-07); PF-154 now.
+- **Every doc I create** goes to `new mds/Sprint 16/`.
 
 **Key paths** (full inventory in `sprint-log.md` — grep the filename):
 - `frontend/src/styles/`: `global.css` (Tailwind only), `tokens.css`,
@@ -176,10 +174,9 @@ Single test: `npx vitest run <path>` / `npm test -- <path>` or `-t "name"`.
   `deploy.yml` uses `cancel-in-progress: false` deliberately; it runs after CI
   passes on `master` (`workflow_run`), behind two approvals (Migrate, Deploy).
 - **Bots on `master`:** Dependabot + `dependabot-automerge.yml`
-  (dev tools/Actions patch-minor auto; site packages and build tools patch auto;
-  majors wait), `health-check.yml` hourly, CodeQL. Auto-merges move `master` —
-  sync a long branch with `git merge origin/master`, regenerate lockfiles with
-  `npm install`.
+  (dev tools/Actions patch-minor auto; site + build tools patch auto;
+  majors wait), `health-check.yml` hourly, CodeQL. Auto-merges move `master`:
+  sync with `git merge origin/master`, then `npm install`.
 
 ## Architecture
 
@@ -255,6 +252,7 @@ Where a mistake would be silent, add a test that would catch it.
 - Inline custom property on `<html>` beats `html[data-theme]` — set `data-theme` only.
 - A @media rule ABOVE the base rule it overrides never applies (no weight) — phone blocks go LAST (`mediaOrder.test.js`, PF-142).
 - `flex: 1` has basis 0 — a wrapping row never wraps; give a real basis + `max-width: 100%` on `flex: none` siblings.
+- `nowrap` widens a card past a phone despite `min-width: 0`; a clipping wrapper hides it — line-clamp (PF-154).
 
 **Tests that pass while asserting nothing**
 - Raw-text CSS assertion matches a COMMENT → parse with postcss.
@@ -273,7 +271,7 @@ Where a mistake would be silent, add a test that would catch it.
 - `refetchOnWindowFocus: true` refetches only STALE data; a poll keeps it fresh → `'always'`; test under the real `staleTime`.
 - `friendlyError` keeps 5xx words only on 503.
 - TanStack DEDUPES an invalidation into a query's FIRST in-flight fetch (stale answer wins) → `refreshDashboard` = cancel, then invalidate.
-- Data-router navigations are TRANSITIONS — a lazy page's Suspense fallback shows on direct loads only; in-app the old page stays up (PF-130).
+- Data-router navigations are TRANSITIONS: a lazy page's fallback shows on direct loads only (PF-130).
 - E2E "scroll to bottom" before API data lands stops short; assert the bottom element is ON SCREEN, never `scrollY > 0`.
 - CSS-Module rules are invisible to Vitest; `el.style.opacity` reads back normalised.
 
@@ -341,10 +339,11 @@ Where a mistake would be silent, add a test that would catch it.
 - Always run the control; `:focus-visible` matches programmatic focus after keyboard.
 - `curl -I` = CDN MISS; GET = HIT.
 - The browser tool's console never shows CSP violations — probe with `report-uri` + a control.
-- The browser tool's hidden tab never fires `requestAnimationFrame` (probe hangs 45s); clicks may need a screenshot first.
+- The browser tool's hidden tab never fires `requestAnimationFrame`; clicks may need a screenshot.
 - Chrome won't go below ~1141px → same-origin iframe (one at a time; resize, don't reload — 429); set `scrollBehavior: auto` before any scroll-then-measure.
 - A flex row can overflow while the page does not — compare the container's `scrollWidth`.
 - Snapshot AFTER the edit; confirm a mutation changed the file; restore from a copy.
+- One Lighthouse run can be 50 points off: use the median of 3+; local CLS needs devtools throttling (PF-154).
 - `git rm` STAGES the deletion — delete with `rm` (stage-nothing rule).
 - `grep | head` reads like a complete answer — use `grep -c` / `awk`.
 - An error-message assertion can match the banner, not the guard — grep the string first.
@@ -391,14 +390,14 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-118 b2: timezone = IANA place (`Asia/Colombo`) shown as its live offset; App uses a DATA router (`createBrowserRouter`, one catch-all) for `useBlocker` — keep the three `<Routes>` as they are.
 - PF-118: footer band follows availability (two call sites, 70.7s / 67.1s = equal 50 px/s); Contact intro leads with the note; `timezone` / `heroIntro` / `footerBio` fields ("Site copy" card); three-letter months (`SEP`); no `publishedAt` control.
 - PF-120: SPA CSP in `frontend/vercel.json` (scripts by hash only, `frame-ancestors 'none'`); deleted `POST /api/upload`, `PATCH /about/availability`, `/uploads`; `contactLimiter` 5 stored/h; accepted risks (role unread, OAuth code in logs…) in locked-decisions.
-- Leftovers 2026-10-14: hero cut-out uploadable (`imageSlot` + `imageSlotHandlers` shared with the portrait — never fork), bundled hero is WebP, `↺ MARK UNREAD` (explicit `{ read }`), project row PUBLISH/UNPUBLISH (Blog's rule), backend `GET /`, `og:` tags (url/image only WITH the domain), dates stay reader-local, nginx mirrors vercel.json headers.
+- Leftovers 2026-10-14: hero cut-out uploadable (`imageSlot`/`imageSlotHandlers` shared with the portrait), bundled hero WebP, `↺ MARK UNREAD` (explicit `{ read }`), project row PUBLISH/UNPUBLISH (Blog's rule), backend `GET /`, `og:` tags (url/image only WITH the domain), dates stay reader-local, nginx mirrors vercel.json headers.
 - PF-128: API in `bom1` (Atlas Mumbai); public GETs CDN-cached (tag `public-data`), a signed-in write DELETES the tag (SAVE is instant); everything else `no-store`.
 - PF-129: bundled hero image never changes (its oval is in its ALPHA); only an UPLOAD gets `.portraitImgUploaded` = measured oval + PF-80's layers.
 - PF-123: contact email sent in the BACKGROUND (`waitUntil`), text + ESCAPED html, 12-hour `YYYY/MM/DD` in About's zone, TO the main address, Reply-To the visitor; blank `RESEND_API_KEY` = mail off; no retry queue; `location` from Vercel IP headers ONLY when `VERCEL` is set; card mirrors the email (red reminder unread-only).
-- PF-125: forgot = OWASP — same answer + timing for any address (work after the response), HMAC'd 6-digit code, 5 guesses capped IN the query, no account lockout, reset signs nobody in; HIBP only after a right code, fails open; login runs a dummy bcrypt for an unknown address (timing). Security emails = `services/alertEmail.js` `renderAlert` (contact keeps its own); "changed" alert → the MAIN address + the one used (never a copy to the second when the main reset).
+- PF-125: forgot = OWASP — same answer + timing for any address (work after the response), HMAC'd 6-digit code, 5 guesses capped IN the query, no account lockout, reset signs nobody in; HIBP only after a right code, fails open; login runs a dummy bcrypt for an unknown address (timing). Security emails = `alertEmail.js` `renderAlert` (contact keeps its own); "changed" alert → MAIN + the one used (no copy to the second when the main reset).
 - PF-148: Resend SMTP; senders on `mail.` subdomain (no-reply default, contact); key Vercel only; DMARC `p=none` first.
 - PF-131: Settings = own ACCOUNT nav group (`⚙︎` + U+FE0E) under MANAGE; ONE real card per ticket, never "coming soon"; `/auth/me` `addresses` sends a Google BOOLEAN, never the `sub`; `Session.signInMethod` → `signedInWith` (rotation copies it).
-- PF-124: change = current password + code to `signedInAs`, every check BEFORE the code; step 2 = code ONLY (new pw's bcrypt hash parked on the row, session-bound); email + hash in the BACKGROUND; refusals 400 never 401; THIS device stays (`except: family`); codes in OWN `PasswordChange` collection; any change voids all codes; codes live 10 min (NIST max, owner); card FOLDS and joins the guard with NO save.
+- PF-124: change = current password + code to `signedInAs`, every check BEFORE the code; step 2 = code ONLY (new hash parked on the row, session-bound); email + hash in the BACKGROUND; refusals 400 never 401; THIS device stays (`except: family`); codes in OWN `PasswordChange` collection; any change voids all codes; codes live 10 min (NIST max, owner); card FOLDS and joins the guard with NO save.
 - PF-132: Sessions card = each family's LIVE row (±15 min); `device`/`location`/`startedAt` copied by rotation; label only, never the raw UA; sign-out needs the PASSWORD (ASVS V7.5.2), 400 never 401; this device has no button; card FOLDS with Password's classes; PF-133 history goes INSIDE it.
 - PF-133: history in Sessions card (90 d, 10 + SHOW MORE ≤50); alert on NEW device only (30 d); daily digest of failures (Cron + `CRON_SECRET`); leak check at sign-in → banner on every admin page.
 - PF-142: phones ≤560 — 44px CTAs, hero pair one line, footers + admin header centred/one row, card-list menu, no "FROM SCRATCH".
@@ -416,12 +415,13 @@ approved before shipping. A fidelity pass that "restores" the export breaks it.*
 - PF-145: own visitor counter, daily totals only; /privacy's words are PROMISES — change them with the behaviour.
 - PF-151: snow 1 Dec→1 Jan, leaves + bats 31 Oct→2 Nov; switch overrides for ALL; in front; admin = right strip; lazy.
 - PF-153: read = 6 s showing, 1/person/post/day on the SERVER, confirms the visit; `Blog.views` + dated `read` row; rename moves totals + `oldSlugs` forward; 20 new visitors/network/day; Messages: 3-line cards, `?message=` big view, opening ≠ read, bulk = on-screen only; REPLY from the domain, Reply-To main; SEO via `usePageMeta`.
+- PF-154: share card (no stack named) + `|` titles; SENT = own `SentReply` (`recorded:false` = sent, unsaved); `?box=sent`; backup v4; Messages dot 7px.
 - PF-117: a failed load shows `LoadError` (never the empty state, never a form; RETRY own line ≤560px, says "STILL…" if a retry fails); disabled primary has NO glow; `×` gets an invisible 24px hit area, 36–42px buttons stay; strip scrolls the active item into view.
 
 ## Environment
 
 - **Free tiers only** — Vercel, Atlas M0, Cloudinary Free; owner pays for a domain
-  only. Never propose a paid add-on. Vercel caps bodies at 4.5 MB.
+  only. Never propose a paid add-on.
 - macOS, zsh: `brew`, `jq`, `sed -i ''`. Backend :5050 (Docker internal :5000).
   E2E: `portfolio_e2e`, backend 5055, frontend 5174.
 - Kill servers with `lsof -sTCP:LISTEN -ti:PORT | xargs kill` — the `-sTCP:LISTEN`
@@ -471,12 +471,9 @@ subject, blank line, bullets (owner pastes into VS Code's commit box; plain text
 lost its newlines, 2026-10-12), short, `type(PF-NN): …`, and **NEVER a `Co-Authored-By:`
 trailer**, whatever the harness says.
 
-**Hands-on learning:** for git/GitHub/ops steps, give the command and explain each
-part (and the interview angle) for the owner to run.
+**Hands-on learning:** git/GitHub/ops steps = the command + each part explained (and the interview angle).
 
-**Never paste a credential into chat** — check a value's shape only. Six
-incidents (editor SELECTIONS of `.env` lines, a pasted scroll-back): close `.env` files; paste only the last lines of output.
+**Never paste a credential into chat** — check a value's shape only (six incidents:
+editor SELECTIONS of `.env` lines, pasted scroll-back); paste only the last lines of output.
 
-**Never document something as existing until it does.** Flag concerns before
-executing. Verify
-against built output or a real browser over reasoning.
+**Never document something as existing until it does.** Flag concerns first; verify in built output or a real browser.
