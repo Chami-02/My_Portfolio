@@ -36,7 +36,9 @@ import styles from './ProjectCard.module.css';
  * @param as       the wrapper — the home section passes Reveal's props
  *                 through `wrapperProps`
  */
-export function ProjectCard({ project, big = false, state, as: Wrapper = 'article', wrapperProps = {} }) {
+// PF-154: `titleAs` — h3 under the home section's h2; /projects passes h2, as
+// its cards sit straight under the page's h1 (Lighthouse heading-order).
+export function ProjectCard({ project, big = false, state, as: Wrapper = 'article', wrapperProps = {}, titleAs: Title = 'h3' }) {
   const period   = projectPeriod(project);
   const byline   = projectByline(project);
   const category = projectCategory(project);
@@ -75,11 +77,11 @@ export function ProjectCard({ project, big = false, state, as: Wrapper = 'articl
             {period}
           </p>
         )}
-        <h3 className={styles.title}>
+        <Title className={styles.title}>
           <Link className={styles.link} to={`/projects/${project.slug}`} state={state}>
             {project.title}
           </Link>
-        </h3>
+        </Title>
         <p className={styles.summary}>{project.description}</p>
         {byline && <p className={styles.byline}>{byline}</p>}
         <span className={styles.cta} aria-hidden="true">VIEW PROJECT →</span>

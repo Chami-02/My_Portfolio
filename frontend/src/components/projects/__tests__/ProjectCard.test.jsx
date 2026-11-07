@@ -42,6 +42,17 @@ describe('ProjectCard — what it shows', () => {
     expect(img).toHaveAttribute('loading', 'lazy');
   });
 
+  // PF-154 (Lighthouse heading-order): h3 under the home section's h2, h2 on
+  // /projects, where the cards sit straight under the page's h1.
+  it('the title is an h3 unless the page asks for an h2', () => {
+    const { unmount } = renderCard();
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(PROJECT.title);
+    unmount();
+    renderCard({ titleAs: 'h2' });
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(PROJECT.title);
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull();
+  });
+
   it('the big card asks for a bigger picture', () => {
     const { container } = renderCard({ big: true });
     expect(container.querySelector('img').getAttribute('src')).toContain('w_1200');
