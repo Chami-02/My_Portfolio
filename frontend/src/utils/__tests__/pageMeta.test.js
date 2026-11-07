@@ -14,7 +14,7 @@ beforeEach(() => {
 describe('applyPageMeta', () => {
   it('edits index.html\'s own title, so there is only ever one', () => {
     applyPageMeta({ title: 'Blog' });
-    expect(document.title).toBe('Blog — Parindra Gallage');
+    expect(document.title).toBe('Blog | Parindra Gallage');
     expect(document.head.querySelectorAll('title')).toHaveLength(1);
   });
 
@@ -75,7 +75,7 @@ describe('applyPageMeta', () => {
 
 describe('pageTitle', () => {
   it('adds the site name, or nothing at all', () => {
-    expect(pageTitle('Blog')).toBe('Blog — Parindra Gallage');
+    expect(pageTitle('Blog')).toBe('Blog | Parindra Gallage');
     expect(pageTitle(undefined)).toBeNull();
   });
 });

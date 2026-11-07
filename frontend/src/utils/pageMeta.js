@@ -14,7 +14,8 @@ export const SITE_URL = 'https://parindragallage.com';
 const SITE_NAME = 'Parindra Gallage';
 const LD_ID = 'page-structured-data';
 
-export const pageTitle = (title) => (title ? `${title} — ${SITE_NAME}` : null);
+// PF-154 (owner, 2026-11-07): `|`, the same mark as the home page's title.
+export const pageTitle = (title) => (title ? `${title} | ${SITE_NAME}` : null);
 
 /** One tag in <head>, found or made. */
 const headTag = (selector, make) => {
