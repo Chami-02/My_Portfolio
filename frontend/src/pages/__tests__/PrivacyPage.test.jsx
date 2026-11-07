@@ -25,18 +25,29 @@ describe('PrivacyPage', () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1, name: 'Privacy' })).toBeInTheDocument();
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
-      'Visitor counts',
-      'Telling visitors apart',
-      'Cookies',
-      'If you message me',
+      'Who runs this website',
+      'What is collected when you visit',
+      'How you are told apart from other visitors',
+      'Your choice not to be counted',
+      'If you send a message',
+      'Cookies and browser storage',
+      'Why your information is used',
+      'How long your information is kept',
       'Security',
-      'Services this site uses',
+      'Services that handle your information',
+      'Your rights',
+      'Children',
+      'Changes to this policy',
     ]);
   });
 
   it('states the promises the counter is built to keep', () => {
     renderPage();
-    expect(screen.getByText(/deleted within 2 days/)).toBeInTheDocument();
+    expect(screen.getByText(/change every day and are deleted within 2 days/)).toBeInTheDocument();
+    // PF-153: the read rule, the network limit and what a visitor can ask for.
+    expect(screen.getByText(/on your screen for about 6 seconds/)).toBeInTheDocument();
+    expect(screen.getByText(/limit fake visits/)).toBeInTheDocument();
+    expect(screen.getByText(/never sold/)).toBeInTheDocument();
     // PF-150: what siteNumbersController answers publicly, and its 5-visit rule.
     expect(screen.getByText(/countries with at least 5\s+visits/)).toBeInTheDocument();
     expect(screen.getByText(/no cookies for visitors/)).toBeInTheDocument();
@@ -47,7 +58,7 @@ describe('PrivacyPage', () => {
   it('gives the site address only', () => {
     renderPage();
     const mail = screen.getAllByRole('link').filter((l) => l.getAttribute('href').startsWith('mailto:'));
-    expect(mail).toHaveLength(2);
+    expect(mail).toHaveLength(3);
     mail.forEach((link) => expect(link).toHaveAttribute('href', 'mailto:pcgallege@gmail.com'));
   });
 
