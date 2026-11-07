@@ -215,9 +215,99 @@ const deleteMessage = async (req, res, next) => {
   }
 };
 
+// ── POST /api/contact/:id/reply ──────────────────────────────────────────────
+// Protected — PF-153 (owner, 2026-11-05 and 2026-11-07): the owner answers from
+// the panel, so the visitor sees the domain instead of a Gmail address. An answer
+// to it reaches the owner's real inbox through Reply-To.
+//
+// Sent BEFORE the response, unlike the contact email: the owner is waiting to
+// know it went. Answering a message is handling it, so it also becomes read.
+const MAX_REPLY_LENGTH = 3000; // 9 kB at most in any language: inside the 10 kb body limit
+
+const replyRules = [
+  body('message')
+    .isString().withMessage('Please write your reply.').bail()
+    .trim()
+    .notEmpty().withMessage('Please write your reply.')
+    .isLength({ max: MAX_REPLY_LENGTH }).withMessage(`Please keep your reply under ${MAX_REPLY_LENGTH} characters.`),
+];
+
+const replyToMessage = async (req, res, next) => {
+  try {
+    const contact = await Contact.findById(req.params.id);
+    if (!contact) return next(new AppError('Message not found', 404));
+    if (!mailer.isConfigured()) {
+      return next(new AppError("Email isn't set up, so your reply wasn't sent. Please use your email app.", 503));
+    }
+
+    const about = await About.findOne().select('timezone').lean();
+    const { date } = formatSent(contact.createdAt, about?.timezone || DEFAULT_ZONE);
+    const owner = await User.findOne().sort({ createdAt: 1 }).select('email').lean();
+    const { message } = req.body;
+    const e = escapeHtml;
+
+    try {
+      await mailer.send({
+        sender:  'reply',
+        to:      contact.email,
+        replyTo: owner.email,
+        subject: 'Re: Your message to Parindra Gallage',
+        text: `${message}\n\nOn ${date}, you wrote:\n${contact.message.replace(/^/gm, '> ')}\n`,
+        html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222">
+<p style="margin:0 0 20px;white-space:pre-wrap">${e(message)}</p>
+<p style="margin:0 0 6px;color:#666">On ${e(date)}, you wrote:</p>
+<blockquote style="margin:0;padding-left:12px;border-left:3px solid #ccc;color:#666;white-space:pre-wrap">${e(contact.message)}</blockquote>
+</div>`,
+      });
+    } catch (err) {
+      // code + message only: the error object carries the transport (PF-123).
+      console.error(`[PF-153] Reply failed for ${contact._id}: ${err.code || ''} ${err.message}`);
+      return next(new AppError("Your reply wasn't sent. Please try again in a moment.", 503));
+    }
+
+    const updated = await Contact.findByIdAndUpdate(
+      contact._id,
+      { $push: { replies: { message, sentAt: new Date() } }, read: true },
+      { returnDocument: 'after' },
+    );
+    res.json({ status: 'success', data: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── POST /api/contact/bulk ───────────────────────────────────────────────────
+// Protected — PF-153: several ticked messages, deleted or marked read at once.
+// 200 at most: the 10 kb body limit holds about 370 ids, and the client sends a
+// longer list in batches (contactService.bulk).
+const MAX_BULK_IDS = 200;
+
+const bulkRules = [
+  body('action').isString().bail().isIn(['delete', 'read']).withMessage('Unknown action'),
+  body('ids').isArray({ min: 1, max: MAX_BULK_IDS }).withMessage(`Choose between 1 and ${MAX_BULK_IDS} messages`),
+  // isString first: isMongoId would pass a one-item array inside the list.
+  body('ids.*').isString().bail().isMongoId().withMessage('Unknown message'),
+];
+
+const bulkMessages = async (req, res, next) => {
+  try {
+    const { action, ids } = req.body;
+    const filter = { _id: { $in: ids } };
+    // A message already gone (another device) is not a failure: the goal is met.
+    const count = action === 'delete'
+      ? (await Contact.deleteMany(filter)).deletedCount
+      : (await Contact.updateMany(filter, { read: true })).modifiedCount;
+    res.json({ status: 'success', data: { count } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   contactRules, submitContact, getAllMessages, markAsRead, deleteMessage,
   starRules, setStarred,
+  bulkRules, bulkMessages,
+  replyRules, replyToMessage,
   readRules,
   formatSent,   // exported for its fixed-date test only
 };

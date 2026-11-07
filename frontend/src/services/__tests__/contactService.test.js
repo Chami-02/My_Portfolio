@@ -41,3 +41,35 @@ describe('contactService.markRead', () => {
     expect(calls[0].data).toBe('{"read":true}');
   });
 });
+
+// PF-153 — the route takes 200 ids, the most that sits well inside the 10 kb body limit.
+describe('contactService.bulk', () => {
+  const idsOf = (n) => Array.from({ length: n }, (_, i) => `id${i}`);
+  const sent = () => calls.map((c) => JSON.parse(c.data));
+
+  it('sends a short list once', async () => {
+    await contactService.bulk('delete', idsOf(3));
+    expect(calls.map((c) => [c.method, c.url])).toEqual([['post', '/contact/bulk']]);
+    expect(sent()[0]).toEqual({ action: 'delete', ids: idsOf(3) });
+  });
+
+  it('sends exactly 200 as one batch', async () => {
+    await contactService.bulk('read', idsOf(200));
+    expect(sent()).toHaveLength(1);
+  });
+
+  it('splits a longer list, in order, losing none', async () => {
+    await contactService.bulk('read', idsOf(201));
+    expect(sent().map((b) => b.ids.length)).toEqual([200, 1]);
+    expect(sent().flatMap((b) => b.ids)).toEqual(idsOf(201));
+  });
+
+  it('a failed batch stops the rest', async () => {
+    api.defaults.adapter = async (config) => {
+      calls.push(config);
+      throw new Error('down');
+    };
+    await expect(contactService.bulk('delete', idsOf(201))).rejects.toThrow('down');
+    expect(calls).toHaveLength(1);
+  });
+});

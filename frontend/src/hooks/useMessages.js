@@ -79,3 +79,31 @@ export const useDeleteMessage = () => {
     },
   });
 };
+
+/**
+ * PF-153 — several at once, `mutate({ action: 'delete' | 'read', ids })`. Settled,
+ * not success: a long list goes in batches, so a failure can leave some done, and
+ * the list must show what really happened.
+ */
+export const useBulkMessages = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ action, ids }) => contactService.bulk(action, ids),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: MESSAGES_KEY });
+      refreshDashboard(qc);
+    },
+  });
+};
+
+/** PF-153 — answering a message also makes it read, so the counts move too. */
+export const useReplyToMessage = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, message }) => contactService.reply(id, message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: MESSAGES_KEY });
+      refreshDashboard(qc);
+    },
+  });
+};

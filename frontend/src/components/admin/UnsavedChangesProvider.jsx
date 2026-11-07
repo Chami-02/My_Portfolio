@@ -80,6 +80,13 @@ export function UnsavedChangesProvider({ children }) {
     return block;
   });
 
+  // PF-153: an approved exit can stay inside /admin (closing a message: only the
+  // address's `?message=` changes). This provider then survives, and without this
+  // the guard would stay off until the next reload.
+  useEffect(() => {
+    if (blocker.state === 'unblocked') leavingRef.current = false;
+  }, [blocker.state]);
+
   useEffect(() => {
     const onBeforeUnload = (e) => {
       if (!isDirty()) return;

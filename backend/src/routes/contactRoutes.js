@@ -1,7 +1,7 @@
 const router   = require('express').Router();
 const validate = require('../middleware/validate');
 const { protect } = require('../middleware/auth');
-const { contactLimiter } = require('../middleware/rateLimiter');
+const { contactLimiter, replyLimiter } = require('../middleware/rateLimiter');
 const {
   contactRules,
   submitContact,
@@ -11,6 +11,10 @@ const {
   deleteMessage,
   starRules,
   setStarred,
+  bulkRules,
+  bulkMessages,
+  replyRules,
+  replyToMessage,
 } = require('../controllers/contactController');
 
 
@@ -18,6 +22,8 @@ const {
 // become an email (PF-123).
 router.post('/', contactLimiter, contactRules, validate, submitContact);
 router.get('/',           protect, getAllMessages);
+router.post('/bulk',      protect, bulkRules, validate, bulkMessages);
+router.post('/:id/reply', protect, replyLimiter, replyRules, validate, replyToMessage);
 router.patch('/:id/read', protect, readRules, validate, markAsRead);
 // PF-115: `protect` FIRST — an anonymous request gets a 401, never a 400 that
 // describes the body it should have sent (the PF-97 ordering rule).

@@ -107,6 +107,21 @@ describe('in-app exits (requestLeave)', () => {
 });
 
 describe('router exits (useBlocker) — HOME links, Back/Forward', () => {
+  // PF-153: closing a message only changes `?message=`, so this provider survives
+  // the exit. The guard must still ask next time.
+  it('after a discard that stays inside the admin, it still asks next time', async () => {
+    const { router } = renderWithGuard(<Panel entry={DIRTY()} onLeave={vi.fn()} />);
+
+    await act(() => router.navigate('?message=a'));
+    await userEvent.click(screen.getByRole('button', { name: 'DISCARD & LEAVE' }));
+    await waitFor(() => expect(router.state.location.search).toBe('?message=a'));
+    expect(dialog()).toBeNull();
+
+    await act(() => router.navigate('?message=b'));
+    expect(dialog()).toHaveTextContent('has changes that are not saved yet');
+    expect(router.state.location.search).toBe('?message=a');
+  });
+
   it('a link out while dirty is held; KEEP EDITING stays on the page', async () => {
     const { router } = renderWithGuard(<Panel entry={DIRTY()} onLeave={vi.fn()} />);
     await userEvent.click(screen.getByText('HOME LINK'));

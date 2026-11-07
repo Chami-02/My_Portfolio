@@ -15,6 +15,7 @@ const apiKey = () => process.env.RESEND_API_KEY || '';
 const SENDERS = Object.freeze({
   security: { name: 'Portfolio security', address: 'no-reply@mail.parindragallage.com' },
   contact:  { name: 'Portfolio',          address: 'contact@mail.parindragallage.com' },
+  reply:    { name: 'Parindra Gallage',   address: 'contact@mail.parindragallage.com' }, // PF-153
 });
 
 // Short on purpose. The send runs in the background (waitUntil), and a hung
@@ -31,7 +32,8 @@ const mailer = {
    *
    * Security is the default sender, so only the contact email has to ask for
    * anything else. Every email is marked as machine-written (RFC 3834), which
-   * tells vacation auto-replies not to answer it.
+   * tells vacation auto-replies not to answer it. A reply the owner wrote is the
+   * one exception: a person wrote it, and the standard says to leave it unmarked.
    *
    * ⚠️ A caller that puts visitor-written content into `html` must ESCAPE
    * it first (contactController's `escapeHtml`), or a message could carry
@@ -40,7 +42,7 @@ const mailer = {
    * Rejects on failure. A caller that logs the error must log `code` and
    * `message` only — never the error object, which carries the transport.
    *
-   * @param {{to: string, subject: string, text: string, html?: string, replyTo?: string, sender?: 'security'|'contact'}} mail
+   * @param {{to: string, subject: string, text: string, html?: string, replyTo?: string, sender?: 'security'|'contact'|'reply'}} mail
    */
   send({ to, subject, text, html, replyTo, sender = 'security' }) {
     const transport = nodemailer.createTransport({
@@ -55,7 +57,7 @@ const mailer = {
     return transport.sendMail({
       from: SENDERS[sender],
       to, subject, text, html, replyTo,
-      headers: { 'Auto-Submitted': 'auto-generated' },
+      headers: sender === 'reply' ? {} : { 'Auto-Submitted': 'auto-generated' },
     });
   },
 };
